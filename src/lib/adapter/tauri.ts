@@ -1,20 +1,21 @@
+import { invoke } from '@tauri-apps/api/core';
 import type { Adapter, FileEntry, FsEvent, PtyHandle } from './index';
 
 export class TauriAdapter implements Adapter {
   async readFile(path: string): Promise<string> {
-    throw new Error('Not implemented');
+    return invoke<string>('read_file', { path });
   }
   async writeFile(path: string, content: string): Promise<void> {
-    throw new Error('Not implemented');
+    return invoke<void>('write_file', { path, content });
   }
   async listDir(path: string, respectGitignore?: boolean): Promise<FileEntry[]> {
-    throw new Error('Not implemented');
+    return invoke<FileEntry[]>('list_dir', { path, respectGitignore: respectGitignore ?? true });
   }
   async watchFiles(path: string, callback: (event: FsEvent) => void): Promise<() => void> {
     throw new Error('Not implemented');
   }
   async openExternal(path: string): Promise<void> {
-    throw new Error('Not implemented');
+    return invoke<void>('open_external', { path });
   }
   async getClipboard(): Promise<string> {
     throw new Error('Not implemented');
