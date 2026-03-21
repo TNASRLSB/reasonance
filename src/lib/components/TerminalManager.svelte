@@ -4,6 +4,7 @@
   import Terminal from './Terminal.svelte';
   import ImageDrop from './ImageDrop.svelte';
   import TerminalToolbar from './TerminalToolbar.svelte';
+  import SwarmPanel from './swarm/SwarmPanel.svelte';
   import type { Adapter } from '$lib/adapter/index';
   import { llmConfigs } from '$lib/stores/config';
   import { terminalTabs, activeTerminalTab, activeInstanceId } from '$lib/stores/terminals';
@@ -16,6 +17,7 @@
   let tabs = $state<import('$lib/stores/terminals').TerminalTab[]>([]);
   let activeTab = $state<string | null>(null);
   let activeInstance = $state<string | null>(null);
+  let showSwarmTab = $state(false);
 
   const unsubConfigs = llmConfigs.subscribe((val) => {
     configs = val.filter((c) => c.type === 'cli' && c.command);
@@ -76,6 +78,7 @@
   }
 
   function selectTab(llmName: string) {
+    showSwarmTab = false;
     activeTerminalTab.set(llmName);
     // Select first instance of that tab if current instance is not in this tab
     const tab = get(terminalTabs).find((t) => t.llmName === llmName);
@@ -164,9 +167,21 @@
         </button>
       {/if}
     {/each}
+
+    <button
+      class="llm-tab"
+      class:active={showSwarmTab}
+      onclick={() => { showSwarmTab = true; activeTerminalTab.set(null); }}
+    >
+      Swarm
+    </button>
   </div>
 
-  {#if tabs.length === 0}
+  {#if showSwarmTab}
+    <div class="terminal-area">
+      <SwarmPanel {adapter} {cwd} />
+    </div>
+  {:else if tabs.length === 0}
     <div class="empty-state">
       <p>Avvia un LLM per iniziare</p>
       {#if configs.length === 0}
