@@ -24,6 +24,8 @@ pub fn run() {
             commands::fs::start_watching,
             commands::system::open_external,
             commands::system::get_env_var,
+            commands::system::get_system_colors,
+            commands::system::discover_llms,
             commands::pty::spawn_process,
             commands::pty::write_pty,
             commands::pty::resize_pty,
