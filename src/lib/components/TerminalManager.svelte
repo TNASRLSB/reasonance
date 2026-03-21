@@ -2,6 +2,7 @@
   import { get } from 'svelte/store';
   import Terminal from './Terminal.svelte';
   import ImageDrop from './ImageDrop.svelte';
+  import TerminalToolbar from './TerminalToolbar.svelte';
   import type { Adapter } from '$lib/adapter/index';
   import { llmConfigs } from '$lib/stores/config';
   import { terminalTabs, activeTerminalTab, activeInstanceId } from '$lib/stores/terminals';
@@ -125,6 +126,18 @@
   let activeTabInstances = $derived(
     tabs.find((t) => t.llmName === activeTab)?.instances ?? []
   );
+
+  let activeConfig = $derived(configs.find((c) => c.name === activeTab));
+
+  let activeInstanceData = $derived(
+    activeTabInstances.find((i) => i.id === activeInstance)
+  );
+
+  function generateBar(percent: number): string {
+    const filled = Math.round(percent / 12.5);
+    const empty = 8 - filled;
+    return '\u2588'.repeat(filled) + '\u2591'.repeat(empty);
+  }
 </script>
 
 <div class="terminal-manager">
@@ -194,6 +207,18 @@
       {/if}
     </div>
 
+    <!-- Terminal Toolbar -->
+    {#if activeInstance && activeConfig}
+      <TerminalToolbar
+        {adapter}
+        instanceId={activeInstance}
+        llmName={activeTab ?? ''}
+        activeMode={activeInstanceData?.activeMode}
+        modes={activeConfig.modes ?? []}
+        slashCommands={activeConfig.slashCommands ?? []}
+      />
+    {/if}
+
     <!-- Terminal instances (hidden with display:none to keep them alive) -->
     <div class="terminal-area">
       {#each tabs as tab (tab.llmName)}
@@ -207,6 +232,18 @@
                 <Terminal {adapter} ptyId={inst.id} />
               {/snippet}
             </ImageDrop>
+            {#if inst.contextPercent != null || inst.tokenCount}
+              <div class="ctx-footer">
+                {#if inst.contextPercent != null}
+                  <span class="ctx-bar" title="Context window usage">
+                    ctx {generateBar(inst.contextPercent)} {inst.contextPercent}%
+                  </span>
+                {/if}
+                {#if inst.tokenCount}
+                  <span class="token-count">{inst.tokenCount} tokens</span>
+                {/if}
+              </div>
+            {/if}
           </div>
         {/each}
       {/each}
@@ -220,52 +257,56 @@
     flex-direction: column;
     height: 100%;
     overflow: hidden;
-    background: var(--bg-secondary, #1a1a2e);
+    background: var(--bg-secondary);
   }
 
   .llm-tabs {
     display: flex;
     flex-wrap: wrap;
-    gap: 2px;
-    padding: 4px 6px 0;
-    background: var(--bg-primary, #12121f);
-    border-bottom: 1px solid var(--border, #2a2a4a);
+    gap: 0;
+    padding: 0;
+    background: var(--bg-primary);
+    border-bottom: var(--border-width) solid var(--border);
     flex-shrink: 0;
+    font-family: var(--font-ui);
   }
 
   .llm-tab {
-    padding: 4px 12px;
-    font-size: 12px;
-    font-weight: 500;
+    padding: 6px 14px;
+    font-family: var(--font-ui);
+    font-size: var(--font-size-small);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
     border: none;
-    border-radius: 4px 4px 0 0;
-    background: var(--bg-secondary, #1a1a2e);
-    color: var(--text-secondary, #888);
+    border-radius: var(--radius);
+    border-bottom: 2px solid transparent;
+    background: var(--bg-primary);
+    color: var(--text-secondary);
     cursor: pointer;
     transition: background 0.1s, color 0.1s;
   }
 
   .llm-tab:hover {
-    background: var(--bg-hover, #22223a);
-    color: var(--text-primary, #e0e0e0);
+    background: var(--bg-hover);
+    color: var(--text-primary);
   }
 
   .llm-tab.active {
-    background: var(--bg-secondary, #1a1a2e);
-    color: var(--accent, #7c6af7);
-    border-bottom: 2px solid var(--accent, #7c6af7);
+    color: var(--accent);
+    border-bottom-color: var(--accent);
   }
 
   .llm-tab.add-llm {
-    color: var(--text-secondary, #888);
-    border: 1px dashed var(--border, #2a2a4a);
-    border-bottom: none;
+    color: var(--text-muted);
+    border: var(--border-width) dashed var(--border);
+    border-bottom: 2px solid transparent;
     background: transparent;
   }
 
   .llm-tab.add-llm:hover {
-    color: var(--accent, #7c6af7);
-    border-color: var(--accent, #7c6af7);
+    color: var(--accent);
+    border-color: var(--accent);
   }
 
   .instance-tabs {
@@ -273,10 +314,11 @@
     align-items: center;
     gap: 2px;
     padding: 3px 6px;
-    background: var(--bg-primary, #12121f);
-    border-bottom: 1px solid var(--border, #2a2a4a);
+    background: var(--bg-primary);
+    border-bottom: 1px solid var(--border);
     flex-shrink: 0;
     overflow-x: auto;
+    font-family: var(--font-ui);
   }
 
   .instance-tab {
@@ -284,29 +326,31 @@
     align-items: center;
     gap: 4px;
     padding: 2px 8px;
-    font-size: 11px;
-    border: 1px solid var(--border, #2a2a4a);
-    border-radius: 3px;
+    font-family: var(--font-ui);
+    font-size: var(--font-size-small);
+    border: var(--border-width) solid var(--border);
+    border-radius: var(--radius);
     background: transparent;
-    color: var(--text-secondary, #888);
+    color: var(--text-secondary);
     cursor: pointer;
     white-space: nowrap;
     transition: background 0.1s, color 0.1s;
   }
 
   .instance-tab:hover {
-    background: var(--bg-hover, #22223a);
-    color: var(--text-primary, #e0e0e0);
+    background: var(--bg-hover);
+    color: var(--text-primary);
   }
 
   .instance-tab.active {
-    background: var(--bg-secondary, #1a1a2e);
-    color: var(--text-primary, #e0e0e0);
-    border-color: var(--accent, #7c6af7);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    border-color: var(--accent);
   }
 
   .instance-tab.add-instance {
     font-size: 14px;
+    font-weight: 700;
     padding: 1px 7px;
   }
 
@@ -320,7 +364,7 @@
 
   .close-btn:hover {
     opacity: 1;
-    color: #ff5555;
+    color: var(--danger);
   }
 
   .terminal-area {
@@ -335,6 +379,27 @@
     flex-direction: column;
   }
 
+  .ctx-footer {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 2px 8px;
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--border);
+    font-family: var(--font-mono);
+    font-size: var(--font-size-tiny);
+    color: var(--text-muted);
+    flex-shrink: 0;
+  }
+
+  .ctx-bar {
+    letter-spacing: 0.05em;
+  }
+
+  .token-count {
+    margin-left: auto;
+  }
+
   .empty-state {
     flex: 1;
     display: flex;
@@ -342,17 +407,18 @@
     align-items: center;
     justify-content: center;
     gap: 12px;
-    color: var(--text-secondary, #888);
+    color: var(--text-secondary);
+    font-family: var(--font-ui);
   }
 
   .empty-state p {
     margin: 0;
-    font-size: 13px;
+    font-size: var(--font-size-base);
   }
 
   .hint {
-    font-size: 11px !important;
-    opacity: 0.6;
+    font-size: var(--font-size-small) !important;
+    color: var(--text-muted);
   }
 
   .start-buttons {
@@ -364,17 +430,21 @@
 
   .start-btn {
     padding: 6px 14px;
-    font-size: 12px;
-    border: 1px solid var(--accent, #7c6af7);
-    border-radius: 4px;
+    font-family: var(--font-ui);
+    font-size: var(--font-size-small);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    border: var(--border-width) solid var(--accent);
+    border-radius: var(--radius);
     background: transparent;
-    color: var(--accent, #7c6af7);
+    color: var(--accent);
     cursor: pointer;
-    transition: background 0.1s;
+    transition: background 0.1s, color 0.1s;
   }
 
   .start-btn:hover {
-    background: var(--accent, #7c6af7);
-    color: white;
+    background: var(--accent);
+    color: #fff;
   }
 </style>
