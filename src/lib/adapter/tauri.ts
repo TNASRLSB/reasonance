@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { Adapter, FileEntry, FsEvent, PtyHandle } from './index';
+import type { Adapter, FileEntry, FsEvent, PtyHandle, DiscoveredAgent, Workflow, AgentState, AgentInstance, AgentMessage } from './index';
 
 export class TauriAdapter implements Adapter {
   async readFile(path: string): Promise<string> {
@@ -63,5 +63,65 @@ export class TauriAdapter implements Adapter {
   }
   async getShadow(path: string): Promise<string | null> {
     return invoke<string | null>('get_shadow', { path });
+  }
+
+  // Discovery
+  async discoverAgents(): Promise<DiscoveredAgent[]> {
+    return invoke<DiscoveredAgent[]>('discover_agents');
+  }
+  async getDiscoveredAgents(): Promise<DiscoveredAgent[]> {
+    return invoke<DiscoveredAgent[]>('get_discovered_agents');
+  }
+
+  // Workflows
+  async loadWorkflow(filePath: string): Promise<Workflow> {
+    return invoke<Workflow>('load_workflow', { filePath });
+  }
+  async saveWorkflow(filePath: string, workflow: Workflow): Promise<void> {
+    return invoke('save_workflow', { filePath, workflow });
+  }
+  async listWorkflows(dir: string): Promise<string[]> {
+    return invoke<string[]>('list_workflows', { dir });
+  }
+  async deleteWorkflow(filePath: string): Promise<void> {
+    return invoke('delete_workflow', { filePath });
+  }
+  async createWorkflow(name: string, filePath: string): Promise<Workflow> {
+    return invoke<Workflow>('create_workflow', { name, filePath });
+  }
+  async getWorkflow(filePath: string): Promise<Workflow | null> {
+    return invoke<Workflow | null>('get_workflow', { filePath });
+  }
+
+  // Agent Runtime
+  async createAgent(nodeId: string, workflowPath: string, maxRetries: number, fallbackAgent?: string): Promise<string> {
+    return invoke<string>('create_agent', { nodeId, workflowPath, maxRetries, fallbackAgent: fallbackAgent ?? null });
+  }
+  async transitionAgent(agentId: string, newState: AgentState): Promise<AgentState> {
+    return invoke<AgentState>('transition_agent', { agentId, newState });
+  }
+  async setAgentPty(agentId: string, ptyId: string): Promise<void> {
+    return invoke('set_agent_pty', { agentId, ptyId });
+  }
+  async setAgentError(agentId: string, message: string): Promise<void> {
+    return invoke('set_agent_error', { agentId, message });
+  }
+  async getAgent(agentId: string): Promise<AgentInstance | null> {
+    return invoke<AgentInstance | null>('get_agent', { agentId });
+  }
+  async getWorkflowAgents(workflowPath: string): Promise<AgentInstance[]> {
+    return invoke<AgentInstance[]>('get_workflow_agents', { workflowPath });
+  }
+  async removeAgent(agentId: string): Promise<void> {
+    return invoke('remove_agent', { agentId });
+  }
+  async stopWorkflowAgents(workflowPath: string): Promise<void> {
+    return invoke('stop_workflow_agents', { workflowPath });
+  }
+  async sendAgentMessage(from: string, to: string, payload: unknown): Promise<void> {
+    return invoke('send_agent_message', { from, to, payload });
+  }
+  async getAgentMessages(agentId: string): Promise<AgentMessage[]> {
+    return invoke<AgentMessage[]>('get_agent_messages', { agentId });
   }
 }

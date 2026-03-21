@@ -38,9 +38,110 @@ export interface Adapter {
   // Shadow copies
   storeShadow(path: string, content: string): Promise<void>;
   getShadow(path: string): Promise<string | null>;
+
+  // Discovery
+  discoverAgents(): Promise<DiscoveredAgent[]>;
+  getDiscoveredAgents(): Promise<DiscoveredAgent[]>;
+
+  // Workflows
+  loadWorkflow(filePath: string): Promise<Workflow>;
+  saveWorkflow(filePath: string, workflow: Workflow): Promise<void>;
+  listWorkflows(dir: string): Promise<string[]>;
+  deleteWorkflow(filePath: string): Promise<void>;
+  createWorkflow(name: string, filePath: string): Promise<Workflow>;
+  getWorkflow(filePath: string): Promise<Workflow | null>;
+
+  // Agent Runtime
+  createAgent(nodeId: string, workflowPath: string, maxRetries: number, fallbackAgent?: string): Promise<string>;
+  transitionAgent(agentId: string, newState: AgentState): Promise<AgentState>;
+  setAgentPty(agentId: string, ptyId: string): Promise<void>;
+  setAgentError(agentId: string, message: string): Promise<void>;
+  getAgent(agentId: string): Promise<AgentInstance | null>;
+  getWorkflowAgents(workflowPath: string): Promise<AgentInstance[]>;
+  removeAgent(agentId: string): Promise<void>;
+  stopWorkflowAgents(workflowPath: string): Promise<void>;
+  sendAgentMessage(from: string, to: string, payload: unknown): Promise<void>;
+  getAgentMessages(agentId: string): Promise<AgentMessage[]>;
 }
 
 export interface FsEvent {
   type: 'create' | 'modify' | 'remove';
   path: string;
+}
+
+// === Agent Swarm Types ===
+
+export interface CapabilityProfile {
+  read_file: boolean;
+  write_file: boolean;
+  execute_command: boolean;
+  web_search: boolean;
+  image_input: boolean;
+  long_context: boolean;
+}
+
+export interface DiscoveredAgent {
+  name: string;
+  source: 'cli' | 'api' | 'manual';
+  command: string | null;
+  endpoint: string | null;
+  models: string[];
+  capabilities: CapabilityProfile;
+  max_context: number | null;
+  available: boolean;
+}
+
+export type AgentState = 'idle' | 'queued' | 'running' | 'success' | 'failed' | 'retrying' | 'fallback' | 'error';
+
+export interface AgentInstance {
+  id: string;
+  node_id: string;
+  workflow_path: string;
+  state: AgentState;
+  pty_id: string | null;
+  retry_count: number;
+  max_retries: number;
+  fallback_agent: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+  error_message: string | null;
+}
+
+export interface AgentMessage {
+  from: string;
+  to: string;
+  payload: unknown;
+  timestamp: string;
+}
+
+export interface WorkflowNode {
+  id: string;
+  type: 'agent' | 'resource' | 'logic';
+  label: string;
+  config: Record<string, unknown>;
+  position: { x: number; y: number };
+}
+
+export interface WorkflowEdge {
+  id: string;
+  from: string;
+  to: string;
+  label?: string;
+}
+
+export interface WorkflowSettings {
+  max_concurrent_agents: number;
+  default_retry: number;
+  timeout: number;
+}
+
+export interface Workflow {
+  name: string;
+  version: string;
+  description?: string;
+  created?: string;
+  modified?: string;
+  nodes: WorkflowNode[];
+  edges: WorkflowEdge[];
+  settings: WorkflowSettings;
 }
