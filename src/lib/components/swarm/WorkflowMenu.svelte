@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Adapter } from '$lib/adapter/index';
   import { currentWorkflow, currentWorkflowPath, workflowDirty } from '$lib/stores/workflow';
+  import { showToast } from '$lib/stores/toast';
   import { get } from 'svelte/store';
 
   let { adapter, cwd = '.' }: { adapter: Adapter; cwd?: string } = $props();
@@ -34,8 +35,10 @@
     try {
       await adapter.saveWorkflow(path, wf);
       workflowDirty.set(false);
+      showToast('success', 'Workflow saved', path.split('/').pop() ?? path);
     } catch (e) {
       console.error('Save failed:', e);
+      showToast('error', 'Save failed', String(e));
     }
     close();
   }
@@ -46,8 +49,10 @@
     try {
       const dest = await adapter.saveToGlobal(path);
       console.log('Saved to library:', dest);
+      showToast('success', 'Saved to library', dest.split('/').pop() ?? dest);
     } catch (e) {
       console.error('Save to library failed:', e);
+      showToast('error', 'Save to library failed', String(e));
     }
     close();
   }
@@ -66,8 +71,10 @@
       currentWorkflow.set(wf);
       currentWorkflowPath.set(filePath);
       workflowDirty.set(false);
+      showToast('success', 'Workflow imported', filePath.split('/').pop() ?? filePath);
     } catch (e) {
       console.error('Import failed:', e);
+      showToast('error', 'Import failed', String(e));
     }
   }
 
@@ -83,8 +90,10 @@
       });
       if (!selected) return;
       await adapter.saveWorkflow(selected, wf);
+      showToast('success', 'Workflow exported', selected.split('/').pop() ?? selected);
     } catch (e) {
       console.error('Export failed:', e);
+      showToast('error', 'Export failed', String(e));
     }
   }
 
@@ -94,6 +103,7 @@
       currentWorkflow.set(wf);
       currentWorkflowPath.set(null);
       workflowDirty.set(true);
+      showToast('success', 'Template loaded', path.split('/').pop()?.replace('.json', '') ?? path);
     } catch (e) {
       console.error('Load template failed:', e);
     }

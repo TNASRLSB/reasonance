@@ -4,6 +4,7 @@
   import type { Adapter } from '$lib/adapter/index';
   import type { WorkflowNode, WorkflowEdge } from '$lib/adapter/index';
   import { currentWorkflow, currentWorkflowPath, workflowDirty } from '$lib/stores/workflow';
+  import { showToast } from '$lib/stores/toast';
   import { nodeStates } from '$lib/stores/engine';
   import { selectedNodeId, showSwarmCanvas, swarmViewMode } from '$lib/stores/ui';
   import SwarmControls from './SwarmControls.svelte';
@@ -113,8 +114,10 @@
     try {
       await adapter.saveWorkflow(path, wf);
       workflowDirty.set(false);
+      showToast('success', 'Workflow saved', path.split('/').pop() ?? path);
     } catch (e) {
       console.error('Save failed:', e);
+      showToast('error', 'Save failed', String(e));
     }
   }
 
