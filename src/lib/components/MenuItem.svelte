@@ -32,7 +32,7 @@
   }
 </script>
 
-<div class="menu-item" role="menubar" onkeydown={handleKeydown}>
+<div class="menu-item" role="menubar" tabindex="-1" onkeydown={handleKeydown}>
   <button
     class="menu-trigger"
     class:active={open}

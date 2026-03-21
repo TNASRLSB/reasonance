@@ -4,48 +4,56 @@ import { invoke } from '@tauri-apps/api/core';
 export type ThemeMode = 'light' | 'dark' | 'system';
 export const themeMode = writable<ThemeMode>('system');
 
-// Initialize synchronously from media query to avoid flash of wrong theme
-const mqInit = typeof window !== 'undefined'
-  ? window.matchMedia('(prefers-color-scheme: dark)').matches
-  : true;
-export const isDark = writable(mqInit);
+// Default to dark — WebKitGTK on KDE does not support prefers-color-scheme.
+// The async detectSystemDark() will correct if the system is actually light.
+export const isDark = writable(true);
 
 export function initTheme() {
   const mq = window.matchMedia('(prefers-color-scheme: dark)');
 
   async function detectSystemDark(): Promise<boolean> {
-    if (mq.matches) return true;
+    // First try Rust-side KDE detection (reads kdeglobals, computes luminance)
     try {
       const colors = await invoke<Record<string, string>>('get_system_colors');
       if (colors.is_dark === 'true') return true;
       if (colors.is_dark === 'false') return false;
     } catch { /* ignore */ }
-    return true; // Final fallback: dark
+    // Fallback to media query (works on GTK themes that set it)
+    if (mq.matches !== undefined) return mq.matches;
+    // Ultimate fallback: dark
+    return true;
   }
 
-  function applyThemeClass(mode: ThemeMode, dark: boolean) {
-    const isLight = mode === 'light' || (mode === 'system' && !dark);
-    document.documentElement.classList.toggle('light', isLight);
-    isDark.set(!isLight);
+  function applyTheme(dark: boolean) {
+    document.documentElement.classList.toggle('light', !dark);
+    isDark.set(dark);
+  }
+
+  function resolveTheme(mode: ThemeMode, systemIsDark: boolean): boolean {
+    if (mode === 'dark') return true;
+    if (mode === 'light') return false;
+    return systemIsDark; // 'system'
   }
 
   let currentMode: ThemeMode = 'system';
+  let systemDark = true; // assume dark until detection completes
 
   themeMode.subscribe((mode) => {
     currentMode = mode;
-    applyThemeClass(currentMode, get(isDark));
+    applyTheme(resolveTheme(currentMode, systemDark));
   });
 
   mq.addEventListener('change', (e) => {
+    systemDark = e.matches;
     if (currentMode === 'system') {
-      isDark.set(e.matches);
-      applyThemeClass(currentMode, e.matches);
+      applyTheme(resolveTheme(currentMode, systemDark));
     }
   });
 
+  // Async detection — corrects the default if system is actually light
   detectSystemDark().then((dark) => {
-    isDark.set(dark);
-    applyThemeClass(currentMode, dark);
+    systemDark = dark;
+    applyTheme(resolveTheme(currentMode, systemDark));
   });
 }
 

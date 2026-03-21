@@ -5,18 +5,24 @@ export type Locale = 'en' | 'it' | 'de' | 'es' | 'fr' | 'pt' | 'zh' | 'hi' | 'ar
 export const locale = writable<Locale>('en');
 export const isRTL = derived(locale, ($l) => $l === 'ar');
 
-const translations: Record<string, Record<string, string>> = {};
-
 import en from './en.json';
-translations['en'] = en;
+import it from './it.json';
+import de from './de.json';
+import es from './es.json';
+import fr from './fr.json';
+import pt from './pt.json';
+import zh from './zh.json';
+import hi from './hi.json';
+import ar from './ar.json';
+
+const translations: Record<string, Record<string, string>> = {
+  en, it, de, es, fr, pt, zh, hi, ar,
+};
 
 export async function loadLocale(loc: Locale): Promise<void> {
-  if (translations[loc]) return;
-  try {
-    const mod = await import(`./${loc}.json`);
-    translations[loc] = mod.default;
-  } catch {
-    console.warn(`Failed to load locale: ${loc}`);
+  // All locales are statically imported — this is a no-op kept for API compatibility
+  if (!translations[loc]) {
+    console.warn(`Unknown locale: ${loc}`);
   }
 }
 

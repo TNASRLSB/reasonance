@@ -69,6 +69,10 @@ pub fn get_system_colors() -> Result<std::collections::HashMap<String, String>, 
 
 fn parse_kde_colors(content: &str, colors: &mut std::collections::HashMap<String, String>) {
     let mut section = String::new();
+    let mut bg_r: Option<u8> = None;
+    let mut bg_g: Option<u8> = None;
+    let mut bg_b: Option<u8> = None;
+
     for line in content.lines() {
         let line = line.trim();
         if line.starts_with('[') && line.ends_with(']') {
@@ -80,7 +84,15 @@ fn parse_kde_colors(content: &str, colors: &mut std::collections::HashMap<String
             let value = value.trim();
             match (section.as_str(), key) {
                 ("Colors:Window", "BackgroundNormal") => {
-                    colors.insert("bg".into(), rgb_to_hex(value));
+                    let hex = rgb_to_hex(value);
+                    colors.insert("bg".into(), hex);
+                    // Parse RGB values for luminance calculation
+                    let parts: Vec<u8> = value.split(',').filter_map(|s| s.trim().parse().ok()).collect();
+                    if parts.len() >= 3 {
+                        bg_r = Some(parts[0]);
+                        bg_g = Some(parts[1]);
+                        bg_b = Some(parts[2]);
+                    }
                 }
                 ("Colors:Window", "ForegroundNormal") => {
                     colors.insert("fg".into(), rgb_to_hex(value));
@@ -97,6 +109,12 @@ fn parse_kde_colors(content: &str, colors: &mut std::collections::HashMap<String
                 _ => {}
             }
         }
+    }
+
+    // Determine is_dark from background luminance (relative luminance < 0.5 = dark)
+    if let (Some(r), Some(g), Some(b)) = (bg_r, bg_g, bg_b) {
+        let luminance = 0.299 * (r as f64) + 0.587 * (g as f64) + 0.114 * (b as f64);
+        colors.insert("is_dark".into(), if luminance < 128.0 { "true" } else { "false" }.into());
     }
 }
 
