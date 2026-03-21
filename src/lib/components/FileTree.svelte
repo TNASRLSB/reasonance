@@ -68,7 +68,7 @@
     {#each items as entry (entry.path)}
       <button
         class="tree-item"
-        style="padding-left: {12 + depth * 16}px"
+        style="padding-left: {14 + depth * 16}px"
         onclick={() => handleClick(entry)}
       >
         <span class="icon">{getFileIcon(entry.name, entry.isDir)}</span>
@@ -89,15 +89,16 @@
     overflow-y: auto;
     display: flex;
     flex-direction: column;
+    font-family: var(--font-ui);
   }
 
   .tree-header {
-    font-size: 11px;
-    font-weight: 600;
+    font-size: var(--font-size-tiny);
+    font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: var(--text-secondary);
-    padding: 10px 12px 6px;
+    color: var(--text-muted);
+    padding: 10px 14px 6px;
     flex-shrink: 0;
   }
 
@@ -105,15 +106,16 @@
     display: flex;
     flex-direction: row;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     width: 100%;
     background: none;
     border: none;
-    color: var(--text-primary);
-    font-size: 13px;
-    padding-top: 3px;
-    padding-bottom: 3px;
-    padding-right: 8px;
+    border-radius: var(--radius);
+    color: var(--text-body);
+    font-family: var(--font-ui);
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-body);
+    padding: 5px 14px;
     text-align: left;
     cursor: pointer;
     white-space: nowrap;
@@ -121,7 +123,7 @@
   }
 
   .tree-item:hover {
-    background: var(--bg-hover, rgba(255, 255, 255, 0.06));
+    background: var(--bg-hover);
   }
 
   .icon {
