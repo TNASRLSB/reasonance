@@ -17,6 +17,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::new().build())
+        .plugin(tauri_plugin_dialog::init())
         .manage(PtyManager::new())
         .manage(ShadowStore::new())
         .manage(FsWatcherState::new())
@@ -50,6 +51,9 @@ pub fn run() {
             commands::workflow::delete_workflow,
             commands::workflow::create_workflow,
             commands::workflow::get_workflow,
+            commands::workflow::duplicate_workflow,
+            commands::workflow::save_to_global,
+            commands::workflow::list_global_workflows,
             commands::agent::create_agent,
             commands::agent::transition_agent,
             commands::agent::set_agent_pty,
