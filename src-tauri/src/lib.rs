@@ -60,6 +60,13 @@ pub fn run() {
             commands::agent::stop_workflow_agents,
             commands::agent::send_agent_message,
             commands::agent::get_agent_messages,
+            commands::engine::play_workflow,
+            commands::engine::pause_workflow,
+            commands::engine::resume_workflow,
+            commands::engine::stop_workflow,
+            commands::engine::step_workflow,
+            commands::engine::get_run_status,
+            commands::engine::notify_node_completed,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
