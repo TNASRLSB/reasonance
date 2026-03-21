@@ -1,0 +1,8 @@
+node_modules/
+build/
+.svelte-kit/
+src-tauri/target/
+src-tauri/gen/
+dist/
+*.js.map
+.DS_Store
