@@ -2,20 +2,22 @@
   import { yoloMode } from '$lib/stores/ui';
 </script>
 
-<div class="status-bar">
+<div class="status-bar" class:yolo={$yoloMode}>
   <div class="status-left">
-    <span class="app-name">Forge IDE</span>
+    {#if $yoloMode}
+      <span class="yolo-label">✕ YOLO MODE — CONFIRMATIONS DISABLED</span>
+    {:else}
+      <span class="app-name">FORGE IDE</span>
+    {/if}
   </div>
   <div class="status-right">
-    {#if $yoloMode}
-      <span class="yolo-indicator">⚡ YOLO MODE — confirmations disabled</span>
-    {/if}
+    <!-- File info will be added later when we wire up active file tracking -->
   </div>
 </div>
 
 <style>
   .status-bar {
-    height: 24px;
+    height: var(--statusbar-height);
     background: var(--accent);
     color: #fff;
     display: flex;
@@ -23,8 +25,14 @@
     justify-content: space-between;
     padding: 0 12px;
     flex-shrink: 0;
-    font-size: 12px;
+    font-family: var(--font-ui);
+    font-size: var(--font-size-small);
     user-select: none;
+    border-top: var(--border-width) solid var(--border);
+  }
+
+  .status-bar.yolo {
+    background: var(--danger);
   }
 
   .status-left,
@@ -35,20 +43,14 @@
   }
 
   .app-name {
-    font-weight: 600;
+    font-weight: 700;
     letter-spacing: 0.04em;
+    text-transform: uppercase;
   }
 
-  .yolo-indicator {
-    background: var(--danger);
-    padding: 1px 8px;
-    border-radius: 3px;
-    font-weight: 600;
-    animation: pulse 1.5s ease-in-out infinite;
-  }
-
-  @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.7; }
+  .yolo-label {
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
   }
 </style>
