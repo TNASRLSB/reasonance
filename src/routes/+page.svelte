@@ -12,13 +12,14 @@
   import { initTheme, themeMode } from '$lib/stores/theme';
   import { openFiles, activeFilePath, addOpenFile } from '$lib/stores/files';
   import { llmConfigs, appSettings } from '$lib/stores/config';
-  import { showSettings, fontFamily, fontSize } from '$lib/stores/ui';
+  import { showSettings, fontFamily, fontSize, enhancedReadability } from '$lib/stores/ui';
   import { terminalTabs } from '$lib/stores/terminals';
   import { registerKeybinding, initKeybindings } from '$lib/utils/keybindings';
   import Toast from '$lib/components/Toast.svelte';
   import { showToast } from '$lib/stores/toast';
   import { onMount, onDestroy } from 'svelte';
   import { parse } from 'smol-toml';
+  import { invoke } from '@tauri-apps/api/core';
   import { load } from '@tauri-apps/plugin-store';
   import { getCurrentWindow } from '@tauri-apps/api/window';
   import '../app.css';
@@ -36,6 +37,7 @@
   let unwatchFiles: (() => void) | null = null;
   let showSearchPalette = $state(false);
   let showFindInFiles = $state(false);
+  let unsubEnhanced: () => void;
 
   // ── Session persistence ──────────────────────────────────────────────────
   // Saved as: openFiles[], activeFile, theme, fontFamily, fontSize, terminalTabs[]
@@ -51,6 +53,7 @@
       await store.set('theme', get(themeMode));
       await store.set('fontFamily', get(fontFamily));
       await store.set('fontSize', get(fontSize));
+      await store.set('enhancedReadability', get(enhancedReadability));
 
       // Terminal tabs: only metadata (llmName, instance count) — PTY sessions can't survive restart
       const tabs = get(terminalTabs);
@@ -81,6 +84,11 @@
 
       const savedFontSize = await store.get<number>('fontSize');
       if (savedFontSize && savedFontSize > 0) fontSize.set(savedFontSize);
+
+      const savedEnhancedReadability = await store.get<boolean>('enhancedReadability');
+      if (savedEnhancedReadability !== null && savedEnhancedReadability !== undefined) {
+        enhancedReadability.set(savedEnhancedReadability);
+      }
 
       // Restore open files
       const savedPaths = await store.get<string[]>('openFiles');
@@ -170,10 +178,58 @@
   onMount(async () => {
     initTheme();
 
+    // Enhanced Readability mode — toggle CSS class on root element
+    unsubEnhanced = enhancedReadability.subscribe((on) => {
+      document.documentElement.classList.toggle('enhanced-readability', on);
+    });
+
     // Restore persisted session state before anything else
     await restoreSession();
 
     await loadInitialConfig();
+
+    // Auto-discover installed LLM CLIs if none configured
+    {
+      const { get } = await import('svelte/store');
+      const configs = get(llmConfigs);
+      if (configs.length === 0) {
+        try {
+          const discovered = await invoke<Array<{ name: string; command: string; found: boolean }>>(
+            'discover_llms'
+          );
+          const found = discovered.filter((d) => d.found);
+          if (found.length > 0) {
+            const newConfigs: import('$lib/stores/config').LlmConfig[] = found.map((d) => ({
+              name: d.name,
+              type: 'cli' as const,
+              command: d.command,
+              args: [],
+              yoloFlag: d.command === 'claude' ? '--dangerously-skip-permissions' : undefined,
+              imageMode: 'path' as const,
+            }));
+            // If Ollama was found, also add it as an API-type LLM (OpenAI-compatible)
+            if (found.some((d) => d.command === 'ollama')) {
+              newConfigs.push({
+                name: 'Ollama (API)',
+                type: 'api',
+                provider: 'openai',
+                endpoint: 'http://localhost:11434/v1',
+                model: 'llama3',
+                imageMode: 'none',
+              });
+            }
+            llmConfigs.set(newConfigs);
+            showToast(
+              'success',
+              'LLM trovati',
+              `Rilevati: ${found.map((d) => d.name).join(', ')}`
+            );
+          }
+        } catch {
+          // Silently ignore discovery errors
+        }
+      }
+    }
 
     // Listen for window close to save session state
     const appWindow = getCurrentWindow();
@@ -235,6 +291,7 @@
 
   onDestroy(() => {
     unsubFiles();
+    unsubEnhanced();
     if (unwatchFiles) unwatchFiles();
   });
 
