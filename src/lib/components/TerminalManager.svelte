@@ -1,5 +1,6 @@
 <script lang="ts">
   import { get } from 'svelte/store';
+  import { onDestroy } from 'svelte';
   import Terminal from './Terminal.svelte';
   import ImageDrop from './ImageDrop.svelte';
   import TerminalToolbar from './TerminalToolbar.svelte';
@@ -11,22 +12,24 @@
 
   let { adapter, cwd = '.' }: { adapter: Adapter; cwd?: string } = $props();
 
-  // Derived: CLI LLMs only (have a command)
-  let cliLlms = $derived(get(llmConfigs).filter((c) => c.type === 'cli' && c.command));
-
-  // Re-derive when store changes
   let configs = $state<LlmConfig[]>([]);
-  llmConfigs.subscribe((val) => {
-    configs = val.filter((c) => c.type === 'cli' && c.command);
-  });
-
   let tabs = $state<import('$lib/stores/terminals').TerminalTab[]>([]);
   let activeTab = $state<string | null>(null);
   let activeInstance = $state<string | null>(null);
 
-  terminalTabs.subscribe((val) => { tabs = val; });
-  activeTerminalTab.subscribe((val) => { activeTab = val; });
-  activeInstanceId.subscribe((val) => { activeInstance = val; });
+  const unsubConfigs = llmConfigs.subscribe((val) => {
+    configs = val.filter((c) => c.type === 'cli' && c.command);
+  });
+  const unsubTabs = terminalTabs.subscribe((val) => { tabs = val; });
+  const unsubActiveTab = activeTerminalTab.subscribe((val) => { activeTab = val; });
+  const unsubActiveInstance = activeInstanceId.subscribe((val) => { activeInstance = val; });
+
+  onDestroy(() => {
+    unsubConfigs();
+    unsubTabs();
+    unsubActiveTab();
+    unsubActiveInstance();
+  });
 
   // Count instances per LLM for label generation
   const instanceCounters: Record<string, number> = {};

@@ -6,6 +6,7 @@
   import '@xterm/xterm/css/xterm.css';
   import type { Adapter } from '$lib/adapter/index';
   import { terminalTabs } from '$lib/stores/terminals';
+  import { enhancedReadability } from '$lib/stores/ui';
 
   let { adapter, ptyId }: { adapter: Adapter; ptyId: string } = $props();
 
@@ -99,6 +100,15 @@
     }).then((unlisten) => {
       cleanups.push(unlisten);
     });
+
+    // React to Enhanced Readability font size changes
+    const unsubER = enhancedReadability.subscribe((on) => {
+      if (term) {
+        term.options.fontSize = on ? 15 : 12;
+        fitAddon.fit();
+      }
+    });
+    cleanups.push(unsubER);
 
     // ResizeObserver for auto-fit
     const resizeObserver = new ResizeObserver(() => {

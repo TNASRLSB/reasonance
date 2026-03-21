@@ -53,7 +53,7 @@
     overflow-x: auto;
     background: var(--bg-secondary);
     border-bottom: var(--border-width) solid var(--border);
-    min-height: 36px;
+    min-height: 44px;
     flex-shrink: 0;
     scrollbar-width: thin;
     font-family: var(--font-ui);

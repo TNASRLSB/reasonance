@@ -87,7 +87,7 @@
   }
 
   .logo {
-    font-weight: 900;
+    font-weight: 800;
     font-size: 16px;
     color: var(--text-primary);
     text-transform: uppercase;
@@ -113,7 +113,7 @@
     letter-spacing: 0.02em;
     cursor: pointer;
     transition: background 0.1s, color 0.1s;
-    min-height: 32px;
+    min-height: var(--toolbar-height);
   }
 
   button:hover {

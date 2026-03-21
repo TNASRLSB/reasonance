@@ -125,6 +125,9 @@
   .term-tbtn {
     width: 28px;
     height: 28px;
+    /* 44px effective target via padding */
+    padding: 8px;
+    box-sizing: content-box;
     display: flex;
     align-items: center;
     justify-content: center;

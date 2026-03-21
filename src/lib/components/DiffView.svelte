@@ -6,6 +6,13 @@
   import { oneDark } from '@codemirror/theme-one-dark';
   import type { Adapter } from '$lib/adapter';
 
+  const forgeBrutalistDiffTheme = EditorView.theme({
+    '&': { backgroundColor: '#0e0e0e', color: '#d4d4d4' },
+    '.cm-gutters': { backgroundColor: '#121212', color: '#444', borderRight: '2px solid #333' },
+    '.cm-activeLineGutter': { backgroundColor: '#1a1a1a' },
+    '.cm-activeLine': { backgroundColor: 'rgba(255,255,255,0.03)' },
+  }, { dark: true });
+
   let {
     original,
     modified,
@@ -33,6 +40,7 @@
       extensions: [
         basicSetup,
         oneDark,
+        forgeBrutalistDiffTheme,
         EditorView.editable.of(false),
         EditorState.readOnly.of(true),
       ],

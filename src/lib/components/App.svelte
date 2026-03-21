@@ -134,6 +134,7 @@
     left: -3px;
     right: -3px;
     z-index: 11;
+    pointer-events: none;
   }
 
   .divider:hover {

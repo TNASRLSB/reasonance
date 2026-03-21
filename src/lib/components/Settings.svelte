@@ -544,10 +544,11 @@
     font-family: inherit;
   }
 
-  .field-row input:focus,
-  .field-row select:focus {
-    outline: none;
+  .field-row input:focus-visible,
+  .field-row select:focus-visible {
     border-color: var(--accent);
+    outline: var(--focus-ring);
+    outline-offset: var(--focus-offset);
   }
 
   /* LLM list */
