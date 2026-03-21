@@ -3,17 +3,117 @@
   import FileTree from '$lib/components/FileTree.svelte';
   import EditorTabs from '$lib/components/EditorTabs.svelte';
   import Editor from '$lib/components/Editor.svelte';
+  import DiffView from '$lib/components/DiffView.svelte';
   import TerminalManager from '$lib/components/TerminalManager.svelte';
   import { TauriAdapter } from '$lib/adapter/tauri';
   import { initTheme } from '$lib/stores/theme';
-  import { onMount } from 'svelte';
+  import { openFiles, activeFilePath } from '$lib/stores/files';
+  import { onMount, onDestroy } from 'svelte';
   import '../app.css';
+
+  interface DiffState {
+    path: string;
+    original: string;
+    modified: string;
+    filename: string;
+  }
 
   const adapter = new TauriAdapter();
 
-  onMount(() => {
-    initTheme();
+  let diffState = $state<DiffState | null>(null);
+  let unwatchFiles: (() => void) | null = null;
+
+  // Track known open file paths so we can store shadows when new files are opened
+  let knownPaths = new Set<string>();
+
+  // Subscribe to openFiles to store shadow on first open
+  const unsubFiles = openFiles.subscribe(async (files) => {
+    for (const file of files) {
+      if (!knownPaths.has(file.path)) {
+        knownPaths.add(file.path);
+        try {
+          await adapter.storeShadow(file.path, file.content);
+        } catch {
+          // Shadow store failures are non-fatal
+        }
+      }
+    }
   });
+
+  onMount(async () => {
+    initTheme();
+
+    // Start watching the project directory for external changes
+    const { get } = await import('svelte/store');
+    unwatchFiles = await adapter.watchFiles('.', async (event) => {
+      const currentFiles = get(openFiles);
+      const openFile = currentFiles.find((f) => f.path === event.path);
+
+      if (!openFile) return;
+
+      if (event.type === 'remove') {
+        // Mark the file as deleted in the store
+        openFiles.update((all) =>
+          all.map((f) => (f.path === event.path ? { ...f, isDeleted: true } : f))
+        );
+        return;
+      }
+
+      if (event.type === 'modify') {
+        // Avoid showing diff if already showing one for this path
+        if (diffState && diffState.path === event.path) return;
+
+        try {
+          const [newContent, shadow] = await Promise.all([
+            adapter.readFile(event.path),
+            adapter.getShadow(event.path),
+          ]);
+
+          if (shadow === null) return; // No shadow means we don't track this file
+          if (newContent === shadow) return; // No actual change
+
+          diffState = {
+            path: event.path,
+            original: shadow,
+            modified: newContent,
+            filename: event.path.split('/').pop() ?? event.path,
+          };
+
+          // Switch to the changed file's tab
+          activeFilePath.set(event.path);
+        } catch {
+          // Read failures are non-fatal
+        }
+      }
+    });
+  });
+
+  onDestroy(() => {
+    unsubFiles();
+    if (unwatchFiles) unwatchFiles();
+  });
+
+  function handleAccept() {
+    if (!diffState) return;
+    const path = diffState.path;
+    const newContent = diffState.modified;
+    // Update the open file's content in the store
+    openFiles.update((files) =>
+      files.map((f) => (f.path === path ? { ...f, content: newContent, isDirty: false } : f))
+    );
+    diffState = null;
+  }
+
+  function handleReject() {
+    if (!diffState) return;
+    // File has been reverted on disk by DiffView; update store content to match original
+    const path = diffState.path;
+    const originalContent = diffState.original;
+    openFiles.update((files) =>
+      files.map((f) => (f.path === path ? { ...f, content: originalContent, isDirty: false } : f))
+    );
+    diffState = null;
+  }
 </script>
 
 <App>
@@ -23,7 +123,19 @@
 
   {#snippet editor()}
     <EditorTabs />
-    <Editor />
+    {#if diffState}
+      <DiffView
+        original={diffState.original}
+        modified={diffState.modified}
+        filename={diffState.filename}
+        {adapter}
+        filePath={diffState.path}
+        onAccept={handleAccept}
+        onReject={handleReject}
+      />
+    {:else}
+      <Editor />
+    {/if}
   {/snippet}
 
   {#snippet terminal()}
