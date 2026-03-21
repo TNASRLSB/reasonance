@@ -43,7 +43,7 @@
 
 <div class="toolbar">
   <div class="toolbar-left">
-    <span class="logo">⚒ Forge</span>
+    <span class="logo">FORGE</span>
     <div class="git-actions">
       <button onclick={gitStatus} title="Git Status">Status</button>
       <button onclick={gitCommit} title="Git Commit">Commit</button>
@@ -68,9 +68,9 @@
 
 <style>
   .toolbar {
-    height: 40px;
+    height: var(--toolbar-height);
     background: var(--bg-secondary);
-    border-bottom: 1px solid var(--border);
+    border-bottom: var(--border-width) solid var(--border);
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -87,10 +87,12 @@
   }
 
   .logo {
-    font-weight: 600;
-    font-size: 14px;
-    color: var(--accent);
-    margin-right: 8px;
+    font-weight: 900;
+    font-size: 16px;
+    color: var(--text-primary);
+    text-transform: uppercase;
+    letter-spacing: -0.02em;
+    margin-right: 12px;
   }
 
   .git-actions {
@@ -101,37 +103,46 @@
   button {
     background: var(--bg-tertiary);
     color: var(--text-primary);
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    padding: 3px 10px;
-    font-size: 12px;
+    border: var(--border-width) solid var(--border);
+    border-radius: var(--radius);
+    padding: var(--btn-padding);
+    font-family: var(--font-ui);
+    font-size: var(--font-size-small);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
     cursor: pointer;
-    transition: background 0.15s;
+    transition: background 0.1s, color 0.1s;
+    min-height: 32px;
   }
 
   button:hover {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: #fff;
+    background: var(--text-primary);
+    color: var(--bg-primary);
   }
 
   .yolo-btn {
-    font-weight: 600;
-    letter-spacing: 0.03em;
+    letter-spacing: 0.05em;
   }
 
   .yolo-btn.active {
-    background: var(--danger);
+    background: var(--danger-dark);
     border-color: var(--danger);
     color: #fff;
+    animation: yolo-pulse 2s ease-in-out infinite;
   }
 
   .yolo-btn.active:hover {
-    background: #c0392b;
+    background: var(--danger);
+  }
+
+  @keyframes yolo-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.8; }
   }
 
   .settings-btn {
     font-size: 16px;
-    padding: 2px 8px;
+    padding: 4px 10px;
   }
 </style>
