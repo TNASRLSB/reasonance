@@ -11,54 +11,55 @@
   import { json } from '@codemirror/lang-json';
   import { markdown } from '@codemirror/lang-markdown';
   import { openFiles, activeFilePath } from '$lib/stores/files';
+  import { isDark } from '$lib/stores/theme';
   import MarkdownPreview from './MarkdownPreview.svelte';
   import ContextMenu from './ContextMenu.svelte';
   import ResponsePanel from './ResponsePanel.svelte';
   import type { Adapter } from '$lib/adapter';
 
-  // Custom brutalist theme for editor chrome (background, gutters, cursor, selection)
-  // oneDark is kept for syntax highlighting colors only
-  const forgeBrutalistTheme = EditorView.theme({
-    '&': {
-      backgroundColor: '#0e0e0e',
-      color: '#d4d4d4',
-    },
+  // Dark theme for editor chrome
+  const forgeDarkTheme = EditorView.theme({
+    '&': { backgroundColor: '#0e0e0e', color: '#d4d4d4' },
     '.cm-content': {
       fontFamily: "'Atkinson Hyperlegible Mono', 'JetBrains Mono', 'Fira Code', monospace",
       fontSize: '13px',
       caretColor: '#f0f0f0',
     },
-    '.cm-cursor': {
-      borderLeftColor: '#f0f0f0',
-    },
-    '.cm-gutters': {
-      backgroundColor: '#121212',
-      color: '#444',
-      borderRight: '2px solid #333',
-    },
-    '.cm-activeLineGutter': {
-      backgroundColor: '#1a1a1a',
-      color: '#888',
-    },
-    '.cm-activeLine': {
-      backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    },
-    '.cm-selectionBackground': {
-      backgroundColor: 'rgba(29, 78, 216, 0.3) !important',
-    },
-    '&.cm-focused .cm-selectionBackground': {
-      backgroundColor: 'rgba(29, 78, 216, 0.4) !important',
-    },
-    '.cm-selectionMatch': {
-      backgroundColor: 'rgba(29, 78, 216, 0.15)',
-    },
+    '.cm-cursor': { borderLeftColor: '#f0f0f0' },
+    '.cm-gutters': { backgroundColor: '#121212', color: '#444', borderRight: '2px solid #333' },
+    '.cm-activeLineGutter': { backgroundColor: '#1a1a1a', color: '#888' },
+    '.cm-activeLine': { backgroundColor: 'rgba(255, 255, 255, 0.03)' },
+    '.cm-selectionBackground': { backgroundColor: 'rgba(29, 78, 216, 0.3) !important' },
+    '&.cm-focused .cm-selectionBackground': { backgroundColor: 'rgba(29, 78, 216, 0.4) !important' },
+    '.cm-selectionMatch': { backgroundColor: 'rgba(29, 78, 216, 0.15)' },
   }, { dark: true });
+
+  // Light theme for editor chrome
+  const forgeLightTheme = EditorView.theme({
+    '&': { backgroundColor: '#fafafa', color: '#1a1a1a' },
+    '.cm-content': {
+      fontFamily: "'Atkinson Hyperlegible Mono', 'JetBrains Mono', 'Fira Code', monospace",
+      fontSize: '13px',
+      caretColor: '#0a0a0a',
+    },
+    '.cm-cursor': { borderLeftColor: '#0a0a0a' },
+    '.cm-gutters': { backgroundColor: '#f0f0f0', color: '#999', borderRight: '2px solid #d4d4d4' },
+    '.cm-activeLineGutter': { backgroundColor: '#e5e5e5', color: '#666' },
+    '.cm-activeLine': { backgroundColor: 'rgba(0, 0, 0, 0.03)' },
+    '.cm-selectionBackground': { backgroundColor: 'rgba(29, 78, 216, 0.2) !important' },
+    '&.cm-focused .cm-selectionBackground': { backgroundColor: 'rgba(29, 78, 216, 0.3) !important' },
+    '.cm-selectionMatch': { backgroundColor: 'rgba(29, 78, 216, 0.1)' },
+  }, { dark: false });
 
   const { adapter }: { adapter: Adapter } = $props();
 
   let container: HTMLDivElement;
   let view: EditorView | null = null;
   let readOnly = $state(true);
+
+  // Track dark/light theme reactively
+  let currentIsDark = $state(true);
+  const unsubIsDark = isDark.subscribe((v) => { currentIsDark = v; });
   let showMarkdownPreview = $state(false);
 
   // Context menu state
@@ -131,12 +132,12 @@
 
   function buildState(content: string, fileName: string, ro: boolean) {
     const langExt = getLang(fileName);
+    const themeExt = currentIsDark ? [oneDark, forgeDarkTheme] : [forgeLightTheme];
     return EditorState.create({
       doc: content,
       extensions: [
         basicSetup,
-        oneDark,
-        forgeBrutalistTheme,
+        ...themeExt,
         Array.isArray(langExt) ? langExt : [langExt],
         EditorView.editable.of(!ro),
         EditorState.readOnly.of(ro),
@@ -186,6 +187,16 @@
     view.setState(state);
   });
 
+  // Watch for theme changes — rebuild editor with correct theme
+  $effect(() => {
+    const _dark = currentIsDark;
+    if (!view || !currentPath) return;
+    const doc = view.state.doc.toString();
+    const fileName = currentPath.split('/').pop() ?? currentPath;
+    const state = buildState(doc, fileName, readOnly);
+    view.setState(state);
+  });
+
   onMount(() => {
     // If there's already an active file when mounted
     if (currentPath && currentContent !== undefined) {
@@ -197,6 +208,7 @@
   onDestroy(() => {
     unsubPath();
     unsubFiles();
+    unsubIsDark();
     destroyView();
   });
 </script>

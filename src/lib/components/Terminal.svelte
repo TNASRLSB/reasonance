@@ -7,6 +7,27 @@
   import type { Adapter } from '$lib/adapter/index';
   import { terminalTabs } from '$lib/stores/terminals';
   import { enhancedReadability } from '$lib/stores/ui';
+  import { isDark } from '$lib/stores/theme';
+
+  const darkXtermTheme = {
+    background: '#121212', foreground: '#d4d4d4', cursor: '#f0f0f0', cursorAccent: '#121212',
+    selectionBackground: 'rgba(29, 78, 216, 0.4)', selectionForeground: '#ffffff',
+    black: '#121212', red: '#dc2626', green: '#16a34a', yellow: '#ca8a04',
+    blue: '#1d4ed8', magenta: '#a855f7', cyan: '#06b6d4', white: '#d4d4d4',
+    brightBlack: '#333333', brightRed: '#ef4444', brightGreen: '#22c55e',
+    brightYellow: '#eab308', brightBlue: '#3b82f6', brightMagenta: '#c084fc',
+    brightCyan: '#22d3ee', brightWhite: '#f0f0f0',
+  };
+
+  const lightXtermTheme = {
+    background: '#fafafa', foreground: '#1a1a1a', cursor: '#0a0a0a', cursorAccent: '#fafafa',
+    selectionBackground: 'rgba(29, 78, 216, 0.25)', selectionForeground: '#000000',
+    black: '#1a1a1a', red: '#b91c1c', green: '#15803d', yellow: '#a16207',
+    blue: '#1d4ed8', magenta: '#7e22ce', cyan: '#0e7490', white: '#e5e5e5',
+    brightBlack: '#525252', brightRed: '#dc2626', brightGreen: '#16a34a',
+    brightYellow: '#ca8a04', brightBlue: '#3b82f6', brightMagenta: '#a855f7',
+    brightCyan: '#06b6d4', brightWhite: '#fafafa',
+  };
 
   let { adapter, ptyId }: { adapter: Adapter; ptyId: string } = $props();
 
@@ -21,30 +42,7 @@
       fontSize: 12,
       lineHeight: 1.3,
       cursorBlink: true,
-      theme: {
-        background: '#121212',
-        foreground: '#d4d4d4',
-        cursor: '#f0f0f0',
-        cursorAccent: '#121212',
-        selectionBackground: 'rgba(29, 78, 216, 0.4)',
-        selectionForeground: '#ffffff',
-        black: '#121212',
-        red: '#dc2626',
-        green: '#16a34a',
-        yellow: '#ca8a04',
-        blue: '#1d4ed8',
-        magenta: '#a855f7',
-        cyan: '#06b6d4',
-        white: '#d4d4d4',
-        brightBlack: '#333333',
-        brightRed: '#ef4444',
-        brightGreen: '#22c55e',
-        brightYellow: '#eab308',
-        brightBlue: '#3b82f6',
-        brightMagenta: '#c084fc',
-        brightCyan: '#22d3ee',
-        brightWhite: '#f0f0f0',
-      },
+      theme: darkXtermTheme,
       allowProposedApi: true,
     });
 
@@ -109,6 +107,14 @@
       }
     });
     cleanups.push(unsubER);
+
+    // React to theme changes (dark/light)
+    const unsubTheme = isDark.subscribe((dark) => {
+      if (term) {
+        term.options.theme = dark ? darkXtermTheme : lightXtermTheme;
+      }
+    });
+    cleanups.push(unsubTheme);
 
     // ResizeObserver for auto-fit
     const resizeObserver = new ResizeObserver(() => {

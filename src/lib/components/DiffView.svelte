@@ -5,13 +5,21 @@
   import { EditorView, basicSetup } from 'codemirror';
   import { oneDark } from '@codemirror/theme-one-dark';
   import type { Adapter } from '$lib/adapter';
+  import { isDark } from '$lib/stores/theme';
 
-  const forgeBrutalistDiffTheme = EditorView.theme({
+  const forgeDarkDiffTheme = EditorView.theme({
     '&': { backgroundColor: '#0e0e0e', color: '#d4d4d4' },
     '.cm-gutters': { backgroundColor: '#121212', color: '#444', borderRight: '2px solid #333' },
     '.cm-activeLineGutter': { backgroundColor: '#1a1a1a' },
     '.cm-activeLine': { backgroundColor: 'rgba(255,255,255,0.03)' },
   }, { dark: true });
+
+  const forgeLightDiffTheme = EditorView.theme({
+    '&': { backgroundColor: '#fafafa', color: '#1a1a1a' },
+    '.cm-gutters': { backgroundColor: '#f0f0f0', color: '#999', borderRight: '2px solid #d4d4d4' },
+    '.cm-activeLineGutter': { backgroundColor: '#e5e5e5' },
+    '.cm-activeLine': { backgroundColor: 'rgba(0,0,0,0.03)' },
+  }, { dark: false });
 
   let {
     original,
@@ -34,16 +42,15 @@
   let container: HTMLDivElement;
   let mergeView: MergeView | null = null;
 
+  // Track dark/light theme reactively
+  let currentIsDark = $state(true);
+  const unsubIsDark = isDark.subscribe((v) => { currentIsDark = v; });
+
   function buildEditorState(doc: string) {
+    const themeExt = currentIsDark ? [oneDark, forgeDarkDiffTheme] : [forgeLightDiffTheme];
     return EditorState.create({
       doc,
-      extensions: [
-        basicSetup,
-        oneDark,
-        forgeBrutalistDiffTheme,
-        EditorView.editable.of(false),
-        EditorState.readOnly.of(true),
-      ],
+      extensions: [basicSetup, ...themeExt, EditorView.editable.of(false), EditorState.readOnly.of(true)],
     });
   }
 
@@ -57,6 +64,7 @@
   });
 
   onDestroy(() => {
+    unsubIsDark();
     if (mergeView) {
       mergeView.destroy();
       mergeView = null;
