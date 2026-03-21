@@ -16,6 +16,44 @@
   import ResponsePanel from './ResponsePanel.svelte';
   import type { Adapter } from '$lib/adapter';
 
+  // Custom brutalist theme for editor chrome (background, gutters, cursor, selection)
+  // oneDark is kept for syntax highlighting colors only
+  const forgeBrutalistTheme = EditorView.theme({
+    '&': {
+      backgroundColor: '#0e0e0e',
+      color: '#d4d4d4',
+    },
+    '.cm-content': {
+      fontFamily: "'Atkinson Hyperlegible Mono', 'JetBrains Mono', 'Fira Code', monospace",
+      fontSize: '13px',
+      caretColor: '#f0f0f0',
+    },
+    '.cm-cursor': {
+      borderLeftColor: '#f0f0f0',
+    },
+    '.cm-gutters': {
+      backgroundColor: '#121212',
+      color: '#444',
+      borderRight: '2px solid #333',
+    },
+    '.cm-activeLineGutter': {
+      backgroundColor: '#1a1a1a',
+      color: '#888',
+    },
+    '.cm-activeLine': {
+      backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    },
+    '.cm-selectionBackground': {
+      backgroundColor: 'rgba(29, 78, 216, 0.3) !important',
+    },
+    '&.cm-focused .cm-selectionBackground': {
+      backgroundColor: 'rgba(29, 78, 216, 0.4) !important',
+    },
+    '.cm-selectionMatch': {
+      backgroundColor: 'rgba(29, 78, 216, 0.15)',
+    },
+  }, { dark: true });
+
   const { adapter }: { adapter: Adapter } = $props();
 
   let container: HTMLDivElement;
@@ -98,6 +136,7 @@
       extensions: [
         basicSetup,
         oneDark,
+        forgeBrutalistTheme,
         Array.isArray(langExt) ? langExt : [langExt],
         EditorView.editable.of(!ro),
         EditorState.readOnly.of(ro),
@@ -231,9 +270,10 @@
     justify-content: space-between;
     padding: 4px 12px;
     background: var(--bg-secondary);
-    border-bottom: 1px solid var(--border);
+    border-bottom: var(--border-width) solid var(--border);
     flex-shrink: 0;
-    font-size: 12px;
+    font-family: var(--font-ui);
+    font-size: var(--font-size-small);
   }
 
   .toolbar-actions {
@@ -244,51 +284,41 @@
 
   .editor-filename {
     color: var(--text-secondary);
-    font-family: var(--font-mono, monospace);
+    font-family: var(--font-mono);
   }
 
-  .preview-toggle {
-    background: var(--bg-primary);
-    border: 1px solid var(--border);
+  .preview-toggle,
+  .readonly-toggle {
+    background: var(--bg-tertiary);
+    border: var(--border-width) solid var(--border);
+    border-radius: var(--radius);
     color: var(--text-secondary);
-    font-size: 11px;
+    font-family: var(--font-ui);
+    font-size: var(--font-size-small);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
     padding: 2px 8px;
-    border-radius: 4px;
     cursor: pointer;
-    transition: color 0.15s, border-color 0.15s, background 0.15s;
+    transition: background 0.1s, color 0.1s;
   }
 
-  .preview-toggle:hover {
-    color: var(--text-primary);
-    border-color: var(--accent);
+  .preview-toggle:hover,
+  .readonly-toggle:hover {
+    background: var(--text-primary);
+    color: var(--bg-primary);
   }
 
   .preview-toggle.active {
-    color: #10b981;
-    border-color: #10b981;
-    background: rgba(16, 185, 129, 0.08);
-  }
-
-  .readonly-toggle {
-    background: var(--bg-primary);
-    border: 1px solid var(--border);
-    color: var(--text-secondary);
-    font-size: 11px;
-    padding: 2px 8px;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: color 0.15s, border-color 0.15s, background 0.15s;
-  }
-
-  .readonly-toggle:hover {
-    color: var(--text-primary);
+    background: var(--accent);
     border-color: var(--accent);
+    color: #fff;
   }
 
   .readonly-toggle.editing {
-    color: var(--accent);
+    background: var(--accent);
     border-color: var(--accent);
-    background: rgba(var(--accent-rgb, 99, 102, 241), 0.08);
+    color: #fff;
   }
 
   .editor-body {
@@ -306,11 +336,8 @@
     min-height: 0;
   }
 
-  /* Make CodeMirror fill the container */
   .editor-cm :global(.cm-editor) {
     height: 100%;
-    font-family: var(--font-mono, 'JetBrains Mono', 'Fira Code', monospace);
-    font-size: 13px;
   }
 
   .editor-cm :global(.cm-scroller) {
@@ -326,7 +353,8 @@
     justify-content: center;
     color: var(--text-secondary);
     gap: 8px;
-    font-size: 14px;
+    font-family: var(--font-ui);
+    font-size: var(--font-size-base);
   }
 
   .editor-empty p {
@@ -334,8 +362,8 @@
   }
 
   .hint {
-    font-size: 12px;
-    opacity: 0.6;
-    font-family: var(--font-mono, monospace);
+    font-size: var(--font-size-small);
+    color: var(--text-muted);
+    font-family: var(--font-mono);
   }
 </style>
