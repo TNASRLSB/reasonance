@@ -1,15 +1,12 @@
-<main class="app">
-  <p>Forge IDE is running.</p>
-</main>
+<script lang="ts">
+  import App from '$lib/components/App.svelte';
+  import { initTheme } from '$lib/stores/theme';
+  import { onMount } from 'svelte';
+  import '../app.css';
 
-<style>
-  .app {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    font-family: system-ui, sans-serif;
-    background: #1e1e1e;
-    color: #ccc;
-  }
-</style>
+  onMount(() => {
+    initTheme();
+  });
+</script>
+
+<App />
