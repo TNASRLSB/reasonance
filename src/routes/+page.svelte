@@ -116,7 +116,7 @@
   }
 </script>
 
-<App>
+<App {adapter}>
   {#snippet fileTree()}
     <FileTree {adapter} />
   {/snippet}

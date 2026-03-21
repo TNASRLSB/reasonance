@@ -1,10 +1,12 @@
 <script lang="ts">
   import { get } from 'svelte/store';
   import Terminal from './Terminal.svelte';
+  import ImageDrop from './ImageDrop.svelte';
   import type { Adapter } from '$lib/adapter/index';
   import { llmConfigs } from '$lib/stores/config';
   import { terminalTabs, activeTerminalTab, activeInstanceId } from '$lib/stores/terminals';
   import type { LlmConfig } from '$lib/stores/config';
+  import { yoloMode } from '$lib/stores/ui';
 
   let { adapter, cwd = '.' }: { adapter: Adapter; cwd?: string } = $props();
 
@@ -32,9 +34,11 @@
     const config = get(llmConfigs).find((c) => c.name === llmName);
     if (!config || !config.command) return;
 
-    // Build args, optionally appending yoloFlag
+    // Build args, optionally appending yoloFlag when YOLO mode is active
     const args = [...(config.args ?? [])];
-    // YOLO mode: check if yoloFlag should be added (store not implemented yet, skip for now)
+    if (get(yoloMode) && config.yoloFlag) {
+      args.push(config.yoloFlag);
+    }
 
     let handle;
     try {
@@ -198,7 +202,11 @@
             class="terminal-wrap"
             style="display: {inst.id === activeInstance ? 'flex' : 'none'};"
           >
-            <Terminal {adapter} ptyId={inst.id} />
+            <ImageDrop {adapter} instanceId={inst.id} llmName={inst.llmName}>
+              {#snippet children()}
+                <Terminal {adapter} ptyId={inst.id} />
+              {/snippet}
+            </ImageDrop>
           </div>
         {/each}
       {/each}

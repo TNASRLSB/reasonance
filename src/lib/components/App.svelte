@@ -3,8 +3,10 @@
   import StatusBar from './StatusBar.svelte';
   import { fileTreeWidth, terminalWidth } from '$lib/stores/ui';
   import type { Snippet } from 'svelte';
+  import type { Adapter } from '$lib/adapter/index';
 
-  let { fileTree, editor, terminal }: {
+  let { adapter, fileTree, editor, terminal }: {
+    adapter: Adapter;
     fileTree?: Snippet;
     editor?: Snippet;
     terminal?: Snippet;
@@ -31,7 +33,7 @@
 <svelte:window onmousemove={onMouseMove} onmouseup={onMouseUp} />
 
 <div class="app-root">
-  <Toolbar />
+  <Toolbar {adapter} />
 
   <div class="main-content">
     <div class="panel file-tree" style="width: {$fileTreeWidth}px">

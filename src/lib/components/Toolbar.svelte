@@ -1,47 +1,35 @@
 <script lang="ts">
+  import { get } from 'svelte/store';
   import { yoloMode, showSettings } from '$lib/stores/ui';
-  import { invoke } from '@tauri-apps/api/core';
+  import { activeInstanceId } from '$lib/stores/terminals';
+  import type { Adapter } from '$lib/adapter/index';
 
-  async function gitStatus() {
-    try {
-      await invoke('git_status');
-    } catch (e) {
-      console.error('git status failed', e);
-    }
+  let { adapter }: { adapter: Adapter } = $props();
+
+  async function sendGitCommand(command: string) {
+    const id = get(activeInstanceId);
+    if (!id) return;
+    await adapter.writePty(id, command);
   }
 
-  async function gitCommit() {
-    const msg = window.prompt('Commit message:');
-    if (!msg) return;
-    try {
-      await invoke('git_commit', { message: msg });
-    } catch (e) {
-      console.error('git commit failed', e);
-    }
+  function gitStatus() {
+    sendGitCommand('git status\n');
   }
 
-  async function gitPush() {
-    try {
-      await invoke('git_push');
-    } catch (e) {
-      console.error('git push failed', e);
-    }
+  function gitCommit() {
+    sendGitCommand('git commit -m ""');
   }
 
-  async function gitPull() {
-    try {
-      await invoke('git_pull');
-    } catch (e) {
-      console.error('git pull failed', e);
-    }
+  function gitPush() {
+    sendGitCommand('git push\n');
   }
 
-  async function gitLog() {
-    try {
-      await invoke('git_log');
-    } catch (e) {
-      console.error('git log failed', e);
-    }
+  function gitPull() {
+    sendGitCommand('git pull\n');
+  }
+
+  function gitLog() {
+    sendGitCommand('git log --oneline -20\n');
   }
 
   function toggleYolo() {
