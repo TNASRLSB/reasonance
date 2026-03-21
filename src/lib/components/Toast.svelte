@@ -2,10 +2,17 @@
   import { toasts, dismissToast } from '$lib/stores/toast';
 
   const borderColors: Record<string, string> = {
-    error: '#ef4444',
-    warning: '#f59e0b',
-    success: '#22c55e',
-    info: '#3b82f6',
+    error: 'var(--danger)',
+    warning: 'var(--warning)',
+    success: 'var(--success)',
+    info: 'var(--accent)',
+  };
+
+  const labels: Record<string, string> = {
+    error: 'ERROR',
+    warning: 'WARNING',
+    success: 'SUCCESS',
+    info: 'INFO',
   };
 
   const icons: Record<string, string> = {
@@ -25,6 +32,7 @@
     >
       <div class="toast-icon" style="color: {borderColors[toast.type] ?? borderColors.info}">
         {icons[toast.type] ?? icons.info}
+        <span class="toast-label">{labels[toast.type] ?? labels.info}</span>
       </div>
       <div class="toast-content">
         <div class="toast-title">{toast.title}</div>
@@ -60,22 +68,30 @@
     padding: 0.75rem 1rem;
     min-width: 280px;
     max-width: 420px;
-    background: var(--bg-secondary, #1e1e2e);
-    border: 1px solid var(--border, #313244);
+    background: var(--bg-secondary);
+    border: var(--border-width) solid var(--border);
     border-left: 4px solid transparent;
-    border-radius: 6px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    border-radius: var(--radius);
     pointer-events: all;
+    font-family: var(--font-ui);
     animation: slide-in 0.2s ease-out;
   }
 
   .toast-icon {
+    display: flex;
+    align-items: center;
+    gap: 6px;
     font-size: 0.875rem;
     font-weight: bold;
     flex-shrink: 0;
     margin-top: 1px;
-    width: 1rem;
-    text-align: center;
+  }
+
+  .toast-label {
+    font-size: var(--font-size-tiny);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
   }
 
   .toast-content {
@@ -84,15 +100,15 @@
   }
 
   .toast-title {
-    font-size: 0.8125rem;
+    font-size: var(--font-size-base);
     font-weight: 600;
-    color: var(--fg-primary, #cdd6f4);
+    color: var(--text-primary);
     line-height: 1.3;
   }
 
   .toast-body {
-    font-size: 0.75rem;
-    color: var(--fg-secondary, #a6adc8);
+    font-size: var(--font-size-small);
+    color: var(--text-secondary);
     margin-top: 0.25rem;
     line-height: 1.4;
     word-break: break-word;
@@ -103,7 +119,7 @@
     background: none;
     border: none;
     cursor: pointer;
-    color: var(--fg-secondary, #a6adc8);
+    color: var(--text-secondary);
     font-size: 1rem;
     line-height: 1;
     padding: 0;
@@ -114,6 +130,7 @@
 
   .toast-dismiss:hover {
     opacity: 1;
+    color: var(--text-primary);
   }
 
   @keyframes slide-in {
