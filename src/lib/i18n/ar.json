@@ -70,6 +70,7 @@
   "settings.fontSize": "حجم الخط",
   "toast.llmFound": "تم العثور على LLM",
   "toast.detected": "تم اكتشاف: {names}",
+  "diff.changes": "التغييرات: {file}",
   "diff.accept": "قبول",
   "diff.reject": "رفض",
   "contextMenu.explain": "اشرح هذا الكود",

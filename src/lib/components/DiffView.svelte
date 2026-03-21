@@ -6,6 +6,7 @@
   import { oneDark } from '@codemirror/theme-one-dark';
   import type { Adapter } from '$lib/adapter';
   import { isDark } from '$lib/stores/theme';
+  import { tr } from '$lib/i18n/index';
 
   const forgeDarkDiffTheme = EditorView.theme({
     '&': { backgroundColor: '#0e0e0e', color: '#d4d4d4' },
@@ -100,10 +101,10 @@
 
 <div class="diff-wrapper">
   <div class="diff-toolbar">
-    <span class="diff-title">Modifiche: {filename}</span>
+    <span class="diff-title">{$tr('diff.changes', { file: filename })}</span>
     <div class="diff-actions">
-      <button class="btn-reject" onclick={handleReject}>&#10005; Rifiuta</button>
-      <button class="btn-accept" onclick={handleAccept}>&#10003; Accetta</button>
+      <button class="btn-reject" onclick={handleReject}>&#10005; {$tr('diff.reject')}</button>
+      <button class="btn-accept" onclick={handleAccept}>&#10003; {$tr('diff.accept')}</button>
     </div>
   </div>
   <div class="diff-container" bind:this={container}></div>

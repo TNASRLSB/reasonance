@@ -70,6 +70,7 @@
   "settings.fontSize": "फ़ॉन्ट आकार",
   "toast.llmFound": "LLM मिला",
   "toast.detected": "पाए गए: {names}",
+  "diff.changes": "परिवर्तन: {file}",
   "diff.accept": "स्वीकार करें",
   "diff.reject": "अस्वीकार करें",
   "contextMenu.explain": "इस कोड की व्याख्या करें",

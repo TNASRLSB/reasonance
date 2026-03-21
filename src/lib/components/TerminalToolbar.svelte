@@ -60,8 +60,7 @@
       >/</button>
 
       {#if showSlashMenu && slashCommands.length > 0}
-        <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-        <div class="dropdown" onclick={(e) => e.stopPropagation()}>
+        <div class="dropdown" role="menu" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()}>
           {#each slashCommands as cmd (cmd.command)}
             <button class="dropdown-item" onclick={() => selectSlashCommand(cmd.command)}>
               <span class="cmd-name">{cmd.command}</span>
@@ -84,8 +83,7 @@
       </button>
 
       {#if showModeMenu && modes.length > 0}
-        <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-        <div class="dropdown mode-dropdown" onclick={(e) => e.stopPropagation()}>
+        <div class="dropdown mode-dropdown" role="menu" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()}>
           {#each modes as mode (mode.name)}
             <button
               class="dropdown-item"

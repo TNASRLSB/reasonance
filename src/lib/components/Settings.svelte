@@ -258,9 +258,7 @@
 <svelte:window onkeydown={handleKeydown} />
 
 {#if visible}
-  <!-- svelte-ignore a11y_click_events_have_key_events -->
-  <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div class="settings-overlay" onclick={handleOverlayClick}>
+  <div class="settings-overlay" role="button" tabindex="-1" onclick={handleOverlayClick} onkeydown={(e) => { if (e.key === 'Escape') handleOverlayClick(); }}>
     <div class="settings-modal" role="dialog" aria-modal="true" aria-label="Settings">
       <div class="modal-header">
         <h2>Settings</h2>

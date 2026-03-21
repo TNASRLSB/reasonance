@@ -70,6 +70,7 @@
   "settings.fontSize": "Dimensione font",
   "toast.llmFound": "LLM trovati",
   "toast.detected": "Rilevati: {names}",
+  "diff.changes": "Modifiche: {file}",
   "diff.accept": "Accetta",
   "diff.reject": "Rifiuta",
   "contextMenu.explain": "Spiega questo codice",

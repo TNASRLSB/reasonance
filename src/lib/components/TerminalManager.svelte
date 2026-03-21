@@ -188,7 +188,10 @@
 
   {#if showSwarmTab}
     <div class="terminal-area">
-      <SwarmPanel {adapter} {cwd} />
+      <div class="empty-state">
+        <p>{$tr('terminal.swarm')}</p>
+        <p class="hint">{$tr('terminal.swarmComingSoon')}</p>
+      </div>
     </div>
   {:else if tabs.length === 0}
     <div class="empty-state">

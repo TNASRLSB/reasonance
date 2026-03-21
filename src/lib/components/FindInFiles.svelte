@@ -105,9 +105,7 @@
 </script>
 
 {#if visible}
-  <!-- svelte-ignore a11y_click_events_have_key_events -->
-  <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div class="fif-overlay" onclick={handleOverlayClick}>
+  <div class="fif-overlay" role="button" tabindex="-1" onclick={handleOverlayClick} onkeydown={(e) => { if (e.key === 'Escape') handleOverlayClick(); }}>
     <div class="fif-panel" role="dialog" aria-label="Find in files" aria-modal="true">
       <div class="fif-header">
         <span class="fif-title">Find in Files</span>
@@ -149,7 +147,6 @@
             <div class="fif-file-group">
               <div class="fif-file-header">{filePath}</div>
               {#each fileResults as result}
-                <!-- svelte-ignore a11y_click_events_have_key_events -->
                 <div
                   class="fif-result-row"
                   role="button"

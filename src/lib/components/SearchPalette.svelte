@@ -152,10 +152,7 @@
 </script>
 
 {#if visible}
-  <!-- svelte-ignore a11y_click_events_have_key_events -->
-  <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div class="palette-overlay" onclick={handleOverlayClick}>
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div class="palette-overlay" role="button" tabindex="-1" onclick={handleOverlayClick} onkeydown={(e) => { if (e.key === 'Escape') handleOverlayClick(); }}>
     <div class="palette" role="dialog" aria-label="File search" aria-modal="true">
       <div class="palette-input-row">
         <span class="palette-icon">&#128269;</span>
@@ -180,13 +177,13 @@
       {#if matches.length > 0}
         <ul class="palette-list" role="listbox">
           {#each matches as path, i}
-            <!-- svelte-ignore a11y_click_events_have_key_events -->
             <li
               class="palette-item"
               class:selected={i === selectedIndex}
               role="option"
               aria-selected={i === selectedIndex}
               onclick={() => openFile(path)}
+              onkeydown={(e) => { if (e.key === 'Enter') openFile(path); }}
             >
               <span class="item-name">{path.split('/').pop()}</span>
               <span class="item-dir">{displayPath(path).split('/').slice(0, -1).join('/')}</span>

@@ -70,6 +70,7 @@
   "settings.fontSize": "字号",
   "toast.llmFound": "发现 LLM",
   "toast.detected": "已检测：{names}",
+  "diff.changes": "更改：{file}",
   "diff.accept": "接受",
   "diff.reject": "拒绝",
   "contextMenu.explain": "解释此代码",
