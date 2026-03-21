@@ -37,6 +37,7 @@
     "codemirror": "^6.0.2",
     "highlight.js": "^11.11.1",
     "marked": "^17.0.5",
-    "marked-highlight": "^2.2.3"
+    "marked-highlight": "^2.2.3",
+    "smol-toml": "^1.6.0"
   }
 }

@@ -5,10 +5,14 @@
   import Editor from '$lib/components/Editor.svelte';
   import DiffView from '$lib/components/DiffView.svelte';
   import TerminalManager from '$lib/components/TerminalManager.svelte';
+  import Settings from '$lib/components/Settings.svelte';
   import { TauriAdapter } from '$lib/adapter/tauri';
-  import { initTheme } from '$lib/stores/theme';
+  import { initTheme, themeMode } from '$lib/stores/theme';
   import { openFiles, activeFilePath } from '$lib/stores/files';
+  import { llmConfigs, appSettings } from '$lib/stores/config';
+  import { showSettings, fontFamily, fontSize } from '$lib/stores/ui';
   import { onMount, onDestroy } from 'svelte';
+  import { parse } from 'smol-toml';
   import '../app.css';
 
   interface DiffState {
@@ -40,8 +44,51 @@
     }
   });
 
+  async function loadInitialConfig() {
+    try {
+      const raw = await adapter.readConfig();
+      if (!raw || !raw.trim()) return;
+
+      const parsed = parse(raw) as {
+        settings?: { default?: string; context_menu_llm?: string };
+        llm?: Array<Record<string, unknown>>;
+      };
+
+      const rawLlms = parsed.llm ?? [];
+      llmConfigs.set(
+        rawLlms.map((l) => ({
+          name: String(l.name ?? ''),
+          type: (l.type === 'api' ? 'api' : 'cli') as 'cli' | 'api',
+          command: l.command !== undefined ? String(l.command) : undefined,
+          args: Array.isArray(l.args) ? l.args.map(String) : [],
+          yoloFlag: l.yolo_flag !== undefined ? String(l.yolo_flag) : undefined,
+          imageMode: (['path', 'base64', 'none'].includes(String(l.image_mode))
+            ? l.image_mode
+            : 'path') as 'path' | 'base64' | 'none',
+          provider: l.provider !== undefined ? String(l.provider) : undefined,
+          apiKeyEnv: l.api_key_env !== undefined ? String(l.api_key_env) : undefined,
+          model: l.model !== undefined ? String(l.model) : undefined,
+          endpoint: l.endpoint !== undefined ? String(l.endpoint) : undefined,
+        }))
+      );
+
+      const s = parsed.settings ?? {};
+      appSettings.set({
+        default: s.default !== undefined ? String(s.default) : undefined,
+        contextMenuLlm:
+          s.context_menu_llm !== undefined ? String(s.context_menu_llm) : undefined,
+      });
+
+      // Apply persisted app settings from config if present
+      // (font family/size and theme are managed by stores; no TOML fields for them yet)
+    } catch {
+      // Config load failures are non-fatal — continue with defaults
+    }
+  }
+
   onMount(async () => {
     initTheme();
+    await loadInitialConfig();
 
     // Start watching the project directory for external changes
     const { get } = await import('svelte/store');
@@ -142,3 +189,9 @@
     <TerminalManager {adapter} />
   {/snippet}
 </App>
+
+<Settings
+  {adapter}
+  visible={$showSettings}
+  onClose={() => showSettings.set(false)}
+/>
