@@ -19,6 +19,7 @@
   let activeTab = $state<string | null>(null);
   let activeInstance = $state<string | null>(null);
   let showSwarmTab = $state(false);
+  let showLLMDropdown = $state(false);
 
   const unsubConfigs = llmConfigs.subscribe((val) => {
     configs = val.filter((c) => c.type === 'cli' && c.command);
@@ -140,11 +141,6 @@
     activeTabInstances.find((i) => i.id === activeInstance)
   );
 
-  function generateBar(percent: number): string {
-    const filled = Math.round(percent / 12.5);
-    const empty = 8 - filled;
-    return '\u2588'.repeat(filled) + '\u2591'.repeat(empty);
-  }
 </script>
 
 <div class="terminal-manager">
@@ -160,14 +156,26 @@
       </button>
     {/each}
 
-    <!-- Add LLM buttons for unconfigured CLIs -->
-    {#each configs as config (config.name)}
-      {#if !tabs.find((t) => t.llmName === config.name)}
-        <button class="llm-tab add-llm" onclick={() => addInstance(config.name)}>
-          + {config.name}
-        </button>
+    <!-- Add LLM dropdown -->
+    <div class="llm-add-wrapper">
+      <button class="llm-tab add-btn" onclick={() => showLLMDropdown = !showLLMDropdown}>+</button>
+      {#if showLLMDropdown}
+        <div class="llm-dropdown" role="menu">
+          {#each configs as config (config.name)}
+            <button
+              class="llm-dropdown-item"
+              role="menuitem"
+              onclick={() => { addInstance(config.name); showLLMDropdown = false; }}
+            >
+              {config.name}
+            </button>
+          {/each}
+          {#if configs.length === 0}
+            <span class="llm-dropdown-empty">{$tr('terminal.configHint')}</span>
+          {/if}
+        </div>
       {/if}
-    {/each}
+    </div>
 
     <button
       class="llm-tab"
@@ -251,18 +259,6 @@
                 <Terminal {adapter} ptyId={inst.id} />
               {/snippet}
             </ImageDrop>
-            {#if inst.contextPercent != null || inst.tokenCount}
-              <div class="ctx-footer">
-                {#if inst.contextPercent != null}
-                  <span class="ctx-bar" title="Context window usage">
-                    ctx {generateBar(inst.contextPercent)} {inst.contextPercent}%
-                  </span>
-                {/if}
-                {#if inst.tokenCount}
-                  <span class="token-count">{inst.tokenCount} tokens</span>
-                {/if}
-              </div>
-            {/if}
           </div>
         {/each}
       {/each}
@@ -317,17 +313,49 @@
     background: var(--bg-secondary);
   }
 
-  .llm-tab.add-llm {
-    color: var(--text-muted);
-    border: var(--border-width) dashed var(--border);
-    border-bottom: 2px solid transparent;
-    background: transparent;
-    margin: 2px 4px;
+  .llm-add-wrapper {
+    position: relative;
   }
 
-  .llm-tab.add-llm:hover {
-    color: var(--accent);
-    border-color: var(--accent);
+  .add-btn {
+    font-size: 16px;
+    font-weight: 700;
+    padding: 8px 14px;
+  }
+
+  .llm-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 100;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    min-width: 160px;
+    padding: 4px 0;
+  }
+
+  .llm-dropdown-item {
+    display: block;
+    width: 100%;
+    padding: 6px 14px;
+    text-align: left;
+    background: transparent;
+    border: none;
+    color: var(--text-body);
+    font-family: var(--font-ui);
+    font-size: var(--font-size-small);
+    cursor: pointer;
+  }
+
+  .llm-dropdown-item:hover {
+    background: var(--bg-hover);
+  }
+
+  .llm-dropdown-empty {
+    display: block;
+    padding: 6px 14px;
+    color: var(--text-muted);
+    font-size: var(--font-size-small);
   }
 
   .instance-tabs {
@@ -398,27 +426,6 @@
     position: absolute;
     inset: 0;
     flex-direction: column;
-  }
-
-  .ctx-footer {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    padding: 2px 8px;
-    background: var(--bg-secondary);
-    border-top: 1px solid var(--border);
-    font-family: var(--font-mono);
-    font-size: var(--font-size-tiny);
-    color: var(--text-muted);
-    flex-shrink: 0;
-  }
-
-  .ctx-bar {
-    letter-spacing: 0.05em;
-  }
-
-  .token-count {
-    margin-left: auto;
   }
 
   .empty-state {

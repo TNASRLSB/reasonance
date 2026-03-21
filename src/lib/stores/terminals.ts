@@ -7,6 +7,9 @@ export interface TerminalInstance {
   contextPercent?: number;
   tokenCount?: string;
   activeMode?: string;
+  modelName?: string;
+  messagesLeft?: number;
+  resetTimer?: string;
 }
 
 export interface TerminalTab {

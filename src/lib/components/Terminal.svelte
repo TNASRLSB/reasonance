@@ -64,13 +64,22 @@
       adapter.resizePty(ptyId, cols, rows);
     });
 
-    // Parse context/token data from LLM CLI output
-    // Claude Code outputs patterns like: "ctx ████░░░░ 42%" and "38.2k tokens"
-    function parseContextToken(data: string) {
-      const ctxMatch = data.match(/(?:ctx|context)[^\d]*?(\d{1,3})%/i);
-      const tokenMatch = data.match(/([\d.]+[km]?)\s*tokens/i);
+    // Strip ANSI escape sequences from terminal output
+    function stripAnsi(str: string): string {
+      return str.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '');
+    }
 
-      if (ctxMatch || tokenMatch) {
+    // Parse context/token/model/messages/reset data from LLM CLI output
+    function parseContextToken(data: string) {
+      const clean = stripAnsi(data);
+
+      const ctxMatch = clean.match(/(?:ctx|context)[^\d]*?(\d{1,3})%/i);
+      const tokenMatch = clean.match(/([\d.]+[km]?)\s*tokens/i);
+      const modelMatch = clean.match(/model:\s*([\w-]+)/i);
+      const msgMatch = clean.match(/(?:messages?\s*left|remaining):\s*(\d+)/i);
+      const resetMatch = clean.match(/(?:reset(?:s)?\s*in|resets?\s*in):\s*([\dhm\s]+)/i);
+
+      if (ctxMatch || tokenMatch || modelMatch || msgMatch || resetMatch) {
         terminalTabs.update(tabs => tabs.map(tab => ({
           ...tab,
           instances: tab.instances.map(inst => {
@@ -79,6 +88,9 @@
               ...inst,
               ...(ctxMatch ? { contextPercent: parseInt(ctxMatch[1], 10) } : {}),
               ...(tokenMatch ? { tokenCount: tokenMatch[1] } : {}),
+              ...(modelMatch ? { modelName: modelMatch[1] } : {}),
+              ...(msgMatch ? { messagesLeft: parseInt(msgMatch[1], 10) } : {}),
+              ...(resetMatch ? { resetTimer: resetMatch[1].trim() } : {}),
             };
           })
         })));
