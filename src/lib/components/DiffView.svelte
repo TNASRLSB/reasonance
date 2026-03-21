@@ -54,13 +54,27 @@
     });
   }
 
-  onMount(() => {
+  function rebuildMergeView() {
     if (!container) return;
+    if (mergeView) {
+      mergeView.destroy();
+      mergeView = null;
+    }
     mergeView = new MergeView({
       a: buildEditorState(original),
       b: buildEditorState(modified),
       parent: container,
     });
+  }
+
+  onMount(() => {
+    rebuildMergeView();
+  });
+
+  // Rebuild on theme change
+  $effect(() => {
+    const _dark = currentIsDark;
+    if (mergeView) rebuildMergeView();
   });
 
   onDestroy(() => {

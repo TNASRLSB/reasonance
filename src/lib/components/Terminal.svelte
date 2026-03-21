@@ -7,6 +7,7 @@
   import type { Adapter } from '$lib/adapter/index';
   import { terminalTabs } from '$lib/stores/terminals';
   import { enhancedReadability } from '$lib/stores/ui';
+  import { get } from 'svelte/store';
   import { isDark } from '$lib/stores/theme';
 
   const darkXtermTheme = {
@@ -42,7 +43,7 @@
       fontSize: 12,
       lineHeight: 1.3,
       cursorBlink: true,
-      theme: darkXtermTheme,
+      theme: get(isDark) ? darkXtermTheme : lightXtermTheme,
       allowProposedApi: true,
     });
 
