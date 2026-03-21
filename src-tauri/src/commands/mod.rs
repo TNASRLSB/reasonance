@@ -5,3 +5,4 @@ pub mod pty;
 pub mod shadow;
 pub mod system;
 pub mod workflow;
+pub mod agent;
