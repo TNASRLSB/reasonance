@@ -44,7 +44,9 @@
       {/if}
     </div>
 
-    <div class="divider" onmousedown={() => (draggingLeft = true)} role="separator"></div>
+    <div class="divider" onmousedown={() => (draggingLeft = true)} role="separator" aria-label="Resize file tree">
+      <span class="divider-handle" aria-hidden="true">···</span>
+    </div>
 
     <div class="panel editor">
       {#if editor}
@@ -54,7 +56,9 @@
       {/if}
     </div>
 
-    <div class="divider" onmousedown={() => (draggingRight = true)} role="separator"></div>
+    <div class="divider" onmousedown={() => (draggingRight = true)} role="separator" aria-label="Resize terminal">
+      <span class="divider-handle" aria-hidden="true">···</span>
+    </div>
 
     <div class="panel terminal" style="width: {$terminalWidth}px">
       {#if terminal}
@@ -95,7 +99,7 @@
   .panel.file-tree {
     flex-shrink: 0;
     background: var(--bg-secondary);
-    border-right: 1px solid var(--border);
+    border-right: var(--border-width) solid var(--border);
   }
 
   .panel.editor {
@@ -106,27 +110,53 @@
   .panel.terminal {
     flex-shrink: 0;
     background: var(--bg-secondary);
-    border-left: 1px solid var(--border);
+    border-left: var(--border-width) solid var(--border);
   }
 
   .divider {
-    width: 4px;
+    width: 6px;
     background: var(--border);
     cursor: col-resize;
     flex-shrink: 0;
     transition: background 0.15s;
     position: relative;
     z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .divider::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: -3px;
+    right: -3px;
+    z-index: 11;
   }
 
   .divider:hover {
     background: var(--accent);
   }
 
+  .divider-handle {
+    writing-mode: vertical-lr;
+    font-size: 8px;
+    color: var(--text-muted);
+    pointer-events: none;
+    user-select: none;
+    letter-spacing: 2px;
+  }
+
+  .divider:hover .divider-handle {
+    color: #fff;
+  }
+
   .placeholder {
     color: var(--text-secondary);
-    font-size: 12px;
-    padding: 16px;
+    font-size: var(--font-size-small);
+    padding: var(--panel-padding);
     text-align: center;
     margin-top: auto;
     margin-bottom: auto;
