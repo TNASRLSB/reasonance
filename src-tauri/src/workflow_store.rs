@@ -216,3 +216,170 @@ impl WorkflowStore {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sample_workflow() -> Workflow {
+        Workflow {
+            name: "Test Workflow".to_string(),
+            version: "1.0".to_string(),
+            description: Some("A test workflow".to_string()),
+            created: Some("2026-03-21".to_string()),
+            modified: Some("2026-03-21".to_string()),
+            nodes: vec![
+                WorkflowNode {
+                    id: "agent-1".to_string(),
+                    node_type: NodeType::Agent,
+                    label: "Writer".to_string(),
+                    config: serde_json::json!({"llm": "claude"}),
+                    position: Position { x: 100.0, y: 100.0 },
+                },
+                WorkflowNode {
+                    id: "resource-1".to_string(),
+                    node_type: NodeType::Resource,
+                    label: "Codebase".to_string(),
+                    config: serde_json::json!({"kind": "folder", "path": "/src"}),
+                    position: Position { x: 300.0, y: 100.0 },
+                },
+            ],
+            edges: vec![
+                WorkflowEdge {
+                    id: "e1".to_string(),
+                    from: "resource-1".to_string(),
+                    to: "agent-1".to_string(),
+                    label: None,
+                },
+            ],
+            settings: WorkflowSettings::default(),
+        }
+    }
+
+    #[test]
+    fn test_create_empty() {
+        let wf = WorkflowStore::create_empty("My Swarm");
+        assert_eq!(wf.name, "My Swarm");
+        assert_eq!(wf.version, "1.0");
+        assert!(wf.nodes.is_empty());
+        assert!(wf.edges.is_empty());
+        assert!(wf.created.is_some());
+        assert_eq!(wf.settings.max_concurrent_agents, 5);
+    }
+
+    #[test]
+    fn test_save_and_load() {
+        let store = WorkflowStore::new();
+        let wf = sample_workflow();
+        let dir = std::env::temp_dir().join("reasonance_test_wf");
+        let _ = std::fs::create_dir_all(&dir);
+        let path = dir.join("test.json");
+        let path_str = path.to_str().unwrap();
+
+        store.save(path_str, &wf).unwrap();
+        let loaded = store.load(path_str).unwrap();
+        assert_eq!(loaded.name, "Test Workflow");
+        assert_eq!(loaded.nodes.len(), 2);
+        assert_eq!(loaded.edges.len(), 1);
+
+        // Cleanup
+        let _ = std::fs::remove_file(&path);
+        let _ = std::fs::remove_dir(&dir);
+    }
+
+    #[test]
+    fn test_delete() {
+        let store = WorkflowStore::new();
+        let wf = WorkflowStore::create_empty("Delete Me");
+        let dir = std::env::temp_dir().join("reasonance_test_del");
+        let _ = std::fs::create_dir_all(&dir);
+        let path = dir.join("delete_me.json");
+        let path_str = path.to_str().unwrap();
+
+        store.save(path_str, &wf).unwrap();
+        assert!(path.exists());
+        store.delete(path_str).unwrap();
+        assert!(!path.exists());
+
+        let _ = std::fs::remove_dir(&dir);
+    }
+
+    #[test]
+    fn test_list_workflows() {
+        let dir = std::env::temp_dir().join("reasonance_test_list");
+        let _ = std::fs::create_dir_all(&dir);
+        std::fs::write(dir.join("a.json"), "{}").unwrap();
+        std::fs::write(dir.join("b.json"), "{}").unwrap();
+        std::fs::write(dir.join("c.txt"), "not json").unwrap();
+
+        let list = WorkflowStore::list_workflows(dir.to_str().unwrap()).unwrap();
+        assert_eq!(list.len(), 2);
+        assert!(list.iter().any(|p| p.ends_with("a.json")));
+        assert!(list.iter().any(|p| p.ends_with("b.json")));
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_get_cached() {
+        let store = WorkflowStore::new();
+        let wf = sample_workflow();
+        let dir = std::env::temp_dir().join("reasonance_test_cache");
+        let _ = std::fs::create_dir_all(&dir);
+        let path = dir.join("cached.json");
+        let path_str = path.to_str().unwrap();
+
+        store.save(path_str, &wf).unwrap();
+        let cached = store.get(path_str);
+        assert!(cached.is_some());
+        assert_eq!(cached.unwrap().name, "Test Workflow");
+
+        let _ = std::fs::remove_file(&path);
+        let _ = std::fs::remove_dir(&dir);
+    }
+
+    #[test]
+    fn test_load_invalid_json() {
+        let store = WorkflowStore::new();
+        let dir = std::env::temp_dir().join("reasonance_test_invalid");
+        let _ = std::fs::create_dir_all(&dir);
+        let path = dir.join("invalid.json");
+        std::fs::write(&path, "not valid json").unwrap();
+
+        let result = store.load(path.to_str().unwrap());
+        assert!(result.is_err());
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_serialization_roundtrip() {
+        let wf = sample_workflow();
+        let json = serde_json::to_string(&wf).unwrap();
+        let deserialized: Workflow = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.name, wf.name);
+        assert_eq!(deserialized.nodes.len(), wf.nodes.len());
+        assert_eq!(deserialized.edges.len(), wf.edges.len());
+    }
+
+    #[test]
+    fn test_default_settings() {
+        let settings = WorkflowSettings::default();
+        assert_eq!(settings.max_concurrent_agents, 5);
+        assert_eq!(settings.default_retry, 2);
+        assert_eq!(settings.timeout, 300);
+    }
+
+    #[test]
+    fn test_global_dir() {
+        let dir = WorkflowStore::global_dir();
+        assert!(dir.to_str().unwrap().contains("reasonance"));
+        assert!(dir.to_str().unwrap().contains("workflows"));
+    }
+
+    #[test]
+    fn test_project_dir() {
+        let dir = WorkflowStore::project_dir("/my/project");
+        assert_eq!(dir, std::path::PathBuf::from("/my/project/.reasonance/workflows"));
+    }
+}
