@@ -8,9 +8,10 @@
   import Settings from '$lib/components/Settings.svelte';
   import SearchPalette from '$lib/components/SearchPalette.svelte';
   import FindInFiles from '$lib/components/FindInFiles.svelte';
+  import WelcomeScreen from '$lib/components/WelcomeScreen.svelte';
   import { TauriAdapter } from '$lib/adapter/tauri';
   import { initTheme, themeMode } from '$lib/stores/theme';
-  import { openFiles, activeFilePath, addOpenFile } from '$lib/stores/files';
+  import { openFiles, activeFilePath, addOpenFile, projectRoot, recentProjects, addRecentProject } from '$lib/stores/files';
   import { llmConfigs, appSettings } from '$lib/stores/config';
   import { showSettings, fontFamily, fontSize, enhancedReadability } from '$lib/stores/ui';
   import { terminalTabs } from '$lib/stores/terminals';
@@ -25,6 +26,7 @@
   import { invoke } from '@tauri-apps/api/core';
   import { load } from '@tauri-apps/plugin-store';
   import { getCurrentWindow } from '@tauri-apps/api/window';
+  import { open } from '@tauri-apps/plugin-dialog';
   import '../app.css';
 
   interface DiffState {
@@ -40,12 +42,73 @@
   let unwatchFiles: (() => void) | null = null;
   let showSearchPalette = $state(false);
   let showFindInFiles = $state(false);
+  let showWelcome = $state(true);
   let swarmVisible = $state(false);
   const unsubSwarm = showSwarmCanvas.subscribe((val) => { swarmVisible = val; });
   let unsubEnhanced: () => void;
 
+  // Reactive projectRoot for passing as cwd
+  let currentProjectRoot = $state('.');
+  const unsubRoot = projectRoot.subscribe((v) => { currentProjectRoot = v || '.'; });
+
+  // Cleanup array for event listeners
+  const cleanups: Array<() => void> = [];
+
+  // ── Open Folder / Switch Project ─────────────────────────────────────────
+
+  async function openFolder() {
+    const selected = await open({ directory: true, multiple: false });
+    if (selected) {
+      await switchProject(typeof selected === 'string' ? selected : selected[0]);
+    }
+  }
+
+  async function switchProject(path: string) {
+    openFiles.set([]);
+    activeFilePath.set(null);
+    projectRoot.set(path);
+    addRecentProject(path);
+    showWelcome = false;
+
+    // Restart file watcher for new directory
+    if (unwatchFiles) unwatchFiles();
+    unwatchFiles = await adapter.watchFiles(path, async (event) => {
+      const { get } = await import('svelte/store');
+      const currentFiles = get(openFiles);
+      const openFile = currentFiles.find((f) => f.path === event.path);
+      if (!openFile) return;
+
+      if (event.type === 'remove') {
+        openFiles.update((all) =>
+          all.map((f) => (f.path === event.path ? { ...f, isDeleted: true } : f))
+        );
+        showToast('warning', 'File deleted', event.path.split('/').pop() ?? event.path);
+        return;
+      }
+
+      if (event.type === 'modify') {
+        if (diffState && diffState.path === event.path) return;
+        try {
+          const [newContent, shadow] = await Promise.all([
+            adapter.readFile(event.path),
+            adapter.getShadow(event.path),
+          ]);
+          if (shadow === null) return;
+          if (newContent === shadow) return;
+          diffState = {
+            path: event.path,
+            original: shadow,
+            modified: newContent,
+            filename: event.path.split('/').pop() ?? event.path,
+          };
+          activeFilePath.set(event.path);
+        } catch { /* non-fatal */ }
+      }
+    });
+  }
+
   // ── Session persistence ──────────────────────────────────────────────────
-  // Saved as: openFiles[], activeFile, theme, fontFamily, fontSize, terminalTabs[]
+  // Saved as: openFiles[], activeFile, theme, fontFamily, fontSize, terminalTabs[], projectRoot, recentProjects
 
   async function saveSession() {
     try {
@@ -59,6 +122,8 @@
       await store.set('fontFamily', get(fontFamily));
       await store.set('fontSize', get(fontSize));
       await store.set('enhancedReadability', get(enhancedReadability));
+      await store.set('projectRoot', get(projectRoot));
+      await store.set('recentProjects', get(recentProjects));
 
       const currentLocale = get(locale);
       await store.set('locale', currentLocale);
@@ -104,6 +169,16 @@
         await loadLocale(savedLocale as any);
         locale.set(savedLocale as any);
       }
+
+      // Restore project root and recent projects
+      const savedRoot = await store.get<string>('projectRoot');
+      if (savedRoot) {
+        projectRoot.set(savedRoot);
+        showWelcome = false;
+      }
+
+      const savedRecent = await store.get<string[]>('recentProjects');
+      if (savedRecent) recentProjects.set(savedRecent);
 
       // Restore open files
       const savedPaths = await store.get<string[]>('openFiles');
@@ -261,9 +336,15 @@
     registerKeybinding('ctrl+,', () => showSettings.set(true));
     initKeybindings();
 
+    // Listen for openFolder custom event from MenuBar
+    const handleOpenFolder = () => openFolder();
+    window.addEventListener('reasonance:openFolder', handleOpenFolder);
+    cleanups.push(() => window.removeEventListener('reasonance:openFolder', handleOpenFolder));
+
     // Start watching the project directory for external changes
     const { get } = await import('svelte/store');
-    unwatchFiles = await adapter.watchFiles('.', async (event) => {
+    const root = get(projectRoot) || '.';
+    unwatchFiles = await adapter.watchFiles(root, async (event) => {
       const currentFiles = get(openFiles);
       const openFile = currentFiles.find((f) => f.path === event.path);
 
@@ -311,6 +392,8 @@
     unsubFiles();
     unsubEnhanced();
     unsubSwarm();
+    unsubRoot();
+    cleanups.forEach((fn) => fn());
     if (unwatchFiles) unwatchFiles();
   });
 
@@ -337,32 +420,36 @@
   }
 </script>
 
-<App {adapter}>
-  {#snippet fileTree()}
-    <FileTree {adapter} />
-  {/snippet}
+{#if showWelcome}
+  <WelcomeScreen onOpenFolder={openFolder} onSelectProject={switchProject} />
+{:else}
+  <App {adapter}>
+    {#snippet fileTree()}
+      <FileTree {adapter} />
+    {/snippet}
 
-  {#snippet editor()}
-    <EditorTabs />
-    {#if diffState}
-      <DiffView
-        original={diffState.original}
-        modified={diffState.modified}
-        filename={diffState.filename}
-        {adapter}
-        filePath={diffState.path}
-        onAccept={handleAccept}
-        onReject={handleReject}
-      />
-    {:else}
-      <Editor {adapter} />
-    {/if}
-  {/snippet}
+    {#snippet editor()}
+      <EditorTabs />
+      {#if diffState}
+        <DiffView
+          original={diffState.original}
+          modified={diffState.modified}
+          filename={diffState.filename}
+          {adapter}
+          filePath={diffState.path}
+          onAccept={handleAccept}
+          onReject={handleReject}
+        />
+      {:else}
+        <Editor {adapter} />
+      {/if}
+    {/snippet}
 
-  {#snippet terminal()}
-    <TerminalManager {adapter} />
-  {/snippet}
-</App>
+    {#snippet terminal()}
+      <TerminalManager {adapter} cwd={currentProjectRoot} />
+    {/snippet}
+  </App>
+{/if}
 
 <Settings
   {adapter}

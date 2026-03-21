@@ -11,6 +11,14 @@ export interface OpenFile {
 export const openFiles = writable<OpenFile[]>([]);
 export const activeFilePath = writable<string | null>(null);
 export const projectRoot = writable<string>('');
+export const recentProjects = writable<string[]>([]);
+
+export function addRecentProject(path: string) {
+  recentProjects.update((list) => {
+    const filtered = list.filter((p) => p !== path);
+    return [path, ...filtered].slice(0, 10);
+  });
+}
 
 export function addOpenFile(file: OpenFile) {
   openFiles.update((files) => {
