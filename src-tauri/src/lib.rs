@@ -1,5 +1,6 @@
 mod commands;
 mod config;
+mod discovery;
 mod fs_watcher;
 mod pty_manager;
 mod shadow_store;
@@ -16,6 +17,7 @@ pub fn run() {
         .manage(PtyManager::new())
         .manage(ShadowStore::new())
         .manage(FsWatcherState::new())
+        .manage(discovery::DiscoveryEngine::new())
         .invoke_handler(tauri::generate_handler![
             commands::fs::read_file,
             commands::fs::write_file,
@@ -34,6 +36,8 @@ pub fn run() {
             commands::shadow::get_shadow,
             commands::config::read_config,
             commands::config::write_config,
+            commands::discovery::discover_agents,
+            commands::discovery::get_discovered_agents,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
