@@ -52,10 +52,11 @@
     flex-direction: row;
     overflow-x: auto;
     background: var(--bg-secondary);
-    border-bottom: 1px solid var(--border);
-    min-height: 32px;
+    border-bottom: var(--border-width) solid var(--border);
+    min-height: 36px;
     flex-shrink: 0;
     scrollbar-width: thin;
+    font-family: var(--font-ui);
   }
 
   .editor-tabs::-webkit-scrollbar {
@@ -64,7 +65,6 @@
 
   .editor-tabs::-webkit-scrollbar-thumb {
     background: var(--border);
-    border-radius: 2px;
   }
 
   .tab {
@@ -82,6 +82,7 @@
     transition: background 0.1s, color 0.1s;
     white-space: nowrap;
     flex-shrink: 0;
+    border-bottom: 2px solid transparent;
   }
 
   .tab:hover {
@@ -92,7 +93,8 @@
   .tab.active {
     background: var(--bg-primary);
     color: var(--text-primary);
-    border-top: 2px solid var(--accent);
+    border-top: none;
+    border-bottom: 2px solid var(--accent);
   }
 
   .tab.deleted .tab-name {
@@ -116,13 +118,12 @@
     font-size: 14px;
     line-height: 1;
     padding: 0 2px;
-    border-radius: 3px;
+    border-radius: var(--radius);
     flex-shrink: 0;
-    transition: color 0.1s, background 0.1s;
+    transition: color 0.1s;
   }
 
   .tab-close:hover {
-    color: var(--text-primary);
-    background: rgba(255, 255, 255, 0.1);
+    color: var(--danger);
   }
 </style>
