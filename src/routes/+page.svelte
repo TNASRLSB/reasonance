@@ -6,11 +6,14 @@
   import DiffView from '$lib/components/DiffView.svelte';
   import TerminalManager from '$lib/components/TerminalManager.svelte';
   import Settings from '$lib/components/Settings.svelte';
+  import SearchPalette from '$lib/components/SearchPalette.svelte';
+  import FindInFiles from '$lib/components/FindInFiles.svelte';
   import { TauriAdapter } from '$lib/adapter/tauri';
   import { initTheme, themeMode } from '$lib/stores/theme';
   import { openFiles, activeFilePath } from '$lib/stores/files';
   import { llmConfigs, appSettings } from '$lib/stores/config';
   import { showSettings, fontFamily, fontSize } from '$lib/stores/ui';
+  import { registerKeybinding, initKeybindings } from '$lib/utils/keybindings';
   import { onMount, onDestroy } from 'svelte';
   import { parse } from 'smol-toml';
   import '../app.css';
@@ -26,6 +29,8 @@
 
   let diffState = $state<DiffState | null>(null);
   let unwatchFiles: (() => void) | null = null;
+  let showSearchPalette = $state(false);
+  let showFindInFiles = $state(false);
 
   // Track known open file paths so we can store shadows when new files are opened
   let knownPaths = new Set<string>();
@@ -89,6 +94,12 @@
   onMount(async () => {
     initTheme();
     await loadInitialConfig();
+
+    // Register global keyboard shortcuts
+    registerKeybinding('ctrl+p', () => { showSearchPalette = true; });
+    registerKeybinding('ctrl+shift+f', () => { showFindInFiles = true; });
+    registerKeybinding('ctrl+,', () => showSettings.set(true));
+    initKeybindings();
 
     // Start watching the project directory for external changes
     const { get } = await import('svelte/store');
@@ -194,4 +205,16 @@
   {adapter}
   visible={$showSettings}
   onClose={() => showSettings.set(false)}
+/>
+
+<SearchPalette
+  {adapter}
+  visible={showSearchPalette}
+  onClose={() => (showSearchPalette = false)}
+/>
+
+<FindInFiles
+  {adapter}
+  visible={showFindInFiles}
+  onClose={() => (showFindInFiles = false)}
 />

@@ -1,0 +1,314 @@
+<script lang="ts">
+  import { get } from 'svelte/store';
+  import type { Adapter, FileEntry } from '$lib/adapter/index';
+  import { addOpenFile, projectRoot } from '$lib/stores/files';
+
+  let {
+    adapter,
+    visible,
+    onClose,
+  }: {
+    adapter: Adapter;
+    visible: boolean;
+    onClose: () => void;
+  } = $props();
+
+  let query = $state('');
+  let allFiles = $state<string[]>([]);
+  let matches = $state<string[]>([]);
+  let selectedIndex = $state(0);
+  let loading = $state(false);
+  let inputEl = $state<HTMLInputElement | null>(null);
+
+  // Build flat file list by recursively listing directories
+  async function buildFileList(dirPath: string): Promise<string[]> {
+    let result: string[] = [];
+    try {
+      const entries: FileEntry[] = await adapter.listDir(dirPath, true);
+      for (const entry of entries) {
+        if (entry.isDir) {
+          const children = await buildFileList(entry.path);
+          result = result.concat(children);
+        } else {
+          result.push(entry.path);
+        }
+      }
+    } catch {
+      // Skip unreadable dirs
+    }
+    return result;
+  }
+
+  $effect(() => {
+    if (visible) {
+      loadFiles();
+    } else {
+      query = '';
+      matches = [];
+      selectedIndex = 0;
+    }
+  });
+
+  $effect(() => {
+    if (visible && inputEl) {
+      inputEl.focus();
+    }
+  });
+
+  async function loadFiles() {
+    if (allFiles.length > 0) {
+      applyFilter();
+      return;
+    }
+    loading = true;
+    const root = get(projectRoot) || '.';
+    allFiles = await buildFileList(root);
+    loading = false;
+    applyFilter();
+  }
+
+  function fuzzyScore(path: string, q: string): number {
+    const lower = path.toLowerCase();
+    const name = path.split('/').pop()?.toLowerCase() ?? lower;
+    if (q === '') return 0;
+    // Starts-with on filename gets highest score
+    if (name.startsWith(q)) return 3;
+    // Contains on filename
+    if (name.includes(q)) return 2;
+    // Contains on full path
+    if (lower.includes(q)) return 1;
+    // Fuzzy: all chars appear in order
+    let idx = 0;
+    for (const ch of q) {
+      const found = lower.indexOf(ch, idx);
+      if (found === -1) return -1;
+      idx = found + 1;
+    }
+    return 0;
+  }
+
+  function applyFilter() {
+    const q = query.toLowerCase().trim();
+    if (!q) {
+      matches = allFiles.slice(0, 20);
+      selectedIndex = 0;
+      return;
+    }
+    const scored = allFiles
+      .map((f) => ({ f, score: fuzzyScore(f, q) }))
+      .filter((x) => x.score >= 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 20)
+      .map((x) => x.f);
+    matches = scored;
+    selectedIndex = 0;
+  }
+
+  $effect(() => {
+    // Re-run filter whenever query changes
+    query;
+    applyFilter();
+  });
+
+  async function openFile(path: string) {
+    try {
+      const content = await adapter.readFile(path);
+      const name = path.split('/').pop() ?? path;
+      addOpenFile({ path, name, content, isDirty: false, isDeleted: false });
+    } catch {
+      // Skip unreadable files
+    }
+    onClose();
+  }
+
+  function handleKeydown(e: KeyboardEvent) {
+    if (e.key === 'Escape') {
+      onClose();
+      return;
+    }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      selectedIndex = Math.min(selectedIndex + 1, matches.length - 1);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      selectedIndex = Math.max(selectedIndex - 1, 0);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (matches[selectedIndex]) openFile(matches[selectedIndex]);
+    }
+  }
+
+  function handleOverlayClick(e: MouseEvent) {
+    if ((e.target as HTMLElement).classList.contains('palette-overlay')) onClose();
+  }
+
+  function displayPath(path: string): string {
+    // Show relative path if possible
+    const root = get(projectRoot) || '.';
+    if (path.startsWith(root + '/')) return path.slice(root.length + 1);
+    if (path.startsWith('./')) return path.slice(2);
+    return path;
+  }
+</script>
+
+{#if visible}
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div class="palette-overlay" onclick={handleOverlayClick}>
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="palette" role="dialog" aria-label="File search" aria-modal="true">
+      <div class="palette-input-row">
+        <span class="palette-icon">&#128269;</span>
+        <input
+          bind:this={inputEl}
+          bind:value={query}
+          onkeydown={handleKeydown}
+          type="text"
+          placeholder="Go to file…"
+          class="palette-input"
+          aria-label="Search files"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        {#if loading}
+          <span class="palette-hint">Loading…</span>
+        {:else}
+          <span class="palette-hint">ESC to close</span>
+        {/if}
+      </div>
+
+      {#if matches.length > 0}
+        <ul class="palette-list" role="listbox">
+          {#each matches as path, i}
+            <!-- svelte-ignore a11y_click_events_have_key_events -->
+            <li
+              class="palette-item"
+              class:selected={i === selectedIndex}
+              role="option"
+              aria-selected={i === selectedIndex}
+              onclick={() => openFile(path)}
+            >
+              <span class="item-name">{path.split('/').pop()}</span>
+              <span class="item-dir">{displayPath(path).split('/').slice(0, -1).join('/')}</span>
+            </li>
+          {/each}
+        </ul>
+      {:else if !loading && query.trim()}
+        <p class="palette-empty">No files match "{query}"</p>
+      {:else if !loading}
+        <p class="palette-empty">Type to search files in the project</p>
+      {/if}
+    </div>
+  </div>
+{/if}
+
+<style>
+  .palette-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 2000;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 80px;
+  }
+
+  .palette {
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    width: 580px;
+    max-width: 95vw;
+    max-height: 60vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  }
+
+  .palette-input-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .palette-icon {
+    font-size: 14px;
+    opacity: 0.6;
+  }
+
+  .palette-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text-primary);
+    font-size: 14px;
+    font-family: inherit;
+  }
+
+  .palette-input::placeholder {
+    color: var(--text-secondary);
+  }
+
+  .palette-hint {
+    font-size: 11px;
+    color: var(--text-secondary);
+    flex-shrink: 0;
+  }
+
+  .palette-list {
+    list-style: none;
+    margin: 0;
+    padding: 4px 0;
+    overflow-y: auto;
+    flex: 1;
+  }
+
+  .palette-item {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 6px 14px;
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+
+  .palette-item:hover,
+  .palette-item.selected {
+    background: var(--accent);
+    color: #fff;
+  }
+
+  .palette-item.selected .item-dir,
+  .palette-item:hover .item-dir {
+    color: rgba(255, 255, 255, 0.7);
+  }
+
+  .item-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+    flex-shrink: 0;
+  }
+
+  .item-dir {
+    font-size: 11px;
+    color: var(--text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .palette-empty {
+    padding: 20px 14px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin: 0;
+    text-align: center;
+  }
+</style>

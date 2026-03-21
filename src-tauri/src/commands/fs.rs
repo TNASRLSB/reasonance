@@ -67,6 +67,53 @@ pub fn list_dir(path: String, respect_gitignore: bool) -> Result<Vec<FileEntry>,
     Ok(result)
 }
 
+#[derive(Serialize)]
+pub struct GrepResult {
+    pub path: String,
+    pub line_number: usize,
+    pub line: String,
+}
+
+#[tauri::command]
+pub fn grep_files(
+    path: String,
+    pattern: String,
+    respect_gitignore: bool,
+) -> Result<Vec<GrepResult>, String> {
+    use ignore::WalkBuilder;
+    use std::io::BufRead;
+
+    let mut results = Vec::new();
+    let walker = WalkBuilder::new(&path)
+        .git_ignore(respect_gitignore)
+        .build();
+
+    for entry in walker.flatten() {
+        if !entry.file_type().map_or(false, |ft| ft.is_file()) {
+            continue;
+        }
+        let file_path = entry.path().to_owned();
+        if let Ok(file) = std::fs::File::open(&file_path) {
+            let reader = std::io::BufReader::new(file);
+            for (i, line_result) in reader.lines().enumerate() {
+                if let Ok(line) = line_result {
+                    if line.contains(&pattern) {
+                        results.push(GrepResult {
+                            path: file_path.to_string_lossy().to_string(),
+                            line_number: i + 1,
+                            line,
+                        });
+                        if results.len() >= 500 {
+                            return Ok(results);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    Ok(results)
+}
+
 #[tauri::command]
 pub fn start_watching(
     path: String,
