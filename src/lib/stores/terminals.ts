@@ -4,6 +4,9 @@ export interface TerminalInstance {
   id: string;        // PTY id
   llmName: string;
   label: string;     // "inst. 1", "inst. 2", etc.
+  contextPercent?: number;
+  tokenCount?: string;
+  activeMode?: string;
 }
 
 export interface TerminalTab {

@@ -1,5 +1,16 @@
 import { writable } from 'svelte/store';
 
+export interface LlmMode {
+  name: string;
+  label: string;
+  description: string;
+}
+
+export interface SlashCommand {
+  command: string;
+  description: string;
+}
+
 export interface LlmConfig {
   name: string;
   type: 'cli' | 'api';
@@ -11,6 +22,8 @@ export interface LlmConfig {
   endpoint?: string;
   yoloFlag?: string;
   imageMode?: 'path' | 'base64' | 'none';
+  modes?: LlmMode[];
+  slashCommands?: SlashCommand[];
 }
 
 export interface AppSettings {
