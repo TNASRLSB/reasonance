@@ -1,36 +1,9 @@
 <script lang="ts">
-  import { get } from 'svelte/store';
   import { yoloMode, showSettings } from '$lib/stores/ui';
-  import { activeInstanceId } from '$lib/stores/terminals';
   import type { Adapter } from '$lib/adapter/index';
+  import MenuBar from './MenuBar.svelte';
 
   let { adapter }: { adapter: Adapter } = $props();
-
-  async function sendGitCommand(command: string) {
-    const id = get(activeInstanceId);
-    if (!id) return;
-    await adapter.writePty(id, command);
-  }
-
-  function gitStatus() {
-    sendGitCommand('git status\n');
-  }
-
-  function gitCommit() {
-    sendGitCommand('git commit -m ""');
-  }
-
-  function gitPush() {
-    sendGitCommand('git push\n');
-  }
-
-  function gitPull() {
-    sendGitCommand('git pull\n');
-  }
-
-  function gitLog() {
-    sendGitCommand('git log --oneline -20\n');
-  }
 
   function toggleYolo() {
     yoloMode.update((v) => !v);
@@ -44,13 +17,7 @@
 <div class="toolbar">
   <div class="toolbar-left">
     <span class="logo">REASONANCE</span>
-    <div class="git-actions">
-      <button onclick={gitStatus} title="Git Status">Status</button>
-      <button onclick={gitCommit} title="Git Commit">Commit</button>
-      <button onclick={gitPush} title="Git Push">Push</button>
-      <button onclick={gitPull} title="Git Pull">Pull</button>
-      <button onclick={gitLog} title="Git Log">Log</button>
-    </div>
+    <MenuBar {adapter} />
   </div>
 
   <div class="toolbar-right">
@@ -58,7 +25,7 @@
       class="yolo-btn"
       class:active={$yoloMode}
       onclick={toggleYolo}
-      title="Toggle YOLO mode — skip confirmations"
+      title="Toggle YOLO mode"
     >
       {$yoloMode ? '⚡ YOLO ON' : 'YOLO'}
     </button>
@@ -93,11 +60,6 @@
     text-transform: uppercase;
     letter-spacing: -0.02em;
     margin-right: 12px;
-  }
-
-  .git-actions {
-    display: flex;
-    gap: 4px;
   }
 
   button {
