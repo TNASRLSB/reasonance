@@ -183,15 +183,15 @@
 
   .fif-panel {
     background: var(--bg-primary);
-    border: 1px solid var(--border);
-    border-radius: 8px;
+    border: var(--border-width) solid var(--border);
+    border-radius: var(--radius);
     width: 640px;
     max-width: 95vw;
     max-height: 70vh;
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    font-family: var(--font-ui);
   }
 
   .fif-header {
@@ -199,7 +199,7 @@
     align-items: center;
     justify-content: space-between;
     padding: 10px 14px 8px;
-    border-bottom: 1px solid var(--border);
+    border-bottom: var(--border-width) solid var(--border);
     flex-shrink: 0;
   }
 
@@ -216,7 +216,7 @@
     font-size: 14px;
     cursor: pointer;
     padding: 2px 6px;
-    border-radius: 4px;
+    border-radius: var(--radius);
   }
 
   .close-btn:hover {
@@ -228,15 +228,15 @@
     display: flex;
     gap: 8px;
     padding: 10px 14px;
-    border-bottom: 1px solid var(--border);
+    border-bottom: var(--border-width) solid var(--border);
     flex-shrink: 0;
   }
 
   .fif-input {
     flex: 1;
     background: var(--bg-secondary);
-    border: 1px solid var(--border);
-    border-radius: 4px;
+    border: var(--border-width) solid var(--border);
+    border-radius: var(--radius);
     color: var(--text-primary);
     font-size: 13px;
     font-family: inherit;
@@ -251,8 +251,8 @@
   .search-btn {
     background: var(--accent);
     color: #fff;
-    border: none;
-    border-radius: 4px;
+    border: var(--border-width) solid var(--accent);
+    border-radius: var(--radius);
     padding: 6px 14px;
     font-size: 12px;
     cursor: pointer;
@@ -343,7 +343,7 @@
   .fif-line-text {
     font-size: 12px;
     color: var(--text-primary);
-    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-family: var(--font-mono);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

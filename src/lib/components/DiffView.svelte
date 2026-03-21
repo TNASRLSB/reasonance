@@ -72,8 +72,8 @@
   <div class="diff-toolbar">
     <span class="diff-title">Modifiche: {filename}</span>
     <div class="diff-actions">
-      <button class="btn-reject" onclick={handleReject}>Rifiuta</button>
-      <button class="btn-accept" onclick={handleAccept}>Accetta</button>
+      <button class="btn-reject" onclick={handleReject}>&#10005; Rifiuta</button>
+      <button class="btn-accept" onclick={handleAccept}>&#10003; Accetta</button>
     </div>
   </div>
   <div class="diff-container" bind:this={container}></div>
@@ -94,14 +94,15 @@
     justify-content: space-between;
     padding: 6px 12px;
     background: var(--bg-secondary);
-    border-bottom: 1px solid var(--border);
+    border-bottom: var(--border-width) solid var(--border);
     flex-shrink: 0;
     font-size: 12px;
+    font-family: var(--font-ui);
   }
 
   .diff-title {
     color: var(--text-secondary);
-    font-family: var(--font-mono, monospace);
+    font-family: var(--font-mono);
     font-weight: 500;
   }
 
@@ -113,17 +114,17 @@
   .btn-accept,
   .btn-reject {
     padding: 3px 12px;
-    border-radius: 4px;
+    border-radius: var(--radius);
     border: 1px solid transparent;
     font-size: 12px;
     cursor: pointer;
-    transition: opacity 0.15s;
+    transition: background 0.15s, color 0.15s;
   }
 
   .btn-accept {
-    background: #22c55e;
+    background: var(--success);
     color: #fff;
-    border-color: #16a34a;
+    border-color: var(--success);
   }
 
   .btn-accept:hover {
@@ -132,13 +133,14 @@
 
   .btn-reject {
     background: var(--bg-primary);
-    color: var(--text-secondary);
-    border-color: var(--border);
+    color: var(--danger);
+    border-color: var(--danger);
   }
 
   .btn-reject:hover {
-    color: var(--text-primary);
-    border-color: #ef4444;
+    background: var(--danger);
+    color: #fff;
+    border-color: var(--danger);
   }
 
   .diff-container {
@@ -157,7 +159,7 @@
 
   .diff-container :global(.cm-editor) {
     height: 100%;
-    font-family: var(--font-mono, 'JetBrains Mono', 'Fira Code', monospace);
+    font-family: var(--font-mono);
     font-size: 13px;
   }
 

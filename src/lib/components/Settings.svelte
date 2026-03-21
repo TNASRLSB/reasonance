@@ -3,7 +3,7 @@
   import type { Adapter } from '$lib/adapter/index';
   import type { LlmConfig, AppSettings } from '$lib/stores/config';
   import { llmConfigs, appSettings } from '$lib/stores/config';
-  import { fontFamily, fontSize } from '$lib/stores/ui';
+  import { fontFamily, fontSize, enhancedReadability } from '$lib/stores/ui';
   import { themeMode, type ThemeMode } from '$lib/stores/theme';
   import { get } from 'svelte/store';
 
@@ -23,6 +23,7 @@
   let localFontFamily = $state("'JetBrains Mono', 'Fira Code', monospace");
   let localFontSize = $state(14);
   let localTheme = $state<ThemeMode>('system');
+  let localEnhancedReadability = $state(false);
 
   // Add LLM form state
   let showAddForm = $state(false);
@@ -97,6 +98,7 @@
     localFontFamily = get(fontFamily);
     localFontSize = get(fontSize);
     localTheme = get(themeMode);
+    localEnhancedReadability = get(enhancedReadability);
   }
 
   function startAdd() {
@@ -215,6 +217,7 @@
       fontFamily.set(localFontFamily);
       fontSize.set(localFontSize);
       themeMode.set(localTheme);
+      enhancedReadability.set(localEnhancedReadability);
 
       onClose();
     } catch (e) {
@@ -388,6 +391,25 @@
           </div>
         </section>
 
+        <!-- Accessibility -->
+        <section>
+          <h3>Accessibility</h3>
+          <div class="field-row">
+            <label for="enhanced-readability">Enhanced Readability</label>
+            <button
+              id="enhanced-readability"
+              class="toggle-btn"
+              class:active={localEnhancedReadability}
+              onclick={() => (localEnhancedReadability = !localEnhancedReadability)}
+              role="switch"
+              aria-checked={localEnhancedReadability}
+            >
+              {localEnhancedReadability ? 'ON' : 'OFF'}
+            </button>
+          </div>
+          <p class="field-hint">Larger text (18px), increased spacing, heavier weight. Based on dyslexia readability research.</p>
+        </section>
+
         <!-- Theme -->
         <section>
           <h3>Theme</h3>
@@ -428,15 +450,15 @@
 
   .settings-modal {
     background: var(--bg-primary);
-    border: 1px solid var(--border);
-    border-radius: 8px;
+    border: var(--border-width) solid var(--border);
+    border-radius: var(--radius);
     width: 580px;
     max-width: 95vw;
     max-height: 85vh;
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+    font-family: var(--font-ui);
   }
 
   .modal-header {
@@ -444,7 +466,7 @@
     align-items: center;
     justify-content: space-between;
     padding: 16px 20px 12px;
-    border-bottom: 1px solid var(--border);
+    border-bottom: var(--border-width) solid var(--border);
     flex-shrink: 0;
   }
 
@@ -462,7 +484,7 @@
     font-size: 16px;
     cursor: pointer;
     padding: 2px 6px;
-    border-radius: 4px;
+    border-radius: var(--radius);
   }
 
   .close-btn:hover {
@@ -514,8 +536,8 @@
   .field-row select {
     flex: 1;
     background: var(--bg-secondary);
-    border: 1px solid var(--border);
-    border-radius: 4px;
+    border: var(--border-width) solid var(--border);
+    border-radius: var(--radius);
     color: var(--text-primary);
     padding: 5px 8px;
     font-size: 12px;
@@ -541,8 +563,8 @@
     align-items: center;
     justify-content: space-between;
     background: var(--bg-secondary);
-    border: 1px solid var(--border);
-    border-radius: 4px;
+    border: var(--border-width) solid var(--border);
+    border-radius: var(--radius);
     padding: 8px 10px;
   }
 
@@ -564,7 +586,7 @@
     background: var(--accent);
     color: #fff;
     padding: 1px 5px;
-    border-radius: 3px;
+    border-radius: var(--radius);
     text-transform: uppercase;
     letter-spacing: 0.04em;
   }
@@ -592,8 +614,8 @@
   /* LLM form */
   .llm-form {
     background: var(--bg-secondary);
-    border: 1px solid var(--border);
-    border-radius: 6px;
+    border: var(--border-width) solid var(--border);
+    border-radius: var(--radius);
     padding: 14px;
     margin-bottom: 10px;
   }
@@ -620,8 +642,8 @@
   .theme-btn {
     padding: 6px 16px;
     font-size: 12px;
-    border-radius: 4px;
-    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    border: var(--border-width) solid var(--border);
     background: var(--bg-secondary);
     color: var(--text-primary);
     cursor: pointer;
@@ -643,8 +665,8 @@
   button {
     background: var(--bg-tertiary);
     color: var(--text-primary);
-    border: 1px solid var(--border);
-    border-radius: 4px;
+    border: var(--border-width) solid var(--border);
+    border-radius: var(--radius);
     padding: 5px 12px;
     font-size: 12px;
     cursor: pointer;
@@ -699,7 +721,35 @@
     justify-content: flex-end;
     gap: 10px;
     padding: 12px 20px;
-    border-top: 1px solid var(--border);
+    border-top: var(--border-width) solid var(--border);
     flex-shrink: 0;
+  }
+
+  .toggle-btn {
+    padding: var(--btn-padding);
+    font-family: var(--font-ui);
+    font-size: var(--font-size-small);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    border: var(--border-width) solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+    cursor: pointer;
+    min-width: 50px;
+    transition: background 0.1s, color 0.1s;
+  }
+
+  .toggle-btn.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+
+  .field-hint {
+    font-size: var(--font-size-small);
+    color: var(--text-muted);
+    margin: 4px 0 0;
   }
 </style>

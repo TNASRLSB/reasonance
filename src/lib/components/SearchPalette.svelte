@@ -216,15 +216,15 @@
 
   .palette {
     background: var(--bg-primary);
-    border: 1px solid var(--border);
-    border-radius: 8px;
+    border: var(--border-width) solid var(--border);
+    border-radius: var(--radius);
     width: 580px;
     max-width: 95vw;
     max-height: 60vh;
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    font-family: var(--font-ui);
   }
 
   .palette-input-row {
@@ -232,7 +232,7 @@
     align-items: center;
     gap: 8px;
     padding: 10px 14px;
-    border-bottom: 1px solid var(--border);
+    border-bottom: var(--border-width) solid var(--border);
     flex-shrink: 0;
   }
 
@@ -248,7 +248,7 @@
     outline: none;
     color: var(--text-primary);
     font-size: 14px;
-    font-family: inherit;
+    font-family: var(--font-ui);
   }
 
   .palette-input::placeholder {
@@ -294,6 +294,7 @@
     font-weight: 500;
     color: var(--text-primary);
     flex-shrink: 0;
+    font-family: var(--font-ui);
   }
 
   .item-dir {
