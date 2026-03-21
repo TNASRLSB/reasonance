@@ -13,6 +13,7 @@ export default defineConfig({
   },
   test: {
     environment: 'jsdom',
+    pool: 'forks',
     include: ['tests/**/*.test.ts'],
     exclude: ['tests/visual/**', 'tests/interaction/**'],
     globals: true,
