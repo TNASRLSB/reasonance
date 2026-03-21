@@ -5,6 +5,7 @@
   import { WebLinksAddon } from '@xterm/addon-web-links';
   import '@xterm/xterm/css/xterm.css';
   import type { Adapter } from '$lib/adapter/index';
+  import { terminalTabs } from '$lib/stores/terminals';
 
   let { adapter, ptyId }: { adapter: Adapter; ptyId: string } = $props();
 
@@ -15,30 +16,33 @@
 
   onMount(() => {
     term = new Terminal({
-      fontFamily: '"JetBrains Mono", "Fira Code", monospace',
-      fontSize: 13,
-      lineHeight: 1.2,
+      fontFamily: "'Atkinson Hyperlegible Mono', 'JetBrains Mono', 'Fira Code', monospace",
+      fontSize: 12,
+      lineHeight: 1.3,
       cursorBlink: true,
       theme: {
-        background: '#1a1a2e',
-        foreground: '#e0e0e0',
-        cursor: '#e0e0e0',
-        black: '#1a1a2e',
-        red: '#ff5555',
-        green: '#50fa7b',
-        yellow: '#f1fa8c',
-        blue: '#6272a4',
-        magenta: '#ff79c6',
-        cyan: '#8be9fd',
-        white: '#f8f8f2',
-        brightBlack: '#44475a',
-        brightRed: '#ff6e6e',
-        brightGreen: '#69ff94',
-        brightYellow: '#ffffa5',
-        brightBlue: '#d6acff',
-        brightMagenta: '#ff92df',
-        brightCyan: '#a4ffff',
-        brightWhite: '#ffffff',
+        background: '#121212',
+        foreground: '#d4d4d4',
+        cursor: '#f0f0f0',
+        cursorAccent: '#121212',
+        selectionBackground: 'rgba(29, 78, 216, 0.4)',
+        selectionForeground: '#ffffff',
+        black: '#121212',
+        red: '#dc2626',
+        green: '#16a34a',
+        yellow: '#ca8a04',
+        blue: '#1d4ed8',
+        magenta: '#a855f7',
+        cyan: '#06b6d4',
+        white: '#d4d4d4',
+        brightBlack: '#333333',
+        brightRed: '#ef4444',
+        brightGreen: '#22c55e',
+        brightYellow: '#eab308',
+        brightBlue: '#3b82f6',
+        brightMagenta: '#c084fc',
+        brightCyan: '#22d3ee',
+        brightWhite: '#f0f0f0',
       },
       allowProposedApi: true,
     });
@@ -60,9 +64,31 @@
       adapter.resizePty(ptyId, cols, rows);
     });
 
+    // Parse context/token data from LLM CLI output
+    // Claude Code outputs patterns like: "ctx ████░░░░ 42%" and "38.2k tokens"
+    function parseContextToken(data: string) {
+      const ctxMatch = data.match(/(?:ctx|context)[^\d]*?(\d{1,3})%/i);
+      const tokenMatch = data.match(/([\d.]+[km]?)\s*tokens/i);
+
+      if (ctxMatch || tokenMatch) {
+        terminalTabs.update(tabs => tabs.map(tab => ({
+          ...tab,
+          instances: tab.instances.map(inst => {
+            if (inst.id !== ptyId) return inst;
+            return {
+              ...inst,
+              ...(ctxMatch ? { contextPercent: parseInt(ctxMatch[1], 10) } : {}),
+              ...(tokenMatch ? { tokenCount: tokenMatch[1] } : {}),
+            };
+          })
+        })));
+      }
+    }
+
     // Listen to PTY data → write to terminal
     adapter.onPtyData(ptyId, (data) => {
       term.write(data);
+      parseContextToken(data);
     }).then((unlisten) => {
       cleanups.push(unlisten);
     });
@@ -106,7 +132,7 @@
     width: 100%;
     height: 100%;
     overflow: hidden;
-    background: #1a1a2e;
+    background: #121212;
   }
 
   :global(.terminal-container .xterm) {
