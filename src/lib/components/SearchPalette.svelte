@@ -152,7 +152,7 @@
 </script>
 
 {#if visible}
-  <div class="palette-overlay" role="button" tabindex="-1" onclick={handleOverlayClick} onkeydown={(e) => { if (e.key === 'Escape') handleOverlayClick(); }}>
+  <div class="palette-overlay" role="button" tabindex="-1" onclick={handleOverlayClick} onkeydown={(e) => { if (e.key === 'Escape') onClose(); }}>
     <div class="palette" role="dialog" aria-label="File search" aria-modal="true">
       <div class="palette-input-row">
         <span class="palette-icon">&#128269;</span>

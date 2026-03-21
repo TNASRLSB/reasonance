@@ -5,6 +5,7 @@ import path from 'path';
 export default defineConfig({
   plugins: [svelte()],
   resolve: {
+    conditions: ['browser'],
     alias: {
       '$lib': path.resolve('./src/lib'),
       '$app': path.resolve('./src/app'),
@@ -18,6 +19,7 @@ export default defineConfig({
     alias: {
       '@tauri-apps/api/event': path.resolve('./tests/mocks/tauri-api.ts'),
       '@tauri-apps/api/core': path.resolve('./tests/mocks/tauri-api.ts'),
+      '@tauri-apps/api/window': path.resolve('./tests/mocks/tauri-api.ts'),
       '@tauri-apps/api': path.resolve('./tests/mocks/tauri-api.ts'),
       '@tauri-apps/plugin-fs': path.resolve('./tests/mocks/tauri-plugins.ts'),
       '@tauri-apps/plugin-store': path.resolve('./tests/mocks/tauri-plugins.ts'),
