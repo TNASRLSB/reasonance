@@ -92,6 +92,15 @@ export class TauriAdapter implements Adapter {
   async getWorkflow(filePath: string): Promise<Workflow | null> {
     return invoke<Workflow | null>('get_workflow', { filePath });
   }
+  async duplicateWorkflow(sourcePath: string, destPath: string): Promise<Workflow> {
+    return invoke('duplicate_workflow', { sourcePath, destPath });
+  }
+  async saveToGlobal(workflowPath: string): Promise<string> {
+    return invoke('save_to_global', { workflowPath });
+  }
+  async listGlobalWorkflows(): Promise<string[]> {
+    return invoke('list_global_workflows');
+  }
 
   // Agent Runtime
   async createAgent(nodeId: string, workflowPath: string, maxRetries: number, fallbackAgent?: string): Promise<string> {

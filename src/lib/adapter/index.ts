@@ -50,6 +50,9 @@ export interface Adapter {
   deleteWorkflow(filePath: string): Promise<void>;
   createWorkflow(name: string, filePath: string): Promise<Workflow>;
   getWorkflow(filePath: string): Promise<Workflow | null>;
+  duplicateWorkflow(sourcePath: string, destPath: string): Promise<Workflow>;
+  saveToGlobal(workflowPath: string): Promise<string>;
+  listGlobalWorkflows(): Promise<string[]>;
 
   // Agent Runtime
   createAgent(nodeId: string, workflowPath: string, maxRetries: number, fallbackAgent?: string): Promise<string>;
