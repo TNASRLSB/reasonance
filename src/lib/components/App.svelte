@@ -98,8 +98,8 @@
 
   .panel.file-tree {
     flex-shrink: 0;
-    background: var(--bg-secondary);
-    border-right: var(--border-width) solid var(--border);
+    background: var(--bg-surface);
+    border-right: none;
   }
 
   .panel.editor {
@@ -109,13 +109,13 @@
 
   .panel.terminal {
     flex-shrink: 0;
-    background: var(--bg-secondary);
-    border-left: var(--border-width) solid var(--border);
+    background: var(--bg-surface);
+    border-left: none;
   }
 
   .divider {
     width: 6px;
-    background: var(--border);
+    background: var(--bg-tertiary);
     cursor: col-resize;
     flex-shrink: 0;
     transition: background 0.15s;
@@ -124,6 +124,8 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    border-left: 1px solid var(--border);
+    border-right: 1px solid var(--border);
   }
 
   .divider::before {
@@ -131,27 +133,28 @@
     position: absolute;
     top: 0;
     bottom: 0;
-    left: -3px;
-    right: -3px;
+    left: -4px;
+    right: -4px;
     z-index: 11;
-    pointer-events: none;
+    cursor: col-resize;
   }
 
   .divider:hover {
     background: var(--accent);
+    border-color: var(--accent);
   }
 
   .divider-handle {
     writing-mode: vertical-lr;
-    font-size: 8px;
+    font-size: 10px;
     color: var(--text-muted);
     pointer-events: none;
     user-select: none;
-    letter-spacing: 2px;
+    letter-spacing: 3px;
   }
 
   .divider:hover .divider-handle {
-    color: #fff;
+    color: var(--text-primary);
   }
 
   .placeholder {

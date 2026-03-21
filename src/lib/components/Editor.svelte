@@ -312,13 +312,13 @@
   .preview-toggle.active {
     background: var(--accent);
     border-color: var(--accent);
-    color: #fff;
+    color: var(--text-primary);
   }
 
   .readonly-toggle.editing {
     background: var(--accent);
     border-color: var(--accent);
-    color: #fff;
+    color: var(--text-primary);
   }
 
   .editor-body {
@@ -351,10 +351,11 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    color: var(--text-secondary);
-    gap: 8px;
+    color: var(--text-muted);
+    gap: 10px;
     font-family: var(--font-ui);
-    font-size: var(--font-size-base);
+    font-size: 14px;
+    font-weight: 500;
   }
 
   .editor-empty p {
@@ -363,7 +364,9 @@
 
   .hint {
     font-size: var(--font-size-small);
-    color: var(--text-muted);
+    color: var(--border);
     font-family: var(--font-mono);
+    border: 1px solid var(--border);
+    padding: 4px 12px;
   }
 </style>

@@ -69,8 +69,8 @@
 <style>
   .toolbar {
     height: var(--toolbar-height);
-    background: #141414;
-    border-bottom: 2px solid #3a3a3a;
+    background: var(--bg-surface);
+    border-bottom: var(--border-width) solid var(--border);
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -101,9 +101,9 @@
   }
 
   button {
-    background: #1e1e1e;
-    color: #ccc;
-    border: 2px solid #444;
+    background: var(--bg-surface);
+    color: var(--text-body);
+    border: var(--border-width) solid var(--border);
     border-radius: 0;
     padding: var(--btn-padding);
     font-family: var(--font-ui);
@@ -117,9 +117,9 @@
   }
 
   button:hover {
-    background: #f0f0f0;
-    color: #0e0e0e;
-    border-color: #f0f0f0;
+    background: var(--text-primary);
+    color: var(--bg-primary);
+    border-color: var(--text-primary);
   }
 
   .yolo-btn {
@@ -129,7 +129,7 @@
   .yolo-btn.active {
     background: var(--danger-dark);
     border-color: var(--danger);
-    color: #fff;
+    color: var(--text-primary);
     animation: yolo-pulse 2s ease-in-out infinite;
   }
 

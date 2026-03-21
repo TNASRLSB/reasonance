@@ -275,7 +275,7 @@
     flex-direction: column;
     height: 100%;
     overflow: hidden;
-    background: var(--bg-secondary);
+    background: var(--bg-surface);
   }
 
   .llm-tabs {
@@ -290,29 +290,30 @@
   }
 
   .llm-tab {
-    padding: 6px 14px;
+    padding: 8px 16px;
     font-family: var(--font-ui);
     font-size: var(--font-size-small);
-    font-weight: 600;
+    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.02em;
+    letter-spacing: 0.04em;
     border: none;
-    border-radius: var(--radius);
+    border-radius: 0;
     border-bottom: 2px solid transparent;
     background: var(--bg-primary);
-    color: var(--text-secondary);
+    color: var(--text-muted);
     cursor: pointer;
     transition: background 0.1s, color 0.1s;
   }
 
   .llm-tab:hover {
-    background: var(--bg-hover);
+    background: var(--bg-surface);
     color: var(--text-primary);
   }
 
   .llm-tab.active {
-    color: var(--accent);
+    color: var(--text-primary);
     border-bottom-color: var(--accent);
+    background: var(--bg-secondary);
   }
 
   .llm-tab.add-llm {
@@ -320,6 +321,7 @@
     border: var(--border-width) dashed var(--border);
     border-bottom: 2px solid transparent;
     background: transparent;
+    margin: 2px 4px;
   }
 
   .llm-tab.add-llm:hover {
@@ -424,14 +426,15 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 12px;
-    color: var(--text-secondary);
+    gap: 16px;
+    color: var(--text-muted);
     font-family: var(--font-ui);
   }
 
   .empty-state p {
     margin: 0;
     font-size: var(--font-size-base);
+    font-weight: 500;
   }
 
   .hint {
@@ -441,20 +444,21 @@
 
   .start-buttons {
     display: flex;
-    gap: 8px;
+    gap: 10px;
     flex-wrap: wrap;
     justify-content: center;
+    margin-top: 4px;
   }
 
   .start-btn {
-    padding: 6px 14px;
+    padding: 8px 20px;
     font-family: var(--font-ui);
     font-size: var(--font-size-small);
-    font-weight: 600;
+    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.02em;
-    border: var(--border-width) solid var(--accent);
-    border-radius: var(--radius);
+    letter-spacing: 0.04em;
+    border: 2px solid var(--accent);
+    border-radius: 0;
     background: transparent;
     color: var(--accent);
     cursor: pointer;
@@ -463,6 +467,6 @@
 
   .start-btn:hover {
     background: var(--accent);
-    color: #fff;
+    color: var(--text-primary);
   }
 </style>

@@ -90,16 +90,18 @@
     display: flex;
     flex-direction: column;
     font-family: var(--font-ui);
+    background: var(--bg-surface);
   }
 
   .tree-header {
     font-size: var(--font-size-tiny);
-    font-weight: 700;
-    letter-spacing: 0.08em;
+    font-weight: 800;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
     color: var(--text-muted);
-    padding: 10px 14px 6px;
+    padding: 12px 14px 8px;
     flex-shrink: 0;
+    border-bottom: 1px solid var(--border);
   }
 
   .tree-item {
@@ -110,20 +112,23 @@
     width: 100%;
     background: none;
     border: none;
-    border-radius: var(--radius);
+    border-left: 2px solid transparent;
     color: var(--text-body);
     font-family: var(--font-ui);
     font-size: var(--font-size-base);
-    font-weight: var(--font-weight-body);
-    padding: 5px 14px;
+    font-weight: 500;
+    padding: 6px 14px;
     text-align: left;
     cursor: pointer;
     white-space: nowrap;
     overflow: hidden;
+    transition: background 0.1s, color 0.1s, border-color 0.1s;
   }
 
   .tree-item:hover {
-    background: var(--bg-hover);
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-primary);
+    border-left-color: var(--accent);
   }
 
   .icon {

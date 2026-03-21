@@ -142,7 +142,7 @@
     width: 100%;
     height: 100%;
     overflow: hidden;
-    background: #121212;
+    background: var(--bg-surface);
   }
 
   :global(.terminal-container .xterm) {

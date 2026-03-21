@@ -51,9 +51,9 @@
     display: flex;
     flex-direction: row;
     overflow-x: auto;
-    background: var(--bg-secondary);
+    background: var(--bg-primary);
     border-bottom: var(--border-width) solid var(--border);
-    min-height: 44px;
+    min-height: 38px;
     flex-shrink: 0;
     scrollbar-width: thin;
     font-family: var(--font-ui);
@@ -71,13 +71,14 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    padding: 0 10px 0 12px;
+    padding: 0 12px;
     min-width: 100px;
     max-width: 200px;
     cursor: pointer;
     border-right: 1px solid var(--border);
     font-size: 12px;
-    color: var(--text-secondary);
+    font-weight: 500;
+    color: var(--text-muted);
     user-select: none;
     transition: background 0.1s, color 0.1s;
     white-space: nowrap;
@@ -86,15 +87,15 @@
   }
 
   .tab:hover {
-    background: var(--bg-primary);
+    background: var(--bg-secondary);
     color: var(--text-primary);
   }
 
   .tab.active {
     background: var(--bg-primary);
     color: var(--text-primary);
-    border-top: none;
     border-bottom: 2px solid var(--accent);
+    font-weight: 600;
   }
 
   .tab.deleted .tab-name {
