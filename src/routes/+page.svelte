@@ -4,6 +4,7 @@
   import EditorTabs from '$lib/components/EditorTabs.svelte';
   import Editor from '$lib/components/Editor.svelte';
   import DiffView from '$lib/components/DiffView.svelte';
+  import HelpPanel from '$lib/components/HelpPanel.svelte';
   import TerminalManager from '$lib/components/TerminalManager.svelte';
   import Settings from '$lib/components/Settings.svelte';
   import SearchPalette from '$lib/components/SearchPalette.svelte';
@@ -43,6 +44,7 @@
   let showSearchPalette = $state(false);
   let showFindInFiles = $state(false);
   let showWelcome = $state(true);
+  let showHelp = $state(false);
   let swarmVisible = $state(false);
   const unsubSwarm = showSwarmCanvas.subscribe((val) => { swarmVisible = val; });
   let unsubEnhanced: () => void;
@@ -334,12 +336,18 @@
     registerKeybinding('ctrl+p', () => { showSearchPalette = true; });
     registerKeybinding('ctrl+shift+f', () => { showFindInFiles = true; });
     registerKeybinding('ctrl+,', () => showSettings.set(true));
+    registerKeybinding('f1', () => { showHelp = !showHelp; });
     initKeybindings();
 
     // Listen for openFolder custom event from MenuBar
     const handleOpenFolder = () => openFolder();
     window.addEventListener('reasonance:openFolder', handleOpenFolder);
     cleanups.push(() => window.removeEventListener('reasonance:openFolder', handleOpenFolder));
+
+    // Listen for help custom event from MenuBar
+    const handleOpenHelp = () => { showHelp = true; };
+    document.addEventListener('reasonance:help', handleOpenHelp);
+    cleanups.push(() => document.removeEventListener('reasonance:help', handleOpenHelp));
 
     // Start watching the project directory for external changes
     const { get } = await import('svelte/store');
@@ -430,7 +438,9 @@
 
     {#snippet editor()}
       <EditorTabs />
-      {#if diffState}
+      {#if showHelp}
+        <HelpPanel />
+      {:else if diffState}
         <DiffView
           original={diffState.original}
           modified={diffState.modified}
