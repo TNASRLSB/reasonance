@@ -566,3 +566,218 @@ impl WorkflowEngine {
         Ok(started.into_iter().next())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::workflow_store::*;
+
+    fn make_workflow(nodes: Vec<(&str, NodeType)>, edges: Vec<(&str, &str)>) -> Workflow {
+        Workflow {
+            name: "Test".to_string(),
+            version: "1.0".to_string(),
+            description: None,
+            created: None,
+            modified: None,
+            nodes: nodes
+                .into_iter()
+                .map(|(id, nt)| WorkflowNode {
+                    id: id.to_string(),
+                    node_type: nt,
+                    label: id.to_string(),
+                    config: serde_json::json!({}),
+                    position: Position { x: 0.0, y: 0.0 },
+                })
+                .collect(),
+            edges: edges
+                .into_iter()
+                .enumerate()
+                .map(|(i, (from, to))| WorkflowEdge {
+                    id: format!("e{}", i),
+                    from: from.to_string(),
+                    to: to.to_string(),
+                    label: None,
+                })
+                .collect(),
+            settings: WorkflowSettings::default(),
+        }
+    }
+
+    #[test]
+    fn test_topological_sort_linear() {
+        let wf = make_workflow(
+            vec![("A", NodeType::Agent), ("B", NodeType::Agent), ("C", NodeType::Agent)],
+            vec![("A", "B"), ("B", "C")],
+        );
+        let sorted = WorkflowEngine::topological_sort(&wf).unwrap();
+        assert_eq!(sorted, vec!["A", "B", "C"]);
+    }
+
+    #[test]
+    fn test_topological_sort_fan_out() {
+        let wf = make_workflow(
+            vec![("A", NodeType::Agent), ("B", NodeType::Agent), ("C", NodeType::Agent)],
+            vec![("A", "B"), ("A", "C")],
+        );
+        let sorted = WorkflowEngine::topological_sort(&wf).unwrap();
+        assert_eq!(sorted[0], "A");
+        assert!(sorted.contains(&"B".to_string()));
+        assert!(sorted.contains(&"C".to_string()));
+    }
+
+    #[test]
+    fn test_topological_sort_cycle() {
+        let wf = make_workflow(
+            vec![("A", NodeType::Agent), ("B", NodeType::Agent)],
+            vec![("A", "B"), ("B", "A")],
+        );
+        let result = WorkflowEngine::topological_sort(&wf);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("cycle"));
+    }
+
+    #[test]
+    fn test_topological_sort_empty() {
+        let wf = make_workflow(vec![], vec![]);
+        let sorted = WorkflowEngine::topological_sort(&wf).unwrap();
+        assert!(sorted.is_empty());
+    }
+
+    #[test]
+    fn test_topological_sort_disconnected() {
+        let wf = make_workflow(
+            vec![("A", NodeType::Agent), ("B", NodeType::Agent), ("C", NodeType::Agent)],
+            vec![],
+        );
+        let sorted = WorkflowEngine::topological_sort(&wf).unwrap();
+        assert_eq!(sorted.len(), 3);
+    }
+
+    #[test]
+    fn test_predecessors_and_successors() {
+        let edges = vec![
+            WorkflowEdge { id: "e1".into(), from: "A".into(), to: "B".into(), label: None },
+            WorkflowEdge { id: "e2".into(), from: "A".into(), to: "C".into(), label: None },
+            WorkflowEdge { id: "e3".into(), from: "B".into(), to: "D".into(), label: None },
+            WorkflowEdge { id: "e4".into(), from: "C".into(), to: "D".into(), label: None },
+        ];
+
+        let preds_d = WorkflowEngine::get_predecessors("D", &edges);
+        assert_eq!(preds_d.len(), 2);
+        assert!(preds_d.contains(&"B".to_string()));
+        assert!(preds_d.contains(&"C".to_string()));
+
+        let succs_a = WorkflowEngine::get_successors("A", &edges);
+        assert_eq!(succs_a.len(), 2);
+
+        let preds_a = WorkflowEngine::get_predecessors("A", &edges);
+        assert!(preds_a.is_empty());
+    }
+
+    #[test]
+    fn test_ready_nodes() {
+        let edges = vec![
+            WorkflowEdge { id: "e1".into(), from: "A".into(), to: "C".into(), label: None },
+            WorkflowEdge { id: "e2".into(), from: "B".into(), to: "C".into(), label: None },
+        ];
+        let mut states = HashMap::new();
+        states.insert("A".to_string(), NodeRunState { node_id: "A".into(), agent_id: None, state: AgentState::Success });
+        states.insert("B".to_string(), NodeRunState { node_id: "B".into(), agent_id: None, state: AgentState::Idle });
+        states.insert("C".to_string(), NodeRunState { node_id: "C".into(), agent_id: None, state: AgentState::Idle });
+
+        // C is not ready because B is still Idle
+        let ready = WorkflowEngine::get_ready_nodes(&edges, &states);
+        assert_eq!(ready, vec!["B".to_string()]);
+
+        // After B completes, C becomes ready
+        states.get_mut("B").unwrap().state = AgentState::Success;
+        let ready = WorkflowEngine::get_ready_nodes(&edges, &states);
+        assert_eq!(ready, vec!["C".to_string()]);
+    }
+
+    #[test]
+    fn test_create_run() {
+        let engine = WorkflowEngine::new();
+        let wf = make_workflow(
+            vec![("A", NodeType::Agent), ("R", NodeType::Resource)],
+            vec![("R", "A")],
+        );
+        let run_id = engine.create_run(&wf, "test.json").unwrap();
+        let run = engine.get_run(&run_id).unwrap();
+
+        assert_eq!(run.status, RunStatus::Running);
+        assert_eq!(run.node_states.len(), 2);
+        // Resource nodes start as Success
+        assert_eq!(run.node_states["R"].state, AgentState::Success);
+        // Agent nodes start as Idle
+        assert_eq!(run.node_states["A"].state, AgentState::Idle);
+    }
+
+    #[test]
+    fn test_create_run_cycle_rejected() {
+        let engine = WorkflowEngine::new();
+        let wf = make_workflow(
+            vec![("A", NodeType::Agent), ("B", NodeType::Agent)],
+            vec![("A", "B"), ("B", "A")],
+        );
+        let result = engine.create_run(&wf, "cyclic.json");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_pause_resume_stop() {
+        let engine = WorkflowEngine::new();
+        let wf = make_workflow(vec![("A", NodeType::Agent)], vec![]);
+        let run_id = engine.create_run(&wf, "test.json").unwrap();
+
+        engine.pause_run(&run_id).unwrap();
+        assert_eq!(engine.get_run(&run_id).unwrap().status, RunStatus::Paused);
+
+        engine.resume_run(&run_id).unwrap();
+        assert_eq!(engine.get_run(&run_id).unwrap().status, RunStatus::Running);
+
+        engine.stop_run(&run_id).unwrap();
+        assert_eq!(engine.get_run(&run_id).unwrap().status, RunStatus::Stopped);
+    }
+
+    #[test]
+    fn test_finalize_run_success() {
+        let engine = WorkflowEngine::new();
+        let wf = make_workflow(vec![("A", NodeType::Agent)], vec![]);
+        let run_id = engine.create_run(&wf, "test.json").unwrap();
+
+        engine.update_node_state(&run_id, "A", AgentState::Success, None).unwrap();
+        let status = engine.finalize_run(&run_id).unwrap();
+        assert_eq!(status, RunStatus::Completed);
+    }
+
+    #[test]
+    fn test_finalize_run_with_errors() {
+        let engine = WorkflowEngine::new();
+        let wf = make_workflow(
+            vec![("A", NodeType::Agent), ("B", NodeType::Agent)],
+            vec![],
+        );
+        let run_id = engine.create_run(&wf, "test.json").unwrap();
+
+        engine.update_node_state(&run_id, "A", AgentState::Success, None).unwrap();
+        engine.update_node_state(&run_id, "B", AgentState::Error, None).unwrap();
+        let status = engine.finalize_run(&run_id).unwrap();
+        assert_eq!(status, RunStatus::Failed);
+    }
+
+    #[test]
+    fn test_check_run_complete() {
+        let engine = WorkflowEngine::new();
+        let wf = make_workflow(vec![("A", NodeType::Agent), ("B", NodeType::Agent)], vec![]);
+        let run_id = engine.create_run(&wf, "test.json").unwrap();
+
+        assert!(!engine.check_run_complete(&run_id).unwrap());
+
+        engine.update_node_state(&run_id, "A", AgentState::Success, None).unwrap();
+        assert!(!engine.check_run_complete(&run_id).unwrap());
+
+        engine.update_node_state(&run_id, "B", AgentState::Error, None).unwrap();
+        assert!(engine.check_run_complete(&run_id).unwrap());
+    }
+}
