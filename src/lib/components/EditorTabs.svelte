@@ -1,5 +1,6 @@
 <script lang="ts">
   import { openFiles, activeFilePath, closeFile } from '$lib/stores/files';
+  import { tr } from '$lib/i18n/index';
 
   function switchTab(path: string) {
     activeFilePath.set(path);
@@ -32,7 +33,7 @@
     >
       <span class="tab-name">
         {#if file.isDeleted}
-          <em>{file.name} (eliminato)</em>
+          <em>{file.name} {$tr('editor.deleted')}</em>
         {:else}
           {file.name}{file.isDirty ? ' ●' : ''}
         {/if}

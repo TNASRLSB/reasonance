@@ -5,6 +5,7 @@
   import { llmConfigs, appSettings } from '$lib/stores/config';
   import { fontFamily, fontSize, enhancedReadability } from '$lib/stores/ui';
   import { themeMode, type ThemeMode } from '$lib/stores/theme';
+  import { locale, loadLocale, type Locale } from '$lib/i18n/index';
   import { get } from 'svelte/store';
 
   let {
@@ -24,6 +25,19 @@
   let localFontSize = $state(14);
   let localTheme = $state<ThemeMode>('system');
   let localEnhancedReadability = $state(false);
+  let localLocale = $state<Locale>('en');
+
+  const localeLabels: Record<Locale, string> = {
+    en: 'English',
+    it: 'Italiano',
+    de: 'Deutsch',
+    es: 'Español',
+    fr: 'Français',
+    pt: 'Português',
+    zh: '中文',
+    hi: 'हिन्दी',
+    ar: 'العربية',
+  };
 
   // Add LLM form state
   let showAddForm = $state(false);
@@ -99,6 +113,7 @@
     localFontSize = get(fontSize);
     localTheme = get(themeMode);
     localEnhancedReadability = get(enhancedReadability);
+    localLocale = get(locale);
   }
 
   function startAdd() {
@@ -218,6 +233,8 @@
       fontSize.set(localFontSize);
       themeMode.set(localTheme);
       enhancedReadability.set(localEnhancedReadability);
+      await loadLocale(localLocale);
+      locale.set(localLocale);
 
       onClose();
     } catch (e) {
@@ -376,6 +393,19 @@
               </div>
             </div>
           {/if}
+        </section>
+
+        <!-- Language -->
+        <section>
+          <h3>Language</h3>
+          <div class="field-row">
+            <label for="language-select">Language</label>
+            <select id="language-select" bind:value={localLocale}>
+              {#each (['en', 'it', 'de', 'es', 'fr', 'pt', 'zh', 'hi', 'ar'] as Locale[]) as loc}
+                <option value={loc}>{localeLabels[loc]}</option>
+              {/each}
+            </select>
+          </div>
         </section>
 
         <!-- Terminal Settings -->

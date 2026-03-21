@@ -16,6 +16,7 @@
   import ContextMenu from './ContextMenu.svelte';
   import ResponsePanel from './ResponsePanel.svelte';
   import type { Adapter } from '$lib/adapter';
+  import { tr } from '$lib/i18n/index';
 
   // Dark theme for editor chrome
   const forgeDarkTheme = EditorView.theme({
@@ -224,7 +225,7 @@
             class:active={showMarkdownPreview}
             onclick={() => (showMarkdownPreview = !showMarkdownPreview)}
           >
-            {showMarkdownPreview ? 'Code' : 'Preview'}
+            {showMarkdownPreview ? $tr('editor.code') : $tr('editor.preview')}
           </button>
         {/if}
         <button
@@ -232,7 +233,7 @@
           class:editing={!readOnly}
           onclick={() => (readOnly = !readOnly)}
         >
-          {readOnly ? 'Read-only' : 'Editing'}
+          {readOnly ? $tr('editor.readOnly') : $tr('editor.editing')}
         </button>
       </div>
     </div>
@@ -251,8 +252,8 @@
     </div>
   {:else}
     <div class="editor-empty">
-      <p>Apri un file dal file tree</p>
-      <p class="hint">Ctrl+P per cercare</p>
+      <p>{$tr('editor.openFile')}</p>
+      <p class="hint">{$tr('editor.searchHint')}</p>
     </div>
   {/if}
 </div>

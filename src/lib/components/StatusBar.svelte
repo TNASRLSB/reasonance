@@ -1,11 +1,12 @@
 <script lang="ts">
   import { yoloMode } from '$lib/stores/ui';
+  import { tr } from '$lib/i18n/index';
 </script>
 
 <div class="status-bar" class:yolo={$yoloMode}>
   <div class="status-left">
     {#if $yoloMode}
-      <span class="yolo-label">✕ YOLO MODE — CONFIRMATIONS DISABLED</span>
+      <span class="yolo-label">✕ {$tr('status.yolo')}</span>
     {:else}
       <span class="app-name">REASONANCE</span>
     {/if}
@@ -23,12 +24,13 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 12px;
+    padding: 0 14px;
     flex-shrink: 0;
     font-family: var(--font-ui);
     font-size: var(--font-size-small);
+    font-weight: 600;
     user-select: none;
-    border-top: var(--border-width) solid var(--border);
+    border-top: none;
   }
 
   .status-bar.yolo {

@@ -19,6 +19,7 @@
   import { showToast } from '$lib/stores/toast';
   import SwarmCanvas from '$lib/components/swarm/SwarmCanvas.svelte';
   import { showSwarmCanvas } from '$lib/stores/ui';
+  import { initI18n, locale, loadLocale, t } from '$lib/i18n/index';
   import { onMount, onDestroy } from 'svelte';
   import { parse } from 'smol-toml';
   import { invoke } from '@tauri-apps/api/core';
@@ -59,6 +60,9 @@
       await store.set('fontSize', get(fontSize));
       await store.set('enhancedReadability', get(enhancedReadability));
 
+      const currentLocale = get(locale);
+      await store.set('locale', currentLocale);
+
       // Terminal tabs: only metadata (llmName, instance count) — PTY sessions can't survive restart
       const tabs = get(terminalTabs);
       await store.set(
@@ -92,6 +96,13 @@
       const savedEnhancedReadability = await store.get<boolean>('enhancedReadability');
       if (savedEnhancedReadability !== null && savedEnhancedReadability !== undefined) {
         enhancedReadability.set(savedEnhancedReadability);
+      }
+
+      // Restore locale
+      const savedLocale = await store.get<string>('locale');
+      if (savedLocale && ['en','it','de','es','fr','pt','zh','hi','ar'].includes(savedLocale)) {
+        await loadLocale(savedLocale as any);
+        locale.set(savedLocale as any);
       }
 
       // Restore open files
@@ -182,6 +193,9 @@
   onMount(async () => {
     initTheme();
 
+    // Initialize i18n before restoring session
+    await initI18n();
+
     // Enhanced Readability mode — toggle CSS class on root element
     unsubEnhanced = enhancedReadability.subscribe((on) => {
       document.documentElement.classList.toggle('enhanced-readability', on);
@@ -225,8 +239,8 @@
             llmConfigs.set(newConfigs);
             showToast(
               'success',
-              'LLM trovati',
-              `Rilevati: ${found.map((d) => d.name).join(', ')}`
+              t('toast.llmFound'),
+              t('toast.detected', { names: found.map((d) => d.name).join(', ') })
             );
           }
         } catch {

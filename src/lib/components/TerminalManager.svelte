@@ -10,6 +10,7 @@
   import { terminalTabs, activeTerminalTab, activeInstanceId } from '$lib/stores/terminals';
   import type { LlmConfig } from '$lib/stores/config';
   import { yoloMode } from '$lib/stores/ui';
+  import { tr } from '$lib/i18n/index';
 
   let { adapter, cwd = '.' }: { adapter: Adapter; cwd?: string } = $props();
 
@@ -173,7 +174,7 @@
       class:active={showSwarmTab}
       onclick={() => { showSwarmTab = true; activeTerminalTab.set(null); }}
     >
-      Swarm
+      {$tr('terminal.swarm')}
     </button>
   </div>
 
@@ -183,9 +184,9 @@
     </div>
   {:else if tabs.length === 0}
     <div class="empty-state">
-      <p>Avvia un LLM per iniziare</p>
+      <p>{$tr('terminal.startLLM')}</p>
       {#if configs.length === 0}
-        <p class="hint">Configura un LLM nel file di configurazione</p>
+        <p class="hint">{$tr('terminal.configHint')}</p>
       {:else}
         <div class="start-buttons">
           {#each configs as config (config.name)}

@@ -4,6 +4,7 @@
   import { activeInstanceId } from '$lib/stores/terminals';
   import { callLlm } from '$lib/utils/llm-api';
   import type { Adapter } from '$lib/adapter';
+  import { tr } from '$lib/i18n/index';
 
   interface Props {
     adapter: Adapter;
@@ -20,10 +21,10 @@
   let loading = $state(false);
 
   const actions = [
-    { label: 'Spiega questo codice', promptPrefix: 'Spiega questo codice in modo chiaro e conciso:\n\n```\n' },
-    { label: 'Riscrivi', promptPrefix: 'Riscrivi il seguente codice migliorandone la leggibilità e le best practice:\n\n```\n' },
-    { label: 'Trova bug', promptPrefix: 'Analizza il seguente codice e trova eventuali bug, problemi o vulnerabilità:\n\n```\n' },
-    { label: 'Documenta', promptPrefix: 'Aggiungi documentazione (commenti JSDoc/docstring) al seguente codice:\n\n```\n' },
+    { key: 'contextMenu.explain', promptPrefix: 'Explain this code clearly and concisely:\n\n```\n' },
+    { key: 'contextMenu.rewrite', promptPrefix: 'Rewrite the following code improving readability and best practices:\n\n```\n' },
+    { key: 'contextMenu.findBugs', promptPrefix: 'Analyze the following code and find any bugs, issues, or vulnerabilities:\n\n```\n' },
+    { key: 'contextMenu.document', promptPrefix: 'Add documentation (JSDoc/docstring comments) to the following code:\n\n```\n' },
   ];
 
   function getApiLlm() {
@@ -107,10 +108,10 @@
         class:disabled
         {disabled}
         role="menuitem"
-        title={!hasAnyLlm() ? 'Configura un LLM in Settings' : ''}
+        title={!hasAnyLlm() ? 'Configure an LLM in Settings' : ''}
         onclick={() => handleAction(action.promptPrefix)}
       >
-        {action.label}
+        {$tr(action.key)}
         {#if loading}
           <span class="spinner"></span>
         {/if}
@@ -118,7 +119,7 @@
     {/each}
 
     {#if !hasAnyLlm()}
-      <div class="context-menu-hint">Configura un LLM in Settings</div>
+      <div class="context-menu-hint">Configure an LLM in Settings</div>
     {/if}
   </div>
 {/if}
