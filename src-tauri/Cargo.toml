@@ -1,12 +1,12 @@
 [package]
-name = "forge-ide"
+name = "reasonance"
 version = "0.1.0"
 description = "A lightweight desktop IDE for vibecoders"
 authors = ["you"]
 edition = "2021"
 
 [lib]
-name = "forge_ide_lib"
+name = "reasonance_lib"
 crate-type = ["lib", "cdylib", "staticlib"]
 
 [build-dependencies]

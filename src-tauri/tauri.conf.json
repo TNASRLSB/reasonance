@@ -1,8 +1,8 @@
 {
   "$schema": "https://raw.githubusercontent.com/nicholasVilela/tauri-v2-schema/refs/heads/master/tauri-conf-schema.json",
-  "productName": "Forge IDE",
+  "productName": "Reasonance",
   "version": "0.1.0",
-  "identifier": "com.forgeide.app",
+  "identifier": "com.reasonance.app",
   "build": {
     "frontendDist": "../build",
     "devUrl": "http://localhost:1420",
@@ -13,7 +13,7 @@
     "withGlobalTauri": false,
     "windows": [
       {
-        "title": "Forge IDE",
+        "title": "Reasonance",
         "width": 1280,
         "height": 800,
         "minWidth": 800,
@@ -24,11 +24,5 @@
       "csp": null
     }
   },
-  "plugins": {
-    "opener": {
-      "openUrl": {
-        "enabled": true
-      }
-    }
-  }
+  "plugins": {}
 }

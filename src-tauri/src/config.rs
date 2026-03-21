@@ -42,5 +42,5 @@ pub struct AppConfig {
 
 pub fn config_path() -> PathBuf {
     let config_dir = dirs::config_dir().unwrap_or_else(|| PathBuf::from("."));
-    config_dir.join("forgeide").join("llms.toml")
+    config_dir.join("reasonance").join("llms.toml")
 }
