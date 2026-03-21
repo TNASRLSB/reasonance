@@ -27,22 +27,27 @@ export class TauriAdapter implements Adapter {
     throw new Error('Not implemented');
   }
   async spawnProcess(command: string, args: string[], cwd: string): Promise<PtyHandle> {
-    throw new Error('Not implemented');
+    const id = await invoke<string>('spawn_process', { command, args, cwd });
+    return { id };
   }
   async killProcess(id: string): Promise<void> {
-    throw new Error('Not implemented');
+    return invoke('kill_process', { id });
   }
   async resizePty(id: string, cols: number, rows: number): Promise<void> {
-    throw new Error('Not implemented');
+    return invoke('resize_pty', { id, cols: Math.floor(cols), rows: Math.floor(rows) });
   }
   async writePty(id: string, data: string): Promise<void> {
-    throw new Error('Not implemented');
+    return invoke('write_pty', { id, data });
   }
   async onPtyData(id: string, callback: (data: string) => void): Promise<() => void> {
-    throw new Error('Not implemented');
+    const { listen } = await import('@tauri-apps/api/event');
+    const unlisten = await listen<string>(`pty-data-${id}`, (event) => { callback(event.payload); });
+    return unlisten;
   }
   async onPtyExit(id: string, callback: (code: number) => void): Promise<() => void> {
-    throw new Error('Not implemented');
+    const { listen } = await import('@tauri-apps/api/event');
+    const unlisten = await listen<number>(`pty-exit-${id}`, (event) => { callback(event.payload); });
+    return unlisten;
   }
   async readConfig(): Promise<string> {
     throw new Error('Not implemented');
