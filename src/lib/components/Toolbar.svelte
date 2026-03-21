@@ -62,15 +62,15 @@
     >
       {$yoloMode ? '⚡ YOLO ON' : 'YOLO'}
     </button>
-    <button class="settings-btn" onclick={openSettings} title="Settings">⚙</button>
+    <button class="settings-btn" onclick={openSettings} title="Settings">&#9881;</button>
   </div>
 </div>
 
 <style>
   .toolbar {
     height: var(--toolbar-height);
-    background: var(--bg-secondary);
-    border-bottom: var(--border-width) solid var(--border);
+    background: #141414;
+    border-bottom: 2px solid #3a3a3a;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -101,24 +101,25 @@
   }
 
   button {
-    background: var(--bg-tertiary);
-    color: var(--text-primary);
-    border: var(--border-width) solid var(--border);
-    border-radius: var(--radius);
+    background: #1e1e1e;
+    color: #ccc;
+    border: 2px solid #444;
+    border-radius: 0;
     padding: var(--btn-padding);
     font-family: var(--font-ui);
     font-size: var(--font-size-small);
-    font-weight: 600;
+    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.02em;
+    letter-spacing: 0.04em;
     cursor: pointer;
-    transition: background 0.1s, color 0.1s;
-    min-height: var(--toolbar-height);
+    transition: background 0.1s, color 0.1s, border-color 0.1s;
+    min-height: 32px;
   }
 
   button:hover {
-    background: var(--text-primary);
-    color: var(--bg-primary);
+    background: #f0f0f0;
+    color: #0e0e0e;
+    border-color: #f0f0f0;
   }
 
   .yolo-btn {
