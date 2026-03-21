@@ -62,6 +62,15 @@ export interface Adapter {
   stopWorkflowAgents(workflowPath: string): Promise<void>;
   sendAgentMessage(from: string, to: string, payload: unknown): Promise<void>;
   getAgentMessages(agentId: string): Promise<AgentMessage[]>;
+
+  // Workflow Engine
+  playWorkflow(workflowPath: string, cwd: string): Promise<string>;
+  pauseWorkflow(runId: string): Promise<void>;
+  resumeWorkflow(runId: string, workflowPath: string, cwd: string): Promise<void>;
+  stopWorkflow(runId: string): Promise<void>;
+  stepWorkflow(runId: string, workflowPath: string, cwd: string): Promise<string | null>;
+  getRunStatus(runId: string): Promise<WorkflowRun | null>;
+  notifyNodeCompleted(runId: string, nodeId: string, success: boolean, workflowPath: string, cwd: string): Promise<void>;
 }
 
 export interface FsEvent {
@@ -144,4 +153,23 @@ export interface Workflow {
   nodes: WorkflowNode[];
   edges: WorkflowEdge[];
   settings: WorkflowSettings;
+}
+
+// === Workflow Engine Types ===
+
+export type RunStatus = 'idle' | 'running' | 'paused' | 'completed' | 'failed' | 'stopped';
+
+export interface NodeRunState {
+  node_id: string;
+  agent_id: string | null;
+  state: AgentState;
+}
+
+export interface WorkflowRun {
+  id: string;
+  workflow_path: string;
+  status: RunStatus;
+  node_states: Record<string, NodeRunState>;
+  started_at: string | null;
+  finished_at: string | null;
 }

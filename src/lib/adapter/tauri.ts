@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { Adapter, FileEntry, FsEvent, PtyHandle, DiscoveredAgent, Workflow, AgentState, AgentInstance, AgentMessage } from './index';
+import type { Adapter, FileEntry, FsEvent, PtyHandle, DiscoveredAgent, Workflow, AgentState, AgentInstance, AgentMessage, WorkflowRun } from './index';
 
 export class TauriAdapter implements Adapter {
   async readFile(path: string): Promise<string> {
@@ -123,5 +123,28 @@ export class TauriAdapter implements Adapter {
   }
   async getAgentMessages(agentId: string): Promise<AgentMessage[]> {
     return invoke<AgentMessage[]>('get_agent_messages', { agentId });
+  }
+
+  // Workflow Engine
+  async playWorkflow(workflowPath: string, cwd: string): Promise<string> {
+    return invoke<string>('play_workflow', { workflowPath, cwd });
+  }
+  async pauseWorkflow(runId: string): Promise<void> {
+    return invoke('pause_workflow', { runId });
+  }
+  async resumeWorkflow(runId: string, workflowPath: string, cwd: string): Promise<void> {
+    return invoke('resume_workflow', { runId, workflowPath, cwd });
+  }
+  async stopWorkflow(runId: string): Promise<void> {
+    return invoke('stop_workflow', { runId });
+  }
+  async stepWorkflow(runId: string, workflowPath: string, cwd: string): Promise<string | null> {
+    return invoke<string | null>('step_workflow', { runId, workflowPath, cwd });
+  }
+  async getRunStatus(runId: string): Promise<WorkflowRun | null> {
+    return invoke<WorkflowRun | null>('get_run_status', { runId });
+  }
+  async notifyNodeCompleted(runId: string, nodeId: string, success: boolean, workflowPath: string, cwd: string): Promise<void> {
+    return invoke('notify_node_completed', { runId, nodeId, success, workflowPath, cwd });
   }
 }
