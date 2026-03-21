@@ -1,0 +1,221 @@
+<script lang="ts">
+  import type { Adapter } from '$lib/adapter/index';
+  import { currentWorkflow, currentWorkflowPath, workflowDirty } from '$lib/stores/workflow';
+  import { get } from 'svelte/store';
+
+  let { adapter, cwd = '.' }: { adapter: Adapter; cwd?: string } = $props();
+
+  let open = $state(false);
+  let templates = $state<string[]>([]);
+  let showTemplates = $state(false);
+
+  function toggle() {
+    open = !open;
+    if (open) loadTemplates();
+  }
+
+  function close() {
+    open = false;
+    showTemplates = false;
+  }
+
+  async function loadTemplates() {
+    try {
+      templates = await adapter.listGlobalWorkflows();
+    } catch {
+      templates = [];
+    }
+  }
+
+  async function save() {
+    const path = get(currentWorkflowPath);
+    const wf = get(currentWorkflow);
+    if (!path || !wf) return;
+    try {
+      await adapter.saveWorkflow(path, wf);
+      workflowDirty.set(false);
+    } catch (e) {
+      console.error('Save failed:', e);
+    }
+    close();
+  }
+
+  async function saveToLibrary() {
+    const path = get(currentWorkflowPath);
+    if (!path) return;
+    try {
+      const dest = await adapter.saveToGlobal(path);
+      console.log('Saved to library:', dest);
+    } catch (e) {
+      console.error('Save to library failed:', e);
+    }
+    close();
+  }
+
+  async function importWorkflow() {
+    close();
+    try {
+      const { open: openDialog } = await import('@tauri-apps/plugin-dialog');
+      const selected = await openDialog({
+        multiple: false,
+        filters: [{ name: 'Workflow', extensions: ['json'] }],
+      });
+      if (!selected) return;
+      const filePath = typeof selected === 'string' ? selected : selected.path;
+      const wf = await adapter.loadWorkflow(filePath);
+      currentWorkflow.set(wf);
+      currentWorkflowPath.set(filePath);
+      workflowDirty.set(false);
+    } catch (e) {
+      console.error('Import failed:', e);
+    }
+  }
+
+  async function exportWorkflow() {
+    close();
+    const wf = get(currentWorkflow);
+    if (!wf) return;
+    try {
+      const { save: saveDialog } = await import('@tauri-apps/plugin-dialog');
+      const selected = await saveDialog({
+        defaultPath: `${wf.name.replace(/\s+/g, '-').toLowerCase()}.json`,
+        filters: [{ name: 'Workflow', extensions: ['json'] }],
+      });
+      if (!selected) return;
+      await adapter.saveWorkflow(selected, wf);
+    } catch (e) {
+      console.error('Export failed:', e);
+    }
+  }
+
+  async function loadTemplate(path: string) {
+    try {
+      const wf = await adapter.loadWorkflow(path);
+      currentWorkflow.set(wf);
+      currentWorkflowPath.set(null);
+      workflowDirty.set(true);
+    } catch (e) {
+      console.error('Load template failed:', e);
+    }
+    close();
+  }
+
+  function handleWindowClick(e: MouseEvent) {
+    if (open) {
+      const target = e.target as HTMLElement;
+      if (!target.closest('.workflow-menu')) {
+        close();
+      }
+    }
+  }
+</script>
+
+<svelte:window onclick={handleWindowClick} />
+
+<div class="workflow-menu">
+  <button class="menu-trigger" onclick={toggle} title="Workflow actions">
+    &#9776; Workflow
+  </button>
+
+  {#if open}
+    <div class="menu-dropdown">
+      <button class="menu-item" onclick={save}>
+        Save <span class="shortcut">Ctrl+S</span>
+      </button>
+      <button class="menu-item" onclick={saveToLibrary}>
+        Save to Library
+      </button>
+      <div class="menu-divider"></div>
+      <button class="menu-item" onclick={importWorkflow}>
+        Import...
+      </button>
+      <button class="menu-item" onclick={exportWorkflow}>
+        Export...
+      </button>
+      <div class="menu-divider"></div>
+      <button class="menu-item" onclick={() => { showTemplates = !showTemplates; }}>
+        Templates {showTemplates ? '▴' : '▾'}
+      </button>
+      {#if showTemplates}
+        <div class="template-list">
+          {#if templates.length === 0}
+            <span class="no-templates">No templates saved</span>
+          {:else}
+            {#each templates as tmpl}
+              <button class="menu-item template-item" onclick={() => loadTemplate(tmpl)}>
+                {tmpl.split('/').pop()?.replace('.json', '') ?? tmpl}
+              </button>
+            {/each}
+          {/if}
+        </div>
+      {/if}
+    </div>
+  {/if}
+</div>
+
+<style>
+  .workflow-menu {
+    position: relative;
+  }
+  .menu-trigger {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    border: var(--border-width) solid var(--border);
+    padding: 4px 10px;
+    font-size: 12px;
+    font-family: var(--font-ui);
+    cursor: pointer;
+  }
+  .menu-trigger:hover {
+    background: var(--bg-hover);
+  }
+  .menu-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 100;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    min-width: 200px;
+    padding: 4px 0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  }
+  .menu-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    background: none;
+    border: none;
+    color: var(--text-primary);
+    padding: 6px 12px;
+    font-size: 12px;
+    font-family: var(--font-ui);
+    cursor: pointer;
+    text-align: left;
+  }
+  .menu-item:hover {
+    background: var(--bg-hover);
+  }
+  .shortcut {
+    font-size: 10px;
+    color: var(--text-muted);
+  }
+  .menu-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 4px 0;
+  }
+  .template-list {
+    padding-left: 12px;
+  }
+  .template-item {
+    font-size: 11px;
+  }
+  .no-templates {
+    font-size: 11px;
+    color: var(--text-muted);
+    padding: 4px 12px;
+    display: block;
+  }
+</style>
