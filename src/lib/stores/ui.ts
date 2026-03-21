@@ -9,3 +9,8 @@ export const showDiff = writable(false);
 export const fontFamily = writable("'Atkinson Hyperlegible Next', system-ui, sans-serif");
 export const fontSize = writable(13);
 export const enhancedReadability = writable(false);
+
+// Swarm canvas state
+export const showSwarmCanvas = writable<boolean>(false);
+export const swarmViewMode = writable<'visual' | 'code' | 'split'>('visual');
+export const selectedNodeId = writable<string | null>(null);
