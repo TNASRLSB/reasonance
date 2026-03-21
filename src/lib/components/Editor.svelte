@@ -12,11 +12,44 @@
   import { markdown } from '@codemirror/lang-markdown';
   import { openFiles, activeFilePath } from '$lib/stores/files';
   import MarkdownPreview from './MarkdownPreview.svelte';
+  import ContextMenu from './ContextMenu.svelte';
+  import ResponsePanel from './ResponsePanel.svelte';
+  import type { Adapter } from '$lib/adapter';
+
+  const { adapter }: { adapter: Adapter } = $props();
 
   let container: HTMLDivElement;
   let view: EditorView | null = null;
   let readOnly = $state(true);
   let showMarkdownPreview = $state(false);
+
+  // Context menu state
+  let ctxVisible = $state(false);
+  let ctxX = $state(0);
+  let ctxY = $state(0);
+  let ctxSelectedText = $state('');
+
+  // Response panel state
+  let responseVisible = $state(false);
+  let responseContent = $state('');
+
+  function handleContextMenu(e: MouseEvent) {
+    if (!view) return;
+    const sel = view.state.selection.main;
+    const text = view.state.sliceDoc(sel.from, sel.to);
+    if (!text.trim()) return;
+
+    e.preventDefault();
+    ctxSelectedText = text;
+    ctxX = e.clientX;
+    ctxY = e.clientY;
+    ctxVisible = true;
+  }
+
+  function handleResponse(content: string) {
+    responseContent = content;
+    responseVisible = true;
+  }
 
   // Derive current file from stores — using reactive vars
   let currentPath = $state<string | null>(null);
@@ -152,11 +185,19 @@
         </button>
       </div>
     </div>
-    {#if isMarkdown && showMarkdownPreview}
-      <MarkdownPreview content={currentContent} />
-    {:else}
-      <div class="editor-cm" bind:this={container}></div>
-    {/if}
+    <div class="editor-body">
+      {#if isMarkdown && showMarkdownPreview}
+        <MarkdownPreview content={currentContent} />
+      {:else}
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <div class="editor-cm" bind:this={container} oncontextmenu={handleContextMenu}></div>
+      {/if}
+      <ResponsePanel
+        content={responseContent}
+        visible={responseVisible}
+        onClose={() => (responseVisible = false)}
+      />
+    </div>
   {:else}
     <div class="editor-empty">
       <p>Apri un file dal file tree</p>
@@ -164,6 +205,16 @@
     </div>
   {/if}
 </div>
+
+<ContextMenu
+  {adapter}
+  x={ctxX}
+  y={ctxY}
+  visible={ctxVisible}
+  selectedText={ctxSelectedText}
+  onResponse={handleResponse}
+  onClose={() => (ctxVisible = false)}
+/>
 
 <style>
   .editor-wrapper {
@@ -238,6 +289,15 @@
     color: var(--accent);
     border-color: var(--accent);
     background: rgba(var(--accent-rgb, 99, 102, 241), 0.08);
+  }
+
+  .editor-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-height: 0;
+    position: relative;
   }
 
   .editor-cm {

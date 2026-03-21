@@ -134,7 +134,7 @@
         onReject={handleReject}
       />
     {:else}
-      <Editor />
+      <Editor {adapter} />
     {/if}
   {/snippet}
 
