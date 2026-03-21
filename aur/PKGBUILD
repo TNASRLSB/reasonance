@@ -1,10 +1,10 @@
-# Maintainer: Forge IDE team
-pkgname=forge-ide
+# Maintainer: Reasonance team
+pkgname=reasonance
 pkgver=0.1.0
 pkgrel=1
 pkgdesc='Lightweight IDE for vibecoders who work with LLMs'
 arch=('x86_64')
-url='https://github.com/OWNER/forge-ide'
+url='https://github.com/OWNER/reasonance'
 license=('MIT')
 depends=('webkit2gtk-4.1' 'gtk3')
 makedepends=('rust' 'cargo' 'nodejs' 'npm')
@@ -20,6 +20,6 @@ build() {
 package() {
   cd "$pkgname-$pkgver"
   install -Dm755 "src-tauri/target/release/$pkgname" "$pkgdir/usr/bin/$pkgname"
-  install -Dm644 "forge-ide.desktop" "$pkgdir/usr/share/applications/$pkgname.desktop"
+  install -Dm644 "reasonance.desktop" "$pkgdir/usr/share/applications/$pkgname.desktop"
   install -Dm644 "LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }

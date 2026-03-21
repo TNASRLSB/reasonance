@@ -1,0 +1,13 @@
+[Desktop Entry]
+Name=Reasonance
+Comment=Lightweight IDE for vibecoders
+GenericName=Code Editor
+Exec=reasonance %F
+Icon=reasonance
+Type=Application
+Categories=Development;IDE;TextEditor;
+Keywords=code;editor;ai;llm;vibe;development;
+MimeType=text/plain;text/x-python;text/x-rust;text/javascript;text/typescript;text/html;text/css;text/markdown;application/json;application/toml;
+StartupNotify=true
+Terminal=false
+X-KDE-Protocols=file
