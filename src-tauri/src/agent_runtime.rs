@@ -125,3 +125,174 @@ impl AgentRuntime {
         self.messages.lock().unwrap().iter().filter(|m| m.to == agent_id).cloned().collect()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_create_agent() {
+        let runtime = AgentRuntime::new();
+        let id = runtime.create_agent("node-1", "wf-path", 3, None);
+        let agent = runtime.get_agent(&id).unwrap();
+        assert_eq!(agent.node_id, "node-1");
+        assert_eq!(agent.state, AgentState::Idle);
+        assert_eq!(agent.max_retries, 3);
+        assert_eq!(agent.retry_count, 0);
+    }
+
+    #[test]
+    fn test_valid_transitions() {
+        let runtime = AgentRuntime::new();
+        let id = runtime.create_agent("node-1", "wf", 2, None);
+
+        assert_eq!(runtime.transition(&id, AgentState::Queued).unwrap(), AgentState::Queued);
+        assert_eq!(runtime.transition(&id, AgentState::Running).unwrap(), AgentState::Running);
+        assert_eq!(runtime.transition(&id, AgentState::Success).unwrap(), AgentState::Success);
+    }
+
+    #[test]
+    fn test_invalid_transition() {
+        let runtime = AgentRuntime::new();
+        let id = runtime.create_agent("node-1", "wf", 0, None);
+
+        // Can't go directly from Idle to Running
+        let result = runtime.transition(&id, AgentState::Running);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_retry_transition() {
+        let runtime = AgentRuntime::new();
+        let id = runtime.create_agent("node-1", "wf", 2, None);
+
+        runtime.transition(&id, AgentState::Queued).unwrap();
+        runtime.transition(&id, AgentState::Running).unwrap();
+        runtime.transition(&id, AgentState::Failed).unwrap();
+        runtime.transition(&id, AgentState::Retrying).unwrap();
+
+        let agent = runtime.get_agent(&id).unwrap();
+        assert_eq!(agent.retry_count, 1);
+    }
+
+    #[test]
+    fn test_retry_exhausted() {
+        let runtime = AgentRuntime::new();
+        let id = runtime.create_agent("node-1", "wf", 1, None);
+
+        runtime.transition(&id, AgentState::Queued).unwrap();
+        runtime.transition(&id, AgentState::Running).unwrap();
+        runtime.transition(&id, AgentState::Failed).unwrap();
+        runtime.transition(&id, AgentState::Retrying).unwrap(); // retry_count becomes 1
+        runtime.transition(&id, AgentState::Running).unwrap();
+        runtime.transition(&id, AgentState::Failed).unwrap();
+
+        // Can't retry again (retry_count 1 >= max_retries 1)
+        let result = runtime.transition(&id, AgentState::Retrying);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_fallback_requires_fallback_agent() {
+        let runtime = AgentRuntime::new();
+
+        // No fallback agent configured
+        let id1 = runtime.create_agent("node-1", "wf", 0, None);
+        runtime.transition(&id1, AgentState::Queued).unwrap();
+        runtime.transition(&id1, AgentState::Running).unwrap();
+        runtime.transition(&id1, AgentState::Failed).unwrap();
+        let result = runtime.transition(&id1, AgentState::Fallback);
+        assert!(result.is_err());
+
+        // With fallback agent configured
+        let id2 = runtime.create_agent("node-2", "wf", 0, Some("backup".to_string()));
+        runtime.transition(&id2, AgentState::Queued).unwrap();
+        runtime.transition(&id2, AgentState::Running).unwrap();
+        runtime.transition(&id2, AgentState::Failed).unwrap();
+        let result = runtime.transition(&id2, AgentState::Fallback);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_set_pty_and_error() {
+        let runtime = AgentRuntime::new();
+        let id = runtime.create_agent("node-1", "wf", 0, None);
+
+        runtime.set_pty(&id, "pty-123").unwrap();
+        let agent = runtime.get_agent(&id).unwrap();
+        assert_eq!(agent.pty_id, Some("pty-123".to_string()));
+
+        runtime.set_error(&id, "something broke").unwrap();
+        let agent = runtime.get_agent(&id).unwrap();
+        assert_eq!(agent.error_message, Some("something broke".to_string()));
+    }
+
+    #[test]
+    fn test_workflow_agents() {
+        let runtime = AgentRuntime::new();
+        runtime.create_agent("n1", "wf-a", 0, None);
+        runtime.create_agent("n2", "wf-a", 0, None);
+        runtime.create_agent("n3", "wf-b", 0, None);
+
+        let agents_a = runtime.get_workflow_agents("wf-a");
+        assert_eq!(agents_a.len(), 2);
+
+        let agents_b = runtime.get_workflow_agents("wf-b");
+        assert_eq!(agents_b.len(), 1);
+    }
+
+    #[test]
+    fn test_remove_agent() {
+        let runtime = AgentRuntime::new();
+        let id = runtime.create_agent("node-1", "wf", 0, None);
+        assert!(runtime.get_agent(&id).is_some());
+        runtime.remove_agent(&id).unwrap();
+        assert!(runtime.get_agent(&id).is_none());
+    }
+
+    #[test]
+    fn test_remove_workflow_agents() {
+        let runtime = AgentRuntime::new();
+        runtime.create_agent("n1", "wf-a", 0, None);
+        runtime.create_agent("n2", "wf-a", 0, None);
+        runtime.create_agent("n3", "wf-b", 0, None);
+
+        runtime.remove_workflow_agents("wf-a");
+        assert_eq!(runtime.get_workflow_agents("wf-a").len(), 0);
+        assert_eq!(runtime.get_workflow_agents("wf-b").len(), 1);
+    }
+
+    #[test]
+    fn test_messaging() {
+        let runtime = AgentRuntime::new();
+        runtime.send_message("agent-1", "agent-2", serde_json::json!({"text": "hello"}));
+        runtime.send_message("agent-3", "agent-2", serde_json::json!({"text": "world"}));
+
+        let msgs = runtime.get_messages_for("agent-2");
+        assert_eq!(msgs.len(), 2);
+        assert_eq!(msgs[0].from, "agent-1");
+        assert_eq!(msgs[1].from, "agent-3");
+
+        let msgs_1 = runtime.get_messages_for("agent-1");
+        assert!(msgs_1.is_empty());
+    }
+
+    #[test]
+    fn test_timestamps_set_on_transition() {
+        let runtime = AgentRuntime::new();
+        let id = runtime.create_agent("node-1", "wf", 0, None);
+
+        let agent = runtime.get_agent(&id).unwrap();
+        assert!(agent.started_at.is_none());
+        assert!(agent.finished_at.is_none());
+
+        runtime.transition(&id, AgentState::Queued).unwrap();
+        runtime.transition(&id, AgentState::Running).unwrap();
+        let agent = runtime.get_agent(&id).unwrap();
+        assert!(agent.started_at.is_some());
+
+        runtime.transition(&id, AgentState::Success).unwrap();
+        let agent = runtime.get_agent(&id).unwrap();
+        assert!(agent.finished_at.is_some());
+    }
+}
