@@ -17,6 +17,8 @@
   import { registerKeybinding, initKeybindings } from '$lib/utils/keybindings';
   import Toast from '$lib/components/Toast.svelte';
   import { showToast } from '$lib/stores/toast';
+  import SwarmCanvas from '$lib/components/swarm/SwarmCanvas.svelte';
+  import { showSwarmCanvas } from '$lib/stores/ui';
   import { onMount, onDestroy } from 'svelte';
   import { parse } from 'smol-toml';
   import { invoke } from '@tauri-apps/api/core';
@@ -37,6 +39,8 @@
   let unwatchFiles: (() => void) | null = null;
   let showSearchPalette = $state(false);
   let showFindInFiles = $state(false);
+  let swarmVisible = $state(false);
+  const unsubSwarm = showSwarmCanvas.subscribe((val) => { swarmVisible = val; });
   let unsubEnhanced: () => void;
 
   // ── Session persistence ──────────────────────────────────────────────────
@@ -292,6 +296,7 @@
   onDestroy(() => {
     unsubFiles();
     unsubEnhanced();
+    unsubSwarm();
     if (unwatchFiles) unwatchFiles();
   });
 
@@ -363,4 +368,22 @@
   onClose={() => (showFindInFiles = false)}
 />
 
+{#if swarmVisible}
+  <div class="swarm-overlay">
+    <SwarmCanvas {adapter} />
+  </div>
+{/if}
+
 <Toast />
+
+<style>
+  .swarm-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1000;
+    background: var(--bg-primary);
+  }
+</style>
