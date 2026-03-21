@@ -9,6 +9,7 @@
   import SwarmControls from './SwarmControls.svelte';
   import SwarmInspector from './SwarmInspector.svelte';
   import NodeCatalog from './NodeCatalog.svelte';
+  import WorkflowMenu from './WorkflowMenu.svelte';
   import AgentNode from './AgentNode.svelte';
   import ResourceNode from './ResourceNode.svelte';
   import LogicNode from './LogicNode.svelte';
@@ -64,18 +65,68 @@
     selectedNodeId.set(id);
   }
 
-  // NOTE: Code view is read-only in Phase 3. Bidirectional JSON↔Canvas sync deferred to Phase 4.
+  // Bidirectional JSON ↔ Canvas sync
   let jsonText = $state('');
+  let jsonError = $state<string | null>(null);
+  let jsonSyncTimer: ReturnType<typeof setTimeout> | null = null;
+  let suppressJsonUpdate = false;
+
   const unsubJson = currentWorkflow.subscribe((wf) => {
+    if (suppressJsonUpdate) return;
     if (wf) jsonText = JSON.stringify(wf, null, 2);
   });
+
+  function onJsonInput() {
+    if (jsonSyncTimer) clearTimeout(jsonSyncTimer);
+    jsonSyncTimer = setTimeout(() => {
+      try {
+        const parsed = JSON.parse(jsonText);
+        if (parsed && parsed.nodes && parsed.edges) {
+          suppressJsonUpdate = true;
+          currentWorkflow.set(parsed);
+          workflowDirty.set(true);
+          jsonError = null;
+          suppressJsonUpdate = false;
+        } else {
+          jsonError = 'Missing required fields (nodes, edges)';
+        }
+      } catch (e) {
+        jsonError = (e as Error).message;
+      }
+    }, 500);
+  }
+
+  function handleKeydown(e: KeyboardEvent) {
+    if (e.key === 'Escape') {
+      closeCanvas();
+    }
+    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+      e.preventDefault();
+      saveWorkflow();
+    }
+  }
+
+  async function saveWorkflow() {
+    const path = get(currentWorkflowPath);
+    const wf = get(currentWorkflow);
+    if (!path || !wf) return;
+    try {
+      await adapter.saveWorkflow(path, wf);
+      workflowDirty.set(false);
+    } catch (e) {
+      console.error('Save failed:', e);
+    }
+  }
 
   onDestroy(() => { unsubWf(); unsubNs(); unsubSel(); unsubMode(); unsubJson(); });
 </script>
 
+<svelte:window onkeydown={handleKeydown} />
+
 <div class="swarm-canvas-root">
   <!-- Toolbar -->
   <div class="canvas-toolbar">
+    <WorkflowMenu {adapter} {cwd} />
     <NodeCatalog onadd={addNode} />
     <div class="toolbar-spacer"></div>
     <SwarmControls {adapter} {cwd} />
@@ -136,7 +187,10 @@
 
     {#if viewMode === 'code' || viewMode === 'split'}
       <div class="code-area" class:half={viewMode === 'split'}>
-        <textarea class="json-editor" bind:value={jsonText} spellcheck="false" readonly></textarea>
+        <textarea class="json-editor" bind:value={jsonText} oninput={onJsonInput} spellcheck="false"></textarea>
+        {#if jsonError}
+          <div class="json-error">{jsonError}</div>
+        {/if}
       </div>
     {/if}
 
@@ -209,6 +263,8 @@
   .code-area {
     flex: 1;
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
   }
   .code-area.half {
     flex: 0.5;
@@ -224,6 +280,14 @@
     font-family: var(--font-mono, monospace);
     font-size: 12px;
     resize: none;
+  }
+  .json-error {
+    padding: 4px 12px;
+    font-size: 11px;
+    color: var(--danger);
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--danger);
+    font-family: var(--font-mono, monospace);
   }
   .inspector-area {
     width: 240px;
