@@ -12,6 +12,7 @@ use shadow_store::ShadowStore;
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_store::Builder::new().build())
         .manage(PtyManager::new())
         .manage(ShadowStore::new())
         .manage(FsWatcherState::new())
