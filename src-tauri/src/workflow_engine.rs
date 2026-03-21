@@ -1,0 +1,568 @@
+use crate::agent_runtime::{AgentRuntime, AgentState};
+use crate::pty_manager::PtyManager;
+use crate::workflow_store::{NodeType, Workflow, WorkflowEdge};
+use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, VecDeque};
+use std::sync::{Arc, Mutex};
+use tauri::{AppHandle, Emitter};
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum RunStatus {
+    Idle,
+    Running,
+    Paused,
+    Completed,
+    Failed,
+    Stopped,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NodeRunState {
+    pub node_id: String,
+    pub agent_id: Option<String>,
+    pub state: AgentState,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkflowRun {
+    pub id: String,
+    pub workflow_path: String,
+    pub status: RunStatus,
+    pub node_states: HashMap<String, NodeRunState>,
+    pub started_at: Option<String>,
+    pub finished_at: Option<String>,
+}
+
+pub struct WorkflowEngine {
+    pub runs: Arc<Mutex<HashMap<String, WorkflowRun>>>,
+}
+
+impl WorkflowEngine {
+    pub fn new() -> Self {
+        Self {
+            runs: Arc::new(Mutex::new(HashMap::new())),
+        }
+    }
+
+    /// Topological sort using Kahn's algorithm. Returns Err if cycle detected.
+    pub fn topological_sort(workflow: &Workflow) -> Result<Vec<String>, String> {
+        let mut in_degree: HashMap<String, usize> = HashMap::new();
+        let mut adjacency: HashMap<String, Vec<String>> = HashMap::new();
+        for node in &workflow.nodes {
+            in_degree.entry(node.id.clone()).or_insert(0);
+            adjacency.entry(node.id.clone()).or_insert_with(Vec::new);
+        }
+        for edge in &workflow.edges {
+            adjacency
+                .entry(edge.from.clone())
+                .or_insert_with(Vec::new)
+                .push(edge.to.clone());
+            *in_degree.entry(edge.to.clone()).or_insert(0) += 1;
+        }
+        let mut sorted_vec: Vec<String> = in_degree
+            .iter()
+            .filter(|(_, &deg)| deg == 0)
+            .map(|(id, _)| id.clone())
+            .collect();
+        sorted_vec.sort();
+        let mut queue: VecDeque<String> = sorted_vec.into_iter().collect();
+        let mut result = Vec::new();
+        while let Some(node_id) = queue.pop_front() {
+            result.push(node_id.clone());
+            if let Some(neighbors) = adjacency.get(&node_id) {
+                for neighbor in neighbors {
+                    if let Some(deg) = in_degree.get_mut(neighbor) {
+                        *deg -= 1;
+                        if *deg == 0 {
+                            queue.push_back(neighbor.clone());
+                        }
+                    }
+                }
+            }
+        }
+        if result.len() != workflow.nodes.len() {
+            return Err("Workflow graph contains a cycle".to_string());
+        }
+        Ok(result)
+    }
+
+    pub fn get_predecessors(node_id: &str, edges: &[WorkflowEdge]) -> Vec<String> {
+        edges
+            .iter()
+            .filter(|e| e.to == node_id)
+            .map(|e| e.from.clone())
+            .collect()
+    }
+
+    pub fn get_successors(node_id: &str, edges: &[WorkflowEdge]) -> Vec<String> {
+        edges
+            .iter()
+            .filter(|e| e.from == node_id)
+            .map(|e| e.to.clone())
+            .collect()
+    }
+
+    pub fn all_predecessors_complete(
+        node_id: &str,
+        edges: &[WorkflowEdge],
+        node_states: &HashMap<String, NodeRunState>,
+    ) -> bool {
+        let preds = Self::get_predecessors(node_id, edges);
+        if preds.is_empty() {
+            return true;
+        }
+        preds.iter().all(|pred_id| {
+            node_states
+                .get(pred_id)
+                .map(|s| s.state == AgentState::Success)
+                .unwrap_or(false)
+        })
+    }
+
+    pub fn get_ready_nodes(
+        edges: &[WorkflowEdge],
+        node_states: &HashMap<String, NodeRunState>,
+    ) -> Vec<String> {
+        node_states
+            .iter()
+            .filter(|(_, ns)| ns.state == AgentState::Idle)
+            .filter(|(node_id, _)| Self::all_predecessors_complete(node_id, edges, node_states))
+            .map(|(node_id, _)| node_id.clone())
+            .collect()
+    }
+
+    // --- Run lifecycle ---
+
+    pub fn create_run(&self, workflow: &Workflow, workflow_path: &str) -> Result<String, String> {
+        Self::topological_sort(workflow)?;
+        let run_id = uuid::Uuid::new_v4().to_string();
+        let mut node_states = HashMap::new();
+        for node in &workflow.nodes {
+            let state = if node.node_type == NodeType::Resource {
+                AgentState::Success // resources are immediately available
+            } else {
+                AgentState::Idle
+            };
+            node_states.insert(
+                node.id.clone(),
+                NodeRunState {
+                    node_id: node.id.clone(),
+                    agent_id: None,
+                    state,
+                },
+            );
+        }
+        let run = WorkflowRun {
+            id: run_id.clone(),
+            workflow_path: workflow_path.to_string(),
+            status: RunStatus::Running,
+            node_states,
+            started_at: Some(chrono::Utc::now().to_rfc3339()),
+            finished_at: None,
+        };
+        self.runs.lock().unwrap().insert(run_id.clone(), run);
+        Ok(run_id)
+    }
+
+    pub fn stop_run(&self, run_id: &str) -> Result<(), String> {
+        let mut runs = self.runs.lock().unwrap();
+        let run = runs
+            .get_mut(run_id)
+            .ok_or_else(|| format!("Run {} not found", run_id))?;
+        run.status = RunStatus::Stopped;
+        run.finished_at = Some(chrono::Utc::now().to_rfc3339());
+        Ok(())
+    }
+
+    pub fn pause_run(&self, run_id: &str) -> Result<(), String> {
+        let mut runs = self.runs.lock().unwrap();
+        let run = runs
+            .get_mut(run_id)
+            .ok_or_else(|| format!("Run {} not found", run_id))?;
+        if run.status != RunStatus::Running {
+            return Err(format!("Cannot pause run in {:?} state", run.status));
+        }
+        run.status = RunStatus::Paused;
+        Ok(())
+    }
+
+    pub fn resume_run(&self, run_id: &str) -> Result<(), String> {
+        let mut runs = self.runs.lock().unwrap();
+        let run = runs
+            .get_mut(run_id)
+            .ok_or_else(|| format!("Run {} not found", run_id))?;
+        if run.status != RunStatus::Paused {
+            return Err(format!("Cannot resume run in {:?} state", run.status));
+        }
+        run.status = RunStatus::Running;
+        Ok(())
+    }
+
+    pub fn get_run(&self, run_id: &str) -> Option<WorkflowRun> {
+        self.runs.lock().unwrap().get(run_id).cloned()
+    }
+
+    pub fn update_node_state(
+        &self,
+        run_id: &str,
+        node_id: &str,
+        new_state: AgentState,
+        agent_id: Option<String>,
+    ) -> Result<(), String> {
+        let mut runs = self.runs.lock().unwrap();
+        let run = runs
+            .get_mut(run_id)
+            .ok_or_else(|| format!("Run {} not found", run_id))?;
+        let node_state = run
+            .node_states
+            .get_mut(node_id)
+            .ok_or_else(|| format!("Node {} not found in run", node_id))?;
+        node_state.state = new_state;
+        if agent_id.is_some() {
+            node_state.agent_id = agent_id;
+        }
+        Ok(())
+    }
+
+    pub fn check_run_complete(&self, run_id: &str) -> Result<bool, String> {
+        let runs = self.runs.lock().unwrap();
+        let run = runs
+            .get(run_id)
+            .ok_or_else(|| format!("Run {} not found", run_id))?;
+        Ok(run
+            .node_states
+            .values()
+            .all(|ns| matches!(ns.state, AgentState::Success | AgentState::Error)))
+    }
+
+    pub fn finalize_run(&self, run_id: &str) -> Result<RunStatus, String> {
+        let mut runs = self.runs.lock().unwrap();
+        let run = runs
+            .get_mut(run_id)
+            .ok_or_else(|| format!("Run {} not found", run_id))?;
+        let has_errors = run
+            .node_states
+            .values()
+            .any(|ns| ns.state == AgentState::Error);
+        let final_status = if has_errors {
+            RunStatus::Failed
+        } else {
+            RunStatus::Completed
+        };
+        run.status = final_status.clone();
+        run.finished_at = Some(chrono::Utc::now().to_rfc3339());
+        Ok(final_status)
+    }
+
+    // --- Scheduler ---
+
+    pub fn advance_run(
+        &self,
+        run_id: &str,
+        workflow: &Workflow,
+        runtime: &AgentRuntime,
+        pty_manager: &PtyManager,
+        app: &AppHandle,
+        cwd: &str,
+    ) -> Result<Vec<String>, String> {
+        {
+            let runs = self.runs.lock().unwrap();
+            let run = runs
+                .get(run_id)
+                .ok_or_else(|| format!("Run {} not found", run_id))?;
+            if run.status != RunStatus::Running {
+                return Ok(vec![]);
+            }
+        }
+        let node_states = {
+            let runs = self.runs.lock().unwrap();
+            runs.get(run_id).unwrap().node_states.clone()
+        };
+        let ready = Self::get_ready_nodes(&workflow.edges, &node_states);
+        let running_count = node_states
+            .values()
+            .filter(|ns| ns.state == AgentState::Running || ns.state == AgentState::Queued)
+            .count() as u32;
+        let max_concurrent = workflow.settings.max_concurrent_agents;
+        let mut started = Vec::new();
+
+        for node_id in ready {
+            if running_count + started.len() as u32 >= max_concurrent {
+                break;
+            }
+            let node = workflow
+                .nodes
+                .iter()
+                .find(|n| n.id == node_id)
+                .ok_or_else(|| format!("Node {} not in workflow", node_id))?;
+
+            match node.node_type {
+                NodeType::Agent => {
+                    let retry = node
+                        .config
+                        .get("retry")
+                        .and_then(|v| v.as_u64())
+                        .unwrap_or(workflow.settings.default_retry as u64)
+                        as u32;
+                    let fallback = node
+                        .config
+                        .get("fallback")
+                        .and_then(|v| v.as_str())
+                        .map(|s| s.to_string());
+                    let llm = node
+                        .config
+                        .get("llm")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("claude");
+
+                    let agent_id = runtime.create_agent(
+                        &node_id,
+                        &format!("{}:{}", run_id, node_id),
+                        retry,
+                        fallback,
+                    );
+                    runtime.transition(&agent_id, AgentState::Queued)?;
+                    runtime.transition(&agent_id, AgentState::Running)?;
+                    let pty_id = pty_manager.spawn(llm, &[], cwd, app.clone())?;
+                    runtime.set_pty(&agent_id, &pty_id)?;
+                    self.update_node_state(
+                        run_id,
+                        &node_id,
+                        AgentState::Running,
+                        Some(agent_id.clone()),
+                    )?;
+                    let _ = app.emit(
+                        "workflow-node-started",
+                        serde_json::json!({
+                            "run_id": run_id,
+                            "node_id": node_id,
+                            "agent_id": agent_id,
+                            "pty_id": pty_id,
+                        }),
+                    );
+                    started.push(node_id);
+                }
+                NodeType::Logic => {
+                    // Logic nodes evaluate immediately (rule evaluation deferred to Phase 4)
+                    self.update_node_state(run_id, &node_id, AgentState::Success, None)?;
+                    let _ = app.emit(
+                        "workflow-node-completed",
+                        serde_json::json!({
+                            "run_id": run_id,
+                            "node_id": node_id,
+                            "state": "success",
+                        }),
+                    );
+                    started.push(node_id);
+                }
+                NodeType::Resource => {} // already Success from create_run
+            }
+        }
+
+        if self.check_run_complete(run_id)? {
+            let final_status = self.finalize_run(run_id)?;
+            let _ = app.emit(
+                "workflow-run-completed",
+                serde_json::json!({
+                    "run_id": run_id,
+                    "status": final_status,
+                }),
+            );
+        }
+        Ok(started)
+    }
+
+    pub fn on_node_completed(
+        &self,
+        run_id: &str,
+        node_id: &str,
+        success: bool,
+        workflow: &Workflow,
+        runtime: &AgentRuntime,
+        pty_manager: &PtyManager,
+        app: &AppHandle,
+        cwd: &str,
+    ) -> Result<(), String> {
+        let agent_id = {
+            let runs = self.runs.lock().unwrap();
+            let run = runs
+                .get(run_id)
+                .ok_or_else(|| format!("Run {} not found", run_id))?;
+            run.node_states
+                .get(node_id)
+                .and_then(|ns| ns.agent_id.clone())
+        };
+
+        if success {
+            if let Some(ref aid) = agent_id {
+                let _ = runtime.transition(aid, AgentState::Success);
+            }
+            self.update_node_state(run_id, node_id, AgentState::Success, None)?;
+            let _ = app.emit(
+                "workflow-node-completed",
+                serde_json::json!({
+                    "run_id": run_id,
+                    "node_id": node_id,
+                    "state": "success",
+                }),
+            );
+        } else {
+            if let Some(ref aid) = agent_id {
+                let _ = runtime.transition(aid, AgentState::Failed);
+            }
+            self.update_node_state(run_id, node_id, AgentState::Failed, None)?;
+
+            let handled =
+                self.handle_failure(run_id, node_id, workflow, runtime, pty_manager, app, cwd)?;
+            if !handled {
+                if let Some(ref aid) = agent_id {
+                    let _ = runtime.transition(aid, AgentState::Error);
+                }
+                self.update_node_state(run_id, node_id, AgentState::Error, None)?;
+                let _ = app.emit(
+                    "workflow-node-error",
+                    serde_json::json!({
+                        "run_id": run_id,
+                        "node_id": node_id,
+                    }),
+                );
+            }
+        }
+        self.advance_run(run_id, workflow, runtime, pty_manager, app, cwd)?;
+        Ok(())
+    }
+
+    fn handle_failure(
+        &self,
+        run_id: &str,
+        node_id: &str,
+        workflow: &Workflow,
+        runtime: &AgentRuntime,
+        pty_manager: &PtyManager,
+        app: &AppHandle,
+        cwd: &str,
+    ) -> Result<bool, String> {
+        let agent_id = {
+            let runs = self.runs.lock().unwrap();
+            let run = runs.get(run_id).ok_or("Run not found")?;
+            run.node_states
+                .get(node_id)
+                .and_then(|ns| ns.agent_id.clone())
+                .ok_or("No agent for node")?
+        };
+        let agent = runtime.get_agent(&agent_id).ok_or("Agent not found")?;
+
+        // Try retry
+        if agent.retry_count < agent.max_retries {
+            let _ = runtime.transition(&agent_id, AgentState::Retrying);
+            let _ = runtime.transition(&agent_id, AgentState::Running);
+            self.update_node_state(run_id, node_id, AgentState::Running, None)?;
+            let node = workflow
+                .nodes
+                .iter()
+                .find(|n| n.id == node_id)
+                .unwrap();
+            let llm = node
+                .config
+                .get("llm")
+                .and_then(|v| v.as_str())
+                .unwrap_or("claude");
+            let pty_id = pty_manager.spawn(llm, &[], cwd, app.clone())?;
+            runtime.set_pty(&agent_id, &pty_id)?;
+            let _ = app.emit(
+                "workflow-node-retrying",
+                serde_json::json!({
+                    "run_id": run_id,
+                    "node_id": node_id,
+                    "retry_count": agent.retry_count + 1,
+                    "pty_id": pty_id,
+                }),
+            );
+            return Ok(true);
+        }
+
+        // Try fallback
+        if agent.fallback_agent.is_some() {
+            let _ = runtime.transition(&agent_id, AgentState::Fallback);
+            self.update_node_state(run_id, node_id, AgentState::Fallback, None)?;
+            let node = workflow
+                .nodes
+                .iter()
+                .find(|n| n.id == node_id)
+                .unwrap();
+            let fallback_llm = node
+                .config
+                .get("fallback")
+                .and_then(|v| v.as_str())
+                .unwrap_or("claude");
+            let new_agent_id =
+                runtime.create_agent(node_id, &format!("{}:{}", run_id, node_id), 0, None);
+            let _ = runtime.transition(&new_agent_id, AgentState::Queued);
+            let _ = runtime.transition(&new_agent_id, AgentState::Running);
+            let pty_id = pty_manager.spawn(fallback_llm, &[], cwd, app.clone())?;
+            runtime.set_pty(&new_agent_id, &pty_id)?;
+            self.update_node_state(
+                run_id,
+                node_id,
+                AgentState::Running,
+                Some(new_agent_id.clone()),
+            )?;
+            let _ = app.emit(
+                "workflow-node-fallback",
+                serde_json::json!({
+                    "run_id": run_id,
+                    "node_id": node_id,
+                    "fallback_agent_id": new_agent_id,
+                    "pty_id": pty_id,
+                }),
+            );
+            return Ok(true);
+        }
+
+        Ok(false)
+    }
+
+    pub fn step_run(
+        &self,
+        run_id: &str,
+        workflow: &Workflow,
+        runtime: &AgentRuntime,
+        pty_manager: &PtyManager,
+        app: &AppHandle,
+        cwd: &str,
+    ) -> Result<Option<String>, String> {
+        {
+            let mut runs = self.runs.lock().unwrap();
+            let run = runs.get_mut(run_id).ok_or("Run not found")?;
+            if run.status != RunStatus::Paused && run.status != RunStatus::Running {
+                return Err(format!("Cannot step run in {:?} state", run.status));
+            }
+            run.status = RunStatus::Running;
+        }
+        let node_states = {
+            let runs = self.runs.lock().unwrap();
+            runs.get(run_id).unwrap().node_states.clone()
+        };
+        let ready = Self::get_ready_nodes(&workflow.edges, &node_states);
+
+        if ready.is_empty() {
+            let mut runs = self.runs.lock().unwrap();
+            if let Some(run) = runs.get_mut(run_id) {
+                run.status = RunStatus::Paused;
+            }
+            return Ok(None);
+        }
+
+        let started = self.advance_run(run_id, workflow, runtime, pty_manager, app, cwd)?;
+        {
+            let mut runs = self.runs.lock().unwrap();
+            if let Some(run) = runs.get_mut(run_id) {
+                if run.status == RunStatus::Running {
+                    run.status = RunStatus::Paused;
+                }
+            }
+        }
+        Ok(started.into_iter().next())
+    }
+}

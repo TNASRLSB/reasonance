@@ -6,6 +6,7 @@ mod pty_manager;
 mod shadow_store;
 mod workflow_store;
 mod agent_runtime;
+mod workflow_engine;
 
 use fs_watcher::FsWatcherState;
 use pty_manager::PtyManager;
@@ -22,6 +23,7 @@ pub fn run() {
         .manage(discovery::DiscoveryEngine::new())
         .manage(workflow_store::WorkflowStore::new())
         .manage(agent_runtime::AgentRuntime::new())
+        .manage(workflow_engine::WorkflowEngine::new())
         .invoke_handler(tauri::generate_handler![
             commands::fs::read_file,
             commands::fs::write_file,
