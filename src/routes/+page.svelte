@@ -14,6 +14,8 @@
   import { llmConfigs, appSettings } from '$lib/stores/config';
   import { showSettings, fontFamily, fontSize } from '$lib/stores/ui';
   import { registerKeybinding, initKeybindings } from '$lib/utils/keybindings';
+  import Toast from '$lib/components/Toast.svelte';
+  import { showToast } from '$lib/stores/toast';
   import { onMount, onDestroy } from 'svelte';
   import { parse } from 'smol-toml';
   import '../app.css';
@@ -86,8 +88,9 @@
 
       // Apply persisted app settings from config if present
       // (font family/size and theme are managed by stores; no TOML fields for them yet)
-    } catch {
+    } catch (err) {
       // Config load failures are non-fatal — continue with defaults
+      showToast('error', 'Config parse error', String(err));
     }
   }
 
@@ -114,6 +117,7 @@
         openFiles.update((all) =>
           all.map((f) => (f.path === event.path ? { ...f, isDeleted: true } : f))
         );
+        showToast('warning', 'File deleted', event.path.split('/').pop() ?? event.path);
         return;
       }
 
@@ -218,3 +222,5 @@
   visible={showFindInFiles}
   onClose={() => (showFindInFiles = false)}
 />
+
+<Toast />
