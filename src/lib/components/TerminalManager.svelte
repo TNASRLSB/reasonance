@@ -1,0 +1,372 @@
+<script lang="ts">
+  import { get } from 'svelte/store';
+  import Terminal from './Terminal.svelte';
+  import type { Adapter } from '$lib/adapter/index';
+  import { llmConfigs } from '$lib/stores/config';
+  import { terminalTabs, activeTerminalTab, activeInstanceId } from '$lib/stores/terminals';
+  import type { LlmConfig } from '$lib/stores/config';
+
+  let { adapter, cwd = '.' }: { adapter: Adapter; cwd?: string } = $props();
+
+  // Derived: CLI LLMs only (have a command)
+  let cliLlms = $derived(get(llmConfigs).filter((c) => c.type === 'cli' && c.command));
+
+  // Re-derive when store changes
+  let configs = $state<LlmConfig[]>([]);
+  llmConfigs.subscribe((val) => {
+    configs = val.filter((c) => c.type === 'cli' && c.command);
+  });
+
+  let tabs = $state<import('$lib/stores/terminals').TerminalTab[]>([]);
+  let activeTab = $state<string | null>(null);
+  let activeInstance = $state<string | null>(null);
+
+  terminalTabs.subscribe((val) => { tabs = val; });
+  activeTerminalTab.subscribe((val) => { activeTab = val; });
+  activeInstanceId.subscribe((val) => { activeInstance = val; });
+
+  // Count instances per LLM for label generation
+  const instanceCounters: Record<string, number> = {};
+
+  export async function addInstance(llmName: string) {
+    const config = get(llmConfigs).find((c) => c.name === llmName);
+    if (!config || !config.command) return;
+
+    // Build args, optionally appending yoloFlag
+    const args = [...(config.args ?? [])];
+    // YOLO mode: check if yoloFlag should be added (store not implemented yet, skip for now)
+
+    let handle;
+    try {
+      handle = await adapter.spawnProcess(config.command, args, cwd);
+    } catch (err) {
+      console.error('Failed to spawn process:', err);
+      return;
+    }
+
+    instanceCounters[llmName] = (instanceCounters[llmName] ?? 0) + 1;
+    const label = `inst. ${instanceCounters[llmName]}`;
+
+    const instance: import('$lib/stores/terminals').TerminalInstance = {
+      id: handle.id,
+      llmName,
+      label,
+    };
+
+    terminalTabs.update((current) => {
+      const existing = current.find((t) => t.llmName === llmName);
+      if (existing) {
+        existing.instances.push(instance);
+        return [...current];
+      } else {
+        return [...current, { llmName, instances: [instance] }];
+      }
+    });
+
+    activeTerminalTab.set(llmName);
+    activeInstanceId.set(handle.id);
+  }
+
+  function selectTab(llmName: string) {
+    activeTerminalTab.set(llmName);
+    // Select first instance of that tab if current instance is not in this tab
+    const tab = get(terminalTabs).find((t) => t.llmName === llmName);
+    if (tab && tab.instances.length > 0) {
+      const current = get(activeInstanceId);
+      const inTab = tab.instances.find((i) => i.id === current);
+      if (!inTab) {
+        activeInstanceId.set(tab.instances[0].id);
+      }
+    }
+  }
+
+  function selectInstance(id: string) {
+    activeInstanceId.set(id);
+  }
+
+  function closeInstance(llmName: string, id: string) {
+    adapter.killProcess(id).catch(() => {});
+    terminalTabs.update((current) => {
+      return current
+        .map((t) => {
+          if (t.llmName !== llmName) return t;
+          return { ...t, instances: t.instances.filter((i) => i.id !== id) };
+        })
+        .filter((t) => t.instances.length > 0);
+    });
+
+    // Update active selections
+    const newTabs = get(terminalTabs);
+    if (newTabs.length === 0) {
+      activeTerminalTab.set(null);
+      activeInstanceId.set(null);
+    } else {
+      const stillActiveTab = newTabs.find((t) => t.llmName === get(activeTerminalTab));
+      if (!stillActiveTab) {
+        const first = newTabs[0];
+        activeTerminalTab.set(first.llmName);
+        activeInstanceId.set(first.instances[0]?.id ?? null);
+      } else {
+        const stillActiveInstance = stillActiveTab.instances.find(
+          (i) => i.id === get(activeInstanceId)
+        );
+        if (!stillActiveInstance) {
+          activeInstanceId.set(stillActiveTab.instances[0]?.id ?? null);
+        }
+      }
+    }
+  }
+
+  // Active tab instances
+  let activeTabInstances = $derived(
+    tabs.find((t) => t.llmName === activeTab)?.instances ?? []
+  );
+</script>
+
+<div class="terminal-manager">
+  <!-- LLM Tab Bar -->
+  <div class="llm-tabs">
+    {#each tabs as tab (tab.llmName)}
+      <button
+        class="llm-tab"
+        class:active={tab.llmName === activeTab}
+        onclick={() => selectTab(tab.llmName)}
+      >
+        {tab.llmName}
+      </button>
+    {/each}
+
+    <!-- Add LLM buttons for unconfigured CLIs -->
+    {#each configs as config (config.name)}
+      {#if !tabs.find((t) => t.llmName === config.name)}
+        <button class="llm-tab add-llm" onclick={() => addInstance(config.name)}>
+          + {config.name}
+        </button>
+      {/if}
+    {/each}
+  </div>
+
+  {#if tabs.length === 0}
+    <div class="empty-state">
+      <p>Avvia un LLM per iniziare</p>
+      {#if configs.length === 0}
+        <p class="hint">Configura un LLM nel file di configurazione</p>
+      {:else}
+        <div class="start-buttons">
+          {#each configs as config (config.name)}
+            <button class="start-btn" onclick={() => addInstance(config.name)}>
+              + {config.name}
+            </button>
+          {/each}
+        </div>
+      {/if}
+    </div>
+  {:else}
+    <!-- Instance Tab Bar -->
+    <div class="instance-tabs">
+      {#each activeTabInstances as inst (inst.id)}
+        <button
+          class="instance-tab"
+          class:active={inst.id === activeInstance}
+          onclick={() => selectInstance(inst.id)}
+        >
+          {inst.label}
+          <span
+            class="close-btn"
+            role="button"
+            tabindex="0"
+            onclick={(e) => { e.stopPropagation(); closeInstance(inst.llmName, inst.id); }}
+            onkeydown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); closeInstance(inst.llmName, inst.id); } }}
+          >×</span>
+        </button>
+      {/each}
+
+      <!-- Add instance button -->
+      {#if activeTab}
+        <button
+          class="instance-tab add-instance"
+          onclick={() => addInstance(activeTab!)}
+        >+</button>
+      {/if}
+    </div>
+
+    <!-- Terminal instances (hidden with display:none to keep them alive) -->
+    <div class="terminal-area">
+      {#each tabs as tab (tab.llmName)}
+        {#each tab.instances as inst (inst.id)}
+          <div
+            class="terminal-wrap"
+            style="display: {inst.id === activeInstance ? 'flex' : 'none'};"
+          >
+            <Terminal {adapter} ptyId={inst.id} />
+          </div>
+        {/each}
+      {/each}
+    </div>
+  {/if}
+</div>
+
+<style>
+  .terminal-manager {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+    background: var(--bg-secondary, #1a1a2e);
+  }
+
+  .llm-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px;
+    padding: 4px 6px 0;
+    background: var(--bg-primary, #12121f);
+    border-bottom: 1px solid var(--border, #2a2a4a);
+    flex-shrink: 0;
+  }
+
+  .llm-tab {
+    padding: 4px 12px;
+    font-size: 12px;
+    font-weight: 500;
+    border: none;
+    border-radius: 4px 4px 0 0;
+    background: var(--bg-secondary, #1a1a2e);
+    color: var(--text-secondary, #888);
+    cursor: pointer;
+    transition: background 0.1s, color 0.1s;
+  }
+
+  .llm-tab:hover {
+    background: var(--bg-hover, #22223a);
+    color: var(--text-primary, #e0e0e0);
+  }
+
+  .llm-tab.active {
+    background: var(--bg-secondary, #1a1a2e);
+    color: var(--accent, #7c6af7);
+    border-bottom: 2px solid var(--accent, #7c6af7);
+  }
+
+  .llm-tab.add-llm {
+    color: var(--text-secondary, #888);
+    border: 1px dashed var(--border, #2a2a4a);
+    border-bottom: none;
+    background: transparent;
+  }
+
+  .llm-tab.add-llm:hover {
+    color: var(--accent, #7c6af7);
+    border-color: var(--accent, #7c6af7);
+  }
+
+  .instance-tabs {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 3px 6px;
+    background: var(--bg-primary, #12121f);
+    border-bottom: 1px solid var(--border, #2a2a4a);
+    flex-shrink: 0;
+    overflow-x: auto;
+  }
+
+  .instance-tab {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    font-size: 11px;
+    border: 1px solid var(--border, #2a2a4a);
+    border-radius: 3px;
+    background: transparent;
+    color: var(--text-secondary, #888);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.1s, color 0.1s;
+  }
+
+  .instance-tab:hover {
+    background: var(--bg-hover, #22223a);
+    color: var(--text-primary, #e0e0e0);
+  }
+
+  .instance-tab.active {
+    background: var(--bg-secondary, #1a1a2e);
+    color: var(--text-primary, #e0e0e0);
+    border-color: var(--accent, #7c6af7);
+  }
+
+  .instance-tab.add-instance {
+    font-size: 14px;
+    padding: 1px 7px;
+  }
+
+  .close-btn {
+    font-size: 13px;
+    line-height: 1;
+    opacity: 0.6;
+    cursor: pointer;
+    padding: 0 1px;
+  }
+
+  .close-btn:hover {
+    opacity: 1;
+    color: #ff5555;
+  }
+
+  .terminal-area {
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .terminal-wrap {
+    position: absolute;
+    inset: 0;
+    flex-direction: column;
+  }
+
+  .empty-state {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    color: var(--text-secondary, #888);
+  }
+
+  .empty-state p {
+    margin: 0;
+    font-size: 13px;
+  }
+
+  .hint {
+    font-size: 11px !important;
+    opacity: 0.6;
+  }
+
+  .start-buttons {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .start-btn {
+    padding: 6px 14px;
+    font-size: 12px;
+    border: 1px solid var(--accent, #7c6af7);
+    border-radius: 4px;
+    background: transparent;
+    color: var(--accent, #7c6af7);
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+
+  .start-btn:hover {
+    background: var(--accent, #7c6af7);
+    color: white;
+  }
+</style>

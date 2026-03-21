@@ -3,6 +3,7 @@
   import FileTree from '$lib/components/FileTree.svelte';
   import EditorTabs from '$lib/components/EditorTabs.svelte';
   import Editor from '$lib/components/Editor.svelte';
+  import TerminalManager from '$lib/components/TerminalManager.svelte';
   import { TauriAdapter } from '$lib/adapter/tauri';
   import { initTheme } from '$lib/stores/theme';
   import { onMount } from 'svelte';
@@ -23,5 +24,9 @@
   {#snippet editor()}
     <EditorTabs />
     <Editor />
+  {/snippet}
+
+  {#snippet terminal()}
+    <TerminalManager {adapter} />
   {/snippet}
 </App>
