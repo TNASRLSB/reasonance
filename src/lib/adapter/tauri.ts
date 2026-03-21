@@ -12,7 +12,10 @@ export class TauriAdapter implements Adapter {
     return invoke<FileEntry[]>('list_dir', { path, respectGitignore: respectGitignore ?? true });
   }
   async watchFiles(path: string, callback: (event: FsEvent) => void): Promise<() => void> {
-    throw new Error('Not implemented');
+    const { listen } = await import('@tauri-apps/api/event');
+    const unlisten = await listen<FsEvent>('fs-change', (event) => { callback(event.payload); });
+    await invoke('start_watching', { path });
+    return unlisten;
   }
   async openExternal(path: string): Promise<void> {
     return invoke<void>('open_external', { path });
@@ -50,15 +53,15 @@ export class TauriAdapter implements Adapter {
     return unlisten;
   }
   async readConfig(): Promise<string> {
-    throw new Error('Not implemented');
+    return invoke<string>('read_config');
   }
   async writeConfig(content: string): Promise<void> {
-    throw new Error('Not implemented');
+    return invoke('write_config', { content });
   }
   async storeShadow(path: string, content: string): Promise<void> {
-    throw new Error('Not implemented');
+    return invoke('store_shadow', { path, content });
   }
   async getShadow(path: string): Promise<string | null> {
-    throw new Error('Not implemented');
+    return invoke<string | null>('get_shadow', { path });
   }
 }

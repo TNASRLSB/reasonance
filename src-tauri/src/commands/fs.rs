@@ -1,6 +1,8 @@
+use crate::fs_watcher::FsWatcherState;
 use serde::Serialize;
 use std::fs;
 use std::path::Path;
+use tauri::{AppHandle, State};
 
 #[derive(Serialize)]
 pub struct FileEntry {
@@ -63,4 +65,13 @@ pub fn list_dir(path: String, respect_gitignore: bool) -> Result<Vec<FileEntry>,
             .then(a.name.to_lowercase().cmp(&b.name.to_lowercase()))
     });
     Ok(result)
+}
+
+#[tauri::command]
+pub fn start_watching(
+    path: String,
+    app: AppHandle,
+    state: State<'_, FsWatcherState>,
+) -> Result<(), String> {
+    crate::fs_watcher::start_watching(&path, app, &state)
 }

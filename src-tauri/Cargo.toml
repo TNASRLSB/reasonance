@@ -21,3 +21,6 @@ open = "5"
 ignore = "0.4"
 portable-pty = "0.8"
 uuid = { version = "1", features = ["v4"] }
+notify = "6"
+toml = "0.8"
+dirs = "5"
