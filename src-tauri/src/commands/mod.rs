@@ -4,3 +4,4 @@ pub mod fs;
 pub mod pty;
 pub mod shadow;
 pub mod system;
+pub mod workflow;
