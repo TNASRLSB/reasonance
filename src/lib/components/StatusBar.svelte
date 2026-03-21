@@ -7,7 +7,7 @@
     {#if $yoloMode}
       <span class="yolo-label">✕ YOLO MODE — CONFIRMATIONS DISABLED</span>
     {:else}
-      <span class="app-name">FORGE IDE</span>
+      <span class="app-name">REASONANCE</span>
     {/if}
   </div>
   <div class="status-right">

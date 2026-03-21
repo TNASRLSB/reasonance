@@ -43,7 +43,7 @@
 
 <div class="toolbar">
   <div class="toolbar-left">
-    <span class="logo">FORGE</span>
+    <span class="logo">REASONANCE</span>
     <div class="git-actions">
       <button onclick={gitStatus} title="Git Status">Status</button>
       <button onclick={gitCommit} title="Git Commit">Commit</button>
