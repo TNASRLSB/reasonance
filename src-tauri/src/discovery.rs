@@ -211,3 +211,76 @@ impl DiscoveryEngine {
         self.agents.lock().unwrap().clone()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn discovery_engine_new_starts_empty() {
+        let engine = DiscoveryEngine::new();
+        assert!(engine.get_agents().is_empty());
+    }
+
+    #[test]
+    fn capability_profile_default_is_all_false() {
+        let profile = CapabilityProfile::default();
+        assert!(!profile.read_file);
+        assert!(!profile.write_file);
+        assert!(!profile.execute_command);
+        assert!(!profile.web_search);
+        assert!(!profile.image_input);
+        assert!(!profile.long_context);
+    }
+
+    #[test]
+    fn scan_cli_runs_without_panic() {
+        let engine = DiscoveryEngine::new();
+        // Should not panic regardless of what tools are installed
+        let _agents = engine.scan_cli();
+    }
+
+    #[test]
+    fn discovered_agent_serialization_roundtrip() {
+        let agent = DiscoveredAgent {
+            name: "TestAgent".to_string(),
+            source: DiscoverySource::Cli,
+            command: Some("test-agent".to_string()),
+            endpoint: None,
+            models: vec!["model-a".to_string(), "model-b".to_string()],
+            capabilities: CapabilityProfile {
+                read_file: true,
+                write_file: false,
+                execute_command: true,
+                web_search: false,
+                image_input: true,
+                long_context: false,
+            },
+            max_context: Some(128_000),
+            available: true,
+        };
+
+        let json = serde_json::to_string(&agent).unwrap();
+        let deserialized: DiscoveredAgent = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(deserialized.name, "TestAgent");
+        assert_eq!(deserialized.source, DiscoverySource::Cli);
+        assert_eq!(deserialized.command.as_deref(), Some("test-agent"));
+        assert!(deserialized.endpoint.is_none());
+        assert_eq!(deserialized.models.len(), 2);
+        assert!(deserialized.capabilities.read_file);
+        assert!(!deserialized.capabilities.write_file);
+        assert_eq!(deserialized.max_context, Some(128_000));
+        assert!(deserialized.available);
+    }
+
+    #[test]
+    fn discovery_source_serialization() {
+        let cli = serde_json::to_string(&DiscoverySource::Cli).unwrap();
+        let api = serde_json::to_string(&DiscoverySource::Api).unwrap();
+        let manual = serde_json::to_string(&DiscoverySource::Manual).unwrap();
+        assert_eq!(cli, "\"cli\"");
+        assert_eq!(api, "\"api\"");
+        assert_eq!(manual, "\"manual\"");
+    }
+}

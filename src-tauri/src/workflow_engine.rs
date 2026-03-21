@@ -780,4 +780,27 @@ mod tests {
         engine.update_node_state(&run_id, "B", AgentState::Error, None).unwrap();
         assert!(engine.check_run_complete(&run_id).unwrap());
     }
+
+    #[test]
+    fn test_all_predecessors_complete_partial() {
+        // Diamond: A -> C, B -> C. C is only ready when both A and B succeed.
+        let edges = vec![
+            WorkflowEdge { id: "e1".into(), from: "A".into(), to: "C".into(), label: None },
+            WorkflowEdge { id: "e2".into(), from: "B".into(), to: "C".into(), label: None },
+        ];
+        let mut states = HashMap::new();
+        states.insert("A".to_string(), NodeRunState { node_id: "A".into(), agent_id: None, state: AgentState::Success });
+        states.insert("B".to_string(), NodeRunState { node_id: "B".into(), agent_id: None, state: AgentState::Running });
+        states.insert("C".to_string(), NodeRunState { node_id: "C".into(), agent_id: None, state: AgentState::Idle });
+
+        // C not ready: B is still Running
+        assert!(!WorkflowEngine::all_predecessors_complete("C", &edges, &states));
+
+        // A node with no predecessors is always "ready"
+        assert!(WorkflowEngine::all_predecessors_complete("A", &edges, &states));
+
+        // After B completes, C becomes ready
+        states.get_mut("B").unwrap().state = AgentState::Success;
+        assert!(WorkflowEngine::all_predecessors_complete("C", &edges, &states));
+    }
 }
