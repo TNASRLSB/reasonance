@@ -11,18 +11,27 @@
   import { json } from '@codemirror/lang-json';
   import { markdown } from '@codemirror/lang-markdown';
   import { openFiles, activeFilePath } from '$lib/stores/files';
+  import MarkdownPreview from './MarkdownPreview.svelte';
 
   let container: HTMLDivElement;
   let view: EditorView | null = null;
   let readOnly = $state(true);
+  let showMarkdownPreview = $state(false);
 
   // Derive current file from stores — using reactive vars
   let currentPath = $state<string | null>(null);
   let currentContent = $state<string>('');
 
+  // Derive whether current file is markdown
+  const isMarkdown = $derived(
+    currentPath ? (currentPath.split('.').pop()?.toLowerCase() === 'md') : false
+  );
+
   // Subscribe to stores
   const unsubPath = activeFilePath.subscribe((p) => {
     currentPath = p;
+    // Reset preview mode when switching files
+    showMarkdownPreview = false;
   });
 
   const unsubFiles = openFiles.subscribe((files) => {
@@ -124,15 +133,30 @@
   {#if currentPath}
     <div class="editor-toolbar">
       <span class="editor-filename">{currentPath.split('/').pop()}</span>
-      <button
-        class="readonly-toggle"
-        class:editing={!readOnly}
-        onclick={() => (readOnly = !readOnly)}
-      >
-        {readOnly ? 'Read-only' : 'Editing'}
-      </button>
+      <div class="toolbar-actions">
+        {#if isMarkdown}
+          <button
+            class="preview-toggle"
+            class:active={showMarkdownPreview}
+            onclick={() => (showMarkdownPreview = !showMarkdownPreview)}
+          >
+            {showMarkdownPreview ? 'Code' : 'Preview'}
+          </button>
+        {/if}
+        <button
+          class="readonly-toggle"
+          class:editing={!readOnly}
+          onclick={() => (readOnly = !readOnly)}
+        >
+          {readOnly ? 'Read-only' : 'Editing'}
+        </button>
+      </div>
     </div>
-    <div class="editor-cm" bind:this={container}></div>
+    {#if isMarkdown && showMarkdownPreview}
+      <MarkdownPreview content={currentContent} />
+    {:else}
+      <div class="editor-cm" bind:this={container}></div>
+    {/if}
   {:else}
     <div class="editor-empty">
       <p>Apri un file dal file tree</p>
@@ -161,9 +185,37 @@
     font-size: 12px;
   }
 
+  .toolbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
   .editor-filename {
     color: var(--text-secondary);
     font-family: var(--font-mono, monospace);
+  }
+
+  .preview-toggle {
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
+  }
+
+  .preview-toggle:hover {
+    color: var(--text-primary);
+    border-color: var(--accent);
+  }
+
+  .preview-toggle.active {
+    color: #10b981;
+    border-color: #10b981;
+    background: rgba(16, 185, 129, 0.08);
   }
 
   .readonly-toggle {
