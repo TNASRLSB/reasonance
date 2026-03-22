@@ -174,6 +174,9 @@ impl StructuredAgentTransport {
 mod integration_tests;
 
 #[cfg(test)]
+mod session_integration_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
 
