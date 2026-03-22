@@ -1,0 +1,4 @@
+{"type":"TOOL_USE","name":"read_file","id":"tool-1","args":"{\"path\":\"test.rs\"}"}
+{"type":"TOOL_RESULT","tool_use_id":"tool-1","result":"file contents here"}
+{"type":"RESULT","usage":{"input_tokens":20,"output_tokens":10},"session_id":"gemini-sess-2"}
+{"type":"RESULT","session_id":"gemini-sess-2"}

@@ -1,0 +1,2 @@
+{"jsonrpc":"2.0","method":"ItemCompletedNotification","params":{"item":{"type":"commandExecution","command":"ls -la","output":"total 0\ndrwx","id":"cmd-1"}}}
+{"jsonrpc":"2.0","method":"TurnCompletedNotification","params":{}}

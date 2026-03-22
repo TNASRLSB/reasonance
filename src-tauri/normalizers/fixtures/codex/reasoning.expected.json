@@ -1,0 +1,5 @@
+[
+  {"event_type": "text"},
+  {"event_type": "thinking", "content_contains": "Step by step"},
+  {"event_type": "done"}
+]
