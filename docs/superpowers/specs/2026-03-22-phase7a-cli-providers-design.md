@@ -8,7 +8,9 @@ Add 4 new CLI-based LLM providers to the Structured Agent Transport: **Gemini**,
 
 ### Streaming Protocols
 
-All 4 providers emit JSONL on stdout — one JSON object per line. The existing `stream_reader.rs` reads lines and pipes them through the `NormalizerPipeline` (Rules → State Machine → Content Parser). No changes needed to the stream reader or pipeline.
+All 4 providers emit JSONL on stdout — one JSON object per line. The existing `stream_reader.rs` reads lines and pipes them through the `NormalizerPipeline` (Rules → State Machine → Content Parser). No changes needed to the stream reader.
+
+**Prerequisite change:** `resolve_path` in `rules_engine.rs` must be extended to support array indexing (e.g., `content[0].text`). The current implementation only splits on `.` and calls `value.get(segment)`, which silently returns `None` for array-indexed paths. This must be done before any TOML with array-indexed mappings can work.
 
 | Provider | Binary | Flags | Protocol |
 |----------|--------|-------|----------|
@@ -21,7 +23,7 @@ All 4 providers emit JSONL on stdout — one JSON object per line. The existing 
 
 ```
 src-tauri/normalizers/
-  claude.toml             (existing)
+  claude.toml             (existing — add tool_input_delta + block_stop rules)
   gemini.toml             (new)
   kimi.toml               (new)
   qwen.toml               (new)
@@ -34,8 +36,10 @@ src-tauri/normalizers/fixtures/
   kimi/basic_text.jsonl    (new)
   kimi/thinking.jsonl      (new)
   kimi/tool_use.jsonl      (new)
+  kimi/error.jsonl         (new)
   qwen/basic_text.jsonl    (new)
   qwen/tool_use.jsonl      (new)
+  qwen/error.jsonl         (new)
   codex/basic_text.jsonl   (new)
   codex/reasoning.jsonl    (new)
   codex/tool_use.jsonl     (new)
@@ -44,16 +48,56 @@ src-tauri/normalizers/fixtures/
 src-tauri/src/normalizer/state_machines/
   mod.rs                   (modified — 4 new pub mod + accumulator)
   accumulator.rs           (new — shared accumulation primitives)
-  claude.rs                (existing)
+  claude.rs                (existing — refactor to use shared accumulators)
   generic.rs               (existing)
   gemini.rs                (new)
   kimi.rs                  (new)
   qwen.rs                  (new)
   codex.rs                 (new)
 
-src-tauri/src/transport/mod.rs   (modified — provider match + capabilities wiring)
-src-tauri/src/discovery.rs       (modified — add kimi, qwen, codex to CLI scan)
+src-tauri/src/normalizer/rules_engine.rs  (modified — array index support in resolve_path)
+src-tauri/src/normalizer/mod.rs           (modified — state machine selection in load_from_dir and reload_provider)
+src-tauri/src/transport/mod.rs            (modified — provider match for state machine selection)
+src-tauri/src/discovery.rs                (modified — add kimi, qwen, codex to CLI scan + builtin profiles)
+src-tauri/src/agent_event.rs              (modified — add incomplete field to AgentEventMetadata)
+src-tauri/src/normalizer/pipeline.rs      (modified — add incomplete: None to AgentEventMetadata construction)
 ```
+
+---
+
+## 0. Prerequisite: Array Index Support in `resolve_path`
+
+### Current Limitation
+
+`resolve_path` in `rules_engine.rs` splits on `.` and calls `value.get(segment)`. It cannot handle `content[0].text` — the segment `content[0]` is not a valid JSON key and returns `None`.
+
+### Fix
+
+Extend `resolve_path` to parse `segment[N]` patterns:
+
+```rust
+pub fn resolve_path<'a>(value: &'a Value, path: &str) -> Option<&'a Value> {
+    let mut current = value;
+    for segment in path.split('.') {
+        // Check for array index: "field[N]"
+        if let Some(bracket_pos) = segment.find('[') {
+            let field = &segment[..bracket_pos];
+            let idx_str = &segment[bracket_pos + 1..segment.len() - 1];
+            current = current.get(field)?;
+            let idx: usize = idx_str.parse().ok()?;
+            current = current.get(idx)?;
+        } else {
+            current = current.get(segment)?;
+        }
+    }
+    Some(current)
+}
+```
+
+**Tests (3):**
+1. `resolve_path(&json, "content[0].text")` → resolves array element
+2. `resolve_path(&json, "content[99].text")` → returns None (out of bounds)
+3. `resolve_path(&json, "nested.items[1].name")` → resolves deep array access
 
 ---
 
@@ -89,7 +133,9 @@ pub struct ToolInputAccumulator {
 
 impl ToolInputAccumulator {
     pub fn new() -> Self;
-    pub fn start(&mut self, event: AgentEvent, tool_name: &str, tool_id: Option<&str>);
+    /// Start accumulating for a new tool. If already active, auto-flushes the
+    /// pending tool (returns it as Some) before starting the new one.
+    pub fn start(&mut self, event: AgentEvent, tool_name: &str, tool_id: Option<&str>) -> Option<AgentEvent>;
     pub fn push_input(&mut self, fragment: &str);
     pub fn is_active(&self) -> bool;
     pub fn finalize(&mut self) -> Option<AgentEvent>;  // Returns assembled tool_use event, clears state
@@ -119,6 +165,8 @@ When the state machine checks `TimedFlush::is_expired()` and it returns `true`:
 
 The timeout check happens in the state machine's `process()` method — before processing the new event, check if the previous accumulation has timed out.
 
+**Limitation:** Since `StateMachine::process()` is only called when a new event arrives, the timeout cannot trigger if the provider stops sending events entirely (e.g., hangs). In that case, the stream reader's process termination handling (wait for child exit) covers the stuck case. The timeout's primary purpose is handling partial accumulation when the provider sends a different event type before completing the current one.
+
 Default timeout: **10 seconds** (configurable per provider via TOML `[commands]` section in the future).
 
 ### AgentEventMetadata Extension
@@ -132,56 +180,41 @@ pub struct AgentEventMetadata {
 }
 ```
 
+**Construction sites that must add `incomplete: None`:**
+- `agent_event.rs` → `base_metadata()` helper
+- `normalizer/pipeline.rs` → `build_event()` method
+- Any test helpers that construct `AgentEventMetadata` directly
+
+### Mapping Semantics Note
+
+In TOML rule mappings, most values are **JSON paths** resolved via `resolve_path` (e.g., `content = "delta.text"` resolves `$.delta.text`). The exception is `severity`, which is a **literal value** (`"fatal"` or `"recoverable"`) mapped directly to `ErrorSeverity` enum. This distinction is handled in `pipeline.rs::build_event` and does not require TOML-level changes.
+
 ---
 
 ## 2. TOML Normalizers
 
 ### Structure
 
-Each TOML follows the established pattern from `claude.toml`:
+Each TOML follows the established pattern from `claude.toml`. See the `[cli]`, `[capabilities]`, `[retry]`, `[commands]`, `[session]`, `[[rules]]`, and `[[tests]]` sections.
+
+**Rule ordering:** More specific error rules must appear **before** generic ones. The rules engine uses first-match semantics (`find_matching_rule` returns the first matching rule).
+
+### Claude TOML Updates
+
+Add two missing rules to `claude.toml` (tool input streaming and block stop):
 
 ```toml
-[cli]
-name = "<provider>"
-binary = "<binary>"
-programmatic_args = [...]
-resume_args = [...]
-version_command = [...]
-update_command = [...]
-
-[capabilities]
-streaming = true/false
-session_resume = true/false
-tool_use = true/false
-thinking = true/false
-structured_output = true/false
-diff_output = true/false
-
-[context]
-mode = "flag"
-flag = "--context"
-file_format = "..."
-selection_format = "..."
-
-[retry]
-max_retries = 3
-backoff = { strategy = "exponential", base_ms = 1000, max_ms = 30000 }
-retryable_codes = [...]
-
-[commands]
-cancel = { method = "signal", signal = "SIGINT" }
-pause = false
-interrupt = { method = "stdin", format = "\n{message}\n" }
-
-[session]
-session_id_path = "..."
-model_path = "..."
+[[rules]]
+name = "tool_input_delta"
+when = 'type == "content_block_delta" && delta.type == "input_json_delta"'
+emit = "tool_use"
+[rules.mappings]
+content = "delta.partial_json"
 
 [[rules]]
-# ... provider-specific rules ...
-
-[[tests]]
-# ... provider-specific test cases ...
+name = "block_stop"
+when = 'type == "content_block_stop"'
+emit = "status"
 ```
 
 ### Gemini TOML
@@ -215,6 +248,46 @@ cancel = { method = "signal", signal = "SIGINT" }
 session_id_path = "session_id"
 model_path = "model"
 
+# --- Error rules (specific before generic) ---
+
+[[rules]]
+name = "error_resource_exhausted"
+when = 'type == "ERROR" && code == "RESOURCE_EXHAUSTED"'
+emit = "error"
+[rules.mappings]
+content = "message"
+error_code = "code"
+severity = "recoverable"
+
+[[rules]]
+name = "error_unavailable"
+when = 'type == "ERROR" && code == "UNAVAILABLE"'
+emit = "error"
+[rules.mappings]
+content = "message"
+error_code = "code"
+severity = "recoverable"
+
+[[rules]]
+name = "error_deadline"
+when = 'type == "ERROR" && code == "DEADLINE_EXCEEDED"'
+emit = "error"
+[rules.mappings]
+content = "message"
+error_code = "code"
+severity = "recoverable"
+
+[[rules]]
+name = "error_generic"
+when = 'type == "ERROR"'
+emit = "error"
+[rules.mappings]
+content = "message"
+error_code = "code"
+severity = "fatal"
+
+# --- Content rules ---
+
 [[rules]]
 name = "text_chunk"
 when = 'type == "MESSAGE" && exists(content)'
@@ -238,33 +311,6 @@ emit = "tool_result"
 [rules.mappings]
 content = "result"
 parent_id = "tool_use_id"
-
-[[rules]]
-name = "error"
-when = 'type == "ERROR"'
-emit = "error"
-[rules.mappings]
-content = "message"
-error_code = "code"
-severity = "fatal"
-
-[[rules]]
-name = "error_resource_exhausted"
-when = 'type == "ERROR" && code == "RESOURCE_EXHAUSTED"'
-emit = "error"
-[rules.mappings]
-content = "message"
-error_code = "code"
-severity = "recoverable"
-
-[[rules]]
-name = "error_unavailable"
-when = 'type == "ERROR" && code == "UNAVAILABLE"'
-emit = "error"
-[rules.mappings]
-content = "message"
-error_code = "code"
-severity = "recoverable"
 
 [[rules]]
 name = "usage"
@@ -328,6 +374,28 @@ cancel = { method = "signal", signal = "SIGINT" }
 session_id_path = "message.id"
 model_path = "message.model"
 
+# --- Error rules (specific before generic) ---
+
+[[rules]]
+name = "error_rate_limit"
+when = 'type == "error" && error.type == "overloaded"'
+emit = "error"
+[rules.mappings]
+content = "error.message"
+error_code = "error.type"
+severity = "recoverable"
+
+[[rules]]
+name = "error_generic"
+when = 'type == "error"'
+emit = "error"
+[rules.mappings]
+content = "error.message"
+error_code = "error.type"
+severity = "fatal"
+
+# --- Content rules ---
+
 [[rules]]
 name = "text_chunk"
 when = 'type == "content_block_delta" && delta.type == "text_delta"'
@@ -352,22 +420,16 @@ tool_name = "content_block.name"
 parent_id = "content_block.id"
 
 [[rules]]
-name = "error_rate_limit"
-when = 'type == "error" && error.type == "overloaded"'
-emit = "error"
+name = "tool_input_delta"
+when = 'type == "content_block_delta" && delta.type == "input_json_delta"'
+emit = "tool_use"
 [rules.mappings]
-content = "error.message"
-error_code = "error.type"
-severity = "recoverable"
+content = "delta.partial_json"
 
 [[rules]]
-name = "error_generic"
-when = 'type == "error"'
-emit = "error"
-[rules.mappings]
-content = "error.message"
-error_code = "error.type"
-severity = "fatal"
+name = "block_stop"
+when = 'type == "content_block_stop"'
+emit = "status"
 
 [[rules]]
 name = "usage"
@@ -431,6 +493,28 @@ cancel = { method = "signal", signal = "SIGINT" }
 session_id_path = "session_id"
 model_path = "message.model"
 
+# --- Error rules (specific before generic) ---
+
+[[rules]]
+name = "error_rate_limit"
+when = 'type == "error" && error.type == "overloaded"'
+emit = "error"
+[rules.mappings]
+content = "error.message"
+error_code = "error.type"
+severity = "recoverable"
+
+[[rules]]
+name = "error_generic"
+when = 'type == "error"'
+emit = "error"
+[rules.mappings]
+content = "error.message"
+error_code = "error.type"
+severity = "fatal"
+
+# --- Content rules ---
+
 [[rules]]
 name = "text_chunk"
 when = 'type == "content_block_delta" && delta.type == "text_delta"'
@@ -448,20 +532,23 @@ tool_name = "content_block.name"
 parent_id = "content_block.id"
 
 [[rules]]
+name = "tool_input_delta"
+when = 'type == "content_block_delta" && delta.type == "input_json_delta"'
+emit = "tool_use"
+[rules.mappings]
+content = "delta.partial_json"
+
+[[rules]]
+name = "block_stop"
+when = 'type == "content_block_stop"'
+emit = "status"
+
+[[rules]]
 name = "assistant_text"
 when = 'type == "assistant" && exists(message.content)'
 emit = "text"
 [rules.mappings]
 content = "message.content[0].text"
-
-[[rules]]
-name = "error_generic"
-when = 'type == "error"'
-emit = "error"
-[rules.mappings]
-content = "error.message"
-error_code = "error.type"
-severity = "fatal"
 
 [[rules]]
 name = "usage"
@@ -517,6 +604,37 @@ cancel = { method = "signal", signal = "SIGINT" }
 session_id_path = "params.thread_id"
 model_path = "params.model"
 
+# --- Error rules (specific before generic) ---
+
+[[rules]]
+name = "error_rate_limit"
+when = 'method == "ErrorNotification" && params.code == "rate_limit"'
+emit = "error"
+[rules.mappings]
+content = "params.message"
+error_code = "params.code"
+severity = "recoverable"
+
+[[rules]]
+name = "error_server"
+when = 'method == "ErrorNotification" && params.code == "server_error"'
+emit = "error"
+[rules.mappings]
+content = "params.message"
+error_code = "params.code"
+severity = "recoverable"
+
+[[rules]]
+name = "error_generic"
+when = 'method == "ErrorNotification"'
+emit = "error"
+[rules.mappings]
+content = "params.message"
+error_code = "params.code"
+severity = "fatal"
+
+# --- Content rules ---
+
 [[rules]]
 name = "text_delta"
 when = 'method == "AgentMessageDeltaNotification"'
@@ -548,24 +666,6 @@ emit = "tool_use"
 content = "params.item.output"
 tool_name = "params.item.name"
 parent_id = "params.item.id"
-
-[[rules]]
-name = "error"
-when = 'method == "ErrorNotification"'
-emit = "error"
-[rules.mappings]
-content = "params.message"
-error_code = "params.code"
-severity = "fatal"
-
-[[rules]]
-name = "error_rate_limit"
-when = 'method == "ErrorNotification" && params.code == "rate_limit"'
-emit = "error"
-[rules.mappings]
-content = "params.message"
-error_code = "params.code"
-severity = "recoverable"
 
 [[rules]]
 name = "usage"
@@ -628,7 +728,7 @@ pub struct GeminiStateMachine {
 
 ### Kimi State Machine
 
-Mirrors Claude's pattern closely — `content_block_start` (tool_use) → N deltas → `content_block_stop` (status). Uses shared accumulators.
+Mirrors Claude's pattern — `content_block_start` (tool_use) → N deltas → `content_block_stop` (status). Uses shared accumulators.
 
 ```rust
 pub struct KimiStateMachine {
@@ -704,6 +804,10 @@ pub struct CodexStateMachine {
 5. Reset clears all accumulators
 6. Timeout flush emits incomplete text event
 
+### Note on Kimi/Qwen vs Claude Similarity
+
+Kimi and Qwen state machines have nearly identical logic to Claude's (tool_use start → accumulate → status flush). They are kept as separate files because: (a) providers evolve independently and will diverge, (b) isolated files make provider-specific debugging straightforward, (c) the shared `ToolInputAccumulator` already eliminates the actual duplication — the state machine files are thin wrappers (~50-80 lines each).
+
 ---
 
 ## 4. JSON Fixtures
@@ -731,8 +835,8 @@ Accompanying each `.jsonl` file is a `.expected.json` file with the expected Age
 | Provider | Fixtures |
 |----------|----------|
 | Gemini | `basic_text.jsonl`, `tool_use.jsonl`, `error.jsonl` |
-| Kimi | `basic_text.jsonl`, `thinking.jsonl`, `tool_use.jsonl` |
-| Qwen | `basic_text.jsonl`, `tool_use.jsonl` |
+| Kimi | `basic_text.jsonl`, `thinking.jsonl`, `tool_use.jsonl`, `error.jsonl` |
+| Qwen | `basic_text.jsonl`, `tool_use.jsonl`, `error.jsonl` |
 | Codex | `basic_text.jsonl`, `reasoning.jsonl`, `tool_use.jsonl`, `error.jsonl` |
 
 ### Fixture Tests
@@ -822,15 +926,27 @@ Add to `discovery.rs` CLI scan list:
 | `qwen` | Qwen Code |
 | `codex` | Codex (OpenAI) |
 
-Gemini is already discovered. Each entry follows the existing pattern: `which <binary>` check, builtin capability profile.
+Gemini is already discovered.
+
+### Builtin Capability Profiles
+
+Add entries to `builtin_profiles()` for each new provider:
+
+| Provider | read_file | write_file | execute_command | web_search | image_input | long_context |
+|----------|-----------|------------|-----------------|------------|-------------|-------------|
+| `kimi` | true | true | true | false | false | true |
+| `qwen` | true | true | true | false | false | true |
+| `codex` | true | true | true | false | false | true |
 
 ---
 
 ## 8. Transport Routing
 
-### Provider Match
+### Provider Match — Two Locations
 
-In `transport/mod.rs`, the state machine selection match (line 80) is extended:
+The state machine selection match must be updated in **two** places:
+
+**1. `transport/mod.rs` (line 80)** — used when spawning a new session:
 
 ```rust
 let state_machine: Box<dyn StateMachine> = match provider.as_str() {
@@ -843,6 +959,10 @@ let state_machine: Box<dyn StateMachine> = match provider.as_str() {
 };
 ```
 
+**2. `normalizer/mod.rs`** — used in `load_from_dir` and `reload_provider` when constructing `NormalizerPipeline`:
+
+Same match pattern as above.
+
 The generic fallback remains for any future provider added via TOML-only.
 
 ---
@@ -851,13 +971,14 @@ The generic fallback remains for any future provider added via TOML-only.
 
 | Component | Tests | Type |
 |-----------|-------|------|
-| `accumulator.rs` | 8 | Unit — TextAccumulator (4), ToolInputAccumulator (3), TimedFlush (1) |
+| `rules_engine.rs` (array index) | 3 | Unit — resolve_path with `[N]` syntax |
+| `accumulator.rs` | 12 | Unit — TextAccumulator (4), ToolInputAccumulator (4, including start-while-active), TimedFlush (4, including fresh/expired/touch/edge) |
 | `gemini.rs` | 5 | Unit — state machine behavior |
 | `kimi.rs` | 5 | Unit — state machine behavior |
 | `qwen.rs` | 5 | Unit — state machine behavior |
 | `codex.rs` | 6 | Unit — state machine behavior |
-| Fixture tests | 11 | Integration — full pipeline with real JSON |
-| **Total** | **40** | |
+| Fixture tests | 14 | Integration — full pipeline with real JSON |
+| **Total** | **50** | |
 
 ---
 
@@ -868,3 +989,4 @@ The generic fallback remains for any future provider added via TOML-only.
 - **Self-heal orchestration** — Phase 6 infrastructure exists, wiring deferred
 - **Codex session resume** — JSON-RPC protocol requires `thread/resume`; not exposed as simple CLI flag
 - **Qwen `--output-format` version issues** — GitHub issue #873 reports flag not recognized in some versions; workaround: fall back to non-streaming mode
+- **Gemini update command** — npm package name `@anthropic-ai/gemini-cli` is a placeholder; verify actual package name before deployment
