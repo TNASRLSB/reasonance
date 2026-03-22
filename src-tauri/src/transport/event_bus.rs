@@ -130,6 +130,57 @@ impl AgentEventSubscriber for FrontendEmitter {
     }
 }
 
+use crate::transport::session_store::SessionStore;
+use crate::transport::session_handle::SessionHandle;
+
+/// Event bus subscriber that appends events to disk (JSONL) as they arrive.
+/// Also updates session metadata (event_count, last_active_at).
+pub struct SessionHistoryRecorder {
+    store: Arc<SessionStore>,
+    handles: Arc<Mutex<std::collections::HashMap<String, SessionHandle>>>,
+}
+
+impl SessionHistoryRecorder {
+    pub fn new(store: Arc<SessionStore>) -> Self {
+        Self {
+            store,
+            handles: Arc::new(Mutex::new(std::collections::HashMap::new())),
+        }
+    }
+
+    /// Register a session to be tracked by this recorder.
+    pub fn track_session(&self, handle: SessionHandle) {
+        self.handles.lock().unwrap().insert(handle.id.clone(), handle);
+    }
+
+    /// Get a reference to the handles map for the SessionManager.
+    pub fn handles_ref(&self) -> Arc<Mutex<std::collections::HashMap<String, SessionHandle>>> {
+        self.handles.clone()
+    }
+}
+
+impl AgentEventSubscriber for SessionHistoryRecorder {
+    fn on_event(&self, session_id: &str, event: &AgentEvent) {
+        // Append event to JSONL (fire and forget — log errors but don't panic)
+        if let Err(e) = self.store.append_event(session_id, event) {
+            eprintln!("SessionHistoryRecorder: failed to append event: {}", e);
+        }
+
+        // Update metadata
+        let mut handles = self.handles.lock().unwrap();
+        if let Some(handle) = handles.get_mut(session_id) {
+            handle.event_count += 1;
+            handle.touch();
+            // Persist metadata periodically (every 10 events) to reduce I/O
+            if handle.event_count % 10 == 0 {
+                if let Err(e) = self.store.write_metadata(handle) {
+                    eprintln!("SessionHistoryRecorder: failed to write metadata: {}", e);
+                }
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -288,5 +339,30 @@ mod tests {
         assert!(!filter.matches(&text_openai));
         assert!(filter.matches(&error_claude));
         assert!(!filter.matches(&usage_claude));
+    }
+
+    #[test]
+    fn test_session_history_recorder() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let store = Arc::new(crate::transport::session_store::SessionStore::new(dir.path()).unwrap());
+        let handle = crate::transport::session_handle::SessionHandle::new("claude", "sonnet");
+        let session_id = handle.id.clone();
+
+        store.create_session(&handle).unwrap();
+
+        let recorder = SessionHistoryRecorder::new(store.clone());
+        recorder.track_session(handle);
+
+        let event = AgentEvent::text("hello", "claude");
+        recorder.on_event(&session_id, &event);
+
+        // Verify event was written to disk
+        let events = store.read_events(&session_id).unwrap();
+        assert_eq!(events.len(), 1);
+
+        // Verify handle was updated
+        let handles = recorder.handles_ref();
+        let handles = handles.lock().unwrap();
+        assert_eq!(handles.get(&session_id).unwrap().event_count, 1u32);
     }
 }

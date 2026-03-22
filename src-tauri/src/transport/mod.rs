@@ -3,6 +3,9 @@ pub mod retry;
 pub mod event_bus;
 pub mod session;
 pub mod stream_reader;
+pub mod session_handle;
+pub mod session_store;
+pub mod session_manager;
 
 use crate::agent_event::{AgentEvent, ErrorSeverity};
 use crate::normalizer::NormalizerRegistry;
@@ -169,6 +172,9 @@ impl StructuredAgentTransport {
 
 #[cfg(test)]
 mod integration_tests;
+
+#[cfg(test)]
+mod session_integration_tests;
 
 #[cfg(test)]
 mod tests {

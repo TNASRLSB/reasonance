@@ -9,3 +9,4 @@ pub mod agent;
 pub mod engine;
 pub mod llm;
 pub mod transport;
+pub mod session;
