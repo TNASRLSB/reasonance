@@ -3,6 +3,7 @@
   import { markedHighlight } from 'marked-highlight';
   import hljs from 'highlight.js';
   import 'highlight.js/styles/github-dark.css';
+  import { t } from '$lib/i18n/index';
 
   interface Props {
     content: string;
@@ -31,8 +32,8 @@
 {#if visible}
   <div class="response-panel">
     <div class="response-header">
-      <span class="response-title">Risposta LLM</span>
-      <button class="close-btn" onclick={onClose} title="Chiudi" aria-label="Chiudi pannello risposta">✕</button>
+      <span class="response-title">{$t('response.title')}</span>
+      <button class="close-btn" onclick={onClose} title={$t('response.close')} aria-label={$t('response.close')}>✕</button>
     </div>
     <div class="response-body">
       <div class="markdown-preview">
@@ -101,7 +102,7 @@
   .markdown-preview {
     padding: 20px 24px;
     color: var(--text-primary, #e2e8f0);
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: var(--font-ui);
     font-size: 14px;
     line-height: 1.7;
   }
@@ -133,7 +134,7 @@
     color: #e879f9;
     padding: 0.15em 0.4em;
     border-radius: 4px;
-    font-family: var(--font-mono, 'JetBrains Mono', 'Fira Code', monospace);
+    font-family: var(--font-mono);
     font-size: 0.875em;
   }
 

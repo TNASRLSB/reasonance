@@ -23,6 +23,7 @@
   import { showSwarmCanvas } from '$lib/stores/ui';
   import { initI18n, locale, loadLocale, t } from '$lib/i18n/index';
   import { onMount, onDestroy } from 'svelte';
+  import { get } from 'svelte/store';
   import { parse } from 'smol-toml';
   import { invoke } from '@tauri-apps/api/core';
   import { load } from '@tauri-apps/plugin-store';
@@ -45,6 +46,7 @@
   let showFindInFiles = $state(false);
   let showWelcome = $state(true);
   let showHelp = $state(false);
+  let showAbout = $state(false);
   let swarmVisible = $state(false);
   const unsubSwarm = showSwarmCanvas.subscribe((val) => { swarmVisible = val; });
   let unsubEnhanced: () => void;
@@ -75,7 +77,6 @@
     // Restart file watcher for new directory
     if (unwatchFiles) unwatchFiles();
     unwatchFiles = await adapter.watchFiles(path, async (event) => {
-      const { get } = await import('svelte/store');
       const currentFiles = get(openFiles);
       const openFile = currentFiles.find((f) => f.path === event.path);
       if (!openFile) return;
@@ -114,7 +115,6 @@
 
   async function saveSession() {
     try {
-      const { get } = await import('svelte/store');
       const store = await load('session.json', { autoSave: false });
 
       const currentFiles = get(openFiles);
@@ -285,7 +285,6 @@
 
     // Auto-discover installed LLM CLIs if none configured
     {
-      const { get } = await import('svelte/store');
       const configs = get(llmConfigs);
       if (configs.length === 0) {
         try {
@@ -314,6 +313,30 @@
               });
             }
             llmConfigs.set(newConfigs);
+
+            // Persist discovered LLMs to TOML so Settings can find them
+            try {
+              const { stringify } = await import('smol-toml');
+              const tomlObj: Record<string, unknown> = {
+                settings: { default: '', context_menu_llm: '' },
+                llm: newConfigs.map((l) => {
+                  const entry: Record<string, unknown> = { name: l.name, type: l.type };
+                  if (l.type === 'cli') {
+                    entry.command = l.command ?? '';
+                    entry.args = l.args ?? [];
+                    if (l.yoloFlag) entry.yolo_flag = l.yoloFlag;
+                    entry.image_mode = l.imageMode ?? 'path';
+                  } else {
+                    entry.provider = l.provider ?? '';
+                    entry.model = l.model ?? '';
+                    if (l.endpoint) entry.endpoint = l.endpoint;
+                  }
+                  return entry;
+                }),
+              };
+              await adapter.writeConfig(stringify(tomlObj));
+            } catch { /* non-fatal */ }
+
             showToast(
               'success',
               t('toast.llmFound'),
@@ -348,6 +371,11 @@
     const handleOpenHelp = () => { showHelp = true; };
     document.addEventListener('reasonance:help', handleOpenHelp);
     cleanups.push(() => document.removeEventListener('reasonance:help', handleOpenHelp));
+
+    // Listen for about custom event from MenuBar
+    const handleAbout = () => { showAbout = true; };
+    document.addEventListener('reasonance:about', handleAbout);
+    cleanups.push(() => document.removeEventListener('reasonance:about', handleAbout));
 
     // Start watching the project directory for external changes
     const { get } = await import('svelte/store');
@@ -461,11 +489,13 @@
   </App>
 {/if}
 
-<Settings
-  {adapter}
-  visible={$showSettings}
-  onClose={() => showSettings.set(false)}
-/>
+{#if $showSettings}
+  <Settings
+    {adapter}
+    visible={$showSettings}
+    onClose={() => showSettings.set(false)}
+  />
+{/if}
 
 <SearchPalette
   {adapter}
@@ -485,6 +515,20 @@
   </div>
 {/if}
 
+{#if showAbout}
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div class="about-overlay" onclick={() => showAbout = false} onkeydown={(e) => { if (e.key === 'Escape') showAbout = false; }}>
+    <div class="about-dialog" role="dialog" aria-modal="true" onclick={(e) => e.stopPropagation()}>
+      <div class="about-logo">REASONANCE</div>
+      <div class="about-subtitle">IDE for Vibecoders</div>
+      <div class="about-version">v0.1.0</div>
+      <div class="about-stack">Tauri v2 + Svelte 5 + CodeMirror 6</div>
+      <div class="about-license">MIT License</div>
+      <button class="about-close" onclick={() => showAbout = false}>OK</button>
+    </div>
+  </div>
+{/if}
+
 <Toast />
 
 <style>
@@ -496,5 +540,73 @@
     bottom: 0;
     z-index: 1000;
     background: var(--bg-primary);
+  }
+
+  .about-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .about-dialog {
+    background: var(--bg-primary);
+    border: var(--border-width) solid var(--border);
+    padding: 32px 40px;
+    text-align: center;
+    font-family: var(--font-ui);
+    min-width: 280px;
+  }
+
+  .about-logo {
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--text-primary);
+    letter-spacing: -0.02em;
+    margin-bottom: 4px;
+  }
+
+  .about-subtitle {
+    font-size: var(--font-size-base);
+    color: var(--text-secondary);
+    margin-bottom: 16px;
+  }
+
+  .about-version {
+    font-size: var(--font-size-small);
+    color: var(--accent);
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+
+  .about-stack {
+    font-size: var(--font-size-small);
+    color: var(--text-muted);
+    margin-bottom: 4px;
+  }
+
+  .about-license {
+    font-size: var(--font-size-small);
+    color: var(--text-muted);
+    margin-bottom: 20px;
+  }
+
+  .about-close {
+    background: var(--accent);
+    border: none;
+    color: #fff;
+    padding: 6px 24px;
+    font-family: var(--font-ui);
+    font-size: var(--font-size-small);
+    font-weight: 700;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+
+  .about-close:hover {
+    opacity: 0.85;
   }
 </style>

@@ -4,6 +4,7 @@
    ═══════════════════════════════════════════════════════════ */
 
 /* ── Font Faces ─────────────────────────────────────────── */
+/* WOFF2 only — all modern WebViews support it natively */
 
 @font-face {
   font-family: 'Atkinson Hyperlegible Next';
@@ -67,14 +68,15 @@
   --bg-primary: #121212;
   --bg-secondary: #1a1a1a;
   --bg-tertiary: #2a2a2a;
-  --bg-hover: rgba(255, 255, 255, 0.04);
+  --bg-hover: rgba(255, 255, 255, 0.06);
+  --bg-surface: #161616;
   --border: #333333;
   --border-width: 2px;
 
   --text-primary: #f0f0f0;
   --text-body: #d4d4d4;
   --text-secondary: #a3a3a3;
-  --text-muted: #666666;
+  --text-muted: #949494;
 
   --accent: #1d4ed8;
   --accent-hover: #1e40af;
@@ -84,12 +86,12 @@
   --warning: #ca8a04;
 
   --font-ui: 'Atkinson Hyperlegible Next', system-ui, -apple-system, sans-serif;
-  --font-mono: 'Atkinson Hyperlegible Mono', 'JetBrains Mono', 'Fira Code', monospace;
-  --font-size-base: 13px;
-  --font-size-small: 11px;
-  --font-size-tiny: 10px;
-  --font-size-code: 13px;
-  --font-size-terminal: 12px;
+  --font-mono: 'Atkinson Hyperlegible Mono', monospace;
+  --font-size-base: 14px;
+  --font-size-small: 12px;
+  --font-size-tiny: 11px;
+  --font-size-code: 14px;
+  --font-size-terminal: 14px;
   --font-weight-body: 500;
   --font-weight-heading: 800;
 
@@ -116,14 +118,16 @@
   --bg-secondary: #f0f0f0;
   --bg-tertiary: #e5e5e5;
   --bg-hover: rgba(0, 0, 0, 0.04);
+  --bg-surface: #ffffff;
   --border: #d4d4d4;
 
   --text-primary: #0a0a0a;
   --text-body: #1a1a1a;
   --text-secondary: #525252;
-  --text-muted: #999999;
+  --text-muted: #767676;
 
   --danger: #b91c1c;
+  --danger-dark: #991b1b;
 
   --font-weight-body: 400;
   --font-weight-heading: 700;
@@ -157,6 +161,9 @@
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 body {
@@ -214,4 +221,17 @@ body {
 ::selection {
   background: var(--accent);
   color: #fff;
+}
+
+/* ── Reduced Motion ───────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
