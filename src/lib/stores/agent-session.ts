@@ -82,6 +82,17 @@ export function updateTokens(sessionId: string, inputTokens: number, outputToken
   });
 }
 
+// Helper: update streaming metrics (speed, elapsed)
+export function updateMetrics(sessionId: string, currentSpeed: number, elapsed: number): void {
+  agentSessions.update((map) => {
+    const session = map.get(sessionId);
+    if (!session) return map;
+    const next = new Map(map);
+    next.set(sessionId, { ...session, currentSpeed, elapsed });
+    return next;
+  });
+}
+
 // Helper: create session state from summary
 export function sessionFromSummary(summary: SessionSummary): AgentSessionState {
   return {
