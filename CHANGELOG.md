@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.5.0] - 2026-03-22
+
+### Features
+
+- feat: UI improvements, YOLO restart behavior, CI per-platform bundles
+
+### Bug Fixes
+
+- fix: update GitHub Actions to v5 for Node.js 24 compatibility
+
+### Other
+
+- updated from v4 to v5 to resolve Node.js 20 deprecation warnings.
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- restarts all running terminal instances. CI builds per-platform bundle
+- types with macOS .zip artifact. AUR PKGBUILD installs desktop icons.
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+
+
+
 ## [0.4.1] - 2026-03-22
 
 ### Bug Fixes
