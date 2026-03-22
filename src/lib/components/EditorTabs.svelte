@@ -126,10 +126,15 @@
     cursor: pointer;
     font-size: 14px;
     line-height: 1;
-    padding: 0 2px;
+    padding: 5px 6px;
+    min-width: 24px;
+    min-height: 24px;
     border-radius: var(--radius);
     flex-shrink: 0;
     transition: color 0.1s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .tab-close:hover {

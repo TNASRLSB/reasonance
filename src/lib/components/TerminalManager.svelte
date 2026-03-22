@@ -536,7 +536,12 @@
     line-height: 1;
     opacity: 0.6;
     cursor: pointer;
-    padding: 0 1px;
+    padding: 5px 6px;
+    min-width: 24px;
+    min-height: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .close-btn:hover {
