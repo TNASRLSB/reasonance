@@ -10,6 +10,11 @@
   import { get } from 'svelte/store';
   import { getUpdateSettings, saveUpdateSettings, checkForUpdate, type UpdateMode } from '$lib/updater';
   import { trapFocus } from '$lib/utils/a11y';
+  import type { ConnectionTestStep, AnalyticsBudget } from '$lib/types/analytics';
+  import { budget, providerConfigVersion } from '$lib/stores/analytics';
+  import { getModelsForProvider, getModelInfo, getCheapestModel } from '$lib/data/model-info';
+  import { getProviderVisual } from '$lib/utils/provider-patterns';
+  import { tooltip } from '$lib/utils/tooltip';
 
   let {
     adapter,
@@ -76,6 +81,13 @@
   let localUpdateMode = $state<UpdateMode>('notify');
   let checkingUpdate = $state(false);
 
+  // Provider section state
+  let expandedProvider = $state<string | null>(null);
+  let connectionSteps = $state<Map<string, ConnectionTestStep[]>>(new Map());
+  let testingProvider = $state<string | null>(null);
+  let localBudget = $state<AnalyticsBudget>({ daily_limit_usd: null, weekly_limit_usd: null, notify_at_percent: 80 });
+  let capturingShortcut = $state<string | null>(null);
+
   // Load config when visible
   $effect(() => {
     if (visible) {
@@ -130,6 +142,7 @@
     const updateSettings = await getUpdateSettings();
     localAutoUpdate = updateSettings.autoUpdate;
     localUpdateMode = updateSettings.updateMode;
+    localBudget = { ...get(budget) };
   }
 
   function startAdd() {
@@ -261,6 +274,7 @@
       // Apply immediately - no async, no microtask
       llmConfigs.set(effectiveLlms);
       appSettings.set(settings);
+      budget.set({ ...localBudget });
       fontFamily.set("'Atkinson Hyperlegible Mono', monospace");
       fontSize.set(localFontSize);
       enhancedReadability.set(localEnhancedReadability);
@@ -276,6 +290,50 @@
     } finally {
       saving = false;
     }
+  }
+
+  function debounce(fn: (...args: any[]) => void, ms: number) {
+    let timer: ReturnType<typeof setTimeout>;
+    return (...args: any[]) => {
+      clearTimeout(timer);
+      timer = setTimeout(() => fn(...args), ms);
+    };
+  }
+
+  async function testConnection(providerName: string) {
+    testingProvider = providerName;
+    connectionSteps.set(providerName, []);
+    connectionSteps = new Map(connectionSteps);
+
+    const unlisten = await adapter.onConnectionTest((step: ConnectionTestStep) => {
+      const current = connectionSteps.get(providerName) ?? [];
+      connectionSteps.set(providerName, [...current, step]);
+      connectionSteps = new Map(connectionSteps);
+    });
+
+    try {
+      await adapter.testProviderConnection(providerName);
+    } catch {
+      // Error handling via connection steps
+    } finally {
+      testingProvider = null;
+      unlisten();
+    }
+  }
+
+  function handleShortcutCapture(e: KeyboardEvent) {
+    if (!capturingShortcut) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const parts: string[] = [];
+    if (e.ctrlKey) parts.push('Ctrl');
+    if (e.shiftKey) parts.push('Shift');
+    if (e.altKey) parts.push('Alt');
+    if (e.metaKey) parts.push('Meta');
+    if (['Control', 'Shift', 'Alt', 'Meta'].includes(e.key)) return;
+    parts.push(e.key.length === 1 ? e.key.toUpperCase() : e.key);
+    capturingShortcut = null;
+    // Store in local state — will be saved with the main Save button
   }
 
   function handleOverlayClick(e: MouseEvent) {
@@ -535,6 +593,212 @@
 
           <div class="field-row version-label">
             v{__APP_VERSION__}
+          </div>
+        </section>
+
+        <!-- Provider Settings -->
+        <section>
+          <div class="provider-section-header">
+            <h3>{$tr('settings.provider.title') ?? 'PROVIDER'}</h3>
+            <button
+              class="scan-cli-btn"
+              onclick={async () => { await adapter.discoverLlms(); providerConfigVersion.update(v => v + 1); }}
+            >
+              {$tr('settings.provider.scanCli') ?? 'Scan CLI'}
+            </button>
+          </div>
+
+          <div class="provider-list">
+            {#each llms as llm, i}
+              {@const visual = getProviderVisual(llm.provider ?? llm.name)}
+              {@const models = getModelsForProvider(llm.provider ?? llm.name)}
+              {@const isExpanded = expandedProvider === llm.name}
+              {@const steps = connectionSteps.get(llm.name) ?? []}
+              {@const isTesting = testingProvider === llm.name}
+
+              <div class="provider-item" class:expanded={isExpanded}>
+                <div class="provider-row">
+                  <span
+                    class="provider-dot"
+                    style="background-color: {visual.color};"
+                    aria-label={llm.provider ?? llm.name}
+                  ></span>
+                  <span class="provider-name">{llm.name}</span>
+                  <span class="provider-model-hint">
+                    {llm.model ? llm.model : ($tr('settings.provider.notConfigured') ?? 'Not configured')}
+                  </span>
+                  <button
+                    class="provider-expand-btn"
+                    onclick={() => expandedProvider = isExpanded ? null : llm.name}
+                    aria-expanded={isExpanded}
+                    aria-label={$tr('settings.provider.expand') ?? 'Expand'}
+                  >
+                    {isExpanded ? '▲' : '▼'}
+                  </button>
+                </div>
+
+                {#if isExpanded}
+                  <div class="provider-detail">
+                    {#if models.length > 0}
+                      <div class="field-row">
+                        <label for="provider-model-{i}">{$tr('settings.provider.defaultModel') ?? 'Default model'}</label>
+                        <select
+                          id="provider-model-{i}"
+                          bind:value={llm.model}
+                          onchange={() => { llms = [...llms]; }}
+                        >
+                          {#each models as m}
+                            <option value={m.id}>
+                              {m.name} — ${m.cost_per_1m_input}/1M in, ${m.cost_per_1m_output}/1M out
+                            </option>
+                          {/each}
+                        </select>
+                      </div>
+                    {:else}
+                      <div class="field-row">
+                        <label for="provider-model-text-{i}">{$tr('settings.provider.defaultModel') ?? 'Default model'}</label>
+                        <input
+                          id="provider-model-text-{i}"
+                          type="text"
+                          bind:value={llm.model}
+                          oninput={() => { llms = [...llms]; }}
+                        />
+                      </div>
+                    {/if}
+
+                    {#if llm.type === 'cli'}
+                      <div class="field-row">
+                        <label for="provider-binary-{i}">{$tr('settings.provider.binary') ?? 'Binary'}</label>
+                        <input
+                          id="provider-binary-{i}"
+                          type="text"
+                          bind:value={llm.command}
+                          oninput={() => { llms = [...llms]; }}
+                        />
+                      </div>
+                    {/if}
+
+                    <div class="field-row">
+                      <label for="provider-api-key-{i}">{$tr('settings.provider.apiKeyEnv') ?? 'API Key env'}</label>
+                      <input
+                        id="provider-api-key-{i}"
+                        type="text"
+                        bind:value={llm.apiKeyEnv}
+                        oninput={() => { llms = [...llms]; }}
+                        placeholder="e.g. ANTHROPIC_API_KEY"
+                      />
+                    </div>
+
+                    <div class="field-row">
+                      <label>{$tr('settings.provider.shortcut') ?? 'Shortcut'}</label>
+                      <button
+                        class="shortcut-capture-btn"
+                        class:capturing={capturingShortcut === llm.name}
+                        onclick={() => capturingShortcut = capturingShortcut === llm.name ? null : llm.name}
+                        onkeydown={handleShortcutCapture}
+                      >
+                        {capturingShortcut === llm.name ? 'Press keys...' : 'Capture'}
+                      </button>
+                    </div>
+
+                    <div class="provider-actions">
+                      <button
+                        class="test-btn"
+                        onclick={() => testConnection(llm.name)}
+                        disabled={isTesting}
+                      >
+                        {isTesting
+                          ? ($tr('settings.provider.test.testing') ?? 'Testing…')
+                          : ($tr('settings.provider.test.button') ?? 'Test connection')}
+                      </button>
+                    </div>
+
+                    {#if steps.length > 0}
+                      <div class="connection-steps">
+                        {#each steps as step}
+                          {@const isOk = step.status === 'ok'}
+                          {@const isFailed = step.status === 'failed'}
+                          {@const isChecking = step.status === 'checking'}
+                          <div class="connection-step" class:ok={isOk} class:failed={isFailed} class:checking={isChecking}>
+                            <span class="step-icon">
+                              {isOk ? '✓' : isFailed ? '✗' : '…'}
+                            </span>
+                            <span class="step-label">
+                              {#if step.step === 'binary'}
+                                {isOk
+                                  ? ($tr('settings.provider.test.binaryFound') ?? 'Binary found')
+                                  : ($tr('settings.provider.test.binaryNotFound') ?? 'Binary not found')}
+                              {:else if step.step === 'api_key'}
+                                {isOk
+                                  ? ($tr('settings.provider.test.apiKeyOk') ?? 'API key configured')
+                                  : ($tr('settings.provider.test.apiKeyMissing') ?? 'API key not set')}
+                              {:else if step.step === 'connection'}
+                                {isOk
+                                  ? ($tr('settings.provider.test.connectionOk') ?? 'Connection OK')
+                                  : ($tr('settings.provider.test.connectionFailed') ?? 'Connection failed')}
+                              {/if}
+                            </span>
+                            {#if step.detail}
+                              <span class="step-detail">{step.detail}</span>
+                            {/if}
+                          </div>
+                        {/each}
+                        {#if steps.length === 3 && steps.every(s => s.status === 'ok')}
+                          <div class="connection-ready">
+                            {($tr('settings.provider.test.ready') ?? '{provider} ready').replace('{provider}', llm.name)}
+                          </div>
+                        {/if}
+                      </div>
+                    {/if}
+                  </div>
+                {/if}
+              </div>
+            {/each}
+          </div>
+
+          <!-- Budget sub-section -->
+          <div class="budget-section">
+            <h4 class="budget-title">{$tr('analytics.budget.daily') ?? 'Daily limit'}</h4>
+            <div class="field-row">
+              <label for="budget-daily">{$tr('analytics.budget.daily') ?? 'Daily limit (USD)'}</label>
+              <input
+                id="budget-daily"
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="No limit"
+                value={localBudget.daily_limit_usd ?? ''}
+                oninput={(e) => {
+                  const v = (e.currentTarget as HTMLInputElement).value;
+                  localBudget = { ...localBudget, daily_limit_usd: v ? parseFloat(v) : null };
+                }}
+              />
+            </div>
+            <div class="field-row">
+              <label for="budget-weekly">{$tr('analytics.budget.weekly') ?? 'Weekly limit (USD)'}</label>
+              <input
+                id="budget-weekly"
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="No limit"
+                value={localBudget.weekly_limit_usd ?? ''}
+                oninput={(e) => {
+                  const v = (e.currentTarget as HTMLInputElement).value;
+                  localBudget = { ...localBudget, weekly_limit_usd: v ? parseFloat(v) : null };
+                }}
+              />
+            </div>
+            <div class="field-row">
+              <label for="budget-notify">{$tr('analytics.budget.notifyAt') ?? 'Notify at (%)'}</label>
+              <input
+                id="budget-notify"
+                type="number"
+                min="1"
+                max="100"
+                bind:value={localBudget.notify_at_percent}
+              />
+            </div>
           </div>
         </section>
       </div>
@@ -900,5 +1164,193 @@
     font-size: var(--font-size-small);
     color: var(--text-muted);
     margin: 4px 0 0;
+  }
+
+  /* Provider section */
+  .provider-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+
+  .provider-section-header h3 {
+    margin: 0;
+  }
+
+  .scan-cli-btn {
+    font-size: 11px;
+    padding: 3px 10px;
+  }
+
+  .provider-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 16px;
+  }
+
+  .provider-item {
+    border: var(--border-width) solid var(--border);
+    background: var(--bg-secondary);
+  }
+
+  .provider-item.expanded {
+    border-color: var(--accent);
+  }
+
+  .provider-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+  }
+
+  .provider-dot {
+    width: 8px;
+    height: 8px;
+    flex-shrink: 0;
+    border-radius: 0;
+    display: inline-block;
+  }
+
+  .provider-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    min-width: 80px;
+  }
+
+  .provider-model-hint {
+    flex: 1;
+    font-size: 11px;
+    color: var(--text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .provider-expand-btn {
+    font-size: 10px;
+    padding: 2px 6px;
+    flex-shrink: 0;
+  }
+
+  .provider-detail {
+    border-top: var(--border-width) solid var(--border);
+    padding: 12px 10px;
+    background: var(--bg-primary);
+  }
+
+  .provider-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+    align-items: center;
+  }
+
+  .test-btn {
+    font-size: 11px;
+    padding: 4px 10px;
+  }
+
+  .shortcut-capture-btn {
+    font-size: 11px;
+    padding: 4px 10px;
+    flex: 1;
+  }
+
+  .shortcut-capture-btn.capturing {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+
+  /* Connection steps */
+  .connection-steps {
+    margin-top: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .connection-step {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    padding: 4px 6px;
+    background: var(--bg-secondary);
+    border: var(--border-width) solid var(--border);
+  }
+
+  .connection-step.ok {
+    border-color: #16a34a;
+    color: #16a34a;
+  }
+
+  .connection-step.failed {
+    border-color: var(--danger, #e74c3c);
+    color: var(--danger, #e74c3c);
+  }
+
+  .connection-step.checking {
+    color: var(--text-secondary);
+    opacity: 0.75;
+  }
+
+  .step-icon {
+    font-size: 12px;
+    font-weight: 700;
+    flex-shrink: 0;
+    width: 14px;
+    text-align: center;
+  }
+
+  .step-label {
+    flex: 1;
+  }
+
+  .step-detail {
+    font-size: 10px;
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 200px;
+  }
+
+  .connection-ready {
+    font-size: 11px;
+    font-weight: 700;
+    color: #16a34a;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 4px 6px;
+    border: var(--border-width) solid #16a34a;
+    background: color-mix(in srgb, #16a34a 10%, var(--bg-secondary));
+  }
+
+  /* Budget section */
+  .budget-section {
+    margin-top: 12px;
+    padding: 12px;
+    border: var(--border-width) solid var(--border);
+    background: var(--bg-secondary);
+  }
+
+  .budget-title {
+    margin: 0 0 10px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .version-label {
+    font-size: 11px;
+    color: var(--text-muted);
+    justify-content: flex-end;
   }
 </style>
