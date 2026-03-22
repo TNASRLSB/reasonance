@@ -12,6 +12,10 @@
   import { tr } from '$lib/i18n/index';
   import { defaultSlashCommands } from '$lib/data/slash-commands';
   import { menuKeyHandler } from '$lib/utils/a11y';
+  import ChatView from './chat/ChatView.svelte';
+  import ViewModeToggle from './ViewModeToggle.svelte';
+  import type { ViewMode } from '$lib/types/agent-event';
+  import { processAgentEvent } from '$lib/stores/agent-events';
 
   let { adapter, cwd = '.' }: { adapter: Adapter; cwd?: string } = $props();
 
@@ -39,6 +43,18 @@
 
   // Count instances per LLM for label generation
   const instanceCounters: Record<string, number> = {};
+
+  // Per-instance view mode: tracks whether each instance shows chat or terminal
+  // Uses $state() for Svelte 5 fine-grained reactivity on property access
+  let instanceViewModes: Record<string, ViewMode> = $state({});
+
+  function getViewMode(instanceId: string): ViewMode {
+    return instanceViewModes[instanceId] ?? 'terminal';
+  }
+
+  function toggleViewMode(instanceId: string) {
+    instanceViewModes[instanceId] = getViewMode(instanceId) === 'chat' ? 'terminal' : 'chat';
+  }
 
   export async function addInstance(llmName: string) {
     const config = get(llmConfigs).find((c) => c.name === llmName);
@@ -215,6 +231,22 @@
     })();
   });
 
+  // Listen for agent events from the structured transport
+  $effect(() => {
+    let cancelled = false;
+    let unlisten: (() => void) | null = null;
+    adapter.onAgentEvent((payload) => {
+      processAgentEvent(payload);
+    }).then((fn) => {
+      if (cancelled) { fn(); return; }
+      unlisten = fn;
+    });
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
+  });
+
 
 </script>
 
@@ -327,6 +359,14 @@
         </button>
       {/each}
 
+      <!-- View mode toggle -->
+      {#if $activeInstanceId}
+        <ViewModeToggle
+          mode={getViewMode($activeInstanceId)}
+          onToggle={() => toggleViewMode($activeInstanceId!)}
+        />
+      {/if}
+
       <!-- Add instance button -->
       {#if $activeTerminalTab}
         <button
@@ -356,11 +396,20 @@
             class="terminal-wrap"
             style="display: {inst.id === $activeInstanceId ? 'flex' : 'none'};"
           >
-            <ImageDrop {adapter} instanceId={inst.id} llmName={inst.llmName}>
-              {#snippet children()}
-                <Terminal {adapter} ptyId={inst.id} />
-              {/snippet}
-            </ImageDrop>
+            {#if getViewMode(inst.id) === 'chat'}
+              <ChatView
+                {adapter}
+                sessionId={inst.id}
+                provider={inst.llmName}
+                model={inst.llmName}
+              />
+            {:else}
+              <ImageDrop {adapter} instanceId={inst.id} llmName={inst.llmName}>
+                {#snippet children()}
+                  <Terminal {adapter} ptyId={inst.id} />
+                {/snippet}
+              </ImageDrop>
+            {/if}
           </div>
         {/each}
       {/each}

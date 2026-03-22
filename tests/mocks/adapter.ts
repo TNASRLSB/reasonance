@@ -11,6 +11,7 @@ import type {
   AgentMessage,
   WorkflowRun,
 } from '$lib/adapter/index';
+import type { AgentEvent, AgentEventPayload, SessionHandle, SessionSummary, ViewMode } from '$lib/types/agent-event';
 
 let _ptyIdCounter = 0;
 let _agentIdCounter = 0;
@@ -308,6 +309,59 @@ export function createMockAdapter(overrides?: Partial<Adapter>): Adapter {
         };
         runs.set(runId, run);
       }
+      return Promise.resolve();
+    },
+
+    // Structured Transport
+    agentSend(_prompt: string, _provider: string, _model?: string, _sessionId?: string): Promise<string> {
+      return Promise.resolve('mock-session-id');
+    },
+    agentStop(_sessionId: string): Promise<void> {
+      return Promise.resolve();
+    },
+    agentGetEvents(_sessionId: string): Promise<AgentEvent[]> {
+      return Promise.resolve([]);
+    },
+    onAgentEvent(_callback: (payload: AgentEventPayload) => void): Promise<() => void> {
+      return Promise.resolve(() => {});
+    },
+
+    // Session Management
+    sessionCreate(_provider: string, _model: string): Promise<string> {
+      return Promise.resolve('mock-session-id');
+    },
+    sessionRestore(_sessionId: string): Promise<SessionHandle> {
+      return Promise.resolve({
+        id: 'mock-session-id',
+        provider: 'mock',
+        model: 'mock-model',
+        cli_session_id: null,
+        status: 'idle',
+        title: 'Mock Session',
+        created_at: Date.now(),
+        last_active_at: Date.now(),
+        event_count: 0,
+        view_mode: 'chat',
+        source: 'user',
+        forked_from: null,
+      });
+    },
+    sessionGetEvents(_sessionId: string): Promise<AgentEvent[]> {
+      return Promise.resolve([]);
+    },
+    sessionList(): Promise<SessionSummary[]> {
+      return Promise.resolve([]);
+    },
+    sessionDelete(_sessionId: string): Promise<void> {
+      return Promise.resolve();
+    },
+    sessionRename(_sessionId: string, _title: string): Promise<void> {
+      return Promise.resolve();
+    },
+    sessionFork(_sessionId: string, _forkEventIndex: number): Promise<string> {
+      return Promise.resolve('mock-forked-session-id');
+    },
+    sessionSetViewMode(_sessionId: string, _mode: ViewMode): Promise<void> {
       return Promise.resolve();
     },
   };
