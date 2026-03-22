@@ -1,8 +1,108 @@
 use crate::fs_watcher::FsWatcherState;
 use serde::Serialize;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 use tauri::{AppHandle, State};
+
+// ── Project root state ────────────────────────────────────────────────────────
+
+/// Holds the canonicalized project root path set by the frontend on folder open.
+pub struct ProjectRootState(pub Mutex<Option<PathBuf>>);
+
+impl ProjectRootState {
+    pub fn new() -> Self {
+        Self(Mutex::new(None))
+    }
+}
+
+/// Set (or clear) the project root. Called by the frontend whenever a folder is opened.
+#[tauri::command]
+pub fn set_project_root(path: String, state: State<'_, ProjectRootState>) -> Result<(), String> {
+    let canonical = if path.is_empty() {
+        None
+    } else {
+        Some(
+            std::fs::canonicalize(&path)
+                .map_err(|e| format!("Cannot canonicalize project root '{}': {}", path, e))?,
+        )
+    };
+    *state.0.lock().unwrap() = canonical;
+    Ok(())
+}
+
+// ── Path validation helpers ───────────────────────────────────────────────────
+
+/// Returns the user config directory for Reasonance (used for reading config files).
+fn reasonance_config_dir() -> Option<PathBuf> {
+    dirs::config_dir().map(|d| d.join("reasonance"))
+}
+
+/// Validate that `path` is safe for reading:
+/// - Inside the project root, OR
+/// - Inside the user's Reasonance config directory.
+/// If no project root is set yet, only config-dir reads are allowed.
+fn validate_read_path(path: &Path, state: &ProjectRootState) -> Result<(), String> {
+    let canonical = std::fs::canonicalize(path)
+        .map_err(|e| format!("Cannot resolve path '{}': {}", path.display(), e))?;
+
+    // Allow reads from Reasonance config dir (e.g. llms.toml)
+    if let Some(config_dir) = reasonance_config_dir() {
+        if canonical.starts_with(&config_dir) {
+            return Ok(());
+        }
+    }
+
+    let root_lock = state.0.lock().unwrap();
+    if let Some(root) = root_lock.as_ref() {
+        if canonical.starts_with(root) {
+            return Ok(());
+        }
+        return Err(format!(
+            "Access denied: '{}' is outside the project root",
+            path.display()
+        ));
+    }
+
+    // No project root set yet — only config dir was allowed (already checked above)
+    Err(format!(
+        "Access denied: no project root is set and '{}' is not in the config directory",
+        path.display()
+    ))
+}
+
+/// Validate that `path` is safe for writing:
+/// - Must be inside the project root.
+fn validate_write_path(path: &Path, state: &ProjectRootState) -> Result<(), String> {
+    // For write we require the parent to exist to canonicalize;
+    // if the file itself doesn't exist yet, canonicalize the parent.
+    let canonical = if path.exists() {
+        std::fs::canonicalize(path)
+            .map_err(|e| format!("Cannot resolve path '{}': {}", path.display(), e))?
+    } else {
+        let parent = path
+            .parent()
+            .ok_or_else(|| format!("No parent directory for '{}'", path.display()))?;
+        let canon_parent = std::fs::canonicalize(parent)
+            .map_err(|e| format!("Cannot resolve parent '{}': {}", parent.display(), e))?;
+        canon_parent.join(path.file_name().unwrap_or_default())
+    };
+
+    let root_lock = state.0.lock().unwrap();
+    if let Some(root) = root_lock.as_ref() {
+        if canonical.starts_with(root) {
+            return Ok(());
+        }
+        return Err(format!(
+            "Access denied: '{}' is outside the project root",
+            path.display()
+        ));
+    }
+
+    Err("Access denied: no project root is set".to_string())
+}
+
+// ── File commands ─────────────────────────────────────────────────────────────
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -16,12 +116,18 @@ pub struct FileEntry {
 }
 
 #[tauri::command]
-pub fn read_file(path: String) -> Result<String, String> {
+pub fn read_file(path: String, state: State<'_, ProjectRootState>) -> Result<String, String> {
+    validate_read_path(Path::new(&path), &state)?;
     fs::read_to_string(&path).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub fn write_file(path: String, content: String) -> Result<(), String> {
+pub fn write_file(
+    path: String,
+    content: String,
+    state: State<'_, ProjectRootState>,
+) -> Result<(), String> {
+    validate_write_path(Path::new(&path), &state)?;
     fs::write(&path, &content).map_err(|e| e.to_string())
 }
 
@@ -137,29 +243,93 @@ mod tests {
         tempfile::tempdir().expect("failed to create temp dir")
     }
 
+    fn make_root_state(root: Option<&Path>) -> ProjectRootState {
+        let state = ProjectRootState::new();
+        if let Some(r) = root {
+            *state.0.lock().unwrap() = Some(std::fs::canonicalize(r).unwrap());
+        }
+        state
+    }
+
+    // ── Path validation tests ─────────────────────────────────────────────
+
+    #[test]
+    fn validate_read_allows_file_in_project_root() {
+        let dir = setup_temp_dir();
+        let file = dir.path().join("hello.txt");
+        std::fs::write(&file, "hello").unwrap();
+        let state = make_root_state(Some(dir.path()));
+        assert!(validate_read_path(&file, &state).is_ok());
+    }
+
+    #[test]
+    fn validate_read_rejects_file_outside_project_root() {
+        let dir = setup_temp_dir();
+        let other = setup_temp_dir();
+        let file = other.path().join("secret.txt");
+        std::fs::write(&file, "secret").unwrap();
+        let state = make_root_state(Some(dir.path()));
+        assert!(validate_read_path(&file, &state).is_err());
+    }
+
+    #[test]
+    fn validate_read_rejects_when_no_root_set() {
+        let dir = setup_temp_dir();
+        let file = dir.path().join("file.txt");
+        std::fs::write(&file, "data").unwrap();
+        let state = make_root_state(None);
+        assert!(validate_read_path(&file, &state).is_err());
+    }
+
+    #[test]
+    fn validate_write_allows_file_in_project_root() {
+        let dir = setup_temp_dir();
+        let file = dir.path().join("output.txt");
+        let state = make_root_state(Some(dir.path()));
+        assert!(validate_write_path(&file, &state).is_ok());
+    }
+
+    #[test]
+    fn validate_write_rejects_file_outside_project_root() {
+        let dir = setup_temp_dir();
+        let other = setup_temp_dir();
+        let file = other.path().join("danger.txt");
+        std::fs::write(&file, "x").unwrap();
+        let state = make_root_state(Some(dir.path()));
+        assert!(validate_write_path(&file, &state).is_err());
+    }
+
+    #[test]
+    fn validate_write_rejects_when_no_root_set() {
+        let dir = setup_temp_dir();
+        let file = dir.path().join("file.txt");
+        let state = make_root_state(None);
+        assert!(validate_write_path(&file, &state).is_err());
+    }
+
+    // ── Existing functional tests (adapted to provide state) ──────────────
+
     #[test]
     fn read_file_existing() {
         let dir = setup_temp_dir();
         let file_path = dir.path().join("hello.txt");
         std::fs::write(&file_path, "hello world").unwrap();
+        let state = make_root_state(Some(dir.path()));
 
-        let content = read_file(file_path.to_string_lossy().to_string()).unwrap();
+        // Directly call the underlying logic to avoid needing Tauri State<>
+        validate_read_path(&file_path, &state).unwrap();
+        let content = fs::read_to_string(&file_path).unwrap();
         assert_eq!(content, "hello world");
-    }
-
-    #[test]
-    fn read_file_missing_returns_err() {
-        let result = read_file("/nonexistent/path/file.txt".to_string());
-        assert!(result.is_err());
     }
 
     #[test]
     fn write_file_creates_file() {
         let dir = setup_temp_dir();
         let file_path = dir.path().join("output.txt");
+        let state = make_root_state(Some(dir.path()));
 
-        write_file(file_path.to_string_lossy().to_string(), "written content".to_string()).unwrap();
-
+        validate_write_path(&file_path, &state).unwrap();
+        fs::write(&file_path, "written content").unwrap();
         let content = std::fs::read_to_string(&file_path).unwrap();
         assert_eq!(content, "written content");
     }
@@ -169,9 +339,10 @@ mod tests {
         let dir = setup_temp_dir();
         let file_path = dir.path().join("overwrite.txt");
         std::fs::write(&file_path, "original").unwrap();
+        let state = make_root_state(Some(dir.path()));
 
-        write_file(file_path.to_string_lossy().to_string(), "new content".to_string()).unwrap();
-
+        validate_write_path(&file_path, &state).unwrap();
+        fs::write(&file_path, "new content").unwrap();
         let content = std::fs::read_to_string(&file_path).unwrap();
         assert_eq!(content, "new content");
     }

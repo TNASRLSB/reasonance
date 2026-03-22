@@ -2,6 +2,9 @@ import { invoke } from '@tauri-apps/api/core';
 import type { Adapter, FileEntry, FsEvent, PtyHandle, DiscoveredAgent, Workflow, AgentState, AgentInstance, AgentMessage, WorkflowRun } from './index';
 
 export class TauriAdapter implements Adapter {
+  async setProjectRoot(path: string): Promise<void> {
+    return invoke<void>('set_project_root', { path });
+  }
   async readFile(path: string): Promise<string> {
     return invoke<string>('read_file', { path });
   }

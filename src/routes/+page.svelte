@@ -73,6 +73,7 @@
     projectRoot.set(path);
     addRecentProject(path);
     showWelcome = false;
+    try { await adapter.setProjectRoot(path); } catch { /* non-fatal */ }
 
     // Restart file watcher for new directory
     if (unwatchFiles) unwatchFiles();
@@ -177,6 +178,7 @@
       if (savedRoot) {
         projectRoot.set(savedRoot);
         showWelcome = false;
+        try { await adapter.setProjectRoot(savedRoot); } catch { /* non-fatal */ }
       }
 
       const savedRecent = await store.get<string[]>('recentProjects');

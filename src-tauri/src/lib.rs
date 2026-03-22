@@ -8,24 +8,47 @@ mod workflow_store;
 mod agent_runtime;
 mod workflow_engine;
 
+use commands::fs::ProjectRootState;
 use fs_watcher::FsWatcherState;
 use pty_manager::PtyManager;
 use shadow_store::ShadowStore;
+use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Fix blurry rendering on Linux with fractional scaling (WebKitGTK)
+    #[cfg(target_os = "linux")]
+    {
+        std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+    }
+
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_window_state::Builder::new().build())
+        .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_deep_link::init())
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            // Focus the existing window when a second instance is launched
+            if let Some(w) = app.get_webview_window("main") {
+                let _ = w.set_focus();
+            }
+        }))
         .manage(PtyManager::new())
         .manage(ShadowStore::new())
         .manage(FsWatcherState::new())
+        .manage(ProjectRootState::new())
         .manage(discovery::DiscoveryEngine::new())
         .manage(workflow_store::WorkflowStore::new())
         .manage(agent_runtime::AgentRuntime::new())
         .manage(workflow_engine::WorkflowEngine::new())
         .invoke_handler(tauri::generate_handler![
+            commands::fs::set_project_root,
             commands::fs::read_file,
             commands::fs::write_file,
             commands::fs::list_dir,

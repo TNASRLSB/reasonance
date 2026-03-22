@@ -4,6 +4,7 @@ export interface FileEntry {
   isDir: boolean;
   size: number;
   modified: number; // unix timestamp ms
+  isGitignored: boolean;
 }
 
 export interface PtyHandle {
@@ -12,6 +13,7 @@ export interface PtyHandle {
 
 export interface Adapter {
   // Filesystem
+  setProjectRoot(path: string): Promise<void>;
   readFile(path: string): Promise<string>;
   writeFile(path: string, content: string): Promise<void>;
   listDir(path: string, respectGitignore?: boolean): Promise<FileEntry[]>;
