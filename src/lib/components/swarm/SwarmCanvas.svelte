@@ -1,6 +1,15 @@
 <script lang="ts">
-  // @ts-ignore
-  import { Svelvet, Node, Anchor, Edge } from 'svelvet';
+  import {
+    SvelteFlow,
+    Controls,
+    Background,
+    MiniMap,
+    type Node as FlowNode,
+    type Edge as FlowEdge,
+    type NodeTypes,
+    useSvelteFlow,
+  } from '@xyflow/svelte';
+  import '@xyflow/svelte/dist/style.css';
   import type { Adapter } from '$lib/adapter/index';
   import type { WorkflowNode, WorkflowEdge } from '$lib/adapter/index';
   import { currentWorkflow, currentWorkflowPath, workflowDirty } from '$lib/stores/workflow';
@@ -11,32 +20,69 @@
   import SwarmInspector from './SwarmInspector.svelte';
   import NodeCatalog from './NodeCatalog.svelte';
   import WorkflowMenu from './WorkflowMenu.svelte';
-  import AgentNode from './AgentNode.svelte';
-  import ResourceNode from './ResourceNode.svelte';
-  import LogicNode from './LogicNode.svelte';
+  import AgentFlowNode from './AgentFlowNode.svelte';
+  import ResourceFlowNode from './ResourceFlowNode.svelte';
+  import LogicFlowNode from './LogicFlowNode.svelte';
   import { get } from 'svelte/store';
-  import { onDestroy } from 'svelte';
   import type { NodeRunState } from '$lib/adapter/index';
 
   let { adapter, cwd = '.' }: { adapter: Adapter; cwd?: string } = $props();
 
-  let wfNodes = $state<WorkflowNode[]>([]);
-  let wfEdges = $state<WorkflowEdge[]>([]);
-  let runNodeStates = $state<NodeRunState[]>([]);
-  let selId = $state<string | null>(null);
-  let viewMode = $state<'visual' | 'code' | 'split'>('visual');
-
-  const unsubWf = currentWorkflow.subscribe((wf) => {
-    wfNodes = wf?.nodes ?? [];
-    wfEdges = wf?.edges ?? [];
-  });
-  const unsubNs = nodeStates.subscribe((val) => { runNodeStates = val; });
-  const unsubSel = selectedNodeId.subscribe((val) => { selId = val; });
-  const unsubMode = swarmViewMode.subscribe((val) => { viewMode = val; });
+  let wfNodes = $derived<WorkflowNode[]>($currentWorkflow?.nodes ?? []);
+  let wfEdges = $derived<WorkflowEdge[]>($currentWorkflow?.edges ?? []);
 
   function getNodeState(nodeId: string): string {
-    const ns = runNodeStates.find((s) => s.node_id === nodeId);
+    const ns = $nodeStates.find((s) => s.node_id === nodeId);
     return ns?.state ?? 'idle';
+  }
+
+  // Convert WorkflowNode[] → SvelteFlow Node[]
+  let flowNodes = $derived<FlowNode[]>(wfNodes.map((n) => ({
+    id: n.id,
+    type: n.type,
+    position: { x: n.position.x, y: n.position.y },
+    data: {
+      label: n.label,
+      config: n.config,
+      state: getNodeState(n.id),
+      selected: $selectedNodeId === n.id,
+    },
+  })));
+
+  // Convert WorkflowEdge[] → SvelteFlow Edge[]
+  let flowEdges = $derived<FlowEdge[]>(wfEdges.map((e) => ({
+    id: e.id,
+    source: e.from,
+    target: e.to,
+    label: e.label ?? '',
+    style: 'stroke: var(--text-muted); stroke-width: 2px;',
+  })));
+
+  // Custom node types mapping
+  const nodeTypes: NodeTypes = {
+    agent: AgentFlowNode,
+    resource: ResourceFlowNode,
+    logic: LogicFlowNode,
+  } as unknown as NodeTypes;
+
+  function onNodeClick({ event, node }: { event: MouseEvent | TouchEvent; node: FlowNode }) {
+    selectedNodeId.set(node.id);
+  }
+
+  function onNodeDragStop({ event, targetNode }: { event: MouseEvent | TouchEvent; targetNode: FlowNode | null }) {
+    const node = targetNode;
+    if (!node) return;
+    // Sync position back to workflow
+    const wf = get(currentWorkflow);
+    if (!wf) return;
+    const updated = {
+      ...wf,
+      nodes: wf.nodes.map((n) =>
+        n.id === node.id ? { ...n, position: { x: node.position.x, y: node.position.y } } : n
+      ),
+    };
+    currentWorkflow.set(updated);
+    workflowDirty.set(true);
   }
 
   function selectNode(id: string) {
@@ -72,7 +118,8 @@
   let jsonSyncTimer: ReturnType<typeof setTimeout> | null = null;
   let suppressJsonUpdate = false;
 
-  const unsubJson = currentWorkflow.subscribe((wf) => {
+  $effect(() => {
+    const wf = $currentWorkflow;
     if (suppressJsonUpdate) return;
     if (wf) jsonText = JSON.stringify(wf, null, 2);
   });
@@ -121,7 +168,6 @@
     }
   }
 
-  onDestroy(() => { unsubWf(); unsubNs(); unsubSel(); unsubMode(); unsubJson(); });
 </script>
 
 <svelte:window onkeydown={handleKeydown} />
@@ -135,61 +181,35 @@
     <SwarmControls {adapter} {cwd} />
     <div class="toolbar-spacer"></div>
     <div class="view-modes">
-      <button class:active={viewMode === 'visual'} onclick={() => swarmViewMode.set('visual')}>Visual</button>
-      <button class:active={viewMode === 'code'} onclick={() => swarmViewMode.set('code')}>Code</button>
-      <button class:active={viewMode === 'split'} onclick={() => swarmViewMode.set('split')}>Split</button>
+      <button class:active={$swarmViewMode === 'visual'} onclick={() => swarmViewMode.set('visual')}>Visual</button>
+      <button class:active={$swarmViewMode === 'code'} onclick={() => swarmViewMode.set('code')}>Code</button>
+      <button class:active={$swarmViewMode === 'split'} onclick={() => swarmViewMode.set('split')}>Split</button>
     </div>
     <button class="close-btn" onclick={closeCanvas} title="Close canvas">&#x2715;</button>
   </div>
 
   <!-- Content area -->
   <div class="canvas-content">
-    {#if viewMode === 'visual' || viewMode === 'split'}
-      <div class="canvas-area" class:half={viewMode === 'split'}>
-        <Svelvet fitView minimap>
-          {#each wfNodes as node (node.id)}
-            <Node id={node.id} position={{ x: node.position.x, y: node.position.y }}>
-              {#if node.type === 'agent'}
-                <AgentNode
-                  id={node.id}
-                  label={node.label}
-                  llm={node.config?.llm as string ?? ''}
-                  state={getNodeState(node.id)}
-                  selected={selId === node.id}
-                  onselect={selectNode}
-                />
-              {:else if node.type === 'resource'}
-                <ResourceNode
-                  id={node.id}
-                  label={node.label}
-                  kind={node.config?.kind as string ?? 'folder'}
-                  path={node.config?.path as string ?? ''}
-                  selected={selId === node.id}
-                  onselect={selectNode}
-                />
-              {:else if node.type === 'logic'}
-                <LogicNode
-                  id={node.id}
-                  label={node.label}
-                  kind={node.config?.kind as string ?? 'condition'}
-                  rule={node.config?.rule as string ?? ''}
-                  state={getNodeState(node.id)}
-                  selected={selId === node.id}
-                  onselect={selectNode}
-                />
-              {/if}
-              <Anchor />
-            </Node>
-          {/each}
-          {#each wfEdges as edge (edge.id)}
-            <Edge source={edge.from} target={edge.to} label={edge.label ?? ''} />
-          {/each}
-        </Svelvet>
+    {#if $swarmViewMode === 'visual' || $swarmViewMode === 'split'}
+      <div class="canvas-area" class:half={$swarmViewMode === 'split'}>
+        <SvelteFlow
+          nodes={flowNodes}
+          edges={flowEdges}
+          {nodeTypes}
+          fitView
+          onnodeclick={onNodeClick}
+          onnodedragstop={onNodeDragStop}
+          colorMode="dark"
+        >
+          <Controls />
+          <Background />
+          <MiniMap />
+        </SvelteFlow>
       </div>
     {/if}
 
-    {#if viewMode === 'code' || viewMode === 'split'}
-      <div class="code-area" class:half={viewMode === 'split'}>
+    {#if $swarmViewMode === 'code' || $swarmViewMode === 'split'}
+      <div class="code-area" class:half={$swarmViewMode === 'split'}>
         <textarea class="json-editor" bind:value={jsonText} oninput={onJsonInput} spellcheck="false"></textarea>
         {#if jsonError}
           <div class="json-error">{jsonError}</div>
@@ -229,19 +249,24 @@
   .view-modes button {
     background: var(--bg-tertiary);
     color: var(--text-secondary);
-    border: 1px solid var(--border);
+    border: 2px solid var(--border);
+    border-radius: 0;
     padding: 3px 10px;
     font-size: 11px;
     cursor: pointer;
     font-family: var(--font-ui);
+    font-weight: 600;
+    text-transform: uppercase;
   }
   .view-modes button.active {
     background: var(--accent);
-    color: var(--text-primary);
+    color: #fff;
+    border-color: var(--accent);
   }
   .close-btn {
     background: none;
-    border: 1px solid var(--border);
+    border: 2px solid var(--border);
+    border-radius: 0;
     color: var(--text-secondary);
     padding: 3px 8px;
     cursor: pointer;
@@ -249,6 +274,7 @@
   }
   .close-btn:hover {
     color: var(--danger);
+    border-color: var(--danger);
   }
   .canvas-content {
     display: flex;
@@ -271,7 +297,7 @@
   }
   .code-area.half {
     flex: 0.5;
-    border-left: var(--border-width) solid var(--border);
+    border-left: 2px solid var(--border);
   }
   .json-editor {
     width: 100%;
@@ -289,13 +315,13 @@
     font-size: 11px;
     color: var(--danger);
     background: var(--bg-secondary);
-    border-top: 1px solid var(--danger);
+    border-top: 2px solid var(--danger);
     font-family: var(--font-mono, monospace);
   }
   .inspector-area {
     width: 240px;
     min-width: 200px;
-    border-left: var(--border-width) solid var(--border);
+    border-left: 2px solid var(--border);
     background: var(--bg-secondary);
     overflow-y: auto;
   }

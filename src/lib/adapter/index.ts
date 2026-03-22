@@ -24,6 +24,19 @@ export interface Adapter {
   getClipboard(): Promise<string>;
   setClipboard(text: string): Promise<void>;
   showNotification(title: string, body: string): Promise<void>;
+  minimizeWindow(): Promise<void>;
+  maximizeWindow(): Promise<void>;
+  closeWindow(): Promise<void>;
+  onWindowClose(callback: () => Promise<void>): Promise<void>;
+
+  // Discovery
+  discoverLlms(): Promise<Array<{ name: string; command: string; found: boolean }>>;
+  grepFiles(path: string, pattern: string, respectGitignore: boolean): Promise<GrepResult[]>;
+
+  // Dialogs
+  openFolderDialog(): Promise<string | null>;
+  openFileDialog(filters?: Array<{ name: string; extensions: string[] }>): Promise<string | null>;
+  saveFileDialog(defaultPath?: string, filters?: Array<{ name: string; extensions: string[] }>): Promise<string | null>;
 
   // PTY
   spawnProcess(command: string, args: string[], cwd: string): Promise<PtyHandle>;
@@ -41,7 +54,7 @@ export interface Adapter {
   storeShadow(path: string, content: string): Promise<void>;
   getShadow(path: string): Promise<string | null>;
 
-  // Discovery
+  // Agent Discovery
   discoverAgents(): Promise<DiscoveredAgent[]>;
   getDiscoveredAgents(): Promise<DiscoveredAgent[]>;
 
@@ -76,6 +89,12 @@ export interface Adapter {
   stepWorkflow(runId: string, workflowPath: string, cwd: string): Promise<string | null>;
   getRunStatus(runId: string): Promise<WorkflowRun | null>;
   notifyNodeCompleted(runId: string, nodeId: string, success: boolean, workflowPath: string, cwd: string): Promise<void>;
+}
+
+export interface GrepResult {
+  path: string;
+  line_number: number;
+  line: string;
 }
 
 export interface FsEvent {

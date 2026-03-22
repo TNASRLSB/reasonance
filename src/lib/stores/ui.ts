@@ -6,9 +6,10 @@ export const activeEditorTab = writable<string | null>(null);
 export const showSettings = writable(false);
 export const yoloMode = writable(false);
 export const showDiff = writable(false);
-export const fontFamily = writable("'Atkinson Hyperlegible Next', system-ui, sans-serif");
-export const fontSize = writable(13);
+export const fontFamily = writable("'Atkinson Hyperlegible Mono', monospace");
+export const fontSize = writable(14);
 export const enhancedReadability = writable(false);
+export const editorTheme = writable<string>('forge-dark');
 
 // Swarm canvas state
 export const showSwarmCanvas = writable<boolean>(false);

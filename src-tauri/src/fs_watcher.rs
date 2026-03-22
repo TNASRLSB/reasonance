@@ -1,8 +1,32 @@
-use notify::{RecommendedWatcher, RecursiveMode, Watcher};
+use notify::{RecommendedWatcher, RecursiveMode, Watcher, EventHandler};
+use notify::event::Event;
 use std::path::Path;
-use std::sync::{mpsc, Mutex};
-use std::thread;
+use std::sync::Mutex;
 use tauri::{AppHandle, Emitter};
+
+struct AppEventHandler {
+    app: AppHandle,
+}
+
+impl EventHandler for AppEventHandler {
+    fn handle_event(&mut self, event: notify::Result<Event>) {
+        if let Ok(event) = event {
+            let kind = match event.kind {
+                notify::EventKind::Create(_) => "create",
+                notify::EventKind::Modify(_) => "modify",
+                notify::EventKind::Remove(_) => "remove",
+                _ => return,
+            };
+            for path in &event.paths {
+                let payload = serde_json::json!({
+                    "type": kind,
+                    "path": path.to_string_lossy(),
+                });
+                let _ = self.app.emit("fs-change", payload);
+            }
+        }
+    }
+}
 
 pub struct FsWatcherState {
     watcher: Mutex<Option<RecommendedWatcher>>,
@@ -21,32 +45,12 @@ pub fn start_watching(
     app: AppHandle,
     state: &FsWatcherState,
 ) -> Result<(), String> {
-    let (tx, rx) = mpsc::channel();
+    let handler = AppEventHandler { app };
     let mut watcher =
-        RecommendedWatcher::new(tx, notify::Config::default()).map_err(|e| e.to_string())?;
+        RecommendedWatcher::new(handler, notify::Config::default()).map_err(|e| e.to_string())?;
     watcher
         .watch(Path::new(path), RecursiveMode::Recursive)
         .map_err(|e| e.to_string())?;
-
-    thread::spawn(move || {
-        for result in rx {
-            if let Ok(event) = result {
-                let kind = match event.kind {
-                    notify::EventKind::Create(_) => "create",
-                    notify::EventKind::Modify(_) => "modify",
-                    notify::EventKind::Remove(_) => "remove",
-                    _ => continue,
-                };
-                for path in &event.paths {
-                    let payload = serde_json::json!({
-                        "type": kind,
-                        "path": path.to_string_lossy(),
-                    });
-                    let _ = app.emit("fs-change", payload);
-                }
-            }
-        }
-    });
 
     *state.watcher.lock().unwrap() = Some(watcher);
     Ok(())

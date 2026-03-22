@@ -1,6 +1,5 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { get } from 'svelte/store';
   import type { Adapter, FileEntry } from '$lib/adapter';
   import { getFileIcon } from '$lib/utils/icons';
   import { addOpenFile, projectRoot } from '$lib/stores/files';
@@ -12,8 +11,18 @@
   let childrenCache = $state(new Map<string, FileEntry[]>());
   let clickTimer: ReturnType<typeof setTimeout> | null = null;
 
+  let currentRoot = $derived($projectRoot || '.');
+
+  // Reload entries when project root changes
+  $effect(() => {
+    const root = $projectRoot;
+    if (root) {
+      adapter.listDir(root).then((e) => { entries = e; });
+    }
+  });
+
   onMount(async () => {
-    const root = get(projectRoot) || '.';
+    const root = $projectRoot || '.';
     entries = await adapter.listDir(root);
   });
 
@@ -45,29 +54,35 @@
     }
     clickTimer = setTimeout(async () => {
       clickTimer = null;
-      const content = await adapter.readFile(entry.path);
-      addOpenFile({
-        path: entry.path,
-        name: entry.name,
-        content,
-        isDirty: false,
-        isDeleted: false,
-      });
+      try {
+        const content = await adapter.readFile(entry.path);
+        addOpenFile({
+          path: entry.path,
+          name: entry.name,
+          content,
+          isDirty: false,
+          isDeleted: false,
+        });
+      } catch (err) {
+        console.error('Failed to read file:', err);
+      }
     }, 250);
   }
 
   function handleDoubleClick(entry: FileEntry) {
     adapter.openExternal(entry.path);
   }
+
 </script>
 
 <div class="file-tree">
-  <div class="tree-header">FILES</div>
+  <div class="tree-header">{currentRoot === '.' ? 'FILES' : currentRoot.split('/').pop()}</div>
 
   {#snippet renderEntries(items: FileEntry[], depth: number)}
     {#each items as entry (entry.path)}
       <button
         class="tree-item"
+        class:gitignored={entry.isGitignored}
         style="padding-left: {14 + depth * 16}px"
         onclick={() => handleClick(entry)}
       >
@@ -126,9 +141,17 @@
   }
 
   .tree-item:hover {
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--bg-hover);
     color: var(--text-primary);
     border-left-color: var(--accent);
+  }
+
+  .tree-item.gitignored {
+    opacity: 0.5;
+  }
+
+  .tree-item.gitignored:hover {
+    opacity: 0.7;
   }
 
   .icon {

@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { Adapter, FileEntry, FsEvent, PtyHandle, DiscoveredAgent, Workflow, AgentState, AgentInstance, AgentMessage, WorkflowRun } from './index';
+import type { Adapter, FileEntry, FsEvent, GrepResult, PtyHandle, DiscoveredAgent, Workflow, AgentState, AgentInstance, AgentMessage, WorkflowRun } from './index';
 
 export class TauriAdapter implements Adapter {
   async setProjectRoot(path: string): Promise<void> {
@@ -24,13 +24,56 @@ export class TauriAdapter implements Adapter {
     return invoke<void>('open_external', { path });
   }
   async getClipboard(): Promise<string> {
-    throw new Error('Not implemented');
+    const { readText } = await import('@tauri-apps/plugin-clipboard-manager');
+    return readText();
   }
   async setClipboard(text: string): Promise<void> {
-    throw new Error('Not implemented');
+    const { writeText } = await import('@tauri-apps/plugin-clipboard-manager');
+    return writeText(text);
   }
   async showNotification(title: string, body: string): Promise<void> {
-    throw new Error('Not implemented');
+    const { sendNotification } = await import('@tauri-apps/plugin-notification');
+    sendNotification({ title, body });
+  }
+  async minimizeWindow(): Promise<void> {
+    const { getCurrentWindow } = await import('@tauri-apps/api/window');
+    return getCurrentWindow().minimize();
+  }
+  async maximizeWindow(): Promise<void> {
+    const { getCurrentWindow } = await import('@tauri-apps/api/window');
+    return getCurrentWindow().toggleMaximize();
+  }
+  async closeWindow(): Promise<void> {
+    const { getCurrentWindow } = await import('@tauri-apps/api/window');
+    return getCurrentWindow().close();
+  }
+  async onWindowClose(callback: () => Promise<void>): Promise<void> {
+    const { getCurrentWindow } = await import('@tauri-apps/api/window');
+    getCurrentWindow().onCloseRequested(async () => { await callback(); });
+  }
+  async discoverLlms(): Promise<Array<{ name: string; command: string; found: boolean }>> {
+    return invoke<Array<{ name: string; command: string; found: boolean }>>('discover_llms');
+  }
+  async grepFiles(path: string, pattern: string, respectGitignore: boolean): Promise<GrepResult[]> {
+    return invoke<GrepResult[]>('grep_files', { path, pattern, respectGitignore });
+  }
+  async openFolderDialog(): Promise<string | null> {
+    const { open } = await import('@tauri-apps/plugin-dialog');
+    const selected = await open({ directory: true, multiple: false });
+    if (!selected) return null;
+    return typeof selected === 'string' ? selected : selected[0] ?? null;
+  }
+  async openFileDialog(filters?: Array<{ name: string; extensions: string[] }>): Promise<string | null> {
+    const { open } = await import('@tauri-apps/plugin-dialog');
+    const selected = await open({ multiple: false, filters });
+    if (!selected) return null;
+    const path = typeof selected === 'string' ? selected : (selected as { path: string }).path ?? null;
+    return path;
+  }
+  async saveFileDialog(defaultPath?: string, filters?: Array<{ name: string; extensions: string[] }>): Promise<string | null> {
+    const { save } = await import('@tauri-apps/plugin-dialog');
+    const selected = await save({ defaultPath, filters });
+    return selected ?? null;
   }
   async spawnProcess(command: string, args: string[], cwd: string): Promise<PtyHandle> {
     const id = await invoke<string>('spawn_process', { command, args, cwd });

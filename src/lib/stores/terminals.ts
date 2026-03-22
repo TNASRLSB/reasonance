@@ -10,6 +10,8 @@ export interface TerminalInstance {
   modelName?: string;
   messagesLeft?: number;
   resetTimer?: string;
+  progressState?: number;  // 0=remove, 1=normal, 2=error, 3=indeterminate, 4=paused
+  progressValue?: number;  // 0-100
 }
 
 export interface TerminalTab {

@@ -1,6 +1,7 @@
 import type {
   Adapter,
   FileEntry,
+  GrepResult,
   PtyHandle,
   FsEvent,
   DiscoveredAgent,
@@ -36,6 +37,9 @@ export function createMockAdapter(overrides?: Partial<Adapter>): Adapter {
 
   const base: Adapter = {
     // Filesystem
+    setProjectRoot(_path: string) {
+      return Promise.resolve();
+    },
     readFile(path: string) {
       return Promise.resolve(files.get(path) ?? '');
     },
@@ -63,6 +67,33 @@ export function createMockAdapter(overrides?: Partial<Adapter>): Adapter {
     },
     showNotification(_title: string, _body: string) {
       return Promise.resolve();
+    },
+    minimizeWindow() {
+      return Promise.resolve();
+    },
+    maximizeWindow() {
+      return Promise.resolve();
+    },
+    closeWindow() {
+      return Promise.resolve();
+    },
+    onWindowClose(_callback: () => Promise<void>) {
+      return Promise.resolve();
+    },
+    discoverLlms(): Promise<Array<{ name: string; command: string; found: boolean }>> {
+      return Promise.resolve([]);
+    },
+    grepFiles(_path: string, _pattern: string, _respectGitignore: boolean): Promise<GrepResult[]> {
+      return Promise.resolve([]);
+    },
+    openFolderDialog(): Promise<string | null> {
+      return Promise.resolve(null);
+    },
+    openFileDialog(_filters?: Array<{ name: string; extensions: string[] }>): Promise<string | null> {
+      return Promise.resolve(null);
+    },
+    saveFileDialog(_defaultPath?: string, _filters?: Array<{ name: string; extensions: string[] }>): Promise<string | null> {
+      return Promise.resolve(null);
     },
 
     // PTY

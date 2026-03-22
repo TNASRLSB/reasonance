@@ -1,14 +1,32 @@
 <script lang="ts">
   import { tr } from '$lib/i18n/index';
   import { recentProjects } from '$lib/stores/files';
+  import { themeMode, isDark } from '$lib/stores/theme';
+  import type { Adapter } from '$lib/adapter/index';
 
-  let { onOpenFolder, onSelectProject }: {
+  let { adapter, onOpenFolder, onSelectProject }: {
+    adapter: Adapter;
     onOpenFolder: () => void;
     onSelectProject: (path: string) => void;
   } = $props();
+
+  function cycleTheme() {
+    themeMode.update((m) => m === 'dark' ? 'light' : 'dark');
+  }
 </script>
 
-<div class="welcome">
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div class="welcome" data-tauri-drag-region>
+  <div class="top-bar">
+    <button class="theme-toggle" onclick={cycleTheme} title="Toggle theme">
+      {$isDark ? '☀' : '☾'}
+    </button>
+    <div class="window-controls">
+      <button class="win-btn" onclick={() => adapter.minimizeWindow()} title="Minimize">&#8722;</button>
+      <button class="win-btn" onclick={() => adapter.maximizeWindow()} title="Maximize">&#9723;</button>
+      <button class="win-btn close" onclick={() => adapter.closeWindow()} title="Close">&#10005;</button>
+    </div>
+  </div>
   <div class="welcome-content">
     <h1 class="welcome-logo">REASONANCE</h1>
     <p class="welcome-subtitle">IDE for Vibecoders</p>
@@ -45,6 +63,67 @@
     height: 100%;
     background: var(--bg-primary);
     font-family: var(--font-ui);
+    position: relative;
+    -webkit-app-region: drag;
+  }
+
+  .top-bar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    -webkit-app-region: no-drag;
+    z-index: 10;
+  }
+
+  .theme-toggle {
+    width: 36px;
+    height: 32px;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.1s, color 0.1s;
+  }
+
+  .theme-toggle:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
+  .window-controls {
+    display: flex;
+  }
+
+  .win-btn {
+    width: 46px;
+    height: 32px;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.1s, color 0.1s;
+  }
+
+  .win-btn:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
+  .win-btn.close:hover {
+    background: var(--danger);
+    color: #fff;
   }
 
   .welcome-content {
@@ -55,6 +134,7 @@
     max-width: 480px;
     width: 100%;
     padding: 32px;
+    -webkit-app-region: no-drag;
   }
 
   .welcome-logo {

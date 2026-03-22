@@ -60,13 +60,8 @@
   async function importWorkflow() {
     close();
     try {
-      const { open: openDialog } = await import('@tauri-apps/plugin-dialog');
-      const selected = await openDialog({
-        multiple: false,
-        filters: [{ name: 'Workflow', extensions: ['json'] }],
-      });
-      if (!selected) return;
-      const filePath = typeof selected === 'string' ? selected : selected.path;
+      const filePath = await adapter.openFileDialog([{ name: 'Workflow', extensions: ['json'] }]);
+      if (!filePath) return;
       const wf = await adapter.loadWorkflow(filePath);
       currentWorkflow.set(wf);
       currentWorkflowPath.set(filePath);
@@ -83,11 +78,10 @@
     const wf = get(currentWorkflow);
     if (!wf) return;
     try {
-      const { save: saveDialog } = await import('@tauri-apps/plugin-dialog');
-      const selected = await saveDialog({
-        defaultPath: `${wf.name.replace(/\s+/g, '-').toLowerCase()}.json`,
-        filters: [{ name: 'Workflow', extensions: ['json'] }],
-      });
+      const selected = await adapter.saveFileDialog(
+        `${wf.name.replace(/\s+/g, '-').toLowerCase()}.json`,
+        [{ name: 'Workflow', extensions: ['json'] }]
+      );
       if (!selected) return;
       await adapter.saveWorkflow(selected, wf);
       showToast('success', 'Workflow exported', selected.split('/').pop() ?? selected);

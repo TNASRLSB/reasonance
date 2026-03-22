@@ -32,7 +32,7 @@
     overflow: auto;
     padding: 24px 32px;
     color: var(--text-primary, #e2e8f0);
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: var(--font-ui);
     font-size: 15px;
     line-height: 1.7;
     max-width: 860px;
@@ -88,7 +88,7 @@
     color: #e879f9;
     padding: 0.15em 0.4em;
     border-radius: 4px;
-    font-family: var(--font-mono, 'JetBrains Mono', 'Fira Code', monospace);
+    font-family: var(--font-mono);
     font-size: 0.875em;
   }
 
