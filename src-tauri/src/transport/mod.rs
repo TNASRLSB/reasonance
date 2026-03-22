@@ -155,6 +155,10 @@ impl StructuredAgentTransport {
         self.sessions.lock().unwrap().keys().cloned().collect()
     }
 
+    pub fn registry(&self) -> Arc<Mutex<NormalizerRegistry>> {
+        self.registry.clone()
+    }
+
     fn build_cli_args(config: &crate::normalizer::TomlConfig, request: &AgentRequest) -> Vec<String> {
         let args_template = if request.session_id.is_some() {
             &config.cli.resume_args
