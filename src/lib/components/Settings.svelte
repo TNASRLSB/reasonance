@@ -332,8 +332,14 @@
     if (e.metaKey) parts.push('Meta');
     if (['Control', 'Shift', 'Alt', 'Meta'].includes(e.key)) return;
     parts.push(e.key.length === 1 ? e.key.toUpperCase() : e.key);
+    const combo = parts.join('+');
+    // Store shortcut in the matching LLM entry
+    const idx = llms.findIndex(l => l.name === capturingShortcut);
+    if (idx >= 0) {
+      llms[idx] = { ...llms[idx], shortcut: combo };
+      llms = [...llms];
+    }
     capturingShortcut = null;
-    // Store in local state — will be saved with the main Save button
   }
 
   function handleOverlayClick(e: MouseEvent) {
@@ -679,6 +685,18 @@
                     {/if}
 
                     <div class="field-row">
+                      <label for="provider-max-tokens-{i}">{$tr('settings.provider.maxTokens') ?? 'Max tokens'}</label>
+                      <input
+                        id="provider-max-tokens-{i}"
+                        type="number"
+                        min="1"
+                        max="1000000"
+                        placeholder="8192"
+                        oninput={() => { llms = [...llms]; }}
+                      />
+                    </div>
+
+                    <div class="field-row">
                       <label for="provider-api-key-{i}">{$tr('settings.provider.apiKeyEnv') ?? 'API Key env'}</label>
                       <input
                         id="provider-api-key-{i}"
@@ -697,7 +715,7 @@
                         onclick={() => capturingShortcut = capturingShortcut === llm.name ? null : llm.name}
                         onkeydown={handleShortcutCapture}
                       >
-                        {capturingShortcut === llm.name ? 'Press keys...' : 'Capture'}
+                        {capturingShortcut === llm.name ? 'Press keys…' : (llm as any).shortcut || '—'}
                       </button>
                     </div>
 
@@ -714,7 +732,7 @@
                     </div>
 
                     {#if steps.length > 0}
-                      <div class="connection-steps">
+                      <div class="connection-steps" role="list" aria-live="polite">
                         {#each steps as step}
                           {@const isOk = step.status === 'ok'}
                           {@const isFailed = step.status === 'failed'}
@@ -790,14 +808,17 @@
               />
             </div>
             <div class="field-row">
-              <label for="budget-notify">{$tr('analytics.budget.notifyAt') ?? 'Notify at (%)'}</label>
+              <label for="budget-notify">{$tr('analytics.budget.notifyAt') ?? 'Notify at'}</label>
               <input
                 id="budget-notify"
-                type="number"
-                min="1"
-                max="100"
+                type="range"
+                min="50"
+                max="95"
+                step="5"
                 bind:value={localBudget.notify_at_percent}
+                aria-valuetext="{localBudget.notify_at_percent}%"
               />
+              <span class="range-value">{localBudget.notify_at_percent}%</span>
             </div>
           </div>
         </section>
@@ -1285,8 +1306,8 @@
   }
 
   .connection-step.ok {
-    border-color: #16a34a;
-    color: #16a34a;
+    border-color: var(--success);
+    color: var(--success);
   }
 
   .connection-step.failed {
@@ -1323,12 +1344,12 @@
   .connection-ready {
     font-size: 11px;
     font-weight: 700;
-    color: #16a34a;
+    color: var(--success);
     text-transform: uppercase;
     letter-spacing: 0.04em;
     padding: 4px 6px;
-    border: var(--border-width) solid #16a34a;
-    background: color-mix(in srgb, #16a34a 10%, var(--bg-secondary));
+    border: var(--border-width) solid var(--success);
+    background: color-mix(in srgb, var(--success) 10%, var(--bg-secondary));
   }
 
   /* Budget section */
@@ -1352,5 +1373,14 @@
     font-size: 11px;
     color: var(--text-muted);
     justify-content: flex-end;
+  }
+
+  .range-value {
+    font-size: var(--font-size-small, 11px);
+    font-family: var(--font-mono);
+    color: var(--text-secondary);
+    min-width: 32px;
+    text-align: right;
+    flex-shrink: 0;
   }
 </style>
