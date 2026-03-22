@@ -1,6 +1,6 @@
 import { writable, derived, get } from 'svelte/store';
 import type { AgentEvent, AgentEventPayload } from '$lib/types/agent-event';
-import { updateTokens, updateSessionStatus } from './agent-session';
+import { updateTokens, updateSessionStatus, updateMetrics } from './agent-session';
 
 // Per-session event lists
 export const agentEvents = writable<Map<string, AgentEvent[]>>(new Map());
@@ -81,6 +81,15 @@ export function processAgentEvent(payload: AgentEventPayload): void {
       setStreaming(session_id, false);
       if (event.metadata.error_severity === 'fatal') {
         updateSessionStatus(session_id, { error: { severity: 'fatal' } });
+      }
+      break;
+    case 'metrics':
+      if (event.metadata.stream_metrics) {
+        updateMetrics(
+          session_id,
+          event.metadata.stream_metrics.tokens_per_second,
+          event.metadata.stream_metrics.elapsed_ms,
+        );
       }
       break;
   }
