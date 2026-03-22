@@ -3,9 +3,11 @@
   import Toolbar from './Toolbar.svelte';
   import StatusBar from './StatusBar.svelte';
   import AnalyticsDashboard from './AnalyticsDashboard.svelte';
+  import { get } from 'svelte/store';
   import { fileTreeWidth, terminalWidth, analyticsDashboard } from '$lib/stores/ui';
   import { startUpdateChecker } from '$lib/updater';
   import { startLiveTracking } from '$lib/stores/analytics';
+  import { llmConfigs, appSettings } from '$lib/stores/config';
   import type { Snippet } from 'svelte';
   import type { Adapter } from '$lib/adapter/index';
 
@@ -42,6 +44,25 @@
     draggingRight = false;
   }
 
+  function handleGlobalKeydown(e: KeyboardEvent) {
+    // Ctrl+Shift+A → toggle analytics dashboard
+    if (e.ctrlKey && e.shiftKey && e.key === 'A') {
+      e.preventDefault();
+      analyticsDashboard.update(v => ({ ...v, open: !v.open, focus: null }));
+      return;
+    }
+
+    // Ctrl+1..9 → switch active provider
+    if (e.ctrlKey && !e.shiftKey && !e.altKey && e.key >= '1' && e.key <= '9') {
+      const index = parseInt(e.key) - 1;
+      const configs = get(llmConfigs);
+      if (configs && index < configs.length) {
+        e.preventDefault();
+        appSettings.set({ default: configs[index].name });
+      }
+    }
+  }
+
   function onDividerKeydown(e: KeyboardEvent, which: 'left' | 'right') {
     const step = e.shiftKey ? 50 : 10;
     if (which === 'left') {
@@ -66,7 +87,7 @@
   }
 </script>
 
-<svelte:window onmousemove={onMouseMove} onmouseup={onMouseUp} />
+<svelte:window onmousemove={onMouseMove} onmouseup={onMouseUp} onkeydown={handleGlobalKeydown} />
 
 <div class="app-root" class:resizing={draggingLeft || draggingRight}>
   {#if draggingLeft || draggingRight}
