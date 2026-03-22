@@ -93,6 +93,51 @@ fn builtin_profiles() -> HashMap<String, (CapabilityProfile, Vec<String>, Option
         ),
     );
     profiles.insert("ollama".to_string(), (CapabilityProfile::default(), vec![], None));
+    profiles.insert(
+        "kimi".to_string(),
+        (
+            CapabilityProfile {
+                read_file: true,
+                write_file: true,
+                execute_command: true,
+                web_search: false,
+                image_input: false,
+                long_context: true,
+            },
+            vec![],
+            Some(128_000),
+        ),
+    );
+    profiles.insert(
+        "qwen".to_string(),
+        (
+            CapabilityProfile {
+                read_file: true,
+                write_file: true,
+                execute_command: true,
+                web_search: false,
+                image_input: false,
+                long_context: true,
+            },
+            vec![],
+            Some(128_000),
+        ),
+    );
+    profiles.insert(
+        "codex".to_string(),
+        (
+            CapabilityProfile {
+                read_file: true,
+                write_file: true,
+                execute_command: true,
+                web_search: false,
+                image_input: false,
+                long_context: true,
+            },
+            vec![],
+            Some(200_000),
+        ),
+    );
     profiles
 }
 
@@ -115,6 +160,9 @@ impl DiscoveryEngine {
             ("GitHub Copilot", "github-copilot-cli"),
             ("Ollama", "ollama"),
             ("Open Interpreter", "interpreter"),
+            ("Kimi", "kimi"),
+            ("Qwen Code", "qwen"),
+            ("Codex", "codex"),
         ];
         let profiles = builtin_profiles();
         let discovered: Vec<DiscoveredAgent> = candidates
