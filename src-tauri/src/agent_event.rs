@@ -69,6 +69,8 @@ pub struct AgentEventMetadata {
     pub error_severity: Option<ErrorSeverity>,
     pub error_code: Option<String>,
     pub stream_metrics: Option<StreamMetrics>,
+    #[serde(default)]
+    pub incomplete: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -100,6 +102,7 @@ impl AgentEvent {
             error_severity: None,
             error_code: None,
             stream_metrics: None,
+            incomplete: None,
         }
     }
 

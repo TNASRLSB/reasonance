@@ -101,6 +101,7 @@ impl NormalizerPipeline {
                 .and_then(|v| v.as_str())
                 .map(|s| s.to_string()),
             stream_metrics: None,
+            incomplete: None,
         };
 
         let parent_id = rule.mappings.get("parent_id")

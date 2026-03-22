@@ -200,6 +200,7 @@ mod tests {
             error_severity: None,
             error_code: None,
             stream_metrics: None,
+            incomplete: None,
         }
     }
 
