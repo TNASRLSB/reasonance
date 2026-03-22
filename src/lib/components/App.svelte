@@ -1,7 +1,9 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import Toolbar from './Toolbar.svelte';
   import StatusBar from './StatusBar.svelte';
   import { fileTreeWidth, terminalWidth } from '$lib/stores/ui';
+  import { startUpdateChecker } from '$lib/updater';
   import type { Snippet } from 'svelte';
   import type { Adapter } from '$lib/adapter/index';
 
@@ -14,6 +16,10 @@
 
   let draggingLeft = $state(false);
   let draggingRight = $state(false);
+
+  onMount(() => {
+    startUpdateChecker();
+  });
 
   function onMouseMove(e: MouseEvent) {
     if (draggingLeft) {
