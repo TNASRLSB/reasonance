@@ -130,22 +130,21 @@ jobs:
           sed -i "s/^pkgver=.*/pkgver=$NEW/" aur/PKGBUILD
 
       - name: Update CHANGELOG.md
+        env:
+          BODY: ${{ needs.analyze.outputs.changelog_body }}
         run: |
           NEW="${{ needs.analyze.outputs.new_version }}"
           DATE=$(date +%Y-%m-%d)
-          BODY="${{ needs.analyze.outputs.changelog_body }}"
 
           HEADER="## [$NEW] - $DATE"
 
           if [ -f CHANGELOG.md ]; then
-            # Prepend new version after the title line
             TEMP=$(mktemp)
             echo "# Changelog" > "$TEMP"
             echo "" >> "$TEMP"
             echo "$HEADER" >> "$TEMP"
             echo -e "$BODY" >> "$TEMP"
             echo "" >> "$TEMP"
-            # Append everything after the first line of existing changelog
             tail -n +2 CHANGELOG.md >> "$TEMP"
             mv "$TEMP" CHANGELOG.md
           else
@@ -257,11 +256,13 @@ jobs:
           path: artifacts
 
       - name: Flatten artifacts and build latest.json
+        env:
+          CHANGELOG_BODY: ${{ needs.analyze.outputs.changelog_body }}
         run: |
           VERSION="${{ needs.analyze.outputs.new_version }}"
           REPO="${{ github.repository }}"
           DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          NOTES=$(echo '${{ needs.analyze.outputs.changelog_body }}' | tr '\n' '\\n' | sed 's/"/\\"/g')
+          NOTES=$(echo "$CHANGELOG_BODY" | tr '\n' '\\n' | sed 's/"/\\"/g')
 
           mkdir -p release
 
