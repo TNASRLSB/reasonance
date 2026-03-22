@@ -3,6 +3,7 @@ pub mod retry;
 pub mod event_bus;
 pub mod session;
 pub mod stream_reader;
+pub mod session_handle;
 
 use crate::agent_event::{AgentEvent, ErrorSeverity};
 use crate::normalizer::NormalizerRegistry;
