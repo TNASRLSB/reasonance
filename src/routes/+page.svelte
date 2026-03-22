@@ -11,22 +11,20 @@
   import FindInFiles from '$lib/components/FindInFiles.svelte';
   import WelcomeScreen from '$lib/components/WelcomeScreen.svelte';
   import { TauriAdapter } from '$lib/adapter/tauri';
-  import { initTheme, themeMode } from '$lib/stores/theme';
-  import { openFiles, activeFilePath, addOpenFile, projectRoot, recentProjects, addRecentProject } from '$lib/stores/files';
-  import { llmConfigs, appSettings } from '$lib/stores/config';
-  import { showSettings, fontFamily, fontSize, enhancedReadability } from '$lib/stores/ui';
-  import { terminalTabs } from '$lib/stores/terminals';
+  import { initTheme } from '$lib/stores/theme';
+  import { openFiles, activeFilePath, projectRoot, addRecentProject } from '$lib/stores/files';
+  import { showSettings, enhancedReadability } from '$lib/stores/ui';
   import { registerKeybinding, initKeybindings } from '$lib/utils/keybindings';
   import Toast from '$lib/components/Toast.svelte';
   import { showToast } from '$lib/stores/toast';
   import SwarmCanvas from '$lib/components/swarm/SwarmCanvas.svelte';
   import { showSwarmCanvas } from '$lib/stores/ui';
-  import { initI18n, locale, loadLocale, t } from '$lib/i18n/index';
+  import ShortcutsDialog from '$lib/components/ShortcutsDialog.svelte';
+  import { initI18n } from '$lib/i18n/index';
+  import { saveSession, restoreSession, initShadowTracking } from '$lib/utils/session';
+  import { loadInitialConfig, discoverAndApplyLlms } from '$lib/utils/config-bootstrap';
   import { onMount, onDestroy } from 'svelte';
   import { get } from 'svelte/store';
-  import { parse } from 'smol-toml';
-  import { parseLlmConfig } from '$lib/utils/config-parser';
-  import { load } from '@tauri-apps/plugin-store';
   import '../app.css';
 
   interface DiffState {
@@ -45,6 +43,7 @@
   let showWelcome = $state(true);
   let showHelp = $state(false);
   let showAbout = $state(false);
+  let showShortcuts = $state(false);
   let swarmVisible = $state(false);
   const unsubSwarm = showSwarmCanvas.subscribe((val) => { swarmVisible = val; });
   let unsubEnhanced: () => void;
@@ -109,148 +108,8 @@
     });
   }
 
-  // ── Session persistence ──────────────────────────────────────────────────
-  // Saved as: openFiles[], activeFile, theme, fontFamily, fontSize, terminalTabs[], projectRoot, recentProjects
-
-  async function saveSession() {
-    try {
-      const store = await load('session.json', { autoSave: false });
-
-      const currentFiles = get(openFiles);
-      await store.set('openFiles', currentFiles.map((f) => f.path));
-      await store.set('activeFile', get(activeFilePath));
-      await store.set('theme', get(themeMode));
-      await store.set('fontFamily', get(fontFamily));
-      await store.set('fontSize', get(fontSize));
-      await store.set('enhancedReadability', get(enhancedReadability));
-      await store.set('projectRoot', get(projectRoot));
-      await store.set('recentProjects', get(recentProjects));
-
-      const currentLocale = get(locale);
-      await store.set('locale', currentLocale);
-
-      // Terminal tabs: only metadata (llmName, instance count) — PTY sessions can't survive restart
-      const tabs = get(terminalTabs);
-      await store.set(
-        'terminalTabs',
-        tabs.map((t) => ({ llmName: t.llmName, instanceCount: t.instances.length }))
-      );
-
-      await store.save();
-    } catch {
-      // Session save failures are non-fatal
-    }
-  }
-
-  async function restoreSession() {
-    try {
-      const store = await load('session.json', { autoSave: false });
-
-      // Restore theme
-      const savedTheme = await store.get<string>('theme');
-      if (savedTheme && ['light', 'dark', 'system'].includes(savedTheme)) {
-        themeMode.set(savedTheme as import('$lib/stores/theme').ThemeMode);
-      }
-
-      // Restore font settings
-      const savedFontFamily = await store.get<string>('fontFamily');
-      if (savedFontFamily) fontFamily.set(savedFontFamily);
-
-      const savedFontSize = await store.get<number>('fontSize');
-      if (savedFontSize && savedFontSize > 0) fontSize.set(savedFontSize);
-
-      const savedEnhancedReadability = await store.get<boolean>('enhancedReadability');
-      if (savedEnhancedReadability !== null && savedEnhancedReadability !== undefined) {
-        enhancedReadability.set(savedEnhancedReadability);
-      }
-
-      // Restore locale
-      const savedLocale = await store.get<string>('locale');
-      if (savedLocale && ['en','it','de','es','fr','pt','zh','hi','ar'].includes(savedLocale)) {
-        await loadLocale(savedLocale as import('$lib/i18n/index').Locale);
-        locale.set(savedLocale as import('$lib/i18n/index').Locale);
-      }
-
-      // Restore project root and recent projects
-      const savedRoot = await store.get<string>('projectRoot');
-      if (savedRoot) {
-        projectRoot.set(savedRoot);
-        showWelcome = false;
-        try { await adapter.setProjectRoot(savedRoot); } catch { /* non-fatal */ }
-      }
-
-      const savedRecent = await store.get<string[]>('recentProjects');
-      if (savedRecent) recentProjects.set(savedRecent);
-
-      // Restore open files
-      const savedPaths = await store.get<string[]>('openFiles');
-      const savedActive = await store.get<string | null>('activeFile');
-
-      if (savedPaths && savedPaths.length > 0) {
-        for (const path of savedPaths) {
-          try {
-            const content = await adapter.readFile(path);
-            const name = path.split('/').pop() ?? path;
-            addOpenFile({ path, name, content, isDirty: false, isDeleted: false });
-          } catch {
-            // File may have been deleted since last session — skip silently
-          }
-        }
-      }
-
-      // Set active file after all are loaded (addOpenFile already sets the last one)
-      if (savedActive) {
-        activeFilePath.set(savedActive);
-      }
-    } catch {
-      // Restore failures are non-fatal — start fresh
-    }
-  }
-
-  // Track known open file paths so we can store shadows when new files are opened
-  let knownPaths = new Set<string>();
-
-  // Subscribe to openFiles to store shadow on first open
-  const unsubFiles = openFiles.subscribe(async (files) => {
-    for (const file of files) {
-      if (!knownPaths.has(file.path)) {
-        knownPaths.add(file.path);
-        try {
-          await adapter.storeShadow(file.path, file.content);
-        } catch {
-          // Shadow store failures are non-fatal
-        }
-      }
-    }
-  });
-
-  async function loadInitialConfig() {
-    try {
-      const raw = await adapter.readConfig();
-      if (!raw || !raw.trim()) return;
-
-      const parsed = parse(raw) as {
-        settings?: { default?: string; context_menu_llm?: string };
-        llm?: Array<Record<string, unknown>>;
-      };
-
-      const rawLlms = parsed.llm ?? [];
-      llmConfigs.set(parseLlmConfig(rawLlms));
-
-      const s = parsed.settings ?? {};
-      appSettings.set({
-        default: s.default !== undefined ? String(s.default) : undefined,
-        contextMenuLlm:
-          s.context_menu_llm !== undefined ? String(s.context_menu_llm) : undefined,
-      });
-
-      // Apply persisted app settings from config if present
-      // (font family/size and theme are managed by stores; no TOML fields for them yet)
-    } catch (err) {
-      // Config load failures are non-fatal — continue with defaults
-      showToast('error', 'Config parse error', String(err));
-    }
-  }
+  // Shadow tracking subscription — initialised in onMount, cleaned up in onDestroy
+  let unsubFiles: () => void;
 
   onMount(async () => {
     initTheme();
@@ -263,74 +122,15 @@
       document.documentElement.classList.toggle('enhanced-readability', on);
     });
 
+    // Start shadow tracking before restoring session (so restored files get shadows)
+    unsubFiles = initShadowTracking(adapter);
+
     // Restore persisted session state before anything else
-    await restoreSession();
+    await restoreSession(adapter, () => { showWelcome = false; });
 
-    await loadInitialConfig();
-
-    // Auto-discover installed LLM CLIs if none configured
-    {
-      const configs = get(llmConfigs);
-      if (configs.length === 0) {
-        try {
-          const discovered = await adapter.discoverLlms();
-          const found = discovered.filter((d) => d.found);
-          if (found.length > 0) {
-            const newConfigs: import('$lib/stores/config').LlmConfig[] = found.map((d) => ({
-              name: d.name,
-              type: 'cli' as const,
-              command: d.command,
-              args: [],
-              yoloFlag: d.command === 'claude' ? '--dangerously-skip-permissions' : undefined,
-              imageMode: 'path' as const,
-            }));
-            // If Ollama was found, also add it as an API-type LLM (OpenAI-compatible)
-            if (found.some((d) => d.command === 'ollama')) {
-              newConfigs.push({
-                name: 'Ollama (API)',
-                type: 'api',
-                provider: 'openai',
-                endpoint: 'http://localhost:11434/v1',
-                model: 'llama3',
-                imageMode: 'none',
-              });
-            }
-            llmConfigs.set(newConfigs);
-
-            // Persist discovered LLMs to TOML so Settings can find them
-            try {
-              const { stringify } = await import('smol-toml');
-              const tomlObj: Record<string, unknown> = {
-                settings: { default: '', context_menu_llm: '' },
-                llm: newConfigs.map((l) => {
-                  const entry: Record<string, unknown> = { name: l.name, type: l.type };
-                  if (l.type === 'cli') {
-                    entry.command = l.command ?? '';
-                    entry.args = l.args ?? [];
-                    if (l.yoloFlag) entry.yolo_flag = l.yoloFlag;
-                    entry.image_mode = l.imageMode ?? 'path';
-                  } else {
-                    entry.provider = l.provider ?? '';
-                    entry.model = l.model ?? '';
-                    if (l.endpoint) entry.endpoint = l.endpoint;
-                  }
-                  return entry;
-                }),
-              };
-              await adapter.writeConfig(stringify(tomlObj));
-            } catch { /* non-fatal */ }
-
-            showToast(
-              'success',
-              t('toast.llmFound'),
-              t('toast.detected', { names: found.map((d) => d.name).join(', ') })
-            );
-          }
-        } catch {
-          // Silently ignore discovery errors
-        }
-      }
-    }
+    // Load TOML config then auto-discover LLM CLIs if none configured
+    await loadInitialConfig(adapter);
+    await discoverAndApplyLlms(adapter);
 
     // Listen for window close to save session state
     await adapter.onWindowClose(saveSession);
@@ -340,6 +140,7 @@
     registerKeybinding('ctrl+shift+f', () => { showFindInFiles = true; });
     registerKeybinding('ctrl+,', () => showSettings.set(true));
     registerKeybinding('f1', () => { showHelp = !showHelp; });
+    registerKeybinding('ctrl+/', () => { showShortcuts = true; });
     initKeybindings();
 
     // Listen for openFolder custom event from MenuBar
@@ -357,8 +158,12 @@
     document.addEventListener('reasonance:about', handleAbout);
     cleanups.push(() => document.removeEventListener('reasonance:about', handleAbout));
 
+    // Listen for shortcuts custom event from MenuBar
+    const handleShortcuts = () => { showShortcuts = true; };
+    document.addEventListener('reasonance:shortcuts', handleShortcuts);
+    cleanups.push(() => document.removeEventListener('reasonance:shortcuts', handleShortcuts));
+
     // Start watching the project directory for external changes
-    const { get } = await import('svelte/store');
     const root = get(projectRoot) || '.';
     unwatchFiles = await adapter.watchFiles(root, async (event) => {
       const currentFiles = get(openFiles);
@@ -405,8 +210,8 @@
   });
 
   onDestroy(() => {
-    unsubFiles();
-    unsubEnhanced();
+    unsubFiles?.();
+    unsubEnhanced?.();
     unsubSwarm();
     unsubRoot();
     cleanups.forEach((fn) => fn());
@@ -508,6 +313,8 @@
     </div>
   </div>
 {/if}
+
+<ShortcutsDialog visible={showShortcuts} onClose={() => { showShortcuts = false; }} />
 
 <Toast />
 
