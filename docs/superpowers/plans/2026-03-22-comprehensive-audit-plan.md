@@ -542,7 +542,7 @@ Run: `npm audit --json | jq '.vulnerabilities | length'`
 Run: `cd src-tauri && cargo audit 2>/dev/null || echo "install cargo-audit"`
 Check `package.json` for known-vulnerable versions.
 
-- [ ] **Step 7: Write Security Report**
+- [ ] **Step 8: Write Security Report**
 
 Create `docs/audit/security-report.md`:
 
@@ -569,7 +569,7 @@ Create `docs/audit/security-report.md`:
 | # | Severity | Vector | Location | Description | Remediation |
 ```
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 9: Commit**
 
 ```bash
 git add -f docs/audit/security-report.md
@@ -628,7 +628,7 @@ Check: when locale changes, do ALL components re-render with new strings? Or are
 Check: date/number formatting — does `Intl.DateTimeFormat` / `Intl.NumberFormat` use the active locale?
 Document: components that don't update on locale switch, missing locale-aware formatting.
 
-- [ ] **Step 7: Write i18n Report**
+- [ ] **Step 7: Write i18n Report (with dynamic switching section)**
 
 Create `docs/audit/i18n-report.md`:
 
@@ -658,14 +658,12 @@ Create `docs/audit/i18n-report.md`:
 | # | File | Line | String | Context |
 ```
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
 git add -f docs/audit/i18n-report.md
 git commit -m "docs(audit): add i18n/RTL audit report"
 ```
-
-Note: Step numbering shifted — commit is now Step 8.
 
 ---
 
@@ -1095,7 +1093,7 @@ Document: accessibility score, performance score, specific failures.
 
 Cross-reference axe-core results with Phase 1 code-level findings. Update `docs/audit/wcag-matrix.md`.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 9: Commit**
 
 ```bash
 git add -f tests/a11y/audit-axe-scan.test.ts docs/audit/uxui-report.md docs/audit/wcag-matrix.md docs/audit/visual-testing-findings.md
@@ -1172,7 +1170,7 @@ Create `docs/audit/adversarial-findings.md`:
 [If testable]
 ```
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
 git add -f docs/audit/adversarial-findings.md
