@@ -50,7 +50,7 @@
     }
 
     instanceCounters[llmName] = (instanceCounters[llmName] ?? 0) + 1;
-    const label = `inst. ${instanceCounters[llmName]}`;
+    const label = `${llmName} ${instanceCounters[llmName]}`;
 
     const instance: import('$lib/stores/terminals').TerminalInstance = {
       id: handle.id,

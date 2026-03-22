@@ -82,6 +82,14 @@ impl PtyManager {
     }
 
     pub fn write(&self, id: &str, data: &str) -> Result<(), String> {
+        const MAX_PAYLOAD: usize = 65_536; // 64 KB
+        if data.len() > MAX_PAYLOAD {
+            return Err(format!(
+                "PTY write payload too large: {} bytes (max {})",
+                data.len(),
+                MAX_PAYLOAD
+            ));
+        }
         let mut instances = self.instances.lock().unwrap();
         let instance = instances.get_mut(id).ok_or("PTY not found")?;
         instance

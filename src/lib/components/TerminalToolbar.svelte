@@ -21,9 +21,10 @@
   let showModeMenu = $state(false);
 
   async function addFileToContext() {
-    // TODO: Use @tauri-apps/plugin-dialog when available
-    // For now, type a placeholder into the terminal
-    await adapter.writePty(instanceId, '/file ');
+    const filePath = await adapter.openFileDialog();
+    if (filePath) {
+      await adapter.writePty(instanceId, `/file ${filePath}`);
+    }
   }
 
   function selectSlashCommand(command: string) {

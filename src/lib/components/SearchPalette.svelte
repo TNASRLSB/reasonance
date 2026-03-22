@@ -177,6 +177,7 @@
         {:else}
           <span class="palette-hint">{$tr('search.escClose')}</span>
         {/if}
+        <button class="palette-close" onclick={onClose} aria-label={$tr('search.close')}>&#10005;</button>
       </div>
 
       {#if matches.length > 0}
@@ -313,5 +314,20 @@
     color: var(--text-secondary);
     margin: 0;
     text-align: center;
+  }
+
+  .palette-close {
+    flex-shrink: 0;
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 12px;
+    padding: 4px 6px;
+    cursor: pointer;
+    line-height: 1;
+  }
+
+  .palette-close:hover {
+    color: var(--text-primary);
   }
 </style>

@@ -80,7 +80,7 @@
     >
       {$yoloMode ? '\u26A1 YOLO ON' : 'YOLO'}
     </button>
-    <button class="settings-btn" onclick={openSettings} title="Settings">&#9881;</button>
+    <button class="settings-btn" onclick={openSettings} title="Settings" aria-label="Settings">&#9881;</button>
     <div class="window-controls">
       <button class="win-btn" onclick={() => adapter.minimizeWindow()} title="Minimize">&#8722;</button>
       <button class="win-btn" onclick={() => adapter.maximizeWindow()} title="Maximize">&#9723;</button>
@@ -111,6 +111,8 @@
     -webkit-app-region: no-drag;
     flex-shrink: 0;
     white-space: nowrap;
+    overflow: hidden;
+    min-width: 0;
   }
 
   .toolbar-right {
@@ -124,6 +126,9 @@
     text-transform: uppercase;
     letter-spacing: -0.02em;
     margin-right: 8px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex-shrink: 1;
   }
 
   button {

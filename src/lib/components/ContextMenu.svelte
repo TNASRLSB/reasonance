@@ -65,7 +65,7 @@
       loading = false;
 
       if (result.error) {
-        onResponse(`**Errore:** ${result.error}`);
+        onResponse(`${get(tr)('contextMenu.error')} ${result.error}`);
       } else {
         onResponse(result.content);
       }
