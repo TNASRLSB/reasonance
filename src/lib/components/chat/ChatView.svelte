@@ -1,9 +1,11 @@
 <script lang="ts">
   import type { Adapter } from '$lib/adapter/index';
   import type { AgentEvent } from '$lib/types/agent-event';
+  import ChatHeader from './ChatHeader.svelte';
   import ChatMessages from './ChatMessages.svelte';
   import ChatInput from './ChatInput.svelte';
   import { agentEvents, streamingSessionIds, setSessionEvents, setStreaming } from '$lib/stores/agent-events';
+  import { agentSessions } from '$lib/stores/agent-session';
 
   let { adapter, sessionId, provider, model }: {
     adapter: Adapter;
@@ -14,6 +16,14 @@
 
   let events = $derived(($agentEvents).get(sessionId) ?? []);
   let streaming = $derived(($streamingSessionIds).has(sessionId));
+  let session = $derived(($agentSessions).get(sessionId));
+
+  let tokenCount = $derived(
+    (session?.totalInputTokens ?? 0) + (session?.totalOutputTokens ?? 0)
+  );
+  let currentSpeed = $derived(session?.currentSpeed ?? 0);
+  let elapsed = $derived(session?.elapsed ?? 0);
+  let status = $derived(session?.status ?? 'active');
 
   // Load existing events on mount
   $effect(() => {
@@ -59,10 +69,21 @@
       setStreaming(sessionId, false);
     }
   }
+
+  async function handleFork(eventIndex: number) {
+    try {
+      const forkedId = await adapter.sessionFork(sessionId, eventIndex);
+      console.log('Session forked:', forkedId);
+      // Phase 6/7: navigate to forked session tab
+    } catch (e) {
+      console.error('Failed to fork session:', e);
+    }
+  }
 </script>
 
 <div class="chat-view">
-  <ChatMessages {events} {streaming} />
+  <ChatHeader {provider} {model} {status} {streaming} {tokenCount} {currentSpeed} {elapsed} />
+  <ChatMessages {events} {streaming} {adapter} onFork={handleFork} />
   <ChatInput onSend={handleSend} disabled={streaming} />
 </div>
 
