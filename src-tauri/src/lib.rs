@@ -1,3 +1,4 @@
+mod agent_event;
 mod commands;
 mod config;
 mod discovery;
