@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.3.1] - 2026-03-22
+
+### Bug Fixes
+
+- fix: convert grayscale icons to RGBA for Tauri build
+
+### Other
+
+- 8-bit grayscale which caused proc macro panic on macOS build.
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+
+
+
 ## [0.3.0] - 2026-03-22
 
 ### Features
