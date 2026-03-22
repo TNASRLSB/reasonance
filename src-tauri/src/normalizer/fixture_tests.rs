@@ -109,6 +109,64 @@ fn run_fixture_test(provider: &str, fixture_name: &str) {
                 "Event {} expected error_code {}", i, code
             );
         }
+
+        if let Some(expected_val) = exp.get("has_cache_creation_tokens").and_then(|v| v.as_bool()) {
+            if expected_val {
+                assert!(
+                    matching_event.metadata.cache_creation_tokens.is_some(),
+                    "Event {} expected cache_creation_tokens", i
+                );
+            }
+        }
+
+        if let Some(expected_val) = exp.get("cache_creation_tokens").and_then(|v| v.as_u64()) {
+            assert_eq!(
+                matching_event.metadata.cache_creation_tokens, Some(expected_val),
+                "Event {} expected cache_creation_tokens={}", i, expected_val
+            );
+        }
+
+        if let Some(expected_val) = exp.get("cache_read_tokens").and_then(|v| v.as_u64()) {
+            assert_eq!(
+                matching_event.metadata.cache_read_tokens, Some(expected_val),
+                "Event {} expected cache_read_tokens={}", i, expected_val
+            );
+        }
+
+        if let Some(expected_val) = exp.get("duration_ms").and_then(|v| v.as_u64()) {
+            assert_eq!(
+                matching_event.metadata.duration_ms, Some(expected_val),
+                "Event {} expected duration_ms={}", i, expected_val
+            );
+        }
+
+        if let Some(expected_val) = exp.get("duration_api_ms").and_then(|v| v.as_u64()) {
+            assert_eq!(
+                matching_event.metadata.duration_api_ms, Some(expected_val),
+                "Event {} expected duration_api_ms={}", i, expected_val
+            );
+        }
+
+        if let Some(expected_val) = exp.get("num_turns").and_then(|v| v.as_u64()) {
+            assert_eq!(
+                matching_event.metadata.num_turns, Some(expected_val as u32),
+                "Event {} expected num_turns={}", i, expected_val
+            );
+        }
+
+        if let Some(expected_val) = exp.get("stop_reason").and_then(|v| v.as_str()) {
+            assert_eq!(
+                matching_event.metadata.stop_reason.as_deref(), Some(expected_val),
+                "Event {} expected stop_reason={}", i, expected_val
+            );
+        }
+
+        if let Some(expected_val) = exp.get("total_cost_usd").and_then(|v| v.as_f64()) {
+            assert!(
+                (matching_event.metadata.total_cost_usd.unwrap_or(0.0) - expected_val).abs() < 0.001,
+                "Event {} expected total_cost_usd≈{}, got {:?}", i, expected_val, matching_event.metadata.total_cost_usd
+            );
+        }
     }
 }
 
@@ -147,3 +205,7 @@ fn test_codex_reasoning_fixture() { run_fixture_test("codex", "reasoning"); }
 fn test_codex_tool_use_fixture() { run_fixture_test("codex", "tool_use"); }
 #[test]
 fn test_codex_error_fixture() { run_fixture_test("codex", "error"); }
+
+// --- Claude ---
+#[test]
+fn test_claude_result_metrics_fixture() { run_fixture_test("claude", "result_metrics"); }

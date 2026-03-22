@@ -1,0 +1,1 @@
+{"type":"result","subtype":"success","is_error":false,"duration_ms":4105,"duration_api_ms":4089,"num_turns":1,"stop_reason":"end_turn","total_cost_usd":0.055,"usage":{"cache_creation_input_tokens":7727,"cache_read_input_tokens":15092}}
