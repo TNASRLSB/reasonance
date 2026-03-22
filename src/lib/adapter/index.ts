@@ -1,3 +1,5 @@
+import type { AgentEvent, AgentEventPayload, SessionHandle, SessionSummary, ViewMode } from '$lib/types/agent-event';
+
 export interface FileEntry {
   name: string;
   path: string;
@@ -89,6 +91,22 @@ export interface Adapter {
   stepWorkflow(runId: string, workflowPath: string, cwd: string): Promise<string | null>;
   getRunStatus(runId: string): Promise<WorkflowRun | null>;
   notifyNodeCompleted(runId: string, nodeId: string, success: boolean, workflowPath: string, cwd: string): Promise<void>;
+
+  // Structured Transport
+  agentSend(prompt: string, provider: string, model?: string, sessionId?: string): Promise<string>;
+  agentStop(sessionId: string): Promise<void>;
+  agentGetEvents(sessionId: string): Promise<AgentEvent[]>;
+  onAgentEvent(callback: (payload: AgentEventPayload) => void): Promise<() => void>;
+
+  // Session Management
+  sessionCreate(provider: string, model: string): Promise<string>;
+  sessionRestore(sessionId: string): Promise<SessionHandle>;
+  sessionGetEvents(sessionId: string): Promise<AgentEvent[]>;
+  sessionList(): Promise<SessionSummary[]>;
+  sessionDelete(sessionId: string): Promise<void>;
+  sessionRename(sessionId: string, title: string): Promise<void>;
+  sessionFork(sessionId: string, forkEventIndex: number): Promise<string>;
+  sessionSetViewMode(sessionId: string, mode: ViewMode): Promise<void>;
 }
 
 export interface GrepResult {
