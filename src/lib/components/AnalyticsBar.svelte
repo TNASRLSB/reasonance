@@ -70,6 +70,15 @@
     }
   });
 
+  // Mount announcer live regions into the DOM
+  let barEl: HTMLElement | undefined = $state(undefined);
+  $effect(() => {
+    if (barEl) {
+      analyticsAnnouncer.mount(barEl);
+      return () => analyticsAnnouncer.destroy();
+    }
+  });
+
   // Announce to screen reader on significant changes (throttled by announcer)
   $effect(() => {
     if (metrics) {
@@ -80,6 +89,7 @@
 
 {#if metrics}
   <div
+    bind:this={barEl}
     class="analytics-bar"
     class:budget-warning={hasBudgetWarning}
     class:budget-danger={hasBudgetDanger}
@@ -116,7 +126,11 @@
         {formatCurrency(metrics.cost_usd)}
       </span>
 
-      {#if velocityArrow && metrics.cost_velocity_usd_per_min > 0}
+      <span class="metric compact-tokens">
+        {formatTokenCount(metrics.input_tokens + metrics.output_tokens)}
+      </span>
+
+      {#if velocityArrow}
         <span class="metric velocity" use:tooltip={formatCostVelocity(metrics.cost_velocity_usd_per_min)}>
           {velocityArrow} {formatCostVelocity(metrics.cost_velocity_usd_per_min)}
         </span>
@@ -446,7 +460,7 @@
     height: 10px;
   }
 
-  /* Narrow-width collapse: show only essential metrics in 1 row */
+  /* Narrow-width collapse: show cost | tokens | ctx% | 📊 */
   @container analytics-bar (max-width: 280px) {
     .row2 {
       display: none;
@@ -459,6 +473,21 @@
     .metric.velocity,
     .metric.projection {
       display: none;
+    }
+
+    .progress-track {
+      display: none;
+    }
+  }
+
+  /* Add compact token count to row1 for narrow views */
+  .compact-tokens {
+    display: none;
+  }
+
+  @container analytics-bar (max-width: 280px) {
+    .compact-tokens {
+      display: inline;
     }
   }
 </style>
