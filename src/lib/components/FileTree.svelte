@@ -73,9 +73,71 @@
     adapter.openExternal(entry.path);
   }
 
+  function handleTreeKeydown(e: KeyboardEvent) {
+    const tree = e.currentTarget as HTMLElement;
+    const items = Array.from(tree.querySelectorAll<HTMLElement>('[role="treeitem"]')).filter(el => el.offsetParent !== null);
+    const currentIndex = items.indexOf(document.activeElement as HTMLElement);
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        if (currentIndex < items.length - 1) items[currentIndex + 1].focus();
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        if (currentIndex > 0) items[currentIndex - 1].focus();
+        break;
+      case 'ArrowRight': {
+        e.preventDefault();
+        const btn = items[currentIndex];
+        if (btn) {
+          const path = btn.dataset.path;
+          if (path && !expandedDirs.has(path)) {
+            const entry = findEntry(path);
+            if (entry?.isDir) toggleDir(entry);
+          }
+        }
+        break;
+      }
+      case 'ArrowLeft': {
+        e.preventDefault();
+        const btn = items[currentIndex];
+        if (btn) {
+          const path = btn.dataset.path;
+          if (path && expandedDirs.has(path)) {
+            const entry = findEntry(path);
+            if (entry?.isDir) toggleDir(entry);
+          }
+        }
+        break;
+      }
+      case 'Home':
+        e.preventDefault();
+        if (items.length > 0) items[0].focus();
+        break;
+      case 'End':
+        e.preventDefault();
+        if (items.length > 0) items[items.length - 1].focus();
+        break;
+    }
+  }
+
+  function findEntry(path: string): FileEntry | undefined {
+    function search(items: FileEntry[]): FileEntry | undefined {
+      for (const item of items) {
+        if (item.path === path) return item;
+        if (item.isDir && childrenCache.has(item.path)) {
+          const found = search(childrenCache.get(item.path)!);
+          if (found) return found;
+        }
+      }
+    }
+    return search(entries);
+  }
+
 </script>
 
-<div class="file-tree">
+<div class="file-tree" role="tree" aria-label="File explorer" onkeydown={handleTreeKeydown}>
   <div class="tree-header">{currentRoot === '.' ? 'FILES' : currentRoot.split('/').pop()}</div>
 
   {#snippet renderEntries(items: FileEntry[], depth: number)}
@@ -85,12 +147,18 @@
         class:gitignored={entry.isGitignored}
         style="padding-left: {14 + depth * 16}px"
         onclick={() => handleClick(entry)}
+        role="treeitem"
+        tabindex="-1"
+        aria-expanded={entry.isDir ? expandedDirs.has(entry.path) : undefined}
+        data-path={entry.path}
       >
         <span class="icon">{getFileIcon(entry.name, entry.isDir)}</span>
         <span class="name">{entry.name}</span>
       </button>
       {#if entry.isDir && expandedDirs.has(entry.path)}
-        {@render renderEntries(childrenCache.get(entry.path) ?? [], depth + 1)}
+        <div role="group">
+          {@render renderEntries(childrenCache.get(entry.path) ?? [], depth + 1)}
+        </div>
       {/if}
     {/each}
   {/snippet}

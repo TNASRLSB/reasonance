@@ -35,33 +35,33 @@ const openaiCustomEndpointConfig: LlmConfig = {
 describe('callLlm', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    global.fetch = vi.fn();
+    globalThis.fetch = vi.fn();
   });
 
   describe('Anthropic provider', () => {
     it('calls the correct Anthropic endpoint', async () => {
-      (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
         ok: true,
         json: async () => ({ content: [{ text: 'Hello from Claude' }] }),
       });
 
       await callLlm(anthropicConfig, 'Hello');
 
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(globalThis.fetch).toHaveBeenCalledWith(
         'https://api.anthropic.com/v1/messages',
         expect.objectContaining({ method: 'POST' })
       );
     });
 
     it('sends correct Anthropic headers', async () => {
-      (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
         ok: true,
         json: async () => ({ content: [{ text: 'Hi' }] }),
       });
 
       await callLlm(anthropicConfig, 'Hello');
 
-      const [, options] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+      const [, options] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
       const headers = options.headers as Record<string, string>;
       expect(headers['Content-Type']).toBe('application/json');
       expect(headers['x-api-key']).toBe('test-api-key');
@@ -69,14 +69,14 @@ describe('callLlm', () => {
     });
 
     it('sends correct Anthropic request body', async () => {
-      (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
         ok: true,
         json: async () => ({ content: [{ text: 'Response' }] }),
       });
 
       await callLlm(anthropicConfig, 'Test prompt');
 
-      const [, options] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+      const [, options] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
       const body = JSON.parse(options.body);
       expect(body.model).toBe('claude-sonnet-4-6');
       expect(body.max_tokens).toBe(4096);
@@ -84,7 +84,7 @@ describe('callLlm', () => {
     });
 
     it('extracts content from Anthropic response', async () => {
-      (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
         ok: true,
         json: async () => ({ content: [{ text: 'Extracted text' }] }),
       });
@@ -95,7 +95,7 @@ describe('callLlm', () => {
     });
 
     it('returns empty string when Anthropic response has no content', async () => {
-      (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
         ok: true,
         json: async () => ({}),
       });
@@ -107,62 +107,62 @@ describe('callLlm', () => {
 
   describe('OpenAI provider', () => {
     it('calls the default OpenAI endpoint', async () => {
-      (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
         ok: true,
         json: async () => ({ choices: [{ message: { content: 'Hi from GPT' } }] }),
       });
 
       await callLlm(openaiConfig, 'Hello');
 
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(globalThis.fetch).toHaveBeenCalledWith(
         'https://api.openai.com/v1/chat/completions',
         expect.objectContaining({ method: 'POST' })
       );
     });
 
     it('uses custom endpoint when provided', async () => {
-      (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
         ok: true,
         json: async () => ({ choices: [{ message: { content: 'Hi' } }] }),
       });
 
       await callLlm(openaiCustomEndpointConfig, 'Hello');
 
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(globalThis.fetch).toHaveBeenCalledWith(
         'http://localhost:11434/v1/chat/completions',
         expect.anything()
       );
     });
 
     it('sends Bearer token in Authorization header', async () => {
-      (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
         ok: true,
         json: async () => ({ choices: [{ message: { content: 'Hi' } }] }),
       });
 
       await callLlm(openaiConfig, 'Hello');
 
-      const [, options] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+      const [, options] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
       const headers = options.headers as Record<string, string>;
       expect(headers['Authorization']).toBe('Bearer test-api-key');
     });
 
     it('sends correct OpenAI request body', async () => {
-      (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
         ok: true,
         json: async () => ({ choices: [{ message: { content: 'Hi' } }] }),
       });
 
       await callLlm(openaiConfig, 'Test prompt');
 
-      const [, options] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+      const [, options] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
       const body = JSON.parse(options.body);
       expect(body.model).toBe('gpt-4o');
       expect(body.messages).toEqual([{ role: 'user', content: 'Test prompt' }]);
     });
 
     it('extracts content from OpenAI response', async () => {
-      (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
         ok: true,
         json: async () => ({ choices: [{ message: { content: 'GPT says hi' } }] }),
       });
@@ -173,7 +173,7 @@ describe('callLlm', () => {
     });
 
     it('returns empty string when OpenAI response has no choices', async () => {
-      (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
         ok: true,
         json: async () => ({}),
       });
@@ -185,7 +185,7 @@ describe('callLlm', () => {
 
   describe('error handling', () => {
     it('returns error object on non-OK HTTP response', async () => {
-      (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
         ok: false,
         status: 401,
         text: async () => 'Unauthorized',
@@ -197,7 +197,7 @@ describe('callLlm', () => {
     });
 
     it('returns error object when fetch throws', async () => {
-      (global.fetch as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
         new Error('Network error')
       );
 
@@ -207,7 +207,7 @@ describe('callLlm', () => {
     });
 
     it('omits Authorization header when no API key env is set', async () => {
-      (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
         ok: true,
         json: async () => ({ choices: [{ message: { content: 'Hi' } }] }),
       });
@@ -218,7 +218,7 @@ describe('callLlm', () => {
 
       await callLlm(openaiCustomEndpointConfig, 'Hello');
 
-      const [, options] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+      const [, options] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
       const headers = options.headers as Record<string, string>;
       expect(headers['Authorization']).toBeUndefined();
     });

@@ -37,6 +37,29 @@
     draggingLeft = false;
     draggingRight = false;
   }
+
+  function onDividerKeydown(e: KeyboardEvent, which: 'left' | 'right') {
+    const step = e.shiftKey ? 50 : 10;
+    if (which === 'left') {
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        fileTreeWidth.update(w => Math.max(120, w - step));
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        const max = window.innerWidth * 0.3;
+        fileTreeWidth.update(w => Math.min(max, w + step));
+      }
+    } else {
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        const max = window.innerWidth * 0.5;
+        terminalWidth.update(w => Math.min(max, w + step));
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        terminalWidth.update(w => Math.max(250, w - step));
+      }
+    }
+  }
 </script>
 
 <svelte:window onmousemove={onMouseMove} onmouseup={onMouseUp} />
@@ -74,7 +97,7 @@
       </svelte:boundary>
     </nav>
 
-    <div class="divider" onmousedown={() => (draggingLeft = true)} role="separator" aria-label="Resize file tree">
+    <div class="divider" onmousedown={() => (draggingLeft = true)} role="separator" aria-label="Resize file tree" tabindex="0" onkeydown={(e) => onDividerKeydown(e, 'left')}>
       <span class="divider-handle" aria-hidden="true">···</span>
     </div>
 
@@ -95,7 +118,7 @@
       </svelte:boundary>
     </main>
 
-    <div class="divider" onmousedown={() => (draggingRight = true)} role="separator" aria-label="Resize terminal">
+    <div class="divider" onmousedown={() => (draggingRight = true)} role="separator" aria-label="Resize terminal" tabindex="0" onkeydown={(e) => onDividerKeydown(e, 'right')}>
       <span class="divider-handle" aria-hidden="true">···</span>
     </div>
 

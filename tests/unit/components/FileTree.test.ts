@@ -35,8 +35,8 @@ describe('FileTree component', () => {
 
   it('renders file entries returned by listDir', async () => {
     const files: FileEntry[] = [
-      { path: '/proj/src/main.ts', name: 'main.ts', isDir: false, isGitignored: false },
-      { path: '/proj/src/app.ts', name: 'app.ts', isDir: false, isGitignored: false },
+      { path: '/proj/src/main.ts', name: 'main.ts', isDir: false, isGitignored: false, size: 0, modified: 0 },
+      { path: '/proj/src/app.ts', name: 'app.ts', isDir: false, isGitignored: false, size: 0, modified: 0 },
     ];
     const adapter = createMockAdapter({
       listDir: () => Promise.resolve(files),
@@ -50,7 +50,7 @@ describe('FileTree component', () => {
 
   it('renders file names for entries', async () => {
     const files: FileEntry[] = [
-      { path: '/proj/README.md', name: 'README.md', isDir: false, isGitignored: false },
+      { path: '/proj/README.md', name: 'README.md', isDir: false, isGitignored: false, size: 0, modified: 0 },
     ];
     const adapter = createMockAdapter({
       listDir: () => Promise.resolve(files),
@@ -75,7 +75,7 @@ describe('FileTree component', () => {
 
   it('applies gitignored class to ignored entries', async () => {
     const files: FileEntry[] = [
-      { path: '/proj/node_modules', name: 'node_modules', isDir: true, isGitignored: true },
+      { path: '/proj/node_modules', name: 'node_modules', isDir: true, isGitignored: true, size: 0, modified: 0 },
     ];
     const adapter = createMockAdapter({
       listDir: () => Promise.resolve(files),

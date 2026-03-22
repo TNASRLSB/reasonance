@@ -11,11 +11,20 @@
   import { yoloMode, showSettings } from '$lib/stores/ui';
   import { tr } from '$lib/i18n/index';
   import { defaultSlashCommands } from '$lib/data/slash-commands';
+  import { menuKeyHandler } from '$lib/utils/a11y';
 
   let { adapter, cwd = '.' }: { adapter: Adapter; cwd?: string } = $props();
 
   let showSwarmTab = $state(false);
   let showLLMDropdown = $state(false);
+  let llmMenuEl = $state<HTMLElement | null>(null);
+
+  $effect(() => {
+    if (showLLMDropdown && llmMenuEl) {
+      const first = llmMenuEl.querySelector<HTMLElement>('[role="menuitem"]');
+      first?.focus();
+    }
+  });
   let selectedLlmName = $state<string>('');
 
   // Derived CLI configs from store
@@ -157,11 +166,13 @@
 
 <div class="terminal-manager">
   <!-- LLM Tab Bar -->
-  <div class="llm-tabs">
+  <div class="llm-tabs" role="tablist" aria-label="LLM sessions">
     {#each $terminalTabs as tab (tab.llmName)}
       <button
         class="llm-tab"
         class:active={tab.llmName === $activeTerminalTab}
+        role="tab"
+        aria-selected={tab.llmName === $activeTerminalTab}
         onclick={() => selectTab(tab.llmName)}
       >
         {tab.llmName}
@@ -170,13 +181,14 @@
 
     <!-- Add LLM dropdown -->
     <div class="llm-add-wrapper">
-      <button class="llm-tab add-btn" onclick={() => showLLMDropdown = !showLLMDropdown}>+</button>
+      <button class="llm-tab add-btn" onclick={() => showLLMDropdown = !showLLMDropdown} aria-label="Add LLM" aria-haspopup="true" aria-expanded={showLLMDropdown}>+</button>
       {#if showLLMDropdown}
-        <div class="llm-dropdown" role="menu">
+        <div class="llm-dropdown" role="menu" bind:this={llmMenuEl} onkeydown={(e) => menuKeyHandler(e, llmMenuEl!, '[role="menuitem"]')}>
           {#each configs as config (config.name)}
             <button
               class="llm-dropdown-item"
               role="menuitem"
+              tabindex="-1"
               onclick={() => { addInstance(config.name); showLLMDropdown = false; }}
             >
               {config.name}
@@ -192,6 +204,8 @@
     <button
       class="llm-tab"
       class:active={showSwarmTab}
+      role="tab"
+      aria-selected={showSwarmTab}
       onclick={() => { showSwarmTab = true; activeTerminalTab.set(null); }}
     >
       {$tr('terminal.swarm')}
@@ -238,11 +252,13 @@
     </div>
   {:else}
     <!-- Instance Tab Bar -->
-    <div class="instance-tabs">
+    <div class="instance-tabs" role="tablist" aria-label="Terminal instances">
       {#each activeTabInstances as inst (inst.id)}
         <button
           class="instance-tab"
           class:active={inst.id === $activeInstanceId}
+          role="tab"
+          aria-selected={inst.id === $activeInstanceId}
           onclick={() => selectInstance(inst.id)}
         >
           {inst.label}
@@ -250,6 +266,7 @@
             class="close-btn"
             role="button"
             tabindex="0"
+            aria-label="Close tab"
             onclick={(e) => { e.stopPropagation(); closeInstance(inst.llmName, inst.id); }}
             onkeydown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); closeInstance(inst.llmName, inst.id); } }}
           >×</span>
@@ -297,7 +314,7 @@
 
     <!-- Model info bar (per-instance) -->
     {#if activeInstanceData}
-      <div class="model-info-bar">
+      <div class="model-info-bar" aria-live="polite">
         {#if activeInstanceData.contextPercent != null}
           <span class="ctx-info" title="Context window usage">
             ctx <span class="ctx-bar">{generateBar(activeInstanceData.contextPercent)}</span> {activeInstanceData.contextPercent}%

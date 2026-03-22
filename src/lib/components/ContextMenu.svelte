@@ -5,6 +5,7 @@
   import { callLlm } from '$lib/utils/llm-api';
   import type { Adapter } from '$lib/adapter';
   import { tr } from '$lib/i18n/index';
+  import { menuKeyHandler } from '$lib/utils/a11y';
 
   interface Props {
     adapter: Adapter;
@@ -19,6 +20,14 @@
   const { adapter, x, y, visible, selectedText, onResponse, onClose }: Props = $props();
 
   let loading = $state(false);
+  let contextMenuEl = $state<HTMLElement | null>(null);
+
+  $effect(() => {
+    if (visible && contextMenuEl) {
+      const first = contextMenuEl.querySelector<HTMLElement>('[role="menuitem"]');
+      first?.focus();
+    }
+  });
 
   const actions = [
     { key: 'contextMenu.explain', promptPrefix: 'Explain this code clearly and concisely:\n\n```\n' },
@@ -92,8 +101,7 @@
 {#if visible}
   <div
     class="context-menu-backdrop"
-    role="button"
-    tabindex="-1"
+    role="presentation"
     onclick={onClose}
     onkeydown={handleKeydown}
   ></div>
@@ -101,6 +109,8 @@
     class="context-menu"
     style="left: {x}px; top: {y}px;"
     role="menu"
+    bind:this={contextMenuEl}
+    onkeydown={(e) => { menuKeyHandler(e, contextMenuEl!, '[role="menuitem"]'); if (e.key === 'Escape') onClose(); }}
   >
     {#each actions as action}
       {@const disabled = !hasAnyLlm() || !selectedText.trim() || loading}
@@ -109,6 +119,7 @@
         class:disabled
         {disabled}
         role="menuitem"
+        tabindex="-1"
         title={!hasAnyLlm() ? 'Configure an LLM in Settings' : ''}
         onclick={() => handleAction(action.promptPrefix)}
       >

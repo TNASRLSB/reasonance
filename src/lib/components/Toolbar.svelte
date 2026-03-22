@@ -4,6 +4,7 @@
   import MenuBar from './MenuBar.svelte';
   import { activeInstanceId } from '$lib/stores/terminals';
   import { get } from 'svelte/store';
+  import { menuKeyHandler } from '$lib/utils/a11y';
 
   let { adapter }: { adapter: Adapter } = $props();
 
@@ -23,6 +24,14 @@
   }
 
   let showGitMenu = $state(false);
+  let gitMenuEl = $state<HTMLElement | null>(null);
+
+  $effect(() => {
+    if (showGitMenu && gitMenuEl) {
+      const first = gitMenuEl.querySelector<HTMLElement>('[role="menuitem"]');
+      first?.focus();
+    }
+  });
 
   function gitCmd(cmd: string) {
     if (cmd === 'git push\n') {
@@ -64,13 +73,13 @@
 
   <div class="toolbar-right">
     <div class="git-dropdown-wrapper">
-      <button class="git-trigger" onclick={(e) => { e.stopPropagation(); showGitMenu = !showGitMenu; }} title="Git commands">
+      <button class="git-trigger" onclick={(e) => { e.stopPropagation(); showGitMenu = !showGitMenu; }} title="Git commands" aria-haspopup="true" aria-expanded={showGitMenu}>
         GIT &#9662;
       </button>
       {#if showGitMenu}
-        <div class="git-dropdown" role="menu">
+        <div class="git-dropdown" role="menu" bind:this={gitMenuEl} onkeydown={(e) => menuKeyHandler(e, gitMenuEl!, '[role="menuitem"]')}>
           {#each gitCommands as g (g.label)}
-            <button class="git-dropdown-item" role="menuitem" onclick={(e) => { e.stopPropagation(); gitCmd(g.cmd); }}>
+            <button class="git-dropdown-item" role="menuitem" tabindex="-1" onclick={(e) => { e.stopPropagation(); gitCmd(g.cmd); }}>
               <span class="git-icon">{g.icon}</span>
               <span class="git-label">{g.label}</span>
             </button>
@@ -88,9 +97,9 @@
     </button>
     <button class="settings-btn" onclick={openSettings} title="Settings" aria-label="Settings">&#9881;</button>
     <div class="window-controls">
-      <button class="win-btn" onclick={() => adapter.minimizeWindow()} title="Minimize">&#8722;</button>
-      <button class="win-btn" onclick={() => adapter.maximizeWindow()} title="Maximize">&#9723;</button>
-      <button class="win-btn close" onclick={() => adapter.closeWindow()} title="Close">&#10005;</button>
+      <button class="win-btn" onclick={() => adapter.minimizeWindow()} title="Minimize" aria-label="Minimize">&#8722;</button>
+      <button class="win-btn" onclick={() => adapter.maximizeWindow()} title="Maximize" aria-label="Maximize">&#9723;</button>
+      <button class="win-btn close" onclick={() => adapter.closeWindow()} title="Close" aria-label="Close">&#10005;</button>
     </div>
   </div>
 </div>

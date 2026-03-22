@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { MenuItemDef } from '$lib/types/menu';
+  import { menuKeyHandler } from '$lib/utils/a11y';
 
   let {
     label,
@@ -18,6 +19,14 @@
   } = $props();
 
   let openSubmenuIndex = $state<number | null>(null);
+  let menuDropdownEl = $state<HTMLElement | null>(null);
+
+  $effect(() => {
+    if (open && menuDropdownEl) {
+      const first = menuDropdownEl.querySelector<HTMLElement>('[role="menuitem"]');
+      first?.focus();
+    }
+  });
 
   function handleItemClick(item: MenuItemDef) {
     if (item.submenu) return;
@@ -38,12 +47,14 @@
     class:active={open}
     onclick={onOpen}
     onmouseenter={onHover}
+    aria-haspopup="true"
+    aria-expanded={open}
   >
     {label}
   </button>
 
   {#if open}
-    <div class="menu-dropdown" role="menu">
+    <div class="menu-dropdown" role="menu" bind:this={menuDropdownEl} onkeydown={(e) => menuKeyHandler(e, menuDropdownEl!, '[role="menuitem"]')}>
       {#each items as item, i}
         {#if item.divider}
           <div class="menu-divider"></div>
@@ -66,6 +77,7 @@
                     <button
                       class="menu-row"
                       role="menuitem"
+                      tabindex="-1"
                       onclick={() => handleItemClick(sub)}
                     >
                       <span class="menu-label">{sub.label}</span>
@@ -82,6 +94,7 @@
           <button
             class="menu-row"
             role="menuitem"
+            tabindex="-1"
             onclick={() => handleItemClick(item)}
           >
             <span class="menu-label">{item.label}</span>

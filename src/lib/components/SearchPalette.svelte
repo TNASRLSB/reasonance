@@ -4,6 +4,7 @@
   import { addOpenFile, projectRoot } from '$lib/stores/files';
   import { showToast } from '$lib/stores/toast';
   import { tr } from '$lib/i18n/index';
+  import { trapFocus } from '$lib/utils/a11y';
 
   let {
     adapter,
@@ -21,6 +22,14 @@
   let selectedIndex = $state(0);
   let loading = $state(false);
   let inputEl = $state<HTMLInputElement | null>(null);
+  let dialogEl = $state<HTMLElement | null>(null);
+
+  $effect(() => {
+    if (visible && dialogEl) {
+      const destroy = trapFocus(dialogEl);
+      return destroy;
+    }
+  });
 
   // Build flat file list by recursively listing directories
   async function buildFileList(dirPath: string): Promise<string[]> {
@@ -157,8 +166,8 @@
 </script>
 
 {#if visible}
-  <div class="palette-overlay" role="button" tabindex="-1" onclick={handleOverlayClick} onkeydown={(e) => { if (e.key === 'Escape') onClose(); }}>
-    <div class="palette" role="dialog" aria-label={$tr('search.ariaLabel')} aria-modal="true">
+  <div class="palette-overlay" role="presentation" onclick={handleOverlayClick} onkeydown={(e) => { if (e.key === 'Escape') onClose(); }}>
+    <div class="palette" role="dialog" aria-label={$tr('search.ariaLabel')} aria-modal="true" bind:this={dialogEl}>
       <div class="palette-input-row">
         <span class="palette-icon">&#128269;</span>
         <input

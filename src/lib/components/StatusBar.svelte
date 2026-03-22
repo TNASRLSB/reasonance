@@ -28,7 +28,7 @@
   }
 </script>
 
-<div class="status-bar" class:yolo={$yoloMode}>
+<div class="status-bar" class:yolo={$yoloMode} role="status">
   {#if $yoloMode}
     <span class="yolo-label">&#10005; YOLO MODE — CONFIRMATIONS DISABLED</span>
   {:else}
@@ -174,11 +174,11 @@
   }
 
   .progress-status.error {
-    color: #ff6b6b;
+    color: #fca5a5;
   }
 
   .progress-status.paused {
-    color: #fbbf24;
+    color: #fef08a;
   }
 
   .idle-hint {

@@ -193,8 +193,8 @@ describe('SearchPalette keyboard navigation', () => {
 
     const overlay = container.querySelector('.palette-overlay') as HTMLElement;
     expect(overlay).not.toBeNull();
-    // Overlay has role="button" making it keyboard-operable
-    expect(overlay.getAttribute('role')).toBe('button');
+    // Overlay has role="presentation" (not a button, just a backdrop)
+    expect(overlay.getAttribute('role')).toBe('presentation');
 
     await fireEvent.keyDown(overlay, { key: 'Escape' });
     expect(onClose).toHaveBeenCalledOnce();

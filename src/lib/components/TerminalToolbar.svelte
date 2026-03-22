@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Adapter } from '$lib/adapter/index';
+  import { menuKeyHandler } from '$lib/utils/a11y';
 
   let {
     adapter,
@@ -19,6 +20,22 @@
 
   let showSlashMenu = $state(false);
   let showModeMenu = $state(false);
+  let slashMenuEl = $state<HTMLElement | null>(null);
+  let modeMenuEl = $state<HTMLElement | null>(null);
+
+  $effect(() => {
+    if (showSlashMenu && slashMenuEl) {
+      const first = slashMenuEl.querySelector<HTMLElement>('.dropdown-item');
+      first?.focus();
+    }
+  });
+
+  $effect(() => {
+    if (showModeMenu && modeMenuEl) {
+      const first = modeMenuEl.querySelector<HTMLElement>('.dropdown-item');
+      first?.focus();
+    }
+  });
 
   async function addFileToContext() {
     const filePath = await adapter.openFileDialog();
@@ -58,12 +75,14 @@
         class="term-tbtn term-tbtn--labeled"
         title="Slash commands"
         onclick={(e) => { e.stopPropagation(); showSlashMenu = !showSlashMenu; showModeMenu = false; }}
+        aria-haspopup="true"
+        aria-expanded={showSlashMenu}
       ><span class="tbtn-icon" aria-hidden="true">/</span><span class="tbtn-label">Commands</span></button>
 
       {#if showSlashMenu && slashCommands.length > 0}
-        <div class="dropdown" role="menu" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()}>
+        <div class="dropdown" role="menu" bind:this={slashMenuEl} onclick={(e) => e.stopPropagation()} onkeydown={(e) => { e.stopPropagation(); menuKeyHandler(e, slashMenuEl!, '.dropdown-item'); }}>
           {#each slashCommands as cmd (cmd.command)}
-            <button class="dropdown-item" onclick={() => selectSlashCommand(cmd.command)}>
+            <button class="dropdown-item" tabindex="-1" onclick={() => selectSlashCommand(cmd.command)}>
               <span class="cmd-name">{cmd.command}</span>
               <span class="cmd-desc">{cmd.description}</span>
             </button>
@@ -78,16 +97,19 @@
       <button
         class="term-mode"
         onclick={(e) => { e.stopPropagation(); showModeMenu = !showModeMenu; showSlashMenu = false; }}
+        aria-haspopup="true"
+        aria-expanded={showModeMenu}
       >
         <span class="mode-dot" aria-hidden="true"></span>
         {activeMode ?? 'Default'}
       </button>
 
       {#if showModeMenu && modes.length > 0}
-        <div class="dropdown mode-dropdown" role="menu" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()}>
+        <div class="dropdown mode-dropdown" role="menu" bind:this={modeMenuEl} onclick={(e) => e.stopPropagation()} onkeydown={(e) => { e.stopPropagation(); menuKeyHandler(e, modeMenuEl!, '.dropdown-item'); }}>
           {#each modes as mode (mode.name)}
             <button
               class="dropdown-item"
+              tabindex="-1"
               class:active={mode.name === activeMode}
               onclick={() => selectMode(mode.name)}
             >

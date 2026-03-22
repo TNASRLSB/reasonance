@@ -9,6 +9,7 @@
   import { tr, locale, loadLocale, type Locale } from '$lib/i18n/index';
   import { get } from 'svelte/store';
   import { getUpdateSettings, saveUpdateSettings, checkForUpdate, type UpdateMode } from '$lib/updater';
+  import { trapFocus } from '$lib/utils/a11y';
 
   let {
     adapter,
@@ -28,6 +29,14 @@
   let localTheme = $state<ThemeMode>('system');
   let localEnhancedReadability = $state(false);
   let localLocale = $state<Locale>('en');
+  let dialogEl = $state<HTMLElement | null>(null);
+
+  $effect(() => {
+    if (visible && dialogEl) {
+      const destroy = trapFocus(dialogEl);
+      return destroy;
+    }
+  });
 
   const localeLabels: Record<Locale, string> = {
     en: 'English',
@@ -283,15 +292,15 @@
 <svelte:window onkeydown={handleKeydown} />
 
 {#if visible}
-  <div class="settings-overlay" role="button" tabindex="-1" onclick={handleOverlayClick} onkeydown={(e) => { if (e.key === 'Escape') onClose(); }}>
-    <div class="settings-modal" role="dialog" aria-modal="true" aria-label={$tr('settings.title')}>
+  <div class="settings-overlay" role="presentation" onclick={handleOverlayClick} onkeydown={(e) => { if (e.key === 'Escape') onClose(); }}>
+    <div class="settings-modal" role="dialog" aria-modal="true" aria-label={$tr('settings.title')} bind:this={dialogEl}>
       <div class="modal-header">
         <h2>{$tr('settings.title')}</h2>
         <button class="close-btn" onclick={onClose} aria-label={$tr('settings.close')}>✕</button>
       </div>
 
       {#if error}
-        <div class="error-banner">{error}</div>
+        <div class="error-banner" role="alert">{error}</div>
       {/if}
 
       <div class="modal-body">

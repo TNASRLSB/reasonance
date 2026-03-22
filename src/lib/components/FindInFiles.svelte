@@ -2,6 +2,7 @@
   import type { Adapter, GrepResult } from '$lib/adapter/index';
   import { addOpenFile, activeFilePath } from '$lib/stores/files';
   import { tr } from '$lib/i18n/index';
+  import { trapFocus } from '$lib/utils/a11y';
 
   let {
     adapter,
@@ -19,6 +20,14 @@
   let error = $state('');
   let searched = $state(false);
   let inputEl = $state<HTMLInputElement | null>(null);
+  let dialogEl = $state<HTMLElement | null>(null);
+
+  $effect(() => {
+    if (visible && dialogEl) {
+      const destroy = trapFocus(dialogEl);
+      return destroy;
+    }
+  });
 
   $effect(() => {
     if (visible) {
@@ -96,8 +105,8 @@
 </script>
 
 {#if visible}
-  <div class="fif-overlay" role="button" tabindex="-1" onclick={handleOverlayClick} onkeydown={(e) => { if (e.key === 'Escape') onClose(); }}>
-    <div class="fif-panel" role="dialog" aria-label={$tr('fif.ariaLabel')} aria-modal="true">
+  <div class="fif-overlay" role="presentation" onclick={handleOverlayClick} onkeydown={(e) => { if (e.key === 'Escape') onClose(); }}>
+    <div class="fif-panel" role="dialog" aria-label={$tr('fif.ariaLabel')} aria-modal="true" bind:this={dialogEl}>
       <div class="fif-header">
         <span class="fif-title">{$tr('fif.title')}</span>
         <button class="close-btn" onclick={onClose} aria-label="Close">&#10005;</button>

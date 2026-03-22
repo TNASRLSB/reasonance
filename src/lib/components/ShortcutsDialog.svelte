@@ -1,6 +1,7 @@
 <script lang="ts">
   import { tr } from '$lib/i18n/index';
   import { shortcuts } from '$lib/data/shortcuts';
+  import { trapFocus } from '$lib/utils/a11y';
 
   interface Props {
     visible: boolean;
@@ -8,6 +9,14 @@
   }
 
   const { visible, onClose }: Props = $props();
+  let dialogEl = $state<HTMLElement | null>(null);
+
+  $effect(() => {
+    if (visible && dialogEl) {
+      const destroy = trapFocus(dialogEl);
+      return destroy;
+    }
+  });
 
   function handleOverlayClick(e: MouseEvent) {
     if ((e.target as HTMLElement).classList.contains('shortcuts-overlay')) {
@@ -41,7 +50,7 @@
     onclick={handleOverlayClick}
     onkeydown={(e) => { if (e.key === 'Escape') onClose(); }}
   >
-    <div class="shortcuts-dialog" role="dialog" aria-modal="true" aria-label={$tr('shortcuts.title')}>
+    <div class="shortcuts-dialog" role="dialog" aria-modal="true" aria-label={$tr('shortcuts.title')} bind:this={dialogEl}>
       <div class="dialog-header">
         <span class="dialog-title">{$tr('shortcuts.title')}</span>
         <button class="close-btn" onclick={onClose} aria-label={$tr('settings.close')}>✕</button>
