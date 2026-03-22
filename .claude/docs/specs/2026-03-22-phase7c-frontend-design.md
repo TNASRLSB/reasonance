@@ -194,7 +194,7 @@ export const providerConfigVersion = writable<number>(0);
 - On `error`/recovery events: update error counters
 - On `done` events: mark `is_streaming = false`, trigger `checkBudget`
 - Cost velocity: calculated on 30s sliding window
-- Cost projection: appears after turn 2, formula: `cost / elapsed * estimated_total`
+- Cost projection: appears after turn 2, linear extrapolation: `(cost_so_far / turns_completed) * avg_turns_per_session_for_provider`. Falls back to `cost_so_far * 2` if no historical average available
 - vs_avg_ratio: current session cost / historical average for that provider
 - Returns cleanup function for `onDestroy`
 
@@ -223,7 +223,7 @@ Under chat input in `ResponsePanel.svelte`. Visible only when a session is activ
 | Data | Behavior |
 |------|----------|
 | Cost velocity | `↑` accelerating, `→` stable, `↓` decelerating. 30s sliding window |
-| Projection | Appears after turn 2. Formula: `cost_current / elapsed * estimated_total_time` |
+| Projection | Appears after turn 2. Linear extrapolation: `(cost / turns) * avg_turns_for_provider`. Fallback: `cost * 2` if no history |
 | vs average | Dot: 🟢 below avg, 🟡 ±20%, 🔴 >50% above. Tooltip with exact value |
 | Context danger | `\|` marker at 80%. Bar: `--accent` to 60%, `--warning` 60-80%, `--danger` 80-100% |
 | Cache hit rate | `⚡NN%` — visible only if > 0%. Green if > 50% |
@@ -809,7 +809,7 @@ Centralized provider → color + CSS pattern map:
 
 ## File Inventory
 
-### New Files (12)
+### New Files (16)
 
 | File | Purpose |
 |------|---------|
