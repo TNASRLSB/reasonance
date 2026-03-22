@@ -2,11 +2,10 @@
   import type { Snippet } from 'svelte';
   import type { AgentEvent } from '$lib/types/agent-event';
 
-  let { events, role, forkIndex, onRetry, onFork, children }: {
+  let { events, role, forkIndex, onFork, children }: {
     events: AgentEvent[];
     role: 'user' | 'agent';
     forkIndex?: number;
-    onRetry?: (text: string) => void;
     onFork?: (eventIndex: number) => void;
     children: Snippet;
   } = $props();
@@ -30,6 +29,8 @@
     navigator.clipboard.writeText(getPlainText()).then(() => {
       copied = true;
       setTimeout(() => { copied = false; }, 2000);
+    }).catch(() => {
+      // Clipboard API may fail in non-secure contexts; silently ignore
     });
   }
 </script>
@@ -49,11 +50,6 @@
       <button class="action-btn" onclick={handleCopy} aria-label="Copy message">
         {copied ? 'COPIED' : 'COPY'}
       </button>
-      {#if onRetry}
-        <button class="action-btn" onclick={() => onRetry(getPlainText())} aria-label="Retry">
-          RETRY
-        </button>
-      {/if}
       {#if onFork}
         <button class="action-btn" onclick={() => onFork(forkIndex ?? 0)} aria-label="Fork from here">
           FORK
