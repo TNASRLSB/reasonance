@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.1] - 2026-03-22
+
+### Bug Fixes
+
+- fix: install missing dompurify dependency
+
+
+
 ## [0.4.0] - 2026-03-22
 
 ### Features
