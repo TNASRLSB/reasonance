@@ -15,3 +15,6 @@ export const editorTheme = writable<string>('forge-dark');
 export const showSwarmCanvas = writable<boolean>(false);
 export const swarmViewMode = writable<'visual' | 'code' | 'split'>('visual');
 export const selectedNodeId = writable<string | null>(null);
+
+import type { AnalyticsDashboardState } from '$lib/types/analytics';
+export const analyticsDashboard = writable<AnalyticsDashboardState>({ open: false, focus: null });
