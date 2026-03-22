@@ -1,5 +1,6 @@
 mod agent_event;
 mod normalizer;
+mod transport;
 mod commands;
 mod config;
 mod discovery;
