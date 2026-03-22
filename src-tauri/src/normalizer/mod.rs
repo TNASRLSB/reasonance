@@ -126,9 +126,10 @@ impl NormalizerRegistry {
     pub fn load_from_dir(dir: &Path) -> Result<Self, String> {
         let mut pipelines = HashMap::new();
         let mut configs = HashMap::new();
+        let mut toml_sources = HashMap::new();
 
         if !dir.exists() {
-            return Ok(Self { pipelines, configs });
+            return Ok(Self { pipelines, configs, toml_sources });
         }
 
         for entry in std::fs::read_dir(dir).map_err(|e| e.to_string())? {
@@ -151,11 +152,12 @@ impl NormalizerRegistry {
                 );
 
                 pipelines.insert(name.clone(), pipeline);
+                toml_sources.insert(name.clone(), content);
                 configs.insert(name, config);
             }
         }
 
-        Ok(Self { pipelines, configs })
+        Ok(Self { pipelines, configs, toml_sources })
     }
 
     pub fn has_provider(&self, name: &str) -> bool {
@@ -175,6 +177,30 @@ impl NormalizerRegistry {
 
     pub fn providers(&self) -> Vec<String> {
         self.pipelines.keys().cloned().collect()
+    }
+
+    pub fn get_toml_source(&self, provider: &str) -> Option<String> {
+        self.toml_sources.get(provider).cloned()
+    }
+
+    pub fn reload_provider(&mut self, provider: &str, toml_str: &str) -> Result<(), String> {
+        let config = TomlConfig::parse(toml_str)?;
+
+        let state_machine: Box<dyn StateMachine> = match provider {
+            "claude" => Box::new(ClaudeStateMachine::new()),
+            _ => Box::new(GenericStateMachine::new()),
+        };
+
+        let pipeline = NormalizerPipeline::new(
+            config.to_rules(),
+            state_machine,
+            provider.to_string(),
+        );
+
+        self.pipelines.insert(provider.to_string(), pipeline);
+        self.configs.insert(provider.to_string(), config);
+        self.toml_sources.insert(provider.to_string(), toml_str.to_string());
+        Ok(())
     }
 }
 
@@ -259,5 +285,51 @@ emit = "done"
         let mut registry = NormalizerRegistry::load_from_dir(dir.path()).unwrap();
         let events = registry.process("unknown", r#"{"type":"text"}"#);
         assert!(events.is_empty());
+    }
+
+    #[test]
+    fn test_get_toml_source() {
+        let dir = TempDir::new().unwrap();
+        let toml_path = dir.path().join("test.toml");
+        fs::write(&toml_path, sample_toml()).unwrap();
+
+        let registry = NormalizerRegistry::load_from_dir(dir.path()).unwrap();
+        let source = registry.get_toml_source("testprovider");
+        assert!(source.is_some());
+        assert!(source.unwrap().contains("testprovider"));
+    }
+
+    #[test]
+    fn test_get_toml_source_unknown() {
+        let dir = TempDir::new().unwrap();
+        let registry = NormalizerRegistry::load_from_dir(dir.path()).unwrap();
+        assert!(registry.get_toml_source("unknown").is_none());
+    }
+
+    #[test]
+    fn test_reload_provider() {
+        let dir = TempDir::new().unwrap();
+        let toml_path = dir.path().join("test.toml");
+        fs::write(&toml_path, sample_toml()).unwrap();
+
+        let mut registry = NormalizerRegistry::load_from_dir(dir.path()).unwrap();
+        assert!(registry.has_provider("testprovider"));
+
+        let modified_toml = sample_toml().replace(r#"when = 'type == "text_delta"'"#, r#"when = 'type == "content"'"#);
+        let result = registry.reload_provider("testprovider", &modified_toml);
+        assert!(result.is_ok());
+        assert!(registry.has_provider("testprovider"));
+    }
+
+    #[test]
+    fn test_reload_provider_invalid_toml() {
+        let dir = TempDir::new().unwrap();
+        let toml_path = dir.path().join("test.toml");
+        fs::write(&toml_path, sample_toml()).unwrap();
+
+        let mut registry = NormalizerRegistry::load_from_dir(dir.path()).unwrap();
+        let result = registry.reload_provider("testprovider", "invalid { toml");
+        assert!(result.is_err());
+        assert!(registry.has_provider("testprovider"));
     }
 }
