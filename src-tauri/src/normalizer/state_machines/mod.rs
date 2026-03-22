@@ -4,6 +4,7 @@ pub mod accumulator;
 pub mod gemini;
 pub mod kimi;
 pub mod qwen;
+pub mod codex;
 
 use crate::agent_event::AgentEvent;
 
