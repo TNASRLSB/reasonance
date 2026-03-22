@@ -1,0 +1,117 @@
+[cli]
+name = "gemini"
+binary = "gemini"
+programmatic_args = ["-p", "{prompt}", "--output-format", "stream-json"]
+resume_args = ["--resume", "latest", "-p", "{prompt}", "--output-format", "stream-json"]
+version_command = ["gemini", "--version"]
+update_command = ["npm", "install", "-g", "@FIXME/gemini-cli@latest"]
+
+[capabilities]
+streaming = true
+session_resume = true
+tool_use = true
+thinking = false
+structured_output = true
+diff_output = false
+
+[retry]
+max_retries = 3
+backoff = { strategy = "exponential", base_ms = 1000, max_ms = 30000 }
+retryable_codes = ["RESOURCE_EXHAUSTED", "UNAVAILABLE", "DEADLINE_EXCEEDED"]
+
+[commands]
+cancel = { method = "signal", signal = "SIGINT" }
+
+[session]
+session_id_path = "session_id"
+model_path = "model"
+
+[[rules]]
+name = "error_resource_exhausted"
+when = 'type == "ERROR" && code == "RESOURCE_EXHAUSTED"'
+emit = "error"
+[rules.mappings]
+content = "message"
+error_code = "code"
+severity = "recoverable"
+
+[[rules]]
+name = "error_unavailable"
+when = 'type == "ERROR" && code == "UNAVAILABLE"'
+emit = "error"
+[rules.mappings]
+content = "message"
+error_code = "code"
+severity = "recoverable"
+
+[[rules]]
+name = "error_deadline"
+when = 'type == "ERROR" && code == "DEADLINE_EXCEEDED"'
+emit = "error"
+[rules.mappings]
+content = "message"
+error_code = "code"
+severity = "recoverable"
+
+[[rules]]
+name = "error_generic"
+when = 'type == "ERROR"'
+emit = "error"
+[rules.mappings]
+content = "message"
+error_code = "code"
+severity = "fatal"
+
+[[rules]]
+name = "text_chunk"
+when = 'type == "MESSAGE" && exists(content)'
+emit = "text"
+[rules.mappings]
+content = "content[0].text"
+
+[[rules]]
+name = "tool_start"
+when = 'type == "TOOL_USE"'
+emit = "tool_use"
+[rules.mappings]
+content = "args"
+tool_name = "name"
+parent_id = "id"
+
+[[rules]]
+name = "tool_result"
+when = 'type == "TOOL_RESULT"'
+emit = "tool_result"
+[rules.mappings]
+content = "result"
+parent_id = "tool_use_id"
+
+[[rules]]
+name = "usage"
+when = 'type == "RESULT" && exists(usage)'
+emit = "usage"
+[rules.mappings]
+input_tokens = "usage.input_tokens"
+output_tokens = "usage.output_tokens"
+
+[[rules]]
+name = "done"
+when = 'type == "RESULT"'
+emit = "done"
+
+[[tests]]
+name = "basic_text"
+prompt = "Reply with exactly: REASONANCE_TEST_OK"
+max_tokens = 50
+expected = [
+  { event_type = "text", required = true, validate = { type = "content_matches", pattern = "REASONANCE_TEST_OK" } },
+  { event_type = "done", required = true, validate = "exists" },
+]
+
+[[tests]]
+name = "tool_use"
+prompt = "Read the file ./Cargo.toml"
+max_tokens = 200
+expected = [
+  { event_type = "tool_use", required = false, validate = "content_not_empty" },
+]

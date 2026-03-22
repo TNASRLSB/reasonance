@@ -1,6 +1,7 @@
 pub mod generic;
 pub mod claude;
 pub mod accumulator;
+pub mod gemini;
 
 use crate::agent_event::AgentEvent;
 
