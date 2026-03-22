@@ -52,6 +52,12 @@
 <svelte:window onclick={() => { showGitMenu = false; }} />
 <div class="toolbar" data-tauri-drag-region>
   <div class="toolbar-left">
+    <svg class="logo-icon" viewBox="0 0 200 200" aria-hidden="true">
+      <path d="M0,179 L30,178 L50,176 L65,172 L75,165 L82,153 L87,135 L91,107 L94,74 L97,35 L100,15 L103,35 L106,74 L109,107 L113,135 L118,153 L125,165 L135,172 L150,176 L170,178 L200,179" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M0,177 L30,173 L50,167 L65,156 L75,139 L84,110 L91,74 L95,52 L100,40 L105,52 L109,74 L116,110 L125,139 L135,156 L150,167 L170,173 L200,177" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M0,172 L30,166 L50,155 L60,145 L70,131 L80,115 L88,91 L94,80 L100,75 L106,80 L112,91 L120,115 L130,131 L140,145 L150,155 L170,166 L200,172" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M0,169 L30,161 L50,151 L60,144 L70,135 L80,126 L90,119 L96,116 L100,115 L104,116 L110,119 L120,126 L130,135 L140,144 L150,151 L170,161 L200,169" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
     <span class="logo">REASONANCE</span>
     <MenuBar {adapter} />
   </div>
@@ -117,6 +123,12 @@
 
   .toolbar-right {
     gap: 4px;
+  }
+
+  .logo-icon {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
   }
 
   .logo {

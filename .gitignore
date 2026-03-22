@@ -6,3 +6,19 @@ src-tauri/gen/
 dist/
 *.js.map
 .DS_Store
+
+# Claude / Vibe Framework
+.claude/
+CLAUDE.md
+.superpowers/
+vibe-framework.sh
+docs/
+references/
+
+# Skill data
+.emmet/
+.forge/
+.ghostwriter/
+.orson/
+.scribe/
+.seurat/

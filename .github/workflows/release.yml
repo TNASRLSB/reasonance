@@ -1,0 +1,329 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    outputs:
+      should_release: ${{ steps.analyze.outputs.should_release }}
+      bump_type: ${{ steps.analyze.outputs.bump_type }}
+      new_version: ${{ steps.analyze.outputs.new_version }}
+      changelog_body: ${{ steps.analyze.outputs.changelog_body }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Analyze commits
+        id: analyze
+        run: |
+          # Find last tag, fallback to first commit
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || git rev-list --max-parents=0 HEAD)
+          echo "Last reference: $LAST_TAG"
+
+          # Get commits since last tag
+          COMMITS=$(git log "$LAST_TAG"..HEAD --pretty=format:"%s|%b" --no-merges)
+
+          if [ -z "$COMMITS" ]; then
+            echo "should_release=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          BUMP="none"
+          FEATURES=""
+          FIXES=""
+          BREAKING=""
+          OTHER=""
+
+          while IFS= read -r line; do
+            SUBJECT=$(echo "$line" | cut -d'|' -f1)
+            BODY=$(echo "$line" | cut -d'|' -f2-)
+
+            # Check for manual override
+            if echo "$BODY" | grep -qi "release: major"; then
+              BUMP="major"
+            elif echo "$BODY" | grep -qi "release: minor" && [ "$BUMP" != "major" ]; then
+              BUMP="minor"
+            fi
+
+            # Check for breaking changes
+            if echo "$SUBJECT" | grep -qE "^(feat|fix|refactor)(\(.+\))?!:" || echo "$BODY" | grep -q "BREAKING CHANGE:"; then
+              BREAKING="$BREAKING\n- $SUBJECT"
+              [ "$BUMP" != "major" ] && BUMP="major"
+            elif echo "$SUBJECT" | grep -qE "^feat(\(.+\))?:"; then
+              FEATURES="$FEATURES\n- $SUBJECT"
+              [ "$BUMP" = "none" ] || [ "$BUMP" = "patch" ] && BUMP="minor"
+            elif echo "$SUBJECT" | grep -qE "^fix(\(.+\))?:"; then
+              FIXES="$FIXES\n- $SUBJECT"
+              [ "$BUMP" = "none" ] && BUMP="patch"
+            else
+              OTHER="$OTHER\n- $SUBJECT"
+            fi
+          done <<< "$COMMITS"
+
+          if [ "$BUMP" = "none" ]; then
+            echo "should_release=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Calculate new version
+          CURRENT=$(grep '"version"' package.json | head -1 | sed 's/.*"version": "\(.*\)".*/\1/')
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
+
+          case "$BUMP" in
+            major) MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0 ;;
+            minor) MINOR=$((MINOR + 1)); PATCH=0 ;;
+            patch) PATCH=$((PATCH + 1)) ;;
+          esac
+
+          NEW_VERSION="$MAJOR.$MINOR.$PATCH"
+
+          # Build changelog body
+          CHANGELOG=""
+          [ -n "$BREAKING" ] && CHANGELOG="$CHANGELOG\n### Breaking Changes\n$BREAKING\n"
+          [ -n "$FEATURES" ] && CHANGELOG="$CHANGELOG\n### Features\n$FEATURES\n"
+          [ -n "$FIXES" ] && CHANGELOG="$CHANGELOG\n### Bug Fixes\n$FIXES\n"
+          [ -n "$OTHER" ] && CHANGELOG="$CHANGELOG\n### Other\n$OTHER\n"
+
+          echo "should_release=true" >> $GITHUB_OUTPUT
+          echo "bump_type=$BUMP" >> $GITHUB_OUTPUT
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+
+          # Use a delimiter for multiline output
+          EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
+          echo "changelog_body<<$EOF" >> $GITHUB_OUTPUT
+          echo -e "$CHANGELOG" >> $GITHUB_OUTPUT
+          echo "$EOF" >> $GITHUB_OUTPUT
+
+  version:
+    needs: analyze
+    if: needs.analyze.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update version files
+        run: |
+          NEW="${{ needs.analyze.outputs.new_version }}"
+
+          # package.json
+          sed -i "s/\"version\": \".*\"/\"version\": \"$NEW\"/" package.json
+
+          # tauri.conf.json
+          sed -i "s/\"version\": \".*\"/\"version\": \"$NEW\"/" src-tauri/tauri.conf.json
+
+          # Cargo.toml (only first occurrence)
+          sed -i "0,/^version = \".*\"/s//version = \"$NEW\"/" src-tauri/Cargo.toml
+
+          # PKGBUILD
+          sed -i "s/^pkgver=.*/pkgver=$NEW/" aur/PKGBUILD
+
+      - name: Update CHANGELOG.md
+        run: |
+          NEW="${{ needs.analyze.outputs.new_version }}"
+          DATE=$(date +%Y-%m-%d)
+          BODY="${{ needs.analyze.outputs.changelog_body }}"
+
+          HEADER="## [$NEW] - $DATE"
+
+          if [ -f CHANGELOG.md ]; then
+            # Prepend new version after the title line
+            TEMP=$(mktemp)
+            echo "# Changelog" > "$TEMP"
+            echo "" >> "$TEMP"
+            echo "$HEADER" >> "$TEMP"
+            echo -e "$BODY" >> "$TEMP"
+            echo "" >> "$TEMP"
+            # Append everything after the first line of existing changelog
+            tail -n +2 CHANGELOG.md >> "$TEMP"
+            mv "$TEMP" CHANGELOG.md
+          else
+            echo "# Changelog" > CHANGELOG.md
+            echo "" >> CHANGELOG.md
+            echo "$HEADER" >> CHANGELOG.md
+            echo -e "$BODY" >> CHANGELOG.md
+          fi
+
+      - name: Commit and tag
+        run: |
+          NEW="${{ needs.analyze.outputs.new_version }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml aur/PKGBUILD CHANGELOG.md
+          git commit -m "[release] v${NEW} [skip ci]"
+          git tag "v${NEW}"
+          git push origin main --tags
+
+  build:
+    needs: [analyze, version]
+    if: needs.analyze.outputs.should_release == 'true'
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - platform: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            name: linux-amd64
+          - platform: macos-latest
+            target: aarch64-apple-darwin
+            name: macos-arm64
+          - platform: windows-latest
+            target: x86_64-pc-windows-msvc
+            name: windows-amd64
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v${{ needs.analyze.outputs.new_version }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libgtk-3-dev \
+            libsoup-3.0-dev \
+            libjavascriptcoregtk-4.1-dev
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build Tauri app
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tauriScript: npx tauri
+          args: --target ${{ matrix.target }} ${{ matrix.platform == 'windows-latest' && '--bundles msi' || '' }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: reasonance-${{ matrix.name }}
+          path: |
+            src-tauri/target/${{ matrix.target }}/release/bundle/deb/*.deb
+            src-tauri/target/${{ matrix.target }}/release/bundle/appimage/*.AppImage
+            src-tauri/target/${{ matrix.target }}/release/bundle/appimage/*.AppImage.tar.gz
+            src-tauri/target/${{ matrix.target }}/release/bundle/appimage/*.AppImage.tar.gz.sig
+            src-tauri/target/${{ matrix.target }}/release/bundle/rpm/*.rpm
+            src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg
+            src-tauri/target/${{ matrix.target }}/release/bundle/macos/*.app.tar.gz
+            src-tauri/target/${{ matrix.target }}/release/bundle/macos/*.app.tar.gz.sig
+            src-tauri/target/${{ matrix.target }}/release/bundle/msi/*.msi
+            src-tauri/target/${{ matrix.target }}/release/bundle/msi/*.msi.zip
+            src-tauri/target/${{ matrix.target }}/release/bundle/msi/*.msi.zip.sig
+
+  release:
+    needs: [analyze, build]
+    if: needs.analyze.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Flatten artifacts and build latest.json
+        run: |
+          VERSION="${{ needs.analyze.outputs.new_version }}"
+          REPO="${{ github.repository }}"
+          DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          NOTES=$(echo '${{ needs.analyze.outputs.changelog_body }}' | tr '\n' '\\n' | sed 's/"/\\"/g')
+
+          mkdir -p release
+
+          # Flatten all bundles into release/
+          find artifacts -type f \( \
+            -name "*.deb" -o -name "*.AppImage" -o -name "*.AppImage.tar.gz" \
+            -o -name "*.rpm" -o -name "*.dmg" -o -name "*.app.tar.gz" \
+            -o -name "*.msi" -o -name "*.msi.zip" \
+          \) ! -name "*.sig" -exec cp {} release/ \;
+
+          ls -la release/
+
+          # Read signatures
+          LINUX_SIG=""
+          MACOS_SIG=""
+          WINDOWS_SIG=""
+
+          for sigfile in $(find artifacts -name "*.AppImage.tar.gz.sig"); do
+            LINUX_SIG=$(cat "$sigfile")
+            LINUX_BUNDLE=$(basename "${sigfile%.sig}")
+          done
+          for sigfile in $(find artifacts -name "*.app.tar.gz.sig"); do
+            MACOS_SIG=$(cat "$sigfile")
+            MACOS_BUNDLE=$(basename "${sigfile%.sig}")
+          done
+          for sigfile in $(find artifacts -name "*.msi.zip.sig"); do
+            WINDOWS_SIG=$(cat "$sigfile")
+            WINDOWS_BUNDLE=$(basename "${sigfile%.sig}")
+          done
+
+          BASE_URL="https://github.com/$REPO/releases/download/v$VERSION"
+
+          # Build latest.json with jq to avoid heredoc indentation issues
+          jq -n \
+            --arg version "$VERSION" \
+            --arg notes "$NOTES" \
+            --arg pub_date "$DATE" \
+            --arg linux_url "$BASE_URL/$LINUX_BUNDLE" \
+            --arg linux_sig "$LINUX_SIG" \
+            --arg macos_url "$BASE_URL/$MACOS_BUNDLE" \
+            --arg macos_sig "$MACOS_SIG" \
+            --arg windows_url "$BASE_URL/$WINDOWS_BUNDLE" \
+            --arg windows_sig "$WINDOWS_SIG" \
+            '{
+              version: $version,
+              notes: $notes,
+              pub_date: $pub_date,
+              platforms: {
+                "linux-x86_64": { url: $linux_url, signature: $linux_sig },
+                "darwin-aarch64": { url: $macos_url, signature: $macos_sig },
+                "windows-x86_64": { url: $windows_url, signature: $windows_sig }
+              }
+            }' > release/latest.json
+
+          cat release/latest.json
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.analyze.outputs.new_version }}
+          name: v${{ needs.analyze.outputs.new_version }}
+          body: ${{ needs.analyze.outputs.changelog_body }}
+          files: release/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
