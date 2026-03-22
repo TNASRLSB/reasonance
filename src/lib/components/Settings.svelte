@@ -8,6 +8,7 @@
   import { themeMode, type ThemeMode } from '$lib/stores/theme';
   import { tr, locale, loadLocale, type Locale } from '$lib/i18n/index';
   import { get } from 'svelte/store';
+  import { getUpdateSettings, saveUpdateSettings, checkForUpdate, type UpdateMode } from '$lib/updater';
 
   let {
     adapter,
@@ -62,6 +63,9 @@
 
   let saving = $state(false);
   let error = $state('');
+  let localAutoUpdate = $state(true);
+  let localUpdateMode = $state<UpdateMode>('notify');
+  let checkingUpdate = $state(false);
 
   // Load config when visible
   $effect(() => {
@@ -114,6 +118,9 @@
     localEnhancedReadability = get(enhancedReadability);
     localLocale = get(locale);
     pendingDeleteIndices = new Set();
+    const updateSettings = await getUpdateSettings();
+    localAutoUpdate = updateSettings.autoUpdate;
+    localUpdateMode = updateSettings.updateMode;
   }
 
   function startAdd() {
@@ -233,6 +240,11 @@
 
       const tomlStr = stringify(tomlObj);
       await adapter.writeConfig(tomlStr);
+
+      await saveUpdateSettings({
+        autoUpdate: localAutoUpdate,
+        updateMode: localUpdateMode,
+      });
 
       // Update stores — close modal first to avoid re-render conflicts
       onClose();
@@ -472,6 +484,48 @@
                 {mode === 'light' ? $tr('settings.theme.light') : mode === 'dark' ? $tr('settings.theme.dark') : $tr('settings.theme.system')}
               </button>
             {/each}
+          </div>
+        </section>
+
+        <!-- Updates -->
+        <section>
+          <h3>{$tr('settings.updates') ?? 'Updates'}</h3>
+
+          <div class="field-row">
+            <label for="auto-update">{$tr('settings.autoUpdate') ?? 'Automatic updates'}</label>
+            <input
+              id="auto-update"
+              type="checkbox"
+              bind:checked={localAutoUpdate}
+            />
+          </div>
+
+          <div class="field-row">
+            <label for="update-mode">{$tr('settings.updateMode') ?? 'Update mode'}</label>
+            <select id="update-mode" bind:value={localUpdateMode} disabled={!localAutoUpdate}>
+              <option value="notify">{$tr('settings.updateNotify') ?? 'Notify when available'}</option>
+              <option value="silent">{$tr('settings.updateSilent') ?? 'Download and install silently'}</option>
+            </select>
+          </div>
+
+          <div class="field-row">
+            <button
+              class="check-update-btn"
+              onclick={async () => {
+                checkingUpdate = true;
+                await checkForUpdate(true);
+                checkingUpdate = false;
+              }}
+              disabled={checkingUpdate}
+            >
+              {checkingUpdate
+                ? ($tr('settings.checking') ?? 'Checking...')
+                : ($tr('settings.checkNow') ?? 'Check now')}
+            </button>
+          </div>
+
+          <div class="field-row version-label">
+            v{__APP_VERSION__}
           </div>
         </section>
       </div>

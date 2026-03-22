@@ -31,5 +31,8 @@ export default defineConfig({
 		port: 1420,
 		strictPort: true,
 		forwardConsole: true,
-	}
+	},
+	define: {
+		__APP_VERSION__: JSON.stringify(process.env.npm_package_version || '0.0.0'),
+	},
 });

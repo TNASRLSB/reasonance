@@ -4,6 +4,9 @@ import path from 'path';
 
 export default defineConfig({
   plugins: [svelte()],
+  define: {
+    __APP_VERSION__: JSON.stringify('0.0.0-test'),
+  },
   resolve: {
     conditions: ['browser'],
     alias: {
