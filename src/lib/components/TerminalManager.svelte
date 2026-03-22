@@ -8,7 +8,7 @@
   import { llmConfigs } from '$lib/stores/config';
   import { terminalTabs, activeTerminalTab, activeInstanceId } from '$lib/stores/terminals';
   import type { LlmConfig } from '$lib/stores/config';
-  import { yoloMode } from '$lib/stores/ui';
+  import { yoloMode, showSettings } from '$lib/stores/ui';
   import { tr } from '$lib/i18n/index';
 
   let { adapter, cwd = '.' }: { adapter: Adapter; cwd?: string } = $props();
@@ -237,7 +237,12 @@
       <div class="empty-header">TERMINAL</div>
       <p class="empty-subtitle">{$tr('terminal.startLLM')}</p>
       {#if configs.length === 0}
-        <p class="hint">{$tr('terminal.configHint')}</p>
+        <div class="no-llm-banner" role="status">
+          <span class="no-llm-msg">{$tr('terminal.configHint')}</span>
+          <button class="no-llm-btn" onclick={() => showSettings.set(true)}>
+            {$tr('terminal.openSettings')}
+          </button>
+        </div>
       {:else}
         <div class="llm-selector">
           <div class="llm-card-list">
@@ -668,6 +673,44 @@
   }
 
   .start-btn:hover {
+    opacity: 0.85;
+  }
+
+  .no-llm-banner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px;
+    background: var(--bg-secondary);
+    border: 2px solid var(--accent);
+    max-width: 320px;
+    font-family: var(--font-ui);
+    text-align: center;
+  }
+
+  .no-llm-msg {
+    font-size: var(--font-size-base);
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .no-llm-btn {
+    padding: 7px 18px;
+    font-family: var(--font-ui);
+    font-size: var(--font-size-small);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    border: 2px solid var(--accent);
+    border-radius: 0;
+    background: var(--accent);
+    color: #fff;
+    cursor: pointer;
+    transition: opacity 0.1s;
+  }
+
+  .no-llm-btn:hover {
     opacity: 0.85;
   }
 </style>

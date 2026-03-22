@@ -57,7 +57,8 @@
       });
       searched = true;
     } catch (e) {
-      error = String(e);
+      console.error('Find in files error:', e);
+      error = 'Search failed. Try a simpler pattern or check that the project folder is accessible.';
     } finally {
       searching = false;
     }

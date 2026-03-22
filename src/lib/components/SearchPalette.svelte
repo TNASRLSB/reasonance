@@ -2,6 +2,7 @@
   import { get } from 'svelte/store';
   import type { Adapter, FileEntry } from '$lib/adapter/index';
   import { addOpenFile, projectRoot } from '$lib/stores/files';
+  import { showToast } from '$lib/stores/toast';
 
   let {
     adapter,
@@ -115,8 +116,11 @@
       const content = await adapter.readFile(path);
       const name = path.split('/').pop() ?? path;
       addOpenFile({ path, name, content, isDirty: false, isDeleted: false });
-    } catch {
-      // Skip unreadable files
+    } catch (e) {
+      console.error('SearchPalette openFile error:', e);
+      const name = path.split('/').pop() ?? path;
+      showToast('error', 'Could not open file', name);
+      return;
     }
     onClose();
   }

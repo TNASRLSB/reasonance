@@ -27,7 +27,7 @@
   }
 
   function selectSlashCommand(command: string) {
-    adapter.writePty(instanceId, command + ' ');
+    adapter.writePty(instanceId, command + '\n');
     showSlashMenu = false;
   }
 
@@ -47,17 +47,17 @@
 <div class="term-toolbar">
   <div class="term-toolbar-left">
     <button
-      class="term-tbtn"
+      class="term-tbtn term-tbtn--labeled"
       title="Add file to context"
       onclick={(e) => { e.stopPropagation(); addFileToContext(); }}
-    >+</button>
+    ><span class="tbtn-icon" aria-hidden="true">+</span><span class="tbtn-label">Add file</span></button>
 
     <div class="slash-wrapper">
       <button
-        class="term-tbtn"
+        class="term-tbtn term-tbtn--labeled"
         title="Slash commands"
         onclick={(e) => { e.stopPropagation(); showSlashMenu = !showSlashMenu; showModeMenu = false; }}
-      >/</button>
+      ><span class="tbtn-icon" aria-hidden="true">/</span><span class="tbtn-label">Commands</span></button>
 
       {#if showSlashMenu && slashCommands.length > 0}
         <div class="dropdown" role="menu" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()}>
@@ -78,7 +78,7 @@
         class="term-mode"
         onclick={(e) => { e.stopPropagation(); showModeMenu = !showModeMenu; showSlashMenu = false; }}
       >
-        <span class="mode-dot"></span>
+        <span class="mode-dot" aria-hidden="true"></span>
         {activeMode ?? 'Default'}
       </button>
 
@@ -105,9 +105,9 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 2px 6px;
-    background: var(--bg-secondary);
-    border-bottom: 1px solid var(--border);
+    padding: 4px 8px;
+    background: var(--bg-primary);
+    border-bottom: 2px solid var(--border);
     flex-shrink: 0;
     font-family: var(--font-ui);
     gap: 4px;
@@ -123,26 +123,44 @@
   .term-tbtn {
     width: 28px;
     height: 28px;
-    /* 44px effective target via padding */
-    padding: 8px;
-    box-sizing: content-box;
+    padding: 0;
     display: flex;
     align-items: center;
     justify-content: center;
     background: var(--bg-tertiary);
-    border: var(--border-width) solid var(--border);
-    border-radius: var(--radius);
+    border: 2px solid var(--border);
+    border-radius: 0;
     color: var(--text-primary);
     font-family: var(--font-ui);
     font-size: 14px;
-    font-weight: 700;
+    font-weight: 800;
     cursor: pointer;
     transition: background 0.1s, color 0.1s;
+  }
+
+  .term-tbtn--labeled {
+    width: auto;
+    padding: 0 8px;
+    gap: 5px;
+  }
+
+  .tbtn-icon {
+    font-size: 14px;
+    font-weight: 800;
+    line-height: 1;
+  }
+
+  .tbtn-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
   }
 
   .term-tbtn:hover {
     background: var(--text-primary);
     color: var(--bg-primary);
+    border-color: var(--text-primary);
   }
 
   .slash-wrapper,
@@ -156,14 +174,14 @@
     gap: 6px;
     padding: 4px 10px;
     background: var(--bg-tertiary);
-    border: var(--border-width) solid var(--border);
-    border-radius: var(--radius);
+    border: 2px solid var(--border);
+    border-radius: 0;
     color: var(--text-secondary);
     font-family: var(--font-ui);
-    font-size: var(--font-size-small);
-    font-weight: 600;
+    font-size: 10px;
+    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.02em;
+    letter-spacing: 0.04em;
     cursor: pointer;
     transition: background 0.1s, color 0.1s;
     white-space: nowrap;
@@ -172,6 +190,7 @@
   .term-mode:hover {
     background: var(--text-primary);
     color: var(--bg-primary);
+    border-color: var(--text-primary);
   }
 
   .mode-dot {

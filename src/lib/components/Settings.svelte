@@ -114,7 +114,7 @@
       }
     } catch (e) {
       console.error('Settings loadConfig error:', e);
-      error = `Failed to load config: ${e}`;
+      error = 'Could not load configuration. Your settings have been preserved in memory.';
       llms = get(llmConfigs);
       settings = get(appSettings);
     }
@@ -251,7 +251,8 @@
         }).catch(() => {});
       }
     } catch (e) {
-      error = `Failed to save config: ${e}`;
+      console.error('Settings save error:', e);
+      error = 'Could not save settings. Check file permissions and try again.';
     } finally {
       saving = false;
     }
