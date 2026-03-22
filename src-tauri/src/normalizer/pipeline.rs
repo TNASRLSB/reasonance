@@ -102,6 +102,16 @@ impl NormalizerPipeline {
                 .map(|s| s.to_string()),
             stream_metrics: None,
             incomplete: None,
+            cache_creation_tokens: None,
+            cache_read_tokens: None,
+            duration_ms: None,
+            duration_api_ms: None,
+            num_turns: None,
+            stop_reason: None,
+            context_usage: None,
+            context_tokens: None,
+            max_context_tokens: None,
+            total_cost_usd: None,
         };
 
         let parent_id = rule.mappings.get("parent_id")
