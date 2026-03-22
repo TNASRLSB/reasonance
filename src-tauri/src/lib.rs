@@ -15,6 +15,7 @@ mod normalizer_version;
 mod normalizer_health;
 mod capability;
 mod self_heal;
+mod analytics;
 
 use commands::fs::ProjectRootState;
 use fs_watcher::FsWatcherState;
