@@ -102,16 +102,37 @@ impl NormalizerPipeline {
                 .map(|s| s.to_string()),
             stream_metrics: None,
             incomplete: None,
-            cache_creation_tokens: None,
-            cache_read_tokens: None,
-            duration_ms: None,
-            duration_api_ms: None,
-            num_turns: None,
-            stop_reason: None,
-            context_usage: None,
-            context_tokens: None,
-            max_context_tokens: None,
-            total_cost_usd: None,
+            cache_creation_tokens: rule.mappings.get("cache_creation_tokens")
+                .and_then(|path| resolve_path(value, path))
+                .and_then(|v| v.as_u64()),
+            cache_read_tokens: rule.mappings.get("cache_read_tokens")
+                .and_then(|path| resolve_path(value, path))
+                .and_then(|v| v.as_u64()),
+            duration_ms: rule.mappings.get("duration_ms")
+                .and_then(|path| resolve_path(value, path))
+                .and_then(|v| v.as_u64()),
+            duration_api_ms: rule.mappings.get("duration_api_ms")
+                .and_then(|path| resolve_path(value, path))
+                .and_then(|v| v.as_u64()),
+            num_turns: rule.mappings.get("num_turns")
+                .and_then(|path| resolve_path(value, path))
+                .and_then(|v| v.as_u64().map(|n| n as u32)),
+            stop_reason: rule.mappings.get("stop_reason")
+                .and_then(|path| resolve_path(value, path))
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string()),
+            context_usage: rule.mappings.get("context_usage")
+                .and_then(|path| resolve_path(value, path))
+                .and_then(|v| v.as_f64()),
+            context_tokens: rule.mappings.get("context_tokens")
+                .and_then(|path| resolve_path(value, path))
+                .and_then(|v| v.as_u64()),
+            max_context_tokens: rule.mappings.get("max_context_tokens")
+                .and_then(|path| resolve_path(value, path))
+                .and_then(|v| v.as_u64()),
+            total_cost_usd: rule.mappings.get("total_cost_usd")
+                .and_then(|path| resolve_path(value, path))
+                .and_then(|v| v.as_f64()),
         };
 
         let parent_id = rule.mappings.get("parent_id")
@@ -278,5 +299,67 @@ mod tests {
         assert_eq!(events.len(), 1);
         // Content parser detects code block
         assert!(matches!(&events[0].content, EventContent::Code { language, .. } if language == "rust"));
+    }
+
+    #[test]
+    fn test_pipeline_extracts_cache_and_duration() {
+        let rules = vec![
+            Rule {
+                name: "result".into(),
+                when: r#"type == "result""#.into(),
+                emit: "usage".into(),
+                mappings: [
+                    ("cache_creation_tokens".to_string(), "usage.cache_creation_input_tokens".to_string()),
+                    ("cache_read_tokens".to_string(), "usage.cache_read_input_tokens".to_string()),
+                    ("duration_ms".to_string(), "duration_ms".to_string()),
+                    ("duration_api_ms".to_string(), "duration_api_ms".to_string()),
+                    ("num_turns".to_string(), "num_turns".to_string()),
+                    ("stop_reason".to_string(), "stop_reason".to_string()),
+                    ("total_cost_usd".to_string(), "total_cost_usd".to_string()),
+                ].into(),
+            },
+        ];
+        let mut pipeline = NormalizerPipeline::new(
+            rules,
+            Box::new(GenericStateMachine::new()),
+            "claude".to_string(),
+        );
+        let input = r#"{"type":"result","duration_ms":4105,"duration_api_ms":4089,"num_turns":1,"stop_reason":"end_turn","total_cost_usd":0.055,"usage":{"cache_creation_input_tokens":7727,"cache_read_input_tokens":15092}}"#;
+        let events = pipeline.process(input);
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].metadata.cache_creation_tokens, Some(7727));
+        assert_eq!(events[0].metadata.cache_read_tokens, Some(15092));
+        assert_eq!(events[0].metadata.duration_ms, Some(4105));
+        assert_eq!(events[0].metadata.duration_api_ms, Some(4089));
+        assert_eq!(events[0].metadata.num_turns, Some(1));
+        assert_eq!(events[0].metadata.stop_reason, Some("end_turn".to_string()));
+        assert_eq!(events[0].metadata.total_cost_usd, Some(0.055));
+    }
+
+    #[test]
+    fn test_pipeline_extracts_context_usage() {
+        let rules = vec![
+            Rule {
+                name: "context".into(),
+                when: r#"type == "metrics""#.into(),
+                emit: "metrics".into(),
+                mappings: [
+                    ("context_usage".to_string(), "context_usage".to_string()),
+                    ("context_tokens".to_string(), "context_tokens".to_string()),
+                    ("max_context_tokens".to_string(), "max_context_tokens".to_string()),
+                ].into(),
+            },
+        ];
+        let mut pipeline = NormalizerPipeline::new(
+            rules,
+            Box::new(GenericStateMachine::new()),
+            "kimi".to_string(),
+        );
+        let input = r#"{"type":"metrics","context_usage":0.75,"context_tokens":96000,"max_context_tokens":128000}"#;
+        let events = pipeline.process(input);
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].metadata.context_usage, Some(0.75));
+        assert_eq!(events[0].metadata.context_tokens, Some(96000));
+        assert_eq!(events[0].metadata.max_context_tokens, Some(128000));
     }
 }
