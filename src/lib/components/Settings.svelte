@@ -271,7 +271,7 @@
 <svelte:window onkeydown={handleKeydown} />
 
 {#if visible}
-  <div class="settings-overlay" role="button" tabindex="-1" onclick={handleOverlayClick} onkeydown={(e) => { if (e.key === 'Escape') handleOverlayClick(); }}>
+  <div class="settings-overlay" role="button" tabindex="-1" onclick={handleOverlayClick} onkeydown={(e) => { if (e.key === 'Escape') onClose(); }}>
     <div class="settings-modal" role="dialog" aria-modal="true" aria-label={$tr('settings.title')}>
       <div class="modal-header">
         <h2>{$tr('settings.title')}</h2>

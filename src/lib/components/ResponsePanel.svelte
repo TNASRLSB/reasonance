@@ -3,7 +3,7 @@
   import { markedHighlight } from 'marked-highlight';
   import hljs from 'highlight.js';
   import 'highlight.js/styles/github-dark.css';
-  import { t } from '$lib/i18n/index';
+  import { tr } from '$lib/i18n/index';
 
   interface Props {
     content: string;
@@ -32,8 +32,8 @@
 {#if visible}
   <div class="response-panel">
     <div class="response-header">
-      <span class="response-title">{$t('response.title')}</span>
-      <button class="close-btn" onclick={onClose} title={$t('response.close')} aria-label={$t('response.close')}>✕</button>
+      <span class="response-title">{$tr('response.title')}</span>
+      <button class="close-btn" onclick={onClose} title={$tr('response.close')} aria-label={$tr('response.close')}>✕</button>
     </div>
     <div class="response-body">
       <div class="markdown-preview">

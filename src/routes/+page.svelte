@@ -13,14 +13,13 @@
   import { TauriAdapter } from '$lib/adapter/tauri';
   import { initTheme } from '$lib/stores/theme';
   import { openFiles, activeFilePath, projectRoot, addRecentProject } from '$lib/stores/files';
-  import { showSettings, enhancedReadability } from '$lib/stores/ui';
+  import { showSettings, enhancedReadability, showSwarmCanvas } from '$lib/stores/ui';
+  import { initI18n, tr } from '$lib/i18n/index';
   import { registerKeybinding, initKeybindings } from '$lib/utils/keybindings';
   import Toast from '$lib/components/Toast.svelte';
   import { showToast } from '$lib/stores/toast';
   import SwarmCanvas from '$lib/components/swarm/SwarmCanvas.svelte';
-  import { showSwarmCanvas } from '$lib/stores/ui';
   import ShortcutsDialog from '$lib/components/ShortcutsDialog.svelte';
-  import { initI18n } from '$lib/i18n/index';
   import { saveSession, restoreSession, initShadowTracking } from '$lib/utils/session';
   import { loadInitialConfig, discoverAndApplyLlms } from '$lib/utils/config-bootstrap';
   import { onMount, onDestroy } from 'svelte';
@@ -44,6 +43,8 @@
   let showHelp = $state(false);
   let showAbout = $state(false);
   let showShortcuts = $state(false);
+  let editorReadOnly = $state(true);
+  let showMarkdownPreview = $state(false);
   let swarmVisible = $state(false);
   const unsubSwarm = showSwarmCanvas.subscribe((val) => { swarmVisible = val; });
   let unsubEnhanced: () => void;
@@ -51,6 +52,20 @@
   // Reactive projectRoot for passing as cwd
   let currentProjectRoot = $state('.');
   const unsubRoot = projectRoot.subscribe((v) => { currentProjectRoot = v || '.'; });
+
+  // Editor toolbar state
+  const isMarkdown = $derived(
+    $activeFilePath ? ($activeFilePath.split('.').pop()?.toLowerCase() === 'md') : false
+  );
+
+  // Reset preview when switching files
+  let prevEditorPath: string | null = null;
+  $effect(() => {
+    if ($activeFilePath !== prevEditorPath) {
+      prevEditorPath = $activeFilePath;
+      showMarkdownPreview = false;
+    }
+  });
 
   // Cleanup array for event listeners
   const cleanups: Array<() => void> = [];
@@ -250,7 +265,28 @@
     {/snippet}
 
     {#snippet editor()}
-      <EditorTabs />
+      <EditorTabs>
+        {#snippet actions()}
+          {#if $activeFilePath}
+            {#if isMarkdown}
+              <button
+                class="editor-action"
+                class:active={showMarkdownPreview}
+                onclick={() => (showMarkdownPreview = !showMarkdownPreview)}
+              >
+                {showMarkdownPreview ? $tr('editor.code') : $tr('editor.preview')}
+              </button>
+            {/if}
+            <button
+              class="editor-action"
+              class:active={!editorReadOnly}
+              onclick={() => (editorReadOnly = !editorReadOnly)}
+            >
+              {editorReadOnly ? $tr('editor.readOnly') : $tr('editor.editing')}
+            </button>
+          {/if}
+        {/snippet}
+      </EditorTabs>
       {#if showHelp}
         <HelpPanel />
       {:else if diffState}
@@ -264,7 +300,7 @@
           onReject={handleReject}
         />
       {:else}
-        <Editor {adapter} />
+        <Editor {adapter} readOnly={editorReadOnly} {showMarkdownPreview} />
       {/if}
     {/snippet}
 
@@ -396,4 +432,32 @@
   .about-close:hover {
     opacity: 0.85;
   }
+
+  .editor-action {
+    background: var(--bg-tertiary);
+    border: var(--border-width) solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text-secondary);
+    font-family: var(--font-ui);
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    padding: 2px 8px;
+    cursor: pointer;
+    transition: background 0.1s, color 0.1s;
+    white-space: nowrap;
+  }
+
+  .editor-action:hover {
+    background: var(--text-primary);
+    color: var(--bg-primary);
+  }
+
+  .editor-action.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+
 </style>

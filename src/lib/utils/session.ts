@@ -71,9 +71,12 @@ export async function restoreSession(
       themeMode.set(savedTheme as import('$lib/stores/theme').ThemeMode);
     }
 
-    // Restore font settings
+    // Restore font settings — validate that saved font is a monospace font.
+    // A previous bug could save the UI font (sans-serif) instead of mono.
     const savedFontFamily = await store.get<string>('fontFamily');
-    if (savedFontFamily) fontFamily.set(savedFontFamily);
+    if (savedFontFamily && /mono/i.test(savedFontFamily)) {
+      fontFamily.set(savedFontFamily);
+    }
 
     const savedFontSize = await store.get<number>('fontSize');
     if (savedFontSize && savedFontSize > 0) fontSize.set(savedFontSize);

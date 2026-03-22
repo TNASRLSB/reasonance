@@ -96,7 +96,7 @@
 </script>
 
 {#if visible}
-  <div class="fif-overlay" role="button" tabindex="-1" onclick={handleOverlayClick} onkeydown={(e) => { if (e.key === 'Escape') handleOverlayClick(); }}>
+  <div class="fif-overlay" role="button" tabindex="-1" onclick={handleOverlayClick} onkeydown={(e) => { if (e.key === 'Escape') onClose(); }}>
     <div class="fif-panel" role="dialog" aria-label={$tr('fif.ariaLabel')} aria-modal="true">
       <div class="fif-header">
         <span class="fif-title">{$tr('fif.title')}</span>

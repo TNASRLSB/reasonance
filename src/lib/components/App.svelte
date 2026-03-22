@@ -17,10 +17,13 @@
 
   function onMouseMove(e: MouseEvent) {
     if (draggingLeft) {
-      fileTreeWidth.set(Math.max(150, Math.min(500, e.clientX)));
+      const maxTree = window.innerWidth * 0.3;
+      fileTreeWidth.set(Math.max(120, Math.min(maxTree, e.clientX)));
     }
     if (draggingRight) {
-      terminalWidth.set(Math.max(300, Math.min(800, window.innerWidth - e.clientX)));
+      const w = window.innerWidth - e.clientX;
+      const maxTerm = window.innerWidth * 0.5;
+      terminalWidth.set(Math.max(250, Math.min(maxTerm, w)));
     }
   }
 
@@ -33,6 +36,9 @@
 <svelte:window onmousemove={onMouseMove} onmouseup={onMouseUp} />
 
 <div class="app-root" class:resizing={draggingLeft || draggingRight}>
+  {#if draggingLeft || draggingRight}
+    <div class="resize-overlay"></div>
+  {/if}
   <!-- Skip links (visually hidden, visible on focus) -->
   <div class="skip-links">
     <a class="skip-link" href="#file-tree">Skip to file tree</a>
@@ -55,7 +61,7 @@
         {#snippet failed(error, reset)}
           <div class="panel-error">
             <p class="error-title">FILE TREE ERROR</p>
-            <p class="error-msg">{error?.message ?? 'Unknown error'}</p>
+            <p class="error-msg">{(error as any)?.message ?? 'Unknown error'}</p>
             <button class="error-retry" onclick={reset}>RETRY</button>
           </div>
         {/snippet}
@@ -76,7 +82,7 @@
         {#snippet failed(error, reset)}
           <div class="panel-error">
             <p class="error-title">EDITOR ERROR</p>
-            <p class="error-msg">{error?.message ?? 'Unknown error'}</p>
+            <p class="error-msg">{(error as any)?.message ?? 'Unknown error'}</p>
             <button class="error-retry" onclick={reset}>RETRY</button>
           </div>
         {/snippet}
@@ -97,7 +103,7 @@
         {#snippet failed(error, reset)}
           <div class="panel-error">
             <p class="error-title">TERMINAL ERROR</p>
-            <p class="error-msg">{error?.message ?? 'Unknown error'}</p>
+            <p class="error-msg">{(error as any)?.message ?? 'Unknown error'}</p>
             <button class="error-retry" onclick={reset}>RETRY</button>
           </div>
         {/snippet}
@@ -168,16 +174,13 @@
 
   .app-root.resizing {
     cursor: col-resize;
-    user-select: none;
   }
 
-  .app-root.resizing :global(*) {
-    user-select: none !important;
-    pointer-events: none !important;
-  }
-
-  .app-root.resizing .divider {
-    pointer-events: auto !important;
+  .resize-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9998;
+    cursor: col-resize;
   }
 
   .main-content {

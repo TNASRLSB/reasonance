@@ -44,31 +44,44 @@
   let searchQuery = $state('');
 
   onMount(() => {
-    term = new Terminal({
-      fontFamily: $fontFamily,
-      fontSize: $fontSize,
-      lineHeight: 1.3,
-      cursorBlink: false,
-      cursorStyle: 'block',
-      cursorInactiveStyle: 'bar',
-      theme: $isDark ? darkXtermTheme : lightXtermTheme,
-      allowProposedApi: true,
-    });
-
-    fitAddon = new FitAddon();
-    searchAddon = new SearchAddon();
-    const webLinksAddon = new WebLinksAddon();
-    const serializeAddon = new SerializeAddon();
-    const imageAddon = new ImageAddon();
-    term.loadAddon(fitAddon);
-    term.loadAddon(webLinksAddon);
-    term.loadAddon(searchAddon);
-    term.loadAddon(serializeAddon);
-    term.loadAddon(imageAddon);
-    term.open(containerEl);
-
-    // Try WebGL renderer for GPU-accelerated rendering, fall back to DOM
+    // xterm.js canvas/WebGL renderers do NOT trigger @font-face loading.
+    // Per official xterm.js guidance (issues #1164, #2058, #3817):
+    // fonts MUST be loaded BEFORE Terminal.open(), otherwise xterm caches
+    // wrong character measurements in its texture atlas and never recovers.
+    //
+    // We use the CSS Font Loading API to force-load both normal and bold
+    // variants, then open the terminal with correct measurements.
     (async () => {
+      const ff = $fontFamily;
+      const fs = $fontSize;
+
+      // Force-load font for canvas/WebGL rendering before Terminal.open()
+      await document.fonts.ready;
+
+      term = new Terminal({
+        fontFamily: ff,
+        fontSize: fs,
+        lineHeight: 1.3,
+        cursorBlink: false,
+        cursorStyle: 'block',
+        cursorInactiveStyle: 'bar',
+        theme: $isDark ? darkXtermTheme : lightXtermTheme,
+        allowProposedApi: true,
+      });
+
+      fitAddon = new FitAddon();
+      searchAddon = new SearchAddon();
+      const webLinksAddon = new WebLinksAddon();
+      const serializeAddon = new SerializeAddon();
+      const imageAddon = new ImageAddon();
+      term.loadAddon(fitAddon);
+      term.loadAddon(webLinksAddon);
+      term.loadAddon(searchAddon);
+      term.loadAddon(serializeAddon);
+      term.loadAddon(imageAddon);
+      term.open(containerEl);
+
+      // Try WebGL renderer for GPU-accelerated rendering, fall back to DOM
       try {
         const { WebglAddon } = await import('@xterm/addon-webgl');
         const webglAddon = new WebglAddon();
@@ -79,129 +92,130 @@
       } catch {
         // WebGL not available, DOM renderer is fine
       }
-    })();
 
-    fitAddon.fit();
-    term.focus();
-
-    // Retry focus to ensure cursor renders
-    requestAnimationFrame(() => {
-      term.focus();
       fitAddon.fit();
-    });
+      term.focus();
 
-    // Handle Ctrl+V paste from clipboard
-    term.attachCustomKeyEventHandler((event: KeyboardEvent) => {
-      if (event.type === 'keydown' && event.ctrlKey && event.key === 'v') {
-        adapter.getClipboard().then((text) => {
-          adapter.writePty(ptyId, text);
-        }).catch((e) => console.warn('Clipboard paste failed:', e));
-        return false;
+      // Handle Ctrl+V paste from clipboard
+      term.attachCustomKeyEventHandler((event: KeyboardEvent) => {
+        if (event.type === 'keydown' && event.ctrlKey && event.key === 'v') {
+          adapter.getClipboard().then((text) => {
+            adapter.writePty(ptyId, text);
+          }).catch((e) => console.warn('Clipboard paste failed:', e));
+          return false;
+        }
+        // Handle Ctrl+C for copy when there's a selection
+        if (event.type === 'keydown' && event.ctrlKey && event.key === 'c' && term.hasSelection()) {
+          adapter.setClipboard(term.getSelection()).catch((e) => console.warn('Clipboard copy failed:', e));
+          return false;
+        }
+        // Handle Ctrl+F for find in terminal
+        if (event.type === 'keydown' && event.ctrlKey && event.key === 'f') {
+          searchVisible = !searchVisible;
+          return false;
+        }
+        return true;
+      });
+
+      // Wire input: terminal → PTY
+      const onDataDispose = term.onData((data) => {
+        adapter.writePty(ptyId, data);
+      });
+
+      // Wire resize: terminal → PTY
+      const onResizeDispose = term.onResize(({ cols, rows }) => {
+        adapter.resizePty(ptyId, cols, rows);
+      });
+
+      // Strip ANSI escape sequences from terminal output
+      function stripAnsi(str: string): string {
+        return str.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '');
       }
-      // Handle Ctrl+C for copy when there's a selection
-      if (event.type === 'keydown' && event.ctrlKey && event.key === 'c' && term.hasSelection()) {
-        adapter.setClipboard(term.getSelection()).catch((e) => console.warn('Clipboard copy failed:', e));
-        return false;
+
+      // Parse context/token/model/messages/reset data from LLM CLI output
+      function parseContextToken(data: string) {
+        const clean = stripAnsi(data);
+        const ctxMatch = clean.match(/(?:ctx|context)[^\d]*?(\d{1,3})%/i);
+        const tokenMatch = clean.match(/([\d.]+[km]?)\s*tokens/i);
+        const modelMatch = clean.match(/model:\s*([\w-]+)/i);
+        const msgMatch = clean.match(/(?:messages?\s*left|remaining):\s*(\d+)/i);
+        const resetMatch = clean.match(/(?:reset(?:s)?\s*in|resets?\s*in):\s*([\dhm\s]+)/i);
+        if (ctxMatch || tokenMatch || modelMatch || msgMatch || resetMatch) {
+          terminalTabs.update(tabs => tabs.map(tab => ({
+            ...tab,
+            instances: tab.instances.map(inst => {
+              if (inst.id !== ptyId) return inst;
+              return {
+                ...inst,
+                ...(ctxMatch ? { contextPercent: parseInt(ctxMatch[1], 10) } : {}),
+                ...(tokenMatch ? { tokenCount: tokenMatch[1] } : {}),
+                ...(modelMatch ? { modelName: modelMatch[1] } : {}),
+                ...(msgMatch ? { messagesLeft: parseInt(msgMatch[1], 10) } : {}),
+                ...(resetMatch ? { resetTimer: resetMatch[1].trim() } : {}),
+              };
+            })
+          })));
+        }
       }
-      // Handle Ctrl+F for find in terminal
-      if (event.type === 'keydown' && event.ctrlKey && event.key === 'f') {
-        searchVisible = !searchVisible;
-        return false;
+
+      // Parse ConEmu progress sequences (ESC ] 9 ; 4 ; state ; value BEL)
+      function parseProgress(data: string) {
+        const match = data.match(/\x1b\]9;4;(\d);(\d{0,3})\x07/);
+        if (match) {
+          const state = parseInt(match[1], 10);
+          const value = parseInt(match[2], 10) || 0;
+          terminalTabs.update(tabs => tabs.map(tab => ({
+            ...tab,
+            instances: tab.instances.map(inst => {
+              if (inst.id !== ptyId) return inst;
+              return { ...inst, progressState: state, progressValue: value };
+            })
+          })));
+        }
       }
-      return true;
-    });
 
-    // Wire input: terminal → PTY
-    const onDataDispose = term.onData((data) => {
-      adapter.writePty(ptyId, data);
-    });
+      // Listen to PTY data → write to terminal
+      adapter.onPtyData(ptyId, (data) => {
+        term.write(data);
+        parseContextToken(data);
+        parseProgress(data);
+      }).then((unlisten) => {
+        cleanups.push(unlisten);
+      });
 
-    // Wire resize: terminal → PTY
-    const onResizeDispose = term.onResize(({ cols, rows }) => {
-      adapter.resizePty(ptyId, cols, rows);
-    });
+      // Listen to PTY exit
+      adapter.onPtyExit(ptyId, (code) => {
+        term.write(`\r\n\x1b[90m[Process exited with code ${code}]\x1b[0m\r\n`);
+      }).then((unlisten) => {
+        cleanups.push(unlisten);
+      });
 
-    // Strip ANSI escape sequences from terminal output
-    function stripAnsi(str: string): string {
-      return str.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '');
-    }
+      // ResizeObserver for auto-fit — use requestAnimationFrame to coalesce
+      // rapid resize events into one fit() per frame, avoiding bad measurements
+      // from transient container states during panel drag.
+      let fitRaf: number | null = null;
+      const rafFit = () => {
+        if (fitRaf !== null) cancelAnimationFrame(fitRaf);
+        fitRaf = requestAnimationFrame(() => {
+          fitRaf = null;
+          try {
+            fitAddon.fit();
+          } catch {
+            // ignore if terminal not yet ready
+          }
+        });
+      };
+      const resizeObserver = new ResizeObserver(rafFit);
+      resizeObserver.observe(containerEl);
 
-    // Parse context/token/model/messages/reset data from LLM CLI output
-    function parseContextToken(data: string) {
-      const clean = stripAnsi(data);
-
-      const ctxMatch = clean.match(/(?:ctx|context)[^\d]*?(\d{1,3})%/i);
-      const tokenMatch = clean.match(/([\d.]+[km]?)\s*tokens/i);
-      const modelMatch = clean.match(/model:\s*([\w-]+)/i);
-      const msgMatch = clean.match(/(?:messages?\s*left|remaining):\s*(\d+)/i);
-      const resetMatch = clean.match(/(?:reset(?:s)?\s*in|resets?\s*in):\s*([\dhm\s]+)/i);
-
-      if (ctxMatch || tokenMatch || modelMatch || msgMatch || resetMatch) {
-        terminalTabs.update(tabs => tabs.map(tab => ({
-          ...tab,
-          instances: tab.instances.map(inst => {
-            if (inst.id !== ptyId) return inst;
-            return {
-              ...inst,
-              ...(ctxMatch ? { contextPercent: parseInt(ctxMatch[1], 10) } : {}),
-              ...(tokenMatch ? { tokenCount: tokenMatch[1] } : {}),
-              ...(modelMatch ? { modelName: modelMatch[1] } : {}),
-              ...(msgMatch ? { messagesLeft: parseInt(msgMatch[1], 10) } : {}),
-              ...(resetMatch ? { resetTimer: resetMatch[1].trim() } : {}),
-            };
-          })
-        })));
-      }
-    }
-
-    // Parse ConEmu progress sequences (ESC ] 9 ; 4 ; state ; value BEL)
-    function parseProgress(data: string) {
-      const match = data.match(/\x1b\]9;4;(\d);(\d{0,3})\x07/);
-      if (match) {
-        const state = parseInt(match[1], 10);
-        const value = parseInt(match[2], 10) || 0;
-        terminalTabs.update(tabs => tabs.map(tab => ({
-          ...tab,
-          instances: tab.instances.map(inst => {
-            if (inst.id !== ptyId) return inst;
-            return { ...inst, progressState: state, progressValue: value };
-          })
-        })));
-      }
-    }
-
-    // Listen to PTY data → write to terminal
-    adapter.onPtyData(ptyId, (data) => {
-      term.write(data);
-      parseContextToken(data);
-      parseProgress(data);
-    }).then((unlisten) => {
-      cleanups.push(unlisten);
-    });
-
-    // Listen to PTY exit
-    adapter.onPtyExit(ptyId, (code) => {
-      term.write(`\r\n\x1b[90m[Process exited with code ${code}]\x1b[0m\r\n`);
-    }).then((unlisten) => {
-      cleanups.push(unlisten);
-    });
-
-    // ResizeObserver for auto-fit
-    const resizeObserver = new ResizeObserver(() => {
-      try {
-        fitAddon.fit();
-      } catch {
-        // ignore if terminal not yet ready
-      }
-    });
-    resizeObserver.observe(containerEl);
-
-    cleanups.push(() => {
-      onDataDispose.dispose();
-      onResizeDispose.dispose();
-      resizeObserver.disconnect();
-      term.dispose();
-    });
+      cleanups.push(() => {
+        if (fitRaf !== null) cancelAnimationFrame(fitRaf);
+        onDataDispose.dispose();
+        onResizeDispose.dispose();
+        resizeObserver.disconnect();
+        term.dispose();
+      });
+    })(); // end async IIFE
 
     return () => {
       for (const cleanup of cleanups) {
@@ -219,15 +233,20 @@
     }
   });
 
-  // React to font family/size store changes
+  // React to font family/size store changes.
+  // Uses the toggle trick from the official @xterm/addon-web-fonts:
+  // set fontFamily to 'monospace' first, then back to the actual value,
+  // to force xterm.js to fully invalidate its texture atlas and re-measure.
   $effect(() => {
     const ff = $fontFamily;
     const fs = $fontSize;
     if (term) {
-      term.options.fontFamily = ff;
       if (!$enhancedReadability) {
         term.options.fontSize = fs;
       }
+      // Toggle trick: force texture atlas invalidation
+      term.options.fontFamily = 'monospace';
+      term.options.fontFamily = ff;
       fitAddon?.fit();
     }
   });

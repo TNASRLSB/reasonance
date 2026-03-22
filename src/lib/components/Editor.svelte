@@ -49,12 +49,15 @@
     '.cm-selectionMatch': { backgroundColor: 'rgba(29, 78, 216, 0.1)' },
   }, { dark: false });
 
-  const { adapter }: { adapter: Adapter } = $props();
+  let { adapter, readOnly = true, showMarkdownPreview = false }: {
+    adapter: Adapter;
+    readOnly?: boolean;
+    showMarkdownPreview?: boolean;
+  } = $props();
 
-  let container: HTMLDivElement;
+  let container = $state<HTMLDivElement | null>(null);
+  let wrapper = $state<HTMLDivElement | null>(null);
   let view: EditorView | null = null;
-  let readOnly = $state(true);
-  let showMarkdownPreview = $state(false);
   let currentLangExts: Extension[] = [];
 
   // Context menu state
@@ -97,15 +100,6 @@
     $activeFilePath ? ($activeFilePath.split('.').pop()?.toLowerCase() === 'md') : false
   );
 
-  // Reset preview mode when switching files
-  let prevPath: string | null = null;
-  $effect(() => {
-    if ($activeFilePath !== prevPath) {
-      prevPath = $activeFilePath;
-      showMarkdownPreview = false;
-    }
-  });
-
   function buildFontExt(): Extension {
     return EditorView.theme({
       '.cm-content': { fontFamily: $fontFamily, fontSize: `${$fontSize}px` },
@@ -130,6 +124,7 @@
       extensions: [
         basicSetup,
         foldGutter(),
+        EditorView.lineWrapping,
         ...themeExt,
         buildFontExt(),
         ...langExts,
@@ -210,51 +205,32 @@
       initEditor(currentContent, fileName);
     }
 
+    // ResizeObserver on wrapper to force CM6 relayout on panel resize
+    const ro = new ResizeObserver(() => {
+      if (view) view.requestMeasure();
+    });
+    if (wrapper) ro.observe(wrapper);
+
     return () => {
+      ro.disconnect();
       destroyView();
     };
   });
 </script>
 
-<div class="editor-wrapper">
+<div class="editor-wrapper" bind:this={wrapper}>
   {#if $activeFilePath}
-    <div class="editor-toolbar">
-      <span class="editor-filename">{$activeFilePath.split('/').pop()}</span>
-      <div class="toolbar-actions">
-        {#if isMarkdown}
-          <button
-            class="preview-toggle"
-            class:active={showMarkdownPreview}
-            onclick={() => (showMarkdownPreview = !showMarkdownPreview)}
-          >
-            {showMarkdownPreview ? $tr('editor.code') : $tr('editor.preview')}
-          </button>
-        {/if}
-        <select
-          class="theme-select"
-          value={$editorTheme}
-          onchange={(e) => editorTheme.set((e.target as HTMLSelectElement).value)}
-        >
-          {#each Object.entries(editorThemes) as [key, t]}
-            <option value={key}>{t.label}</option>
-          {/each}
-        </select>
-        <button
-          class="readonly-toggle"
-          class:editing={!readOnly}
-          onclick={() => (readOnly = !readOnly)}
-        >
-          {readOnly ? $tr('editor.readOnly') : $tr('editor.editing')}
-        </button>
-      </div>
-    </div>
     <div class="editor-body">
       {#if isMarkdown && showMarkdownPreview}
         <MarkdownPreview content={currentContent} />
-      {:else}
-        <!-- svelte-ignore a11y_no_static_element_interactions -->
-        <div class="editor-cm" bind:this={container} oncontextmenu={handleContextMenu}></div>
       {/if}
+      <!-- svelte-ignore a11y_no_static_element_interactions -->
+      <div
+        class="editor-cm"
+        class:hidden={isMarkdown && showMarkdownPreview}
+        bind:this={container}
+        oncontextmenu={handleContextMenu}
+      ></div>
       <ResponsePanel
         content={responseContent}
         visible={responseVisible}
@@ -288,63 +264,6 @@
     background: var(--bg-primary);
   }
 
-  .editor-toolbar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 4px 12px;
-    background: var(--bg-secondary);
-    border-bottom: var(--border-width) solid var(--border);
-    flex-shrink: 0;
-    font-family: var(--font-ui);
-    font-size: var(--font-size-small);
-  }
-
-  .toolbar-actions {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-
-  .editor-filename {
-    color: var(--text-secondary);
-    font-family: var(--font-mono);
-  }
-
-  .preview-toggle,
-  .readonly-toggle {
-    background: var(--bg-tertiary);
-    border: var(--border-width) solid var(--border);
-    border-radius: var(--radius);
-    color: var(--text-secondary);
-    font-family: var(--font-ui);
-    font-size: var(--font-size-small);
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.02em;
-    padding: 2px 8px;
-    cursor: pointer;
-    transition: background 0.1s, color 0.1s;
-  }
-
-  .preview-toggle:hover,
-  .readonly-toggle:hover {
-    background: var(--text-primary);
-    color: var(--bg-primary);
-  }
-
-  .preview-toggle.active {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: var(--text-primary);
-  }
-
-  .readonly-toggle.editing {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: var(--text-primary);
-  }
-
   .editor-body {
     flex: 1;
     display: flex;
@@ -356,17 +275,22 @@
 
   .editor-cm {
     flex: 1;
-    overflow: auto;
+    overflow: hidden;
     min-height: 0;
+    min-width: 0;
+  }
+
+  .editor-cm.hidden {
+    display: none;
   }
 
   .editor-cm :global(.cm-editor) {
     height: 100%;
+    max-height: 100%;
   }
 
   .editor-cm :global(.cm-scroller) {
     overflow: auto;
-    height: 100%;
   }
 
   .editor-empty {
@@ -394,21 +318,4 @@
     padding: 4px 12px;
   }
 
-  .theme-select {
-    background: var(--bg-tertiary);
-    border: var(--border-width) solid var(--border);
-    border-radius: 0;
-    color: var(--text-secondary);
-    font-family: var(--font-ui);
-    font-size: 10px;
-    font-weight: 600;
-    text-transform: uppercase;
-    padding: 2px 6px;
-    cursor: pointer;
-    outline: none;
-  }
-
-  .theme-select:focus {
-    border-color: var(--accent);
-  }
 </style>

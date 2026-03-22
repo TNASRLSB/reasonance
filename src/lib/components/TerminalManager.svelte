@@ -383,12 +383,12 @@
     border-bottom: 2px solid var(--border);
     flex-shrink: 0;
     font-family: var(--font-ui);
-    min-height: 38px;
+    height: 38px;
     align-items: stretch;
   }
 
   .llm-tab {
-    padding: 8px 16px;
+    padding: 0 16px;
     font-family: var(--font-ui);
     font-size: var(--font-size-small);
     font-weight: 700;
@@ -401,6 +401,8 @@
     color: var(--text-muted);
     cursor: pointer;
     transition: background 0.1s, color 0.1s;
+    display: flex;
+    align-items: center;
   }
 
   .llm-tab:hover {
@@ -421,7 +423,7 @@
   .add-btn {
     font-size: 16px;
     font-weight: 700;
-    padding: 8px 14px;
+    padding: 0 14px;
   }
 
   .llm-dropdown {
