@@ -65,43 +65,43 @@
   });
 
   // === KPI derived values ===
-  const totalCost = $derived(() => {
+  const totalCost = $derived.by(() => {
     const data = $providerAnalytics.data;
     if (!data) return null;
     return data.reduce((s, p) => s + (p.total_cost_usd ?? 0), 0);
   });
 
-  const totalInputTokens = $derived(() => {
+  const totalInputTokens = $derived.by(() => {
     const data = $providerAnalytics.data;
     if (!data) return 0;
     return data.reduce((s, p) => s + p.total_input_tokens, 0);
   });
 
-  const totalOutputTokens = $derived(() => {
+  const totalOutputTokens = $derived.by(() => {
     const data = $providerAnalytics.data;
     if (!data) return 0;
     return data.reduce((s, p) => s + p.total_output_tokens, 0);
   });
 
-  const totalSessions = $derived(() => {
+  const totalSessions = $derived.by(() => {
     const data = $providerAnalytics.data;
     if (!data) return 0;
     return data.reduce((s, p) => s + p.total_sessions, 0);
   });
 
-  const totalErrors = $derived(() => {
+  const totalErrors = $derived.by(() => {
     const data = $providerAnalytics.data;
     if (!data) return 0;
     return data.reduce((s, p) => s + p.total_errors, 0);
   });
 
-  const totalRecovered = $derived(() => {
+  const totalRecovered = $derived.by(() => {
     const data = $providerAnalytics.data;
     if (!data) return 0;
     return data.reduce((s, p) => s + p.recovered_errors, 0);
   });
 
-  const overallErrorRate = $derived(() => {
+  const overallErrorRate = $derived.by(() => {
     const data = $providerAnalytics.data;
     if (!data || !data.length) return 0;
     const totalSess = data.reduce((s, p) => s + p.total_sessions, 0);
@@ -174,21 +174,21 @@
   });
 
   // === Provider comparison bars ===
-  const providerBars = $derived(() => {
+  const providerBars = $derived.by(() => {
     const data = $providerAnalytics.data;
     if (!data) return [];
     const items = data.map(p => ({ key: p.provider, value: p.total_cost_usd ?? 0 }));
     return normalizeBarScale(items);
   });
 
-  const totalProviderCost = $derived(() => {
+  const totalProviderCost = $derived.by(() => {
     const data = $providerAnalytics.data;
     if (!data) return 0;
     return data.reduce((s, p) => s + (p.total_cost_usd ?? 0), 0);
   });
 
   // === Daily trend ===
-  const trendBars = $derived(() => {
+  const trendBars = $derived.by(() => {
     const data = $dailyStats.data;
     if (!data) return [];
     const items = data.map(d => ({ key: d.date, value: d.input_tokens + d.output_tokens }));
@@ -196,7 +196,7 @@
   });
 
   // Last 7 daily stats for sparklines
-  const sparklineData = $derived(() => {
+  const sparklineData = $derived.by(() => {
     const data = $dailyStats.data;
     if (!data) return [];
     return data.slice(-7);
@@ -355,86 +355,86 @@
           <div
             class="kpi-card"
             role="article"
-            aria-label={kpiLabel($tr('analytics.dashboard.kpi.totalCost'), formatCurrency(totalCost()))}
+            aria-label={kpiLabel($tr('analytics.dashboard.kpi.totalCost'), formatCurrency(totalCost))}
           >
             <div class="kpi-top">
               <span class="kpi-label">{$tr('analytics.dashboard.kpi.totalCost')}</span>
               <svg class="sparkline" viewBox="0 0 60 24" aria-hidden="true" width="60" height="24">
                 <polyline
-                  points={sparklinePath(sparklineData().map(d => d.input_tokens + d.output_tokens))}
+                  points={sparklinePath(sparklineData.map(d => d.input_tokens + d.output_tokens))}
                   fill="none"
                   stroke="var(--accent)"
                   stroke-width="1.5"
                 />
               </svg>
             </div>
-            <div class="kpi-value">{formatCurrency(totalCost())}</div>
-            <div class="kpi-secondary">{$tr('analytics.dashboard.kpi.sessions')}: {totalSessions()}</div>
+            <div class="kpi-value">{formatCurrency(totalCost)}</div>
+            <div class="kpi-secondary">{$tr('analytics.dashboard.kpi.sessions')}: {totalSessions}</div>
           </div>
 
           <!-- Tokens -->
           <div
             class="kpi-card"
             role="article"
-            aria-label={kpiLabel($tr('analytics.dashboard.kpi.totalTokens'), formatTokenCount(totalInputTokens() + totalOutputTokens()))}
+            aria-label={kpiLabel($tr('analytics.dashboard.kpi.totalTokens'), formatTokenCount(totalInputTokens + totalOutputTokens))}
           >
             <div class="kpi-top">
               <span class="kpi-label">{$tr('analytics.dashboard.kpi.totalTokens')}</span>
               <svg class="sparkline" viewBox="0 0 60 24" aria-hidden="true" width="60" height="24">
                 <polyline
-                  points={sparklinePath(sparklineData().map(d => d.input_tokens + d.output_tokens))}
+                  points={sparklinePath(sparklineData.map(d => d.input_tokens + d.output_tokens))}
                   fill="none"
                   stroke="var(--success)"
                   stroke-width="1.5"
                 />
               </svg>
             </div>
-            <div class="kpi-value">{formatTokenCount(totalInputTokens() + totalOutputTokens())}</div>
-            <div class="kpi-secondary">in: {formatTokenCount(totalInputTokens())} · out: {formatTokenCount(totalOutputTokens())}</div>
+            <div class="kpi-value">{formatTokenCount(totalInputTokens + totalOutputTokens)}</div>
+            <div class="kpi-secondary">in: {formatTokenCount(totalInputTokens)} · out: {formatTokenCount(totalOutputTokens)}</div>
           </div>
 
           <!-- Sessions -->
           <div
             class="kpi-card"
             role="article"
-            aria-label={kpiLabel($tr('analytics.dashboard.kpi.sessions'), String(totalSessions()))}
+            aria-label={kpiLabel($tr('analytics.dashboard.kpi.sessions'), String(totalSessions))}
           >
             <div class="kpi-top">
               <span class="kpi-label">{$tr('analytics.dashboard.kpi.sessions')}</span>
               <svg class="sparkline" viewBox="0 0 60 24" aria-hidden="true" width="60" height="24">
                 <polyline
-                  points={sparklinePath(sparklineData().map(d => d.sessions))}
+                  points={sparklinePath(sparklineData.map(d => d.sessions))}
                   fill="none"
                   stroke="var(--text-secondary)"
                   stroke-width="1.5"
                 />
               </svg>
             </div>
-            <div class="kpi-value">{totalSessions()}</div>
+            <div class="kpi-value">{totalSessions}</div>
             <div class="kpi-secondary">{($providerAnalytics.data?.length ?? 0)} providers</div>
           </div>
 
           <!-- Errors -->
           <div
             class="kpi-card"
-            class:kpi-danger={totalErrors() > 0}
+            class:kpi-danger={totalErrors > 0}
             role="article"
-            aria-label={kpiLabel($tr('analytics.dashboard.kpi.errors'), String(totalErrors()))}
+            aria-label={kpiLabel($tr('analytics.dashboard.kpi.errors'), String(totalErrors))}
           >
             <div class="kpi-top">
               <span class="kpi-label">{$tr('analytics.dashboard.kpi.errors')}</span>
               <svg class="sparkline" viewBox="0 0 60 24" aria-hidden="true" width="60" height="24">
                 <polyline
-                  points={sparklinePath(sparklineData().map(d => d.errors))}
+                  points={sparklinePath(sparklineData.map(d => d.errors))}
                   fill="none"
                   stroke="var(--danger)"
                   stroke-width="1.5"
                 />
               </svg>
             </div>
-            <div class="kpi-value">{totalErrors()}</div>
+            <div class="kpi-value">{totalErrors}</div>
             <div class="kpi-secondary">
-              {totalRecovered()} {$tr('analytics.dashboard.kpi.recovered')} · {$tr('analytics.dashboard.kpi.errorRate')} {formatPercent(overallErrorRate())}
+              {totalRecovered} {$tr('analytics.dashboard.kpi.recovered')} · {$tr('analytics.dashboard.kpi.errorRate')} {formatPercent(overallErrorRate)}
             </div>
           </div>
         </div>
@@ -442,11 +442,11 @@
     </section>
 
     <!-- ── Section 2: Insights ── -->
-    {#if insights().length > 0}
+    {#if insights.length > 0}
       <section class="section insights-section" aria-label={$tr('analytics.insights.title')}>
         <h3 class="section-title">{$tr('analytics.insights.title')}</h3>
         <div class="insights-list">
-          {#each insights() as insight (insight.id)}
+          {#each insights as insight (insight.id)}
             <div class="insight-card insight-{insight.severity}" role="alert">
               <span class="insight-text">{$tr(insight.key, insight.params)}</span>
               <button
@@ -499,7 +499,7 @@
           </div>
 
           {#each $providerAnalytics.data as provider (provider.provider)}
-            {@const bar = providerBars().find(b => b.key === provider.provider)}
+            {@const bar = providerBars.find(b => b.key === provider.provider)}
             {@const visual = getProviderVisual(provider.provider)}
             <div
               class="provider-row"
@@ -510,7 +510,7 @@
                 class="provider-col-name"
                 role="rowheader"
                 tabindex="0"
-                aria-label={providerBarLabel(provider.provider, provider, totalProviderCost())}
+                aria-label={providerBarLabel(provider.provider, provider, totalProviderCost)}
               >
                 <button
                   class="provider-expand-btn"
@@ -637,7 +637,7 @@
         <p class="no-data">{$tr('analytics.dashboard.noData')}</p>
       {:else}
         <div class="trend-chart" role="img" aria-label="Daily token trend">
-          {#each trendBars() as bar, i}
+          {#each trendBars as bar, i}
             {@const day = $dailyStats.data![i]}
             <div
               class="trend-bar-col"
@@ -698,7 +698,7 @@
     flex-wrap: wrap;
     gap: 8px;
     padding: 10px 16px;
-    border-bottom: 2px solid var(--border);
+    border-bottom: var(--border-width, 2px) solid var(--border);
     background: var(--bg-surface);
     flex-shrink: 0;
   }
@@ -728,7 +728,7 @@
 
   .period-btn {
     background: var(--bg-tertiary);
-    border: 2px solid var(--border);
+    border: var(--border-width, 2px) solid var(--border);
     color: var(--text-secondary);
     font-family: var(--font-ui);
     font-size: var(--font-size-tiny);
@@ -766,7 +766,7 @@
   /* Header buttons */
   .header-btn {
     background: var(--bg-tertiary);
-    border: 2px solid var(--border);
+    border: var(--border-width, 2px) solid var(--border);
     color: var(--text-secondary);
     font-family: var(--font-ui);
     font-size: var(--font-size-tiny);
@@ -797,7 +797,7 @@
     right: 0;
     z-index: 200;
     background: var(--bg-secondary);
-    border: 2px solid var(--border);
+    border: var(--border-width, 2px) solid var(--border);
     min-width: 140px;
   }
 
@@ -850,7 +850,7 @@
     color: var(--text-secondary);
     margin: 0;
     padding-bottom: 8px;
-    border-bottom: 2px solid var(--border);
+    border-bottom: var(--border-width, 2px) solid var(--border);
   }
 
   /* KPI Grid */
@@ -874,7 +874,7 @@
 
   .kpi-card {
     background: var(--bg-surface);
-    border: 2px solid var(--border);
+    border: var(--border-width, 2px) solid var(--border);
     padding: 12px;
     display: flex;
     flex-direction: column;
@@ -1005,7 +1005,7 @@
     justify-content: space-between;
     gap: 12px;
     padding: 8px 12px;
-    border: 2px solid var(--border);
+    border: var(--border-width, 2px) solid var(--border);
     background: var(--bg-surface);
     font-size: var(--font-size-small);
   }
@@ -1051,7 +1051,7 @@
 
   /* Providers grid */
   .providers-grid {
-    border: 2px solid var(--border);
+    border: var(--border-width, 2px) solid var(--border);
     overflow-x: auto;
   }
 
@@ -1065,7 +1065,7 @@
 
   .provider-header-row {
     background: var(--bg-tertiary);
-    border-bottom: 2px solid var(--border);
+    border-bottom: var(--border-width, 2px) solid var(--border);
     font-size: var(--font-size-tiny);
     font-weight: 800;
     text-transform: uppercase;
@@ -1234,7 +1234,7 @@
     letter-spacing: 0.04em;
     color: var(--text-secondary);
     padding: 4px 8px;
-    border-bottom: 2px solid var(--border);
+    border-bottom: var(--border-width, 2px) solid var(--border);
   }
 
   .model-table td {
@@ -1315,7 +1315,7 @@
   }
 
   .providers-skeleton {
-    border: 2px solid var(--border);
+    border: var(--border-width, 2px) solid var(--border);
     padding: 8px 12px;
     display: flex;
     flex-direction: column;
