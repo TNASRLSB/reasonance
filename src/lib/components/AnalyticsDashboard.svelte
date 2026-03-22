@@ -7,7 +7,6 @@
     fetchProviderAnalytics, fetchDailyStats, fetchModelBreakdown
   } from '$lib/stores/analytics';
   import { analyticsDashboard } from '$lib/stores/ui';
-  import { prefersReducedMotion } from '$lib/utils/a11y-motion';
   import { analyticsAnnouncer } from '$lib/utils/a11y-announcer';
   import { kpiLabel, providerBarLabel, trendBarLabel } from '$lib/utils/a11y-labels';
   import {
@@ -117,7 +116,7 @@
     params: Record<string, string>;
   }
 
-  const insights = $derived((): Insight[] => {
+  const insights = $derived.by((): Insight[] => {
     const data = $providerAnalytics.data;
     if (!data) return [];
     const result: Insight[] = [];
@@ -1320,5 +1319,10 @@
     display: flex;
     flex-direction: column;
     gap: 0;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .skeleton, .skel-line { animation: none; }
+    .trend-bar-fill, .trend-bar-compare { transition: none; }
   }
 </style>
