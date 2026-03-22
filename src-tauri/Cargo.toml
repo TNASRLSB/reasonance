@@ -35,7 +35,7 @@ notify = "8"
 toml = "0.8"
 dirs = "5"
 reqwest = { version = "0.12", features = ["json"] }
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "time"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "process", "io-util"] }
 chrono = { version = "0.4", features = ["serde"] }
 
 [dev-dependencies]
