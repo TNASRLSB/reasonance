@@ -1,17 +1,14 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte';
+  import { onMount } from 'svelte';
   import { EditorView, basicSetup } from 'codemirror';
   import { EditorState } from '@codemirror/state';
+  import { foldGutter } from '@codemirror/language';
   import { oneDark } from '@codemirror/theme-one-dark';
-  import { javascript } from '@codemirror/lang-javascript';
-  import { html } from '@codemirror/lang-html';
-  import { css } from '@codemirror/lang-css';
-  import { python } from '@codemirror/lang-python';
-  import { rust } from '@codemirror/lang-rust';
-  import { json } from '@codemirror/lang-json';
-  import { markdown } from '@codemirror/lang-markdown';
+  import { getLangAsync } from '$lib/editor/languages';
   import { openFiles, activeFilePath } from '$lib/stores/files';
   import { isDark } from '$lib/stores/theme';
+  import { editorTheme } from '$lib/stores/ui';
+  import { editorThemes } from '$lib/editor/themes';
   import MarkdownPreview from './MarkdownPreview.svelte';
   import ContextMenu from './ContextMenu.svelte';
   import ResponsePanel from './ResponsePanel.svelte';
@@ -22,8 +19,8 @@
   const forgeDarkTheme = EditorView.theme({
     '&': { backgroundColor: '#0e0e0e', color: '#d4d4d4' },
     '.cm-content': {
-      fontFamily: "'Atkinson Hyperlegible Mono', 'JetBrains Mono', 'Fira Code', monospace",
-      fontSize: '13px',
+      fontFamily: "'Atkinson Hyperlegible Mono', monospace",
+      fontSize: '14px',
       caretColor: '#f0f0f0',
     },
     '.cm-cursor': { borderLeftColor: '#f0f0f0' },
@@ -39,8 +36,8 @@
   const forgeLightTheme = EditorView.theme({
     '&': { backgroundColor: '#fafafa', color: '#1a1a1a' },
     '.cm-content': {
-      fontFamily: "'Atkinson Hyperlegible Mono', 'JetBrains Mono', 'Fira Code', monospace",
-      fontSize: '13px',
+      fontFamily: "'Atkinson Hyperlegible Mono', monospace",
+      fontSize: '14px',
       caretColor: '#0a0a0a',
     },
     '.cm-cursor': { borderLeftColor: '#0a0a0a' },
@@ -57,11 +54,8 @@
   let container: HTMLDivElement;
   let view: EditorView | null = null;
   let readOnly = $state(true);
-
-  // Track dark/light theme reactively
-  let currentIsDark = $state(true);
-  const unsubIsDark = isDark.subscribe((v) => { currentIsDark = v; });
   let showMarkdownPreview = $state(false);
+  let currentLangExts: any[] = [];
 
   // Context menu state
   let ctxVisible = $state(false);
@@ -91,55 +85,46 @@
     responseVisible = true;
   }
 
-  // Derive current file from stores — using reactive vars
-  let currentPath = $state<string | null>(null);
-  let currentContent = $state<string>('');
+  // Reactively derive content from store auto-subscriptions
+  let currentContent = $derived.by(() => {
+    if (!$activeFilePath) return '';
+    const f = $openFiles.find((x) => x.path === $activeFilePath);
+    return f?.content ?? '';
+  });
 
   // Derive whether current file is markdown
   const isMarkdown = $derived(
-    currentPath ? (currentPath.split('.').pop()?.toLowerCase() === 'md') : false
+    $activeFilePath ? ($activeFilePath.split('.').pop()?.toLowerCase() === 'md') : false
   );
 
-  // Subscribe to stores
-  const unsubPath = activeFilePath.subscribe((p) => {
-    currentPath = p;
-    // Reset preview mode when switching files
-    showMarkdownPreview = false;
-  });
-
-  const unsubFiles = openFiles.subscribe((files) => {
-    if (currentPath) {
-      const f = files.find((x) => x.path === currentPath);
-      currentContent = f?.content ?? '';
+  // Reset preview mode when switching files
+  let prevPath: string | null = null;
+  $effect(() => {
+    if ($activeFilePath !== prevPath) {
+      prevPath = $activeFilePath;
+      showMarkdownPreview = false;
     }
   });
 
-  function getLang(name: string) {
-    const ext = name.split('.').pop()?.toLowerCase() ?? '';
-    const langs: Record<string, () => any> = {
-      js: javascript,
-      jsx: () => javascript({ jsx: true }),
-      ts: () => javascript({ typescript: true }),
-      tsx: () => javascript({ typescript: true, jsx: true }),
-      html: html,
-      css: css,
-      py: python,
-      rs: rust,
-      json: json,
-      md: markdown,
-    };
-    return langs[ext]?.() ?? [];
-  }
-
-  function buildState(content: string, fileName: string, ro: boolean) {
-    const langExt = getLang(fileName);
-    const themeExt = currentIsDark ? [oneDark, forgeDarkTheme] : [forgeLightTheme];
+  function buildState(content: string, langExts: any[], ro: boolean) {
+    let themeExt: any[];
+    const selectedTheme = editorThemes[$editorTheme];
+    if (selectedTheme && selectedTheme.extensions.length > 0) {
+      themeExt = selectedTheme.extensions;
+    } else if ($editorTheme === 'one-dark' || ($editorTheme === 'forge-dark' && $isDark)) {
+      themeExt = [oneDark, forgeDarkTheme];
+    } else if ($editorTheme === 'forge-light' || !$isDark) {
+      themeExt = [forgeLightTheme];
+    } else {
+      themeExt = [oneDark, forgeDarkTheme];
+    }
     return EditorState.create({
       doc: content,
       extensions: [
         basicSetup,
+        foldGutter(),
         ...themeExt,
-        Array.isArray(langExt) ? langExt : [langExt],
+        ...langExts,
         EditorView.editable.of(!ro),
         EditorState.readOnly.of(ro),
       ],
@@ -153,17 +138,24 @@
     }
   }
 
-  function initEditor(content: string, fileName: string) {
+  async function initEditor(content: string, fileName: string) {
     if (!container) return;
     destroyView();
-    const state = buildState(content, fileName, readOnly);
-    view = new EditorView({ state, parent: container });
+    currentLangExts = [];
+    // Start with no language highlighting so the editor shows immediately
+    const baseState = buildState(content, [], readOnly);
+    view = new EditorView({ state: baseState, parent: container });
+    // Load language asynchronously and apply once ready
+    const langExts = await getLangAsync(fileName);
+    if (!view) return; // editor may have been destroyed while awaiting
+    currentLangExts = langExts;
+    const state = buildState(view.state.doc.toString(), langExts, readOnly);
+    view.setState(state);
   }
 
   // Watch for active file changes
   $effect(() => {
-    // Access reactive state to trigger effect
-    const path = currentPath;
+    const path = $activeFilePath;
     const content = currentContent;
 
     if (!path || !container) {
@@ -171,53 +163,45 @@
       return;
     }
 
-    // Find file data from current openFiles value
     let fileName = path.split('/').pop() ?? path;
-
-    // Rebuild editor when path changes
     initEditor(content, fileName);
   });
 
-  // Watch for readOnly toggle — rebuild with same content
+  // Watch for readOnly toggle — rebuild with same content and cached language extensions
   $effect(() => {
     const ro = readOnly;
-    if (!view || !currentPath) return;
+    if (!view || !$activeFilePath) return;
     const doc = view.state.doc.toString();
-    const fileName = currentPath.split('/').pop() ?? currentPath;
-    const state = buildState(doc, fileName, ro);
+    const state = buildState(doc, currentLangExts, ro);
     view.setState(state);
   });
 
-  // Watch for theme changes — rebuild editor with correct theme
+  // Watch for theme changes — rebuild editor with correct theme and cached language extensions
   $effect(() => {
-    const _dark = currentIsDark;
-    if (!view || !currentPath) return;
+    const _dark = $isDark;
+    const _theme = $editorTheme;
+    if (!view || !$activeFilePath) return;
     const doc = view.state.doc.toString();
-    const fileName = currentPath.split('/').pop() ?? currentPath;
-    const state = buildState(doc, fileName, readOnly);
+    const state = buildState(doc, currentLangExts, readOnly);
     view.setState(state);
   });
 
   onMount(() => {
-    // If there's already an active file when mounted
-    if (currentPath && currentContent !== undefined) {
-      const fileName = currentPath.split('/').pop() ?? currentPath;
+    if ($activeFilePath && currentContent !== undefined) {
+      const fileName = $activeFilePath.split('/').pop() ?? $activeFilePath;
       initEditor(currentContent, fileName);
     }
-  });
 
-  onDestroy(() => {
-    unsubPath();
-    unsubFiles();
-    unsubIsDark();
-    destroyView();
+    return () => {
+      destroyView();
+    };
   });
 </script>
 
 <div class="editor-wrapper">
-  {#if currentPath}
+  {#if $activeFilePath}
     <div class="editor-toolbar">
-      <span class="editor-filename">{currentPath.split('/').pop()}</span>
+      <span class="editor-filename">{$activeFilePath.split('/').pop()}</span>
       <div class="toolbar-actions">
         {#if isMarkdown}
           <button
@@ -228,6 +212,15 @@
             {showMarkdownPreview ? $tr('editor.code') : $tr('editor.preview')}
           </button>
         {/if}
+        <select
+          class="theme-select"
+          value={$editorTheme}
+          onchange={(e) => editorTheme.set((e.target as HTMLSelectElement).value)}
+        >
+          {#each Object.entries(editorThemes) as [key, t]}
+            <option value={key}>{t.label}</option>
+          {/each}
+        </select>
         <button
           class="readonly-toggle"
           class:editing={!readOnly}
@@ -381,5 +374,23 @@
     font-family: var(--font-mono);
     border: 1px solid var(--border);
     padding: 4px 12px;
+  }
+
+  .theme-select {
+    background: var(--bg-tertiary);
+    border: var(--border-width) solid var(--border);
+    border-radius: 0;
+    color: var(--text-secondary);
+    font-family: var(--font-ui);
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    cursor: pointer;
+    outline: none;
+  }
+
+  .theme-select:focus {
+    border-color: var(--accent);
   }
 </style>
