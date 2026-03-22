@@ -50,8 +50,11 @@ impl SessionManager {
             return Err(format!("Session {} not found", session_id));
         }
 
-        let handle = self.store.read_metadata(session_id)?;
+        let mut handle = self.store.read_metadata(session_id)?;
         let events = self.store.read_events(session_id)?;
+
+        // Reconcile event_count from JSONL (source of truth) in case metadata was stale
+        handle.event_count = events.len() as u32;
 
         // Track restored session in recorder
         self.recorder.track_session(handle.clone());
@@ -135,19 +138,28 @@ impl SessionManager {
     /// Finalize a session — flush metadata with final status and update index.
     /// Called when the transport's CLI process ends.
     pub fn finalize_session(&self, session_id: &str, final_status: SessionStatus) -> Result<(), String> {
-        // Flush handle from recorder's cache
-        let recorder_handles = self.recorder.handles_ref();
-        let mut handles = recorder_handles.lock().unwrap();
-        if let Some(handle) = handles.get_mut(session_id) {
-            handle.status = final_status.clone();
-            handle.touch();
-            self.store.write_metadata(handle)?;
+        // Collect data under recorder lock, then release before acquiring index lock
+        let event_count = {
+            let recorder_handles = self.recorder.handles_ref();
+            let mut handles = recorder_handles.lock().unwrap();
+            if let Some(handle) = handles.get_mut(session_id) {
+                handle.status = final_status.clone();
+                handle.touch();
+                self.store.write_metadata(handle)?;
+                let count = handle.event_count;
+                handles.remove(session_id);
+                Some(count)
+            } else {
+                None
+            }
+        }; // recorder lock released here
 
-            // Update index
+        if let Some(count) = event_count {
+            // Handle was in recorder cache
             let mut index = self.index.lock().unwrap();
             if let Some(entry) = index.iter_mut().find(|s| s.id == session_id) {
                 entry.status = final_status;
-                entry.event_count = handle.event_count;
+                entry.event_count = count;
             }
             self.store.write_index(&index)?;
         } else {
@@ -163,9 +175,6 @@ impl SessionManager {
             }
             self.store.write_index(&index)?;
         }
-
-        // Remove from recorder tracking
-        handles.remove(session_id);
 
         Ok(())
     }
