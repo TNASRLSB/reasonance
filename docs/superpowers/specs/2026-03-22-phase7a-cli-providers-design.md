@@ -185,6 +185,8 @@ pub struct AgentEventMetadata {
 - `normalizer/pipeline.rs` → `build_event()` method
 - Any test helpers that construct `AgentEventMetadata` directly
 
+> **Note:** `incomplete` is `Option<bool>` (not `bool`) specifically to maintain backward compatibility with serialized events that predate this change — `serde` defaults missing `Option<T>` fields to `None`.
+
 ### Mapping Semantics Note
 
 In TOML rule mappings, most values are **JSON paths** resolved via `resolve_path` (e.g., `content = "delta.text"` resolves `$.delta.text`). The exception is `severity`, which is a **literal value** (`"fatal"` or `"recoverable"`) mapped directly to `ErrorSeverity` enum. This distinction is handled in `pipeline.rs::build_event` and does not require TOML-level changes.
@@ -224,9 +226,9 @@ emit = "status"
 name = "gemini"
 binary = "gemini"
 programmatic_args = ["-p", "{prompt}", "--output-format", "stream-json"]
-resume_args = ["--resume", "latest", "-p", "{prompt}", "--output-format", "stream-json"]
+resume_args = ["--resume", "latest", "-p", "{prompt}", "--output-format", "stream-json"]  # "latest" intentional: Gemini CLI only supports --resume latest, not arbitrary session IDs
 version_command = ["gemini", "--version"]
-update_command = ["npm", "install", "-g", "@anthropic-ai/gemini-cli@latest"]
+update_command = ["npm", "install", "-g", "@FIXME/gemini-cli@latest"]  # PLACEHOLDER: verify actual npm package name
 
 [capabilities]
 streaming = true
