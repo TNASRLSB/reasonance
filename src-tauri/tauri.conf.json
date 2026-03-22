@@ -28,9 +28,9 @@
   "plugins": {
     "updater": {
       "endpoints": [
-        "https://github.com/OWNER/REPO/releases/latest/download/latest.json"
+        "https://github.com/TNASRLSB/reasonance/releases/latest/download/latest.json"
       ],
-      "pubkey": "REPLACE_WITH_GENERATED_PUBKEY"
+      "pubkey": dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDhBRjUzRkJCNjlEQkRGMDUKUldRRjM5dHB1ei8xaWxqSXpENjh2WTZPTjVnWS9UcmxJSmtOUURZR2xFY0VsMG5FLzNKa0l5SnkK
     }
   }
 }
