@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import { liveMetrics, budgetAlerts } from '$lib/stores/analytics';
   import { analyticsDashboard } from '$lib/stores/ui';
   import { prefersReducedMotion } from '$lib/utils/a11y-motion';
@@ -8,13 +9,14 @@
   import { getProviderVisual } from '$lib/utils/provider-patterns';
   import { tooltip } from '$lib/utils/tooltip';
   import { tr } from '$lib/i18n/index';
+  import type { Adapter } from '$lib/adapter/index';
 
-  let { adapter, onOpenDashboard }: { adapter: any; onOpenDashboard: () => void } = $props();
+  let { adapter, onOpenDashboard }: { adapter: Adapter | undefined; onOpenDashboard: () => void } = $props();
 
   const metrics = $derived($liveMetrics);
   const alerts = $derived($budgetAlerts);
-  const hasBudgetWarning = $derived(alerts.length > 0 && alerts.some((a: { type: string }) => a.type === 'approaching'));
-  const hasBudgetDanger = $derived(alerts.length > 0 && alerts.some((a: { type: string }) => a.type === 'exceeded'));
+  const hasBudgetWarning = $derived(alerts.length > 0 && alerts.some(a => a.type === 'approaching'));
+  const hasBudgetDanger = $derived(alerts.length > 0 && alerts.some(a => a.type === 'exceeded'));
 
   // Context progress zone
   const contextZone = $derived(
@@ -55,18 +57,24 @@
   let prevRecovered = $state(0);
 
   $effect(() => {
-    if (metrics && metrics.errors > prevErrors) {
-      prevErrors = metrics.errors;
+    const currentErrors = metrics?.errors ?? 0;
+    const prev = untrack(() => prevErrors);
+    if (currentErrors > prev) {
+      prevErrors = currentErrors;
       errorFlash = true;
-      setTimeout(() => { errorFlash = false; }, 500);
+      const t = setTimeout(() => { errorFlash = false; }, 500);
+      return () => clearTimeout(t);
     }
   });
 
   $effect(() => {
-    if (metrics && metrics.errors_recovered > prevRecovered) {
-      prevRecovered = metrics.errors_recovered;
+    const currentRecovered = metrics?.errors_recovered ?? 0;
+    const prev = untrack(() => prevRecovered);
+    if (currentRecovered > prev) {
+      prevRecovered = currentRecovered;
       recoveryFlash = true;
-      setTimeout(() => { recoveryFlash = false; }, 500);
+      const t = setTimeout(() => { recoveryFlash = false; }, 500);
+      return () => clearTimeout(t);
     }
   });
 
@@ -360,7 +368,7 @@
   }
 
   .metric.cache.cache-good {
-    color: #22c55e;
+    color: var(--success);
   }
 
   .metric.vs-avg {
@@ -374,7 +382,7 @@
   }
 
   .metric.vs-avg.below {
-    color: #22c55e;
+    color: var(--success);
   }
 
   /* vs-avg dot */
@@ -387,7 +395,7 @@
   }
 
   .vs-avg-dot.dot-safe {
-    background: #22c55e;
+    background: var(--success);
   }
 
   .vs-avg-dot.dot-warning {

@@ -7,12 +7,13 @@
   import { tr } from '$lib/i18n/index';
   import AnalyticsBar from './AnalyticsBar.svelte';
   import { analyticsDashboard } from '$lib/stores/ui';
+  import type { Adapter } from '$lib/adapter/index';
 
   interface Props {
     content: string;
     visible: boolean;
     onClose: () => void;
-    adapter?: any;
+    adapter?: Adapter;
   }
 
   const { content, visible, onClose, adapter }: Props = $props();
