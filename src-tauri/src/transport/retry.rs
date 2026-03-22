@@ -1,5 +1,4 @@
 use crate::agent_event::ErrorSeverity;
-use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
 #[derive(Debug, Clone)]
