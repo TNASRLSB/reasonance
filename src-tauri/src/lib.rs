@@ -55,10 +55,32 @@ pub fn run() {
                 std::path::Path::new("normalizers")
             ).expect("Failed to load normalizers")
         )
+        .manage({
+            let sessions_dir = dirs::data_dir()
+                .unwrap_or_else(|| std::path::PathBuf::from("."))
+                .join("reasonance")
+                .join("sessions");
+            transport::session_manager::SessionManager::new(&sessions_dir)
+                .expect("Failed to initialize SessionManager")
+        })
         .setup(|app| {
             let transport: tauri::State<'_, transport::StructuredAgentTransport> = app.state();
+
+            // Wire FrontendEmitter (existing)
             let emitter = transport::event_bus::FrontendEmitter::new(app.handle().clone());
             transport.event_bus().subscribe(Box::new(emitter));
+
+            // Wire SessionHistoryRecorder into event bus
+            let session_mgr: tauri::State<'_, transport::session_manager::SessionManager> = app.state();
+            let session_recorder = session_mgr.recorder();
+            struct SessionRecorderWrapper(std::sync::Arc<transport::event_bus::SessionHistoryRecorder>);
+            impl transport::event_bus::AgentEventSubscriber for SessionRecorderWrapper {
+                fn on_event(&self, session_id: &str, event: &crate::agent_event::AgentEvent) {
+                    self.0.on_event(session_id, event);
+                }
+            }
+            transport.event_bus().subscribe(Box::new(SessionRecorderWrapper(session_recorder)));
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -114,6 +136,14 @@ pub fn run() {
             commands::transport::agent_get_events,
             commands::transport::agent_get_session_status,
             commands::transport::agent_list_sessions,
+            commands::session::session_create,
+            commands::session::session_restore,
+            commands::session::session_get_events,
+            commands::session::session_list,
+            commands::session::session_delete,
+            commands::session::session_rename,
+            commands::session::session_fork,
+            commands::session::session_set_view_mode,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
