@@ -4,6 +4,7 @@ pub mod event_bus;
 pub mod session;
 pub mod stream_reader;
 pub mod session_handle;
+pub mod session_store;
 
 use crate::agent_event::{AgentEvent, ErrorSeverity};
 use crate::normalizer::NormalizerRegistry;
