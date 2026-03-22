@@ -1,10 +1,11 @@
 <script lang="ts">
-  import { yoloMode, showSettings } from '$lib/stores/ui';
+  import { yoloMode, showSettings, analyticsDashboard } from '$lib/stores/ui';
   import type { Adapter } from '$lib/adapter/index';
   import MenuBar from './MenuBar.svelte';
   import { activeInstanceId } from '$lib/stores/terminals';
   import { get } from 'svelte/store';
   import { menuKeyHandler } from '$lib/utils/a11y';
+  import { tr } from '$lib/i18n/index';
 
   let { adapter }: { adapter: Adapter } = $props();
 
@@ -95,6 +96,14 @@
     >
       {$yoloMode ? '\u26A1 YOLO ON' : 'YOLO'}
     </button>
+    <button
+      class="analytics-btn"
+      class:active={$analyticsDashboard.open}
+      aria-label={$tr('toolbar.analytics')}
+      aria-pressed={$analyticsDashboard.open}
+      onclick={() => analyticsDashboard.update(v => ({ ...v, open: !v.open, focus: null }))}
+      title={$tr('toolbar.analytics')}
+    >📊</button>
     <button class="settings-btn" onclick={openSettings} title="Settings" aria-label="Settings">&#9881;</button>
     <div class="window-controls">
       <button class="win-btn" onclick={() => adapter.minimizeWindow()} title="Minimize" aria-label="Minimize">&#8722;</button>
@@ -259,6 +268,17 @@
 
   .yolo-btn.active:hover {
     background: var(--danger);
+  }
+
+  .analytics-btn {
+    font-size: 14px;
+    padding: 3px 8px;
+  }
+
+  .analytics-btn.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
   }
 
   .settings-btn {

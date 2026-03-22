@@ -2,8 +2,10 @@
   import { onMount } from 'svelte';
   import Toolbar from './Toolbar.svelte';
   import StatusBar from './StatusBar.svelte';
-  import { fileTreeWidth, terminalWidth } from '$lib/stores/ui';
+  import AnalyticsDashboard from './AnalyticsDashboard.svelte';
+  import { fileTreeWidth, terminalWidth, analyticsDashboard } from '$lib/stores/ui';
   import { startUpdateChecker } from '$lib/updater';
+  import { startLiveTracking } from '$lib/stores/analytics';
   import type { Snippet } from 'svelte';
   import type { Adapter } from '$lib/adapter/index';
 
@@ -19,6 +21,8 @@
 
   onMount(() => {
     startUpdateChecker();
+    const stopTracking = startLiveTracking(adapter);
+    return () => stopTracking();
   });
 
   function onMouseMove(e: MouseEvent) {
@@ -103,7 +107,9 @@
 
     <main id="editor" class="panel editor">
       <svelte:boundary>
-        {#if editor}
+        {#if $analyticsDashboard.open}
+          <AnalyticsDashboard {adapter} />
+        {:else if editor}
           {@render editor()}
         {:else}
           <p class="placeholder">Editor</p>
