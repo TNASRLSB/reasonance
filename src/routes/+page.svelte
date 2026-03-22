@@ -25,6 +25,7 @@
   import { onMount, onDestroy } from 'svelte';
   import { get } from 'svelte/store';
   import { parse } from 'smol-toml';
+  import { parseLlmConfig } from '$lib/utils/config-parser';
   import { invoke } from '@tauri-apps/api/core';
   import { load } from '@tauri-apps/plugin-store';
   import { getCurrentWindow } from '@tauri-apps/api/window';
@@ -237,22 +238,7 @@
       };
 
       const rawLlms = parsed.llm ?? [];
-      llmConfigs.set(
-        rawLlms.map((l) => ({
-          name: String(l.name ?? ''),
-          type: (l.type === 'api' ? 'api' : 'cli') as 'cli' | 'api',
-          command: l.command !== undefined ? String(l.command) : undefined,
-          args: Array.isArray(l.args) ? l.args.map(String) : [],
-          yoloFlag: l.yolo_flag !== undefined ? String(l.yolo_flag) : undefined,
-          imageMode: (['path', 'base64', 'none'].includes(String(l.image_mode))
-            ? l.image_mode
-            : 'path') as 'path' | 'base64' | 'none',
-          provider: l.provider !== undefined ? String(l.provider) : undefined,
-          apiKeyEnv: l.api_key_env !== undefined ? String(l.api_key_env) : undefined,
-          model: l.model !== undefined ? String(l.model) : undefined,
-          endpoint: l.endpoint !== undefined ? String(l.endpoint) : undefined,
-        }))
-      );
+      llmConfigs.set(parseLlmConfig(rawLlms));
 
       const s = parsed.settings ?? {};
       appSettings.set({

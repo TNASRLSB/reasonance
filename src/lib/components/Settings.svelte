@@ -1,5 +1,6 @@
 <script lang="ts">
   import { parse, stringify } from 'smol-toml';
+  import { parseLlmConfig } from '$lib/utils/config-parser';
   import type { Adapter } from '$lib/adapter/index';
   import type { LlmConfig, AppSettings } from '$lib/stores/config';
   import { llmConfigs, appSettings } from '$lib/stores/config';
@@ -78,20 +79,7 @@
         };
 
         const rawLlms = parsed.llm ?? [];
-        llms = rawLlms.map((l) => ({
-          name: String(l.name ?? ''),
-          type: (l.type === 'api' ? 'api' : 'cli') as 'cli' | 'api',
-          command: l.command !== undefined ? String(l.command) : undefined,
-          args: Array.isArray(l.args) ? l.args.map(String) : [],
-          yoloFlag: l.yolo_flag !== undefined ? String(l.yolo_flag) : undefined,
-          imageMode: (['path', 'base64', 'none'].includes(String(l.image_mode))
-            ? l.image_mode
-            : 'path') as 'path' | 'base64' | 'none',
-          provider: l.provider !== undefined ? String(l.provider) : undefined,
-          apiKeyEnv: l.api_key_env !== undefined ? String(l.api_key_env) : undefined,
-          model: l.model !== undefined ? String(l.model) : undefined,
-          endpoint: l.endpoint !== undefined ? String(l.endpoint) : undefined,
-        }));
+        llms = parseLlmConfig(rawLlms);
 
         // If TOML has no LLMs but store has auto-discovered ones, use store
         if (llms.length === 0) {
