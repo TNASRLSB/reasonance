@@ -216,6 +216,9 @@ impl NormalizerRegistry {
 mod integration_tests;
 
 #[cfg(test)]
+mod fixture_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use std::path::PathBuf;

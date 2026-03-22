@@ -1,0 +1,1 @@
+{"jsonrpc":"2.0","method":"ErrorNotification","params":{"code":"rate_limit","message":"Rate limit exceeded"}}

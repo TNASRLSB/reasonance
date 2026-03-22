@@ -1,0 +1,5 @@
+{"type":"content_block_start","content_block":{"type":"tool_use","name":"read_file","id":"tool-k1","input":"{}"}}
+{"type":"content_block_delta","delta":{"type":"input_json_delta","partial_json":"{\"path\":"}}
+{"type":"content_block_delta","delta":{"type":"input_json_delta","partial_json":"\"test.rs\"}"}}
+{"type":"content_block_stop"}
+{"type":"message_stop"}

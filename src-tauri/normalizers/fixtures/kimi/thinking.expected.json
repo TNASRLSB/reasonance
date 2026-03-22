@@ -1,0 +1,5 @@
+[
+  {"event_type": "thinking", "content_contains": "think"},
+  {"event_type": "text", "content_contains": "answer"},
+  {"event_type": "done"}
+]

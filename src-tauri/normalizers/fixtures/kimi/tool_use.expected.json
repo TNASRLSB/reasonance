@@ -1,0 +1,4 @@
+[
+  {"event_type": "tool_use", "has_tool_name": true},
+  {"event_type": "done"}
+]

@@ -1,0 +1,3 @@
+{"jsonrpc":"2.0","method":"AgentMessageDeltaNotification","params":{"delta":"Let me think..."}}
+{"jsonrpc":"2.0","method":"ItemCompletedNotification","params":{"item":{"type":"reasoning","content":"Step by step analysis"}}}
+{"jsonrpc":"2.0","method":"TurnCompletedNotification","params":{}}
