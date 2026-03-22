@@ -11,7 +11,7 @@ use std::collections::HashMap;
 use std::path::Path;
 use serde::Deserialize;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct TomlConfig {
     pub cli: CliConfig,
     #[serde(default)]
@@ -32,7 +32,7 @@ pub struct TomlConfig {
     pub direct_api: Option<DirectApiConfig>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct CliConfig {
     pub name: String,
     pub binary: String,
@@ -46,7 +46,7 @@ pub struct CliConfig {
     pub update_command: Vec<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct TomlRule {
     pub name: String,
     pub when: String,
@@ -55,7 +55,7 @@ pub struct TomlRule {
     pub mappings: HashMap<String, String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct ContextConfig {
     pub mode: Option<String>,
     pub flag: Option<String>,
@@ -63,27 +63,27 @@ pub struct ContextConfig {
     pub selection_format: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct RetryConfig {
     pub max_retries: Option<u32>,
     pub backoff: Option<toml::Value>,
     pub retryable_codes: Option<Vec<String>>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct SessionConfig {
     pub session_id_path: Option<String>,
     pub model_path: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct CommandsConfig {
     pub cancel: Option<toml::Value>,
     pub pause: Option<toml::Value>,
     pub interrupt: Option<toml::Value>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct TomlTest {
     pub name: String,
     pub prompt: String,
@@ -92,7 +92,7 @@ pub struct TomlTest {
     pub expected: Vec<toml::Value>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct DirectApiConfig {
     pub endpoint: Option<String>,
     pub auth_header: Option<String>,
@@ -119,6 +119,7 @@ impl TomlConfig {
 pub struct NormalizerRegistry {
     pipelines: HashMap<String, NormalizerPipeline>,
     configs: HashMap<String, TomlConfig>,
+    toml_sources: HashMap<String, String>,
 }
 
 impl NormalizerRegistry {

@@ -10,6 +10,8 @@ mod shadow_store;
 mod workflow_store;
 mod agent_runtime;
 mod workflow_engine;
+mod cli_updater;
+mod normalizer_version;
 
 use commands::fs::ProjectRootState;
 use fs_watcher::FsWatcherState;
