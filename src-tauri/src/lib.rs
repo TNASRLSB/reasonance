@@ -115,6 +115,30 @@ pub fn run() {
             drop(registry_guard);
             updater.register_from_configs(&configs);
 
+            // Register capabilities from TOML configs
+            for (provider, config) in &configs {
+                let mut features = std::collections::HashMap::new();
+                for (key, val) in &config.capabilities {
+                    let support = if val.as_bool() == Some(true) {
+                        capability::FeatureSupport::Full
+                    } else {
+                        capability::FeatureSupport::Unsupported { alternative: None }
+                    };
+                    features.insert(key.clone(), support);
+                }
+                let caps = capability::NegotiatedCapabilities {
+                    provider: provider.clone(),
+                    cli_version: String::new(),
+                    cli_mode: transport::request::CliMode::Structured,
+                    features,
+                    negotiated_at: std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_secs(),
+                };
+                negotiator.set_capabilities(provider, caps);
+            }
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
