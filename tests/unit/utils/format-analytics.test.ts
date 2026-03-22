@@ -6,6 +6,8 @@ import {
   formatPercent,
   formatCostVelocity,
   formatTokenRate,
+  formatDate,
+  formatDateFull,
 } from '$lib/utils/format-analytics';
 
 describe('formatCurrency', () => {
@@ -80,5 +82,30 @@ describe('formatCostVelocity', () => {
 describe('formatTokenRate', () => {
   it('formats tokens per second', () => {
     expect(formatTokenRate(45.7)).toBe('46 tok/s');
+  });
+});
+
+describe('formatDate', () => {
+  it('formats epoch ms to short date', () => {
+    const result = formatDate(1700000000000);
+    expect(result).toBeTruthy();
+    expect(result).not.toBe('—');
+  });
+  it('returns em-dash for null', () => {
+    expect(formatDate(null)).toBe('—');
+  });
+  it('returns em-dash for NaN', () => {
+    expect(formatDate(NaN)).toBe('—');
+  });
+});
+
+describe('formatDateFull', () => {
+  it('formats epoch ms to full date with time', () => {
+    const result = formatDateFull(1700000000000);
+    expect(result).toBeTruthy();
+    expect(result).not.toBe('—');
+  });
+  it('returns em-dash for null', () => {
+    expect(formatDateFull(null)).toBe('—');
   });
 });
