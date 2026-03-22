@@ -1,5 +1,37 @@
 # Changelog
 
+## [0.3.0] - 2026-03-22
+
+### Features
+
+- feat: WCAG 2.1 AA accessibility audit — 68→~90 score
+
+### Other
+
+- - Focus trapping in all 4 dialogs (Settings, SearchPalette, FindInFiles, ShortcutsDialog)
+- - Arrow key navigation in all 5 menus (Toolbar, TerminalManager, MenuItem, ContextMenu, TerminalToolbar)
+- - WAI-ARIA tree pattern on FileTree (role=tree/treeitem, aria-expanded, keyboard nav)
+- - WAI-ARIA tab pattern on TerminalManager (role=tablist/tab, aria-selected)
+- - aria-haspopup/aria-expanded on all dropdown triggers
+- - aria-label on window control buttons
+- - Keyboard support on panel splitters (arrow keys + shift)
+- - Backdrop role=button → role=presentation
+- 
+- Level AA fixes:
+- - StatusBar error/paused contrast (#ff6b6b→#fca5a5, #fbbf24→#fef08a)
+- - role=status on StatusBar, role=alert on Settings error banner
+- - aria-live=polite on model-info-bar
+- 
+- Other fixes:
+- - Add bundle.icon config for Windows .ico (fixes Windows build)
+- - Fix FileTree test missing size/modified fields
+- - Fix llm-api test global→globalThis (28 TS errors resolved)
+- - Update a11y test for overlay role change
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+
+
+
 ## [0.2.1] - 2026-03-22
 
 ### Bug Fixes
