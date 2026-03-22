@@ -207,7 +207,7 @@
   "settings.provider.editToml": "Edit TOML in editor",
   "settings.provider.cheapest": "Cheapest",
   "settings.provider.test.button": "Test connection",
-  "settings.provider.test.testing": "Testing...",
+  "settings.provider.test.testing": "Testing…",
   "settings.provider.test.binaryFound": "Binary found",
   "settings.provider.test.binaryNotFound": "Binary not found",
   "settings.provider.test.apiKeyOk": "API key configured",
