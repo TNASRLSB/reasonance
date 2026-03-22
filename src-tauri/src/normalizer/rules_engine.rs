@@ -4,9 +4,14 @@ use std::collections::HashMap;
 pub fn resolve_path<'a>(value: &'a Value, path: &str) -> Option<&'a Value> {
     let mut current = value;
     for segment in path.split('.') {
-        match current.get(segment) {
-            Some(v) => current = v,
-            None => return None,
+        if let Some(bracket_pos) = segment.find('[') {
+            let field = &segment[..bracket_pos];
+            let idx_str = &segment[bracket_pos + 1..segment.len() - 1];
+            current = current.get(field)?;
+            let idx: usize = idx_str.parse().ok()?;
+            current = current.get(idx)?;
+        } else {
+            current = current.get(segment)?;
         }
     }
     Some(current)
@@ -238,5 +243,37 @@ mod tests {
         let v = sample_json();
         let matched = find_matching_rule(&rules, &v);
         assert!(matched.is_none());
+    }
+
+    #[test]
+    fn test_resolve_path_array_index() {
+        let v = json!({
+            "content": [
+                { "text": "hello", "type": "text" },
+                { "text": "world", "type": "text" }
+            ]
+        });
+        assert_eq!(resolve_path(&v, "content[0].text"), Some(&json!("hello")));
+    }
+
+    #[test]
+    fn test_resolve_path_array_out_of_bounds() {
+        let v = json!({
+            "content": [{ "text": "hello" }]
+        });
+        assert_eq!(resolve_path(&v, "content[99].text"), None);
+    }
+
+    #[test]
+    fn test_resolve_path_nested_array() {
+        let v = json!({
+            "nested": {
+                "items": [
+                    { "name": "first" },
+                    { "name": "second" }
+                ]
+            }
+        });
+        assert_eq!(resolve_path(&v, "nested.items[1].name"), Some(&json!("second")));
     }
 }
