@@ -6,6 +6,7 @@
     warning: 'var(--warning)',
     success: 'var(--success)',
     info: 'var(--accent)',
+    update: 'var(--accent)',
   };
 
   const labels: Record<string, string> = {
@@ -13,6 +14,7 @@
     warning: 'WARNING',
     success: 'SUCCESS',
     info: 'INFO',
+    update: 'UPDATE',
   };
 
   const icons: Record<string, string> = {
@@ -20,6 +22,7 @@
     warning: '⚠',
     success: '✓',
     info: 'ℹ',
+    update: '↑',
   };
 </script>
 
@@ -45,6 +48,20 @@
         onclick={() => dismissToast(toast.id)}
         aria-label="Dismiss notification"
       >×</button>
+      {#if toast.progress !== undefined}
+        <div class="toast-progress">
+          <div class="toast-progress-bar" style="width: {toast.progress}%"></div>
+        </div>
+      {/if}
+      {#if toast.actions?.length}
+        <div class="toast-actions">
+          {#each toast.actions as action}
+            <button class="toast-action-btn" onclick={action.onClick}>
+              {action.label}
+            </button>
+          {/each}
+        </div>
+      {/if}
     </div>
   {/each}
 </div>
@@ -131,6 +148,36 @@
   .toast-dismiss:hover {
     opacity: 1;
     color: var(--text-primary);
+  }
+
+  .toast-progress {
+    width: 100%;
+    height: 3px;
+    background: var(--bg-secondary, #333);
+    margin-top: 0.5rem;
+  }
+  .toast-progress-bar {
+    height: 100%;
+    background: var(--accent);
+    transition: width 0.3s ease;
+  }
+  .toast-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+  }
+  .toast-action-btn {
+    background: transparent;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    padding: 0.25rem 0.75rem;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.85rem;
+  }
+  .toast-action-btn:hover {
+    background: var(--accent);
+    color: var(--bg-primary, #000);
   }
 
   @keyframes slide-in {
