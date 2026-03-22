@@ -101,6 +101,35 @@ impl AgentEventSubscriber for HistoryRecorder {
     }
 }
 
+use tauri::Emitter;
+
+pub struct FrontendEmitter {
+    app_handle: tauri::AppHandle,
+}
+
+impl FrontendEmitter {
+    pub fn new(app_handle: tauri::AppHandle) -> Self {
+        Self { app_handle }
+    }
+}
+
+impl AgentEventSubscriber for FrontendEmitter {
+    fn on_event(&self, session_id: &str, event: &AgentEvent) {
+        #[derive(serde::Serialize, Clone)]
+        struct AgentEventPayload {
+            session_id: String,
+            event: AgentEvent,
+        }
+
+        let payload = AgentEventPayload {
+            session_id: session_id.to_string(),
+            event: event.clone(),
+        };
+
+        let _ = self.app_handle.emit("agent-event", payload);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -50,6 +50,17 @@ pub fn run() {
         .manage(workflow_store::WorkflowStore::new())
         .manage(agent_runtime::AgentRuntime::new())
         .manage(workflow_engine::WorkflowEngine::new())
+        .manage(
+            transport::StructuredAgentTransport::new(
+                std::path::Path::new("normalizers")
+            ).expect("Failed to load normalizers")
+        )
+        .setup(|app| {
+            let transport: tauri::State<'_, transport::StructuredAgentTransport> = app.state();
+            let emitter = transport::event_bus::FrontendEmitter::new(app.handle().clone());
+            transport.event_bus().subscribe(Box::new(emitter));
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             commands::fs::set_project_root,
             commands::fs::read_file,
@@ -98,6 +109,11 @@ pub fn run() {
             commands::engine::get_run_status,
             commands::engine::notify_node_completed,
             commands::llm::call_llm_api,
+            commands::transport::agent_send,
+            commands::transport::agent_stop,
+            commands::transport::agent_get_events,
+            commands::transport::agent_get_session_status,
+            commands::transport::agent_list_sessions,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
