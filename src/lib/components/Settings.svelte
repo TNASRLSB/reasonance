@@ -5,7 +5,7 @@
   import { llmConfigs, appSettings } from '$lib/stores/config';
   import { fontFamily, fontSize, enhancedReadability } from '$lib/stores/ui';
   import { themeMode, type ThemeMode } from '$lib/stores/theme';
-  import { locale, loadLocale, type Locale } from '$lib/i18n/index';
+  import { tr, locale, loadLocale, type Locale } from '$lib/i18n/index';
   import { get } from 'svelte/store';
 
   let {
@@ -21,7 +21,7 @@
   // Local state
   let llms = $state<LlmConfig[]>([]);
   let settings = $state<AppSettings>({});
-  let localFontFamily = $state("'JetBrains Mono', 'Fira Code', monospace");
+  let localFontFamily = $state("'Atkinson Hyperlegible Mono', monospace");
   let localFontSize = $state(14);
   let localTheme = $state<ThemeMode>('system');
   let localEnhancedReadability = $state(false);
@@ -93,6 +93,14 @@
           endpoint: l.endpoint !== undefined ? String(l.endpoint) : undefined,
         }));
 
+        // If TOML has no LLMs but store has auto-discovered ones, use store
+        if (llms.length === 0) {
+          const storeConfigs = get(llmConfigs);
+          if (storeConfigs.length > 0) {
+            llms = [...storeConfigs];
+          }
+        }
+
         const s = parsed.settings ?? {};
         settings = {
           default: s.default !== undefined ? String(s.default) : undefined,
@@ -100,15 +108,16 @@
             s.context_menu_llm !== undefined ? String(s.context_menu_llm) : undefined,
         };
       } else {
-        llms = [];
-        settings = {};
+        // No config file — use in-memory store (may have auto-discovered LLMs)
+        llms = get(llmConfigs);
+        settings = get(appSettings);
       }
     } catch (e) {
+      console.error('Settings loadConfig error:', e);
       error = `Failed to load config: ${e}`;
       llms = get(llmConfigs);
       settings = get(appSettings);
     }
-
     localFontFamily = get(fontFamily);
     localFontSize = get(fontSize);
     localTheme = get(themeMode);
@@ -226,17 +235,21 @@
       const tomlStr = stringify(tomlObj);
       await adapter.writeConfig(tomlStr);
 
-      // Update stores
+      // Update stores — close modal first to avoid re-render conflicts
+      onClose();
+
+      // Apply immediately - no async, no microtask
       llmConfigs.set(llms);
       appSettings.set(settings);
-      fontFamily.set(localFontFamily);
+      fontFamily.set("'Atkinson Hyperlegible Mono', monospace");
       fontSize.set(localFontSize);
-      themeMode.set(localTheme);
       enhancedReadability.set(localEnhancedReadability);
-      await loadLocale(localLocale);
-      locale.set(localLocale);
-
-      onClose();
+      themeMode.set(localTheme);
+      if (localLocale !== get(locale)) {
+        loadLocale(localLocale).then(() => {
+          locale.set(localLocale);
+        }).catch(() => {});
+      }
     } catch (e) {
       error = `Failed to save config: ${e}`;
     } finally {
@@ -259,10 +272,10 @@
 
 {#if visible}
   <div class="settings-overlay" role="button" tabindex="-1" onclick={handleOverlayClick} onkeydown={(e) => { if (e.key === 'Escape') handleOverlayClick(); }}>
-    <div class="settings-modal" role="dialog" aria-modal="true" aria-label="Settings">
+    <div class="settings-modal" role="dialog" aria-modal="true" aria-label={$tr('settings.title')}>
       <div class="modal-header">
-        <h2>Settings</h2>
-        <button class="close-btn" onclick={onClose} aria-label="Close">✕</button>
+        <h2>{$tr('settings.title')}</h2>
+        <button class="close-btn" onclick={onClose} aria-label={$tr('settings.close')}>✕</button>
       </div>
 
       {#if error}
@@ -272,13 +285,13 @@
       <div class="modal-body">
         <!-- LLM Configuration -->
         <section>
-          <h3>LLM Configuration</h3>
+          <h3>{$tr('settings.llm.title')}</h3>
 
           <!-- Default LLM selector -->
           <div class="field-row">
-            <label for="default-llm">Default LLM</label>
+            <label for="default-llm">{$tr('settings.llm.default')}</label>
             <select id="default-llm" bind:value={settings.default}>
-              <option value="">— none —</option>
+              <option value="">{$tr('settings.llm.none')}</option>
               {#each llms as l}
                 <option value={l.name}>{l.name}</option>
               {/each}
@@ -286,9 +299,9 @@
           </div>
 
           <div class="field-row">
-            <label for="context-menu-llm">Context Menu LLM</label>
+            <label for="context-menu-llm">{$tr('settings.llm.contextMenu')}</label>
             <select id="context-menu-llm" bind:value={settings.contextMenuLlm}>
-              <option value="">— none —</option>
+              <option value="">{$tr('settings.llm.none')}</option>
               {#each llms as l}
                 <option value={l.name}>{l.name}</option>
               {/each}
@@ -310,29 +323,29 @@
                     {/if}
                   </div>
                   <div class="llm-actions">
-                    <button onclick={() => startEdit(i)}>Edit</button>
-                    <button class="danger" onclick={() => deleteLlm(i)}>Delete</button>
+                    <button onclick={() => startEdit(i)}>{$tr('settings.llm.edit')}</button>
+                    <button class="danger" onclick={() => deleteLlm(i)}>{$tr('settings.llm.delete')}</button>
                   </div>
                 </div>
               {/each}
             </div>
           {:else}
-            <p class="empty-hint">No LLMs configured yet.</p>
+            <p class="empty-hint">{$tr('settings.llm.empty')}</p>
           {/if}
 
           {#if !showAddForm}
-            <button class="add-btn" onclick={startAdd}>+ Add LLM</button>
+            <button class="add-btn" onclick={startAdd}>{$tr('settings.llm.add')}</button>
           {:else}
             <div class="llm-form">
-              <h4>{editingIndex !== null ? 'Edit LLM' : 'Add LLM'}</h4>
+              <h4>{editingIndex !== null ? $tr('settings.llm.formEdit') : $tr('settings.llm.formAdd')}</h4>
 
               <div class="field-row">
-                <label for="llm-name">Name</label>
+                <label for="llm-name">{$tr('settings.llm.name')}</label>
                 <input id="llm-name" type="text" bind:value={newLlm.name} placeholder="e.g. Claude" />
               </div>
 
               <div class="field-row">
-                <label for="llm-type">Type</label>
+                <label for="llm-type">{$tr('settings.llm.type')}</label>
                 <select id="llm-type" bind:value={newLlm.type}>
                   <option value="cli">CLI</option>
                   <option value="api">API</option>
@@ -341,28 +354,28 @@
 
               {#if newLlm.type === 'cli'}
                 <div class="field-row">
-                  <label for="llm-command">Command</label>
+                  <label for="llm-command">{$tr('settings.llm.command')}</label>
                   <input id="llm-command" type="text" bind:value={newLlm.command} placeholder="e.g. claude" />
                 </div>
                 <div class="field-row">
-                  <label for="llm-args">Args <small>(comma-separated)</small></label>
+                  <label for="llm-args">{$tr('settings.llm.args')}</label>
                   <input id="llm-args" type="text" bind:value={newLlmArgsStr} placeholder="e.g. --no-update-notification" />
                 </div>
                 <div class="field-row">
-                  <label for="llm-yolo">YOLO Flag</label>
+                  <label for="llm-yolo">{$tr('settings.llm.yoloFlag')}</label>
                   <input id="llm-yolo" type="text" bind:value={newLlm.yoloFlag} placeholder="e.g. --dangerously-skip-permissions" />
                 </div>
                 <div class="field-row">
-                  <label for="llm-image-mode">Image Mode</label>
+                  <label for="llm-image-mode">{$tr('settings.llm.imageMode')}</label>
                   <select id="llm-image-mode" bind:value={newLlm.imageMode}>
-                    <option value="path">Path</option>
+                    <option value="path">{$tr('settings.llm.imagePath')}</option>
                     <option value="base64">Base64</option>
-                    <option value="none">None</option>
+                    <option value="none">{$tr('settings.llm.imageNone')}</option>
                   </select>
                 </div>
               {:else}
                 <div class="field-row">
-                  <label for="llm-provider">Provider</label>
+                  <label for="llm-provider">{$tr('settings.llm.provider')}</label>
                   <select id="llm-provider" bind:value={newLlm.provider}>
                     <option value="anthropic">Anthropic</option>
                     <option value="openai">OpenAI</option>
@@ -370,24 +383,24 @@
                   </select>
                 </div>
                 <div class="field-row">
-                  <label for="llm-api-key-env">API Key Env Var</label>
+                  <label for="llm-api-key-env">{$tr('settings.llm.apiKeyEnv')}</label>
                   <input id="llm-api-key-env" type="text" bind:value={newLlm.apiKeyEnv} placeholder="e.g. ANTHROPIC_API_KEY" />
                 </div>
                 <div class="field-row">
-                  <label for="llm-model">Model</label>
+                  <label for="llm-model">{$tr('settings.llm.model')}</label>
                   <input id="llm-model" type="text" bind:value={newLlm.model} placeholder="e.g. claude-opus-4-5" />
                 </div>
                 {#if newLlm.provider === 'openai-compatible'}
                   <div class="field-row">
-                    <label for="llm-endpoint">Endpoint</label>
+                    <label for="llm-endpoint">{$tr('settings.llm.endpoint')}</label>
                     <input id="llm-endpoint" type="text" bind:value={newLlm.endpoint} placeholder="https://api.example.com/v1" />
                   </div>
                 {/if}
               {/if}
 
               <div class="form-actions">
-                <button onclick={submitLlm}>{editingIndex !== null ? 'Update' : 'Add'}</button>
-                <button class="secondary" onclick={cancelForm}>Cancel</button>
+                <button onclick={submitLlm}>{editingIndex !== null ? $tr('settings.llm.update') : $tr('settings.llm.addBtn')}</button>
+                <button class="secondary" onclick={cancelForm}>{$tr('settings.cancel')}</button>
               </div>
             </div>
           {/if}
@@ -395,9 +408,9 @@
 
         <!-- Language -->
         <section>
-          <h3>Language</h3>
+          <h3>{$tr('settings.language')}</h3>
           <div class="field-row">
-            <label for="language-select">Language</label>
+            <label for="language-select">{$tr('settings.language')}</label>
             <select id="language-select" bind:value={localLocale}>
               {#each (['en', 'it', 'de', 'es', 'fr', 'pt', 'zh', 'hi', 'ar'] as Locale[]) as loc}
                 <option value={loc}>{localeLabels[loc]}</option>
@@ -408,22 +421,22 @@
 
         <!-- Terminal Settings -->
         <section>
-          <h3>Terminal Settings</h3>
+          <h3>{$tr('settings.terminal.title')}</h3>
           <div class="field-row">
-            <label for="font-family">Font Family</label>
-            <input id="font-family" type="text" bind:value={localFontFamily} />
+            <label>{$tr('settings.font')}</label>
+            <span class="font-preview">Atkinson Hyperlegible Mono</span>
           </div>
           <div class="field-row">
-            <label for="font-size">Font Size</label>
+            <label for="font-size">{$tr('settings.fontSize')}</label>
             <input id="font-size" type="number" min="8" max="32" bind:value={localFontSize} />
           </div>
         </section>
 
         <!-- Accessibility -->
         <section>
-          <h3>Accessibility</h3>
+          <h3>{$tr('settings.accessibility.title')}</h3>
           <div class="field-row">
-            <label for="enhanced-readability">Enhanced Readability</label>
+            <label for="enhanced-readability">{$tr('settings.readability')}</label>
             <button
               id="enhanced-readability"
               class="toggle-btn"
@@ -432,15 +445,15 @@
               role="switch"
               aria-checked={localEnhancedReadability}
             >
-              {localEnhancedReadability ? 'ON' : 'OFF'}
+              {localEnhancedReadability ? $tr('settings.on') : $tr('settings.off')}
             </button>
           </div>
-          <p class="field-hint">Larger text (18px), increased spacing, heavier weight. Based on dyslexia readability research.</p>
+          <p class="field-hint">{$tr('settings.readability.hint')}</p>
         </section>
 
         <!-- Theme -->
         <section>
-          <h3>Theme</h3>
+          <h3>{$tr('settings.theme')}</h3>
           <div class="theme-toggle">
             {#each (['light', 'dark', 'system'] as ThemeMode[]) as mode}
               <button
@@ -448,7 +461,7 @@
                 class:active={localTheme === mode}
                 onclick={() => (localTheme = mode)}
               >
-                {mode === 'light' ? 'Light' : mode === 'dark' ? 'Dark' : 'System'}
+                {mode === 'light' ? $tr('settings.theme.light') : mode === 'dark' ? $tr('settings.theme.dark') : $tr('settings.theme.system')}
               </button>
             {/each}
           </div>
@@ -456,9 +469,9 @@
       </div>
 
       <div class="modal-footer">
-        <button class="secondary" onclick={onClose}>Cancel</button>
+        <button class="secondary" onclick={onClose}>{$tr('settings.cancel')}</button>
         <button class="primary" onclick={save} disabled={saving}>
-          {saving ? 'Saving…' : 'Save'}
+          {saving ? $tr('settings.saving') : $tr('settings.save')}
         </button>
       </div>
     </div>
@@ -579,6 +592,12 @@
     outline-offset: var(--focus-offset);
   }
 
+  .font-preview {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--text-secondary);
+  }
+
   /* LLM list */
   .llm-list {
     display: flex;
@@ -681,12 +700,18 @@
 
   .theme-btn:hover {
     border-color: var(--accent);
-    color: var(--accent);
+    background: var(--accent);
+    color: #fff;
   }
 
   .theme-btn.active {
     background: var(--accent);
     border-color: var(--accent);
+    color: #fff;
+  }
+
+  .theme-btn.active:hover {
+    opacity: 0.85;
     color: #fff;
   }
 
