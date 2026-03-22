@@ -68,6 +68,16 @@ pub fn run() {
             transport::session_manager::SessionManager::new(&sessions_dir)
                 .expect("Failed to initialize SessionManager")
         })
+        .manage(capability::CapabilityNegotiator::new())
+        .manage(cli_updater::CliUpdater::new())
+        .manage(normalizer_health::NormalizerHealth::new())
+        .manage({
+            let versions_dir = dirs::data_dir()
+                .unwrap_or_else(|| std::path::PathBuf::from("."))
+                .join("reasonance")
+                .join("normalizer-versions");
+            normalizer_version::NormalizerVersionStore::new(&versions_dir)
+        })
         .setup(|app| {
             let transport: tauri::State<'_, transport::StructuredAgentTransport> = app.state();
 
@@ -85,6 +95,25 @@ pub fn run() {
                 }
             }
             transport.event_bus().subscribe(Box::new(SessionRecorderWrapper(session_recorder)));
+
+            // Load capability cache
+            let negotiator: tauri::State<'_, capability::CapabilityNegotiator> = app.state();
+            let cache_dir = dirs::data_dir()
+                .unwrap_or_else(|| std::path::PathBuf::from("."))
+                .join("reasonance")
+                .join("capabilities");
+            let _ = negotiator.load_cache(&cache_dir);
+
+            // Register CLI providers from normalizer configs
+            let updater: tauri::State<'_, cli_updater::CliUpdater> = app.state();
+            let registry = transport.registry();
+            let registry_guard = registry.lock().unwrap();
+            let configs: std::collections::HashMap<String, _> = registry_guard.providers()
+                .into_iter()
+                .filter_map(|p| registry_guard.get_config(&p).map(|c| (p, c.clone())))
+                .collect();
+            drop(registry_guard);
+            updater.register_from_configs(&configs);
 
             Ok(())
         })
@@ -149,6 +178,13 @@ pub fn run() {
             commands::session::session_rename,
             commands::session::session_fork,
             commands::session::session_set_view_mode,
+            commands::capability::get_capabilities,
+            commands::capability::get_provider_capabilities,
+            commands::capability::get_cli_versions,
+            commands::capability::get_normalizer_versions,
+            commands::capability::rollback_normalizer,
+            commands::capability::get_health_report,
+            commands::capability::get_all_health_reports,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
