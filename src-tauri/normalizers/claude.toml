@@ -61,6 +61,19 @@ tool_name = "content_block.name"
 parent_id = "content_block.id"
 
 [[rules]]
+name = "tool_input_delta"
+when = 'type == "content_block_delta" && delta.type == "input_json_delta"'
+emit = "tool_use"
+
+[rules.mappings]
+content = "delta.partial_json"
+
+[[rules]]
+name = "block_stop"
+when = 'type == "content_block_stop"'
+emit = "status"
+
+[[rules]]
 name = "error_rate_limit"
 when = 'type == "error" && error.type == "overloaded"'
 emit = "error"
