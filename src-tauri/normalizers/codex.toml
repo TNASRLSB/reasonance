@@ -1,0 +1,116 @@
+[cli]
+name = "codex"
+binary = "codex"
+programmatic_args = ["-q", "--json", "{prompt}"]
+resume_args = ["-q", "--json", "{prompt}"]
+version_command = ["codex", "--version"]
+update_command = ["npm", "install", "-g", "@openai/codex@latest"]
+
+[capabilities]
+streaming = true
+session_resume = false
+tool_use = true
+thinking = true
+structured_output = true
+diff_output = false
+
+[retry]
+max_retries = 3
+backoff = { strategy = "exponential", base_ms = 1000, max_ms = 30000 }
+retryable_codes = ["rate_limit", "server_error"]
+
+[commands]
+cancel = { method = "signal", signal = "SIGINT" }
+
+[session]
+session_id_path = "params.thread_id"
+model_path = "params.model"
+
+[[rules]]
+name = "error_rate_limit"
+when = 'method == "ErrorNotification" && params.code == "rate_limit"'
+emit = "error"
+[rules.mappings]
+content = "params.message"
+error_code = "params.code"
+severity = "recoverable"
+
+[[rules]]
+name = "error_server"
+when = 'method == "ErrorNotification" && params.code == "server_error"'
+emit = "error"
+[rules.mappings]
+content = "params.message"
+error_code = "params.code"
+severity = "recoverable"
+
+[[rules]]
+name = "error_generic"
+when = 'method == "ErrorNotification"'
+emit = "error"
+[rules.mappings]
+content = "params.message"
+error_code = "params.code"
+severity = "fatal"
+
+[[rules]]
+name = "text_delta"
+when = 'method == "AgentMessageDeltaNotification"'
+emit = "text"
+[rules.mappings]
+content = "params.delta"
+
+[[rules]]
+name = "reasoning_completed"
+when = 'method == "ItemCompletedNotification" && params.item.type == "reasoning"'
+emit = "thinking"
+[rules.mappings]
+content = "params.item.content"
+
+[[rules]]
+name = "command_execution"
+when = 'method == "ItemCompletedNotification" && params.item.type == "commandExecution"'
+emit = "tool_use"
+[rules.mappings]
+content = "params.item.output"
+tool_name = "params.item.command"
+parent_id = "params.item.id"
+
+[[rules]]
+name = "mcp_tool_call"
+when = 'method == "ItemCompletedNotification" && params.item.type == "mcpToolCall"'
+emit = "tool_use"
+[rules.mappings]
+content = "params.item.output"
+tool_name = "params.item.name"
+parent_id = "params.item.id"
+
+[[rules]]
+name = "usage"
+when = 'method == "ThreadTokenUsageUpdatedNotification"'
+emit = "usage"
+[rules.mappings]
+input_tokens = "params.usage.input_tokens"
+output_tokens = "params.usage.output_tokens"
+
+[[rules]]
+name = "done"
+when = 'method == "TurnCompletedNotification"'
+emit = "done"
+
+[[tests]]
+name = "basic_text"
+prompt = "Reply with exactly: REASONANCE_TEST_OK"
+max_tokens = 50
+expected = [
+  { event_type = "text", required = true, validate = { type = "content_matches", pattern = "REASONANCE_TEST_OK" } },
+  { event_type = "done", required = true, validate = "exists" },
+]
+
+[[tests]]
+name = "reasoning"
+prompt = "Think step by step: what is 2+2?"
+max_tokens = 200
+expected = [
+  { event_type = "thinking", required = false, validate = "content_not_empty" },
+]
