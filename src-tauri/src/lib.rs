@@ -12,6 +12,7 @@ mod agent_runtime;
 mod workflow_engine;
 mod cli_updater;
 mod normalizer_version;
+mod normalizer_health;
 
 use commands::fs::ProjectRootState;
 use fs_watcher::FsWatcherState;
