@@ -6,6 +6,7 @@
   import ToolUseBlock from './ToolUseBlock.svelte';
   import ErrorBlock from './ErrorBlock.svelte';
   import StreamingIndicator from './StreamingIndicator.svelte';
+  import ActionableMessage from './ActionableMessage.svelte';
 
   let { events = [], streaming = false, adapter, onFork }: {
     events: AgentEvent[];
@@ -76,26 +77,30 @@
 
 <div class="chat-messages" role="log" aria-live="polite" bind:this={messagesEl}>
   {#each messageGroups as group, gi (gi)}
-    <div class="message-group {group.role}" role="article" tabindex="0">
-      <div class="message-role">{group.role === 'agent' ? 'AGENT' : 'YOU'}</div>
-      <div class="message-content">
-        {#each group.events as event (event.id)}
-          {#if event.event_type === 'thinking'}
-            <ThinkingBlock text={event.content.type === 'text' ? event.content.value : ''} />
-          {:else if event.event_type === 'tool_use'}
-            <ToolUseBlock {event} result={toolResults.get(event.id)} />
-          {:else if event.event_type === 'error'}
-            <ErrorBlock
-              message={event.content.type === 'text' ? event.content.value : 'Unknown error'}
-              severity={event.metadata.error_severity ?? 'fatal'}
-              code={event.metadata.error_code ?? ''}
-            />
-          {:else}
-            <ContentRenderer {event} {adapter} />
-          {/if}
-        {/each}
-      </div>
-    </div>
+    <ActionableMessage events={group.events} role={group.role} forkIndex={group.lastEventIndex} {onFork}>
+      {#snippet children()}
+        <div class="message-group {group.role}" role="article" tabindex="0">
+          <div class="message-role">{group.role === 'agent' ? 'AGENT' : 'YOU'}</div>
+          <div class="message-content">
+            {#each group.events as event (event.id)}
+              {#if event.event_type === 'thinking'}
+                <ThinkingBlock text={event.content.type === 'text' ? event.content.value : ''} />
+              {:else if event.event_type === 'tool_use'}
+                <ToolUseBlock {event} result={toolResults.get(event.id)} />
+              {:else if event.event_type === 'error'}
+                <ErrorBlock
+                  message={event.content.type === 'text' ? event.content.value : 'Unknown error'}
+                  severity={event.metadata.error_severity ?? 'fatal'}
+                  code={event.metadata.error_code ?? ''}
+                />
+              {:else}
+                <ContentRenderer {event} {adapter} />
+              {/if}
+            {/each}
+          </div>
+        </div>
+      {/snippet}
+    </ActionableMessage>
   {/each}
 
   {#if streaming}
