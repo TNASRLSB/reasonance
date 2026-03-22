@@ -67,7 +67,7 @@ export type SessionStatus =
 
 export type ViewMode = 'chat' | 'terminal';
 
-export type CliMode = 'structured' | 'pty';
+export type CliMode = 'structured' | 'basic_print' | 'pty_only' | 'direct_api';
 
 export type SessionSource =
   | 'user'

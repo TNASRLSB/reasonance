@@ -232,15 +232,18 @@
   });
 
   // Listen for agent events from the structured transport
-  let unlistenAgentEvents: (() => void) | null = null;
   $effect(() => {
+    let cancelled = false;
+    let unlisten: (() => void) | null = null;
     adapter.onAgentEvent((payload) => {
       processAgentEvent(payload);
-    }).then((unlisten) => {
-      unlistenAgentEvents = unlisten;
+    }).then((fn) => {
+      if (cancelled) { fn(); return; }
+      unlisten = fn;
     });
     return () => {
-      unlistenAgentEvents?.();
+      cancelled = true;
+      unlisten?.();
     };
   });
 

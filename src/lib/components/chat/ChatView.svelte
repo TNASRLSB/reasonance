@@ -3,7 +3,7 @@
   import type { AgentEvent } from '$lib/types/agent-event';
   import ChatMessages from './ChatMessages.svelte';
   import ChatInput from './ChatInput.svelte';
-  import { agentEvents, streamingSessionIds, processAgentEvent, setSessionEvents, setStreaming } from '$lib/stores/agent-events';
+  import { agentEvents, streamingSessionIds, setSessionEvents, setStreaming } from '$lib/stores/agent-events';
 
   let { adapter, sessionId, provider, model }: {
     adapter: Adapter;
