@@ -33,21 +33,23 @@
       style="border-left-color: {borderColors[toast.type] ?? borderColors.info}"
       role="alert"
     >
-      <div class="toast-icon" style="color: {borderColors[toast.type] ?? borderColors.info}">
-        {icons[toast.type] ?? icons.info}
-        <span class="toast-label">{labels[toast.type] ?? labels.info}</span>
+      <div class="toast-row">
+        <div class="toast-icon" style="color: {borderColors[toast.type] ?? borderColors.info}">
+          {icons[toast.type] ?? icons.info}
+          <span class="toast-label">{labels[toast.type] ?? labels.info}</span>
+        </div>
+        <div class="toast-content">
+          <div class="toast-title">{toast.title}</div>
+          {#if toast.body}
+            <div class="toast-body">{toast.body}</div>
+          {/if}
+        </div>
+        <button
+          class="toast-dismiss"
+          onclick={() => dismissToast(toast.id)}
+          aria-label="Dismiss notification"
+        >×</button>
       </div>
-      <div class="toast-content">
-        <div class="toast-title">{toast.title}</div>
-        {#if toast.body}
-          <div class="toast-body">{toast.body}</div>
-        {/if}
-      </div>
-      <button
-        class="toast-dismiss"
-        onclick={() => dismissToast(toast.id)}
-        aria-label="Dismiss notification"
-      >×</button>
       {#if toast.progress !== undefined}
         <div class="toast-progress">
           <div class="toast-progress-bar" style="width: {toast.progress}%"></div>
@@ -80,8 +82,7 @@
 
   .toast {
     display: flex;
-    align-items: flex-start;
-    gap: 0.625rem;
+    flex-direction: column;
     padding: 0.75rem 1rem;
     min-width: 280px;
     max-width: 420px;
@@ -92,6 +93,12 @@
     pointer-events: all;
     font-family: var(--font-ui);
     animation: slide-in 0.2s ease-out;
+  }
+
+  .toast-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.625rem;
   }
 
   .toast-icon {
