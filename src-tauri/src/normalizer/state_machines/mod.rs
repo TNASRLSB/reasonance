@@ -3,6 +3,7 @@ pub mod claude;
 pub mod accumulator;
 pub mod gemini;
 pub mod kimi;
+pub mod qwen;
 
 use crate::agent_event::AgentEvent;
 
