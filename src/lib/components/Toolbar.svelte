@@ -12,7 +12,7 @@
     const current = get(yoloMode);
     if (!current) {
       const ok = confirm(
-        'Enable YOLO mode?\n\nThis disables all permission prompts for new terminal instances. The LLM will be able to run commands without asking for approval.\n\nProceed?'
+        'Enable YOLO mode?\n\nThis disables all permission prompts. All running terminal instances will be restarted with YOLO enabled.\n\nProceed?'
       );
       if (!ok) return;
     }
@@ -91,7 +91,7 @@
       class="yolo-btn"
       class:active={$yoloMode}
       onclick={toggleYolo}
-      title="YOLO mode — auto-approve permissions (applies to new terminal instances)"
+      title="YOLO mode — auto-approve permissions (restarts all instances)"
     >
       {$yoloMode ? '\u26A1 YOLO ON' : 'YOLO'}
     </button>

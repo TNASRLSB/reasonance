@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import type { Adapter, FileEntry } from '$lib/adapter';
   import { getFileIcon } from '$lib/utils/icons';
-  import { addOpenFile, projectRoot } from '$lib/stores/files';
+  import { addOpenFile, projectRoot, activeFilePath } from '$lib/stores/files';
 
   let { adapter }: { adapter: Adapter } = $props();
 
@@ -137,43 +137,48 @@
 
 </script>
 
-<div class="file-tree" role="tree" aria-label="File explorer" onkeydown={handleTreeKeydown}>
+<div class="file-tree">
   <div class="tree-header">{currentRoot === '.' ? 'FILES' : currentRoot.split('/').pop()}</div>
 
-  {#snippet renderEntries(items: FileEntry[], depth: number)}
-    {#each items as entry (entry.path)}
-      <button
-        class="tree-item"
-        class:gitignored={entry.isGitignored}
-        style="padding-left: {14 + depth * 16}px"
-        onclick={() => handleClick(entry)}
-        role="treeitem"
-        tabindex="-1"
-        aria-expanded={entry.isDir ? expandedDirs.has(entry.path) : undefined}
-        data-path={entry.path}
-      >
-        <span class="icon">{getFileIcon(entry.name, entry.isDir)}</span>
-        <span class="name">{entry.name}</span>
-      </button>
-      {#if entry.isDir && expandedDirs.has(entry.path)}
-        <div role="group">
-          {@render renderEntries(childrenCache.get(entry.path) ?? [], depth + 1)}
-        </div>
-      {/if}
-    {/each}
-  {/snippet}
+  <div class="tree-scroll" role="tree" aria-label="File explorer" onkeydown={handleTreeKeydown}>
+    {#snippet renderEntries(items: FileEntry[], depth: number)}
+      {#each items as entry (entry.path)}
+        <button
+          class="tree-item"
+          class:gitignored={entry.isGitignored}
+          class:active={!entry.isDir && $activeFilePath === entry.path}
+          style="padding-left: {14 + depth * 16}px"
+          onclick={() => handleClick(entry)}
+          role="treeitem"
+          tabindex="-1"
+          aria-selected={!entry.isDir && $activeFilePath === entry.path}
+          aria-expanded={entry.isDir ? expandedDirs.has(entry.path) : undefined}
+          data-path={entry.path}
+        >
+          <span class="icon">{getFileIcon(entry.name, entry.isDir)}</span>
+          <span class="name">{entry.name}</span>
+        </button>
+        {#if entry.isDir && expandedDirs.has(entry.path)}
+          <div role="group">
+            {@render renderEntries(childrenCache.get(entry.path) ?? [], depth + 1)}
+          </div>
+        {/if}
+      {/each}
+    {/snippet}
 
-  {@render renderEntries(entries, 0)}
+    {@render renderEntries(entries, 0)}
+  </div>
 </div>
 
 <style>
   .file-tree {
     height: 100%;
-    overflow-y: auto;
     display: flex;
     flex-direction: column;
     font-family: var(--font-ui);
     background: var(--bg-surface);
+    overflow: hidden;
+    min-height: 0;
   }
 
   .tree-header {
@@ -185,6 +190,12 @@
     padding: 12px 14px 8px;
     flex-shrink: 0;
     border-bottom: 1px solid var(--border);
+  }
+
+  .tree-scroll {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
   }
 
   .tree-item {
@@ -212,6 +223,13 @@
     background: var(--bg-hover);
     color: var(--text-primary);
     border-left-color: var(--accent);
+  }
+
+  .tree-item.active {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    border-left-color: var(--accent);
+    font-weight: 600;
   }
 
   .tree-item.gitignored {

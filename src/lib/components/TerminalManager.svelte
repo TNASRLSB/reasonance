@@ -156,11 +156,65 @@
     activeTabInstances.find((i) => i.id === $activeInstanceId)
   );
 
-  function generateBar(percent: number): string {
-    const filled = Math.round(percent / 12.5);
-    const empty = 8 - filled;
-    return '\u2588'.repeat(filled) + '\u2591'.repeat(empty);
-  }
+  // Restart all running instances when YOLO mode is toggled
+  let prevYolo: boolean | null = null;
+  $effect(() => {
+    const current = $yoloMode;
+    if (prevYolo === null) {
+      // Skip initial value — don't restart on mount
+      prevYolo = current;
+      return;
+    }
+    if (current === prevYolo) return;
+    prevYolo = current;
+
+    const tabs = get(terminalTabs);
+    const allInstances = tabs.flatMap((t) => t.instances.map((i) => ({ ...i, llmName: t.llmName })));
+    if (allInstances.length === 0) return;
+
+    // Restart each instance with updated args
+    (async () => {
+      for (const inst of allInstances) {
+        const config = get(llmConfigs).find((c) => c.name === inst.llmName);
+        if (!config || !config.command) continue;
+
+        // Kill old process
+        await adapter.killProcess(inst.id).catch((e) => console.warn('Failed to kill process:', e));
+
+        // Build new args
+        const args = [...(config.args ?? [])];
+        if (current && config.yoloFlag) {
+          args.push(config.yoloFlag);
+        }
+
+        // Spawn new process
+        let handle;
+        try {
+          handle = await adapter.spawnProcess(config.command, args, cwd);
+        } catch (err) {
+          console.error('Failed to respawn process:', err);
+          continue;
+        }
+
+        // Update instance id in store (key change forces Terminal component recreation)
+        const oldId = inst.id;
+        terminalTabs.update((tabs) =>
+          tabs.map((t) => ({
+            ...t,
+            instances: t.instances.map((i) =>
+              i.id === oldId ? { ...i, id: handle.id } : i
+            ),
+          }))
+        );
+
+        // Update active instance if it was the one we just restarted
+        if (get(activeInstanceId) === oldId) {
+          activeInstanceId.set(handle.id);
+        }
+      }
+    })();
+  });
+
 
 </script>
 
@@ -312,28 +366,6 @@
       {/each}
     </div>
 
-    <!-- Model info bar (per-instance) -->
-    {#if activeInstanceData}
-      <div class="model-info-bar" aria-live="polite">
-        {#if activeInstanceData.contextPercent != null}
-          <span class="ctx-info" title="Context window usage">
-            ctx <span class="ctx-bar">{generateBar(activeInstanceData.contextPercent)}</span> {activeInstanceData.contextPercent}%
-          </span>
-        {/if}
-        {#if activeInstanceData.tokenCount}
-          <span class="token-count" title="Tokens used">{activeInstanceData.tokenCount} tokens</span>
-        {/if}
-        {#if activeInstanceData.modelName}
-          <span class="model-name">{activeInstanceData.modelName}</span>
-        {/if}
-        {#if activeInstanceData.resetTimer}
-          <span class="reset-timer" title="Rate limit reset">&#9201; {activeInstanceData.resetTimer}</span>
-        {/if}
-        {#if activeInstanceData.messagesLeft != null}
-          <span class="msg-left" title="Messages remaining">&#9993; {activeInstanceData.messagesLeft}</span>
-        {/if}
-      </div>
-    {/if}
   {/if}
 </div>
 
@@ -344,51 +376,6 @@
     height: 100%;
     overflow: hidden;
     background: var(--bg-surface);
-  }
-
-  .model-info-bar {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    padding: 4px 10px;
-    background: var(--bg-primary);
-    border-top: 2px solid var(--border);
-    font-family: var(--font-mono);
-    font-size: var(--font-size-tiny);
-    color: var(--text-secondary);
-    flex-shrink: 0;
-  }
-
-  .ctx-info {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-  }
-
-  .ctx-bar {
-    letter-spacing: 0.05em;
-    font-size: 10px;
-    color: var(--accent);
-  }
-
-  .token-count {
-    color: var(--text-body);
-    font-weight: 500;
-  }
-
-  .model-name {
-    font-weight: 700;
-    color: var(--text-primary);
-    text-transform: uppercase;
-    letter-spacing: 0.02em;
-  }
-
-  .reset-timer {
-    color: var(--warning);
-  }
-
-  .msg-left {
-    color: var(--text-secondary);
   }
 
   .llm-tabs {
