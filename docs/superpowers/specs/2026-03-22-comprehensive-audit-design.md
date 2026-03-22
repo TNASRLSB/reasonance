@@ -1,7 +1,7 @@
 # Comprehensive Multi-Persona Audit — Design Spec
 
 **Date:** 2026-03-22
-**Status:** Approved
+**Status:** Reviewed — pending user sign-off
 **Scope:** Full application audit from 7 perspectives + visual testing + adversarial testing
 
 ---
@@ -12,11 +12,27 @@ Accessibility-focused users have tested Reasonance and are not satisfied. Reason
 
 ---
 
+## Prerequisites
+
+Before execution begins, verify:
+- **Tauri dev environment** working (`npm run tauri dev` launches successfully)
+- **At least one LLM provider** configured with a valid API key (needed for chat flow testing, adversarial testing, streaming tests)
+- **Network access** (needed for provider testing, competitive research)
+- **Test API key budget** sufficient for multiple chat sessions
+- **Playwright installed** (`npx playwright install` — needed for visual testing and axe-core injection)
+- **axe-core Playwright** installed (`npm i -D @axe-core/playwright` — needed for automated WCAG scanning)
+- **Lighthouse CLI** installed (`npm i -g lighthouse` — needed for Phase 3C)
+- **jq** installed (needed for Morpheus context monitoring)
+
+---
+
 ## Audit Architecture
 
 ### Phase 0 — Competitive Intelligence
 
-Analyze how VS Code, Cursor, Zed, and Windsurf handle the same features Reasonance offers. Produce a feature-by-feature comparison matrix. Every finding in subsequent phases references how competitors solve the same problem.
+Analyze how VS Code, Cursor, Zed, and Windsurf handle the same features Reasonance offers. Focus on verifiable facts from public documentation and open-source repos (VS Code, Zed are OSS). Produce a feature-by-feature comparison matrix.
+
+**Note:** This matrix is best-effort based on publicly available information. Marked for human validation before using as a decision basis.
 
 **Deliverable:** `docs/audit/competitive-matrix.md`
 
@@ -24,7 +40,9 @@ Analyze how VS Code, Cursor, Zed, and Windsurf handle the same features Reasonan
 
 ### Phase 1 — Parallel Deep Scan (7 Agents)
 
-Seven agents run simultaneously, each with a distinct persona and audit scope:
+Seven audit passes, each conducted under a distinct persona. Passes are launched as parallel subagents where feasible (code-level analysis), sequential where required (visual testing). Each pass is independent, allowing partial delivery.
+
+**Completion criterion for each agent:** Every scope item has at least one finding (positive or negative) documented. No scope item left unexamined.
 
 #### Agent 1: Vibecoder
 **Persona:** A developer who relies exclusively on LLM tools. No terminal comfort, no config file editing. Everything through the UI.
@@ -172,20 +190,31 @@ After Phase 1, synthesize findings by component. For each of these components:
 | Shortcuts | `ShortcutsDialog.svelte` |
 | Help | `HelpPanel.svelte` |
 | Layout | `+page.svelte` (main layout, resize handles) |
+| Welcome | `WelcomeScreen.svelte` |
+| StatusBar | `StatusBar.svelte` |
+| Toast/Notifications | `Toast.svelte` |
+| DiffView | `DiffView.svelte`, `DiffBlock.svelte` |
+| ContextMenu | `ContextMenu.svelte` |
+| Swarm Canvas | `swarm/` directory |
 
 For each component, produce:
 - **Nielsen Heuristic Score** (1-5 per heuristic, 10 heuristics)
 - **Cognitive Load Rating** (low/medium/high + why)
 - **Error State Coverage** (what errors are handled? what's missing?)
 - **Cross-persona findings** (what each agent found, cross-referenced)
+- **WCAG 2.1 criterion-by-criterion evaluation** (pass/fail/partial for each applicable criterion at AA level, aspirational AAA noted)
 
-**Deliverable:** `docs/audit/nielsen-scorecard.md`
+**Deliverables:**
+- `docs/audit/nielsen-scorecard.md`
+- `docs/audit/wcag-matrix.md` — produced during this phase by cross-referencing Agent 3 findings with Phase 3C automated scans
 
 ---
 
 ### Phase 3 — Visual Testing Live
 
 Launch the app with `npm run dev` (or `npm run tauri dev` if Rust backend needed).
+
+**Setup:** Write Playwright test scripts for automated visual testing. Use existing axe-core dependency via Playwright injection (`@axe-core/playwright`). Install Lighthouse CLI if not present.
 
 #### 3A: As Vibecoder (sequential)
 Walk through every user flow, screenshot key states:
@@ -241,13 +270,24 @@ Actively try to break the app:
 | 3 | UX/UI Designer Report | `docs/audit/uxui-report.md` | Accessibility, visual design, interaction patterns, WCAG compliance |
 | 4 | Security Report | `docs/audit/security-report.md` | Vulnerability findings, severity ratings, remediation |
 | 5 | i18n Report | `docs/audit/i18n-report.md` | Locale coverage, RTL issues, truncation, encoding |
-| 6 | Performance Report | `docs/audit/performance-report.md` | Bundle, memory, reactivity, load times |
-| 7 | Unified Report | `docs/audit/unified-report.md` | Cross-reference of all findings, patterns, systemic issues |
-| 8 | Competitive Matrix | `docs/audit/competitive-matrix.md` | Feature-by-feature vs VS Code, Cursor, Zed, Windsurf |
-| 9 | Nielsen Scorecard | `docs/audit/nielsen-scorecard.md` | 10 heuristics × every component, scored 1-5 |
-| 10 | WCAG Compliance Matrix | `docs/audit/wcag-matrix.md` | Every WCAG 2.1 AA/AAA criterion, pass/fail/partial per component |
-| 11 | Issue List | `docs/audit/issues.md` | Every issue: severity, component, persona, fix suggestion |
-| 12 | Priority Roadmap | `docs/audit/priority-roadmap.md` | Issues ranked by impact × effort, grouped into sprints |
+| 6 | Stress & Edge Cases Report | `docs/audit/stress-report.md` | Edge case findings, crash scenarios, degradation patterns |
+| 7 | Performance Report | `docs/audit/performance-report.md` | Bundle, memory, reactivity, load times |
+| 8 | Unified Report | `docs/audit/unified-report.md` | See structure below |
+| 9 | Competitive Matrix | `docs/audit/competitive-matrix.md` | Feature-by-feature vs VS Code, Cursor, Zed, Windsurf |
+| 10 | Nielsen Scorecard | `docs/audit/nielsen-scorecard.md` | 10 heuristics × every component, scored 1-5 |
+| 11 | WCAG Compliance Matrix | `docs/audit/wcag-matrix.md` | Every WCAG 2.1 AA/AAA criterion, pass/fail/partial per component |
+| 12 | Issue List | `docs/audit/issues.md` | Every issue: severity, component, persona, fix suggestion |
+| 13 | Priority Roadmap | `docs/audit/priority-roadmap.md` | Issues ranked by impact × effort, grouped into sprints |
+
+### Unified Report Structure
+
+The unified report (`docs/audit/unified-report.md`) follows this structure:
+1. **Executive Summary** — 1-page overview of Reasonance's current state
+2. **Systemic Patterns** — Issues appearing across 3+ agents (these are architectural, not cosmetic)
+3. **Component Health Summary** — Ranked worst-to-best, with per-component scores
+4. **Top 20 Critical Issues** — Cross-persona evidence, impact assessment, recommended fix
+5. **Promise vs Reality** — Reasonance's stated commitments mapped to audit findings
+6. **Competitive Position** — Where Reasonance leads, where it trails, where it's unique
 
 ---
 
@@ -260,6 +300,20 @@ Actively try to break the app:
 | P2 | **Major** | Feature degraded, moderate a11y issue, notable friction |
 | P3 | **Minor** | Cosmetic, minor inconsistency, polish opportunity |
 | P4 | **Enhancement** | Not broken, but could be significantly better |
+
+---
+
+## Estimated Effort
+
+| Phase | Estimated Sessions | Notes |
+|-------|-------------------|-------|
+| Phase 0 | 1 | Web research + matrix writing |
+| Phase 1 | 2-3 | 7 parallel agents, code-intensive |
+| Phase 2 | 1-2 | Cross-referencing, scoring |
+| Phase 3 | 1-2 | App must be running, interactive testing |
+| Phase 3.5 | 1 | Adversarial, app running |
+| Phase 4 | 2-3 | Report writing, synthesis, roadmap |
+| **Total** | **8-12 sessions** | Can be parallelized where noted |
 
 ---
 
