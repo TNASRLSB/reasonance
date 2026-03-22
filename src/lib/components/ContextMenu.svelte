@@ -140,6 +140,7 @@
     border-radius: var(--radius);
     padding: 4px 0;
     min-width: 200px;
+    max-width: 280px;
     font-size: 13px;
     font-family: var(--font-ui);
   }
@@ -155,6 +156,9 @@
     color: var(--text-primary, #e2e8f0);
     cursor: pointer;
     text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     gap: 8px;
     transition: background 0.1s;
   }

@@ -43,6 +43,8 @@
   // Add LLM form state
   let showAddForm = $state(false);
   let editingIndex = $state<number | null>(null);
+  // Tracks indices of LLMs marked for deletion (pending until Save)
+  let pendingDeleteIndices = $state<Set<number>>(new Set());
 
   let newLlm = $state<LlmConfig>({
     name: '',
@@ -111,6 +113,7 @@
     localTheme = get(themeMode);
     localEnhancedReadability = get(enhancedReadability);
     localLocale = get(locale);
+    pendingDeleteIndices = new Set();
   }
 
   function startAdd() {
@@ -184,12 +187,20 @@
   }
 
   function deleteLlm(index: number) {
-    llms = llms.filter((_, i) => i !== index);
+    if (pendingDeleteIndices.has(index)) {
+      // Undo pending delete
+      pendingDeleteIndices = new Set([...pendingDeleteIndices].filter((i) => i !== index));
+    } else {
+      pendingDeleteIndices = new Set([...pendingDeleteIndices, index]);
+    }
   }
 
   async function save() {
     saving = true;
     error = '';
+
+    // Apply pending deletions before saving
+    const effectiveLlms = llms.filter((_, i) => !pendingDeleteIndices.has(i));
 
     try {
       // Build TOML object
@@ -198,7 +209,7 @@
           default: settings.default ?? '',
           context_menu_llm: settings.contextMenuLlm ?? '',
         },
-        llm: llms.map((l) => {
+        llm: effectiveLlms.map((l) => {
           const entry: Record<string, unknown> = {
             name: l.name,
             type: l.type,
@@ -227,7 +238,7 @@
       onClose();
 
       // Apply immediately - no async, no microtask
-      llmConfigs.set(llms);
+      llmConfigs.set(effectiveLlms);
       appSettings.set(settings);
       fontFamily.set("'Atkinson Hyperlegible Mono', monospace");
       fontSize.set(localFontSize);
@@ -301,7 +312,8 @@
           {#if llms.length > 0}
             <div class="llm-list">
               {#each llms as l, i}
-                <div class="llm-item">
+                {@const isPendingDelete = pendingDeleteIndices.has(i)}
+                <div class="llm-item" class:pending-delete={isPendingDelete}>
                   <div class="llm-info">
                     <span class="llm-name">{l.name}</span>
                     <span class="llm-type-badge">{l.type}</span>
@@ -310,10 +322,17 @@
                     {:else}
                       <span class="llm-detail">{l.provider} / {l.model}</span>
                     {/if}
+                    {#if isPendingDelete}
+                      <span class="pending-delete-label">{$tr('settings.llm.pendingDelete')}</span>
+                    {/if}
                   </div>
                   <div class="llm-actions">
-                    <button onclick={() => startEdit(i)}>{$tr('settings.llm.edit')}</button>
-                    <button class="danger" onclick={() => deleteLlm(i)}>{$tr('settings.llm.delete')}</button>
+                    {#if !isPendingDelete}
+                      <button onclick={() => startEdit(i)}>{$tr('settings.llm.edit')}</button>
+                    {/if}
+                    <button class="danger" onclick={() => deleteLlm(i)}>
+                      {isPendingDelete ? $tr('settings.cancel') : $tr('settings.llm.delete')}
+                    </button>
                   </div>
                 </div>
               {/each}
@@ -481,7 +500,7 @@
   .settings-modal {
     background: var(--bg-primary);
     border: var(--border-width) solid var(--border);
-    border-radius: var(--radius);
+    border-radius: 0;
     width: 580px;
     max-width: 95vw;
     max-height: 85vh;
@@ -514,7 +533,7 @@
     font-size: 16px;
     cursor: pointer;
     padding: 2px 6px;
-    border-radius: var(--radius);
+    border-radius: 0;
   }
 
   .close-btn:hover {
@@ -567,7 +586,7 @@
     flex: 1;
     background: var(--bg-secondary);
     border: var(--border-width) solid var(--border);
-    border-radius: var(--radius);
+    border-radius: 0;
     color: var(--text-primary);
     padding: 5px 8px;
     font-size: 12px;
@@ -601,8 +620,26 @@
     justify-content: space-between;
     background: var(--bg-secondary);
     border: var(--border-width) solid var(--border);
-    border-radius: var(--radius);
+    border-radius: 0;
     padding: 8px 10px;
+    transition: background 0.15s, border-color 0.15s;
+  }
+
+  .llm-item.pending-delete {
+    background: color-mix(in srgb, var(--danger, #e74c3c) 8%, var(--bg-secondary));
+    border-color: var(--danger, #e74c3c);
+    opacity: 0.75;
+  }
+
+  .llm-item.pending-delete .llm-name {
+    text-decoration: line-through;
+    color: var(--text-muted);
+  }
+
+  .pending-delete-label {
+    font-size: 10px;
+    color: var(--danger, #e74c3c);
+    font-style: italic;
   }
 
   .llm-info {
@@ -623,7 +660,7 @@
     background: var(--accent);
     color: #fff;
     padding: 1px 5px;
-    border-radius: var(--radius);
+    border-radius: 0;
     text-transform: uppercase;
     letter-spacing: 0.04em;
   }
@@ -652,7 +689,7 @@
   .llm-form {
     background: var(--bg-secondary);
     border: var(--border-width) solid var(--border);
-    border-radius: var(--radius);
+    border-radius: 0;
     padding: 14px;
     margin-bottom: 10px;
   }
@@ -679,12 +716,15 @@
   .theme-btn {
     padding: 6px 16px;
     font-size: 12px;
-    border-radius: var(--radius);
+    border-radius: 0;
     border: var(--border-width) solid var(--border);
     background: var(--bg-secondary);
     color: var(--text-primary);
     cursor: pointer;
     transition: background 0.15s, border-color 0.15s;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-weight: 700;
   }
 
   .theme-btn:hover {
@@ -709,9 +749,12 @@
     background: var(--bg-tertiary);
     color: var(--text-primary);
     border: var(--border-width) solid var(--border);
-    border-radius: var(--radius);
+    border-radius: 0;
     padding: 5px 12px;
     font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
     cursor: pointer;
     transition: background 0.15s;
   }
@@ -776,7 +819,7 @@
     text-transform: uppercase;
     letter-spacing: 0.04em;
     border: var(--border-width) solid var(--border);
-    border-radius: var(--radius);
+    border-radius: 0;
     background: var(--bg-tertiary);
     color: var(--text-secondary);
     cursor: pointer;
