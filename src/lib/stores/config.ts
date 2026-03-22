@@ -22,6 +22,8 @@ export interface LlmConfig {
   endpoint?: string;
   yoloFlag?: string;
   imageMode?: 'path' | 'base64' | 'none';
+  maxTokens?: number;
+  shortcut?: string;
   modes?: LlmMode[];
   slashCommands?: SlashCommand[];
 }

@@ -12,9 +12,8 @@
   import { trapFocus } from '$lib/utils/a11y';
   import type { ConnectionTestStep, AnalyticsBudget } from '$lib/types/analytics';
   import { budget, providerConfigVersion } from '$lib/stores/analytics';
-  import { getModelsForProvider, getModelInfo, getCheapestModel } from '$lib/data/model-info';
+  import { getModelsForProvider } from '$lib/data/model-info';
   import { getProviderVisual } from '$lib/utils/provider-patterns';
-  import { tooltip } from '$lib/utils/tooltip';
 
   let {
     adapter,
@@ -292,9 +291,9 @@
     }
   }
 
-  function debounce(fn: (...args: any[]) => void, ms: number) {
+  function debounce(fn: (...args: unknown[]) => void, ms: number) {
     let timer: ReturnType<typeof setTimeout>;
-    return (...args: any[]) => {
+    return (...args: unknown[]) => {
       clearTimeout(timer);
       timer = setTimeout(() => fn(...args), ms);
     };
@@ -692,7 +691,12 @@
                         min="1"
                         max="1000000"
                         placeholder="8192"
-                        oninput={() => { llms = [...llms]; }}
+                        value={llm.maxTokens ?? ''}
+                        oninput={(e) => {
+                          const v = (e.currentTarget as HTMLInputElement).value;
+                          llms[i] = { ...llms[i], maxTokens: v ? parseInt(v, 10) : undefined };
+                          llms = [...llms];
+                        }}
                       />
                     </div>
 
@@ -712,10 +716,11 @@
                       <button
                         class="shortcut-capture-btn"
                         class:capturing={capturingShortcut === llm.name}
+                        aria-label={`Shortcut for ${llm.name}`}
                         onclick={() => capturingShortcut = capturingShortcut === llm.name ? null : llm.name}
                         onkeydown={handleShortcutCapture}
                       >
-                        {capturingShortcut === llm.name ? 'Press keys…' : (llm as any).shortcut || '—'}
+                        {capturingShortcut === llm.name ? 'Press keys…' : llm.shortcut || '—'}
                       </button>
                     </div>
 
@@ -737,7 +742,7 @@
                           {@const isOk = step.status === 'ok'}
                           {@const isFailed = step.status === 'failed'}
                           {@const isChecking = step.status === 'checking'}
-                          <div class="connection-step" class:ok={isOk} class:failed={isFailed} class:checking={isChecking}>
+                          <div class="connection-step" role="listitem" class:ok={isOk} class:failed={isFailed} class:checking={isChecking}>
                             <span class="step-icon">
                               {isOk ? '✓' : isFailed ? '✗' : '…'}
                             </span>
@@ -776,7 +781,7 @@
 
           <!-- Budget sub-section -->
           <div class="budget-section">
-            <h4 class="budget-title">{$tr('analytics.budget.daily') ?? 'Daily limit'}</h4>
+            <h4 class="budget-title">{$tr('settings.provider.budget') ?? 'Budget'}</h4>
             <div class="field-row">
               <label for="budget-daily">{$tr('analytics.budget.daily') ?? 'Daily limit (USD)'}</label>
               <input
