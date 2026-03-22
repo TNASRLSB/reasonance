@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import type { Adapter, FileEntry, FsEvent, GrepResult, PtyHandle, DiscoveredAgent, Workflow, AgentState, AgentInstance, AgentMessage, WorkflowRun } from './index';
 import type { AgentEvent, AgentEventPayload, SessionHandle, SessionSummary, ViewMode } from '$lib/types/agent-event';
+import type { NegotiatedCapabilities, CliVersionInfo, VersionEntry, HealthReport } from '$lib/types/capability';
 
 export class TauriAdapter implements Adapter {
   async setProjectRoot(path: string): Promise<void> {
@@ -248,5 +249,28 @@ export class TauriAdapter implements Adapter {
   }
   async sessionSetViewMode(sessionId: string, mode: ViewMode): Promise<void> {
     return invoke<void>('session_set_view_mode', { sessionId, mode });
+  }
+
+  // Capability & Health
+  async getCapabilities(): Promise<Record<string, NegotiatedCapabilities>> {
+    return invoke('get_capabilities');
+  }
+  async getProviderCapabilities(provider: string): Promise<NegotiatedCapabilities> {
+    return invoke('get_provider_capabilities', { provider });
+  }
+  async getCliVersions(): Promise<CliVersionInfo[]> {
+    return invoke('get_cli_versions');
+  }
+  async getNormalizerVersions(provider: string): Promise<VersionEntry[]> {
+    return invoke('get_normalizer_versions', { provider });
+  }
+  async rollbackNormalizer(provider: string, versionId: string): Promise<string> {
+    return invoke('rollback_normalizer', { provider, versionId });
+  }
+  async getHealthReport(provider: string): Promise<HealthReport> {
+    return invoke('get_health_report', { provider });
+  }
+  async getAllHealthReports(): Promise<Record<string, HealthReport>> {
+    return invoke('get_all_health_reports');
   }
 }

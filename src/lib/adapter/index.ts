@@ -1,4 +1,5 @@
 import type { AgentEvent, AgentEventPayload, SessionHandle, SessionSummary, ViewMode } from '$lib/types/agent-event';
+import type { NegotiatedCapabilities, CliVersionInfo, VersionEntry, HealthReport } from '$lib/types/capability';
 
 export interface FileEntry {
   name: string;
@@ -107,6 +108,15 @@ export interface Adapter {
   sessionRename(sessionId: string, title: string): Promise<void>;
   sessionFork(sessionId: string, forkEventIndex: number): Promise<string>;
   sessionSetViewMode(sessionId: string, mode: ViewMode): Promise<void>;
+
+  // Capability & health commands
+  getCapabilities(): Promise<Record<string, NegotiatedCapabilities>>;
+  getProviderCapabilities(provider: string): Promise<NegotiatedCapabilities>;
+  getCliVersions(): Promise<CliVersionInfo[]>;
+  getNormalizerVersions(provider: string): Promise<VersionEntry[]>;
+  rollbackNormalizer(provider: string, versionId: string): Promise<string>;
+  getHealthReport(provider: string): Promise<HealthReport>;
+  getAllHealthReports(): Promise<Record<string, HealthReport>>;
 }
 
 export interface GrepResult {
