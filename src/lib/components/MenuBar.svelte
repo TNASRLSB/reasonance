@@ -1,5 +1,6 @@
 <script lang="ts">
   import { get } from 'svelte/store';
+  import { readText } from '@tauri-apps/plugin-clipboard-manager';
   import { tr } from '$lib/i18n/index';
   import { yoloMode, enhancedReadability } from '$lib/stores/ui';
   import { themeMode } from '$lib/stores/theme';
@@ -74,7 +75,7 @@
         { divider: true },
         { label: $tr('menu.edit.cut'), shortcut: 'Ctrl+X', action: () => document.execCommand('cut') },
         { label: $tr('menu.edit.copy'), shortcut: 'Ctrl+C', action: () => document.execCommand('copy') },
-        { label: $tr('menu.edit.paste'), shortcut: 'Ctrl+V', action: () => navigator.clipboard.readText().then(t => document.execCommand('insertText', false, t)).catch(() => {}) },
+        { label: $tr('menu.edit.paste'), shortcut: 'Ctrl+V', action: () => readText().then(t => document.execCommand('insertText', false, t)).catch(() => {}) },
         { divider: true },
         { label: $tr('menu.edit.find'), shortcut: 'Ctrl+F', action: () => document.dispatchEvent(new CustomEvent('reasonance:findInFile')) },
         { label: $tr('menu.edit.findInFiles'), shortcut: 'Ctrl+Shift+F', action: () => document.dispatchEvent(new CustomEvent('reasonance:findInFiles')) },
@@ -109,7 +110,13 @@
         },
         { label: $tr('menu.terminal.close'), action: () => document.dispatchEvent(new CustomEvent('reasonance:closeTerminal')) },
         { divider: true },
-        { label: $tr('menu.terminal.yolo'), action: () => yoloMode.update(v => !v) },
+        { label: $tr('menu.terminal.yolo'), action: () => {
+            if (!get(yoloMode)) {
+              if (!confirm('Enable YOLO mode?\n\nThis disables all permission prompts for new terminal instances. The LLM will be able to run commands without asking for approval.\n\nProceed?')) return;
+            }
+            yoloMode.update(v => !v);
+          }
+        },
         { divider: true },
         { label: $tr('menu.terminal.detectLLM'), action: () => document.dispatchEvent(new CustomEvent('reasonance:detectLLMs')) },
       ],
@@ -119,7 +126,7 @@
       itemsFn: () => [
         { label: $tr('menu.git.status'), action: () => sendGitCommand('git status\n') },
         { label: $tr('menu.git.commit'), action: () => sendGitCommand('git commit -m ""') },
-        { label: $tr('menu.git.push'), action: () => sendGitCommand('git push\n') },
+        { label: $tr('menu.git.push'), action: () => { if (confirm('Push to remote?\n\nThis will run: git push\n\nProceed?')) sendGitCommand('git push\n'); } },
         { label: $tr('menu.git.pull'), action: () => sendGitCommand('git pull\n') },
         { label: $tr('menu.git.log'), action: () => sendGitCommand('git log --oneline -20\n') },
       ],
@@ -154,5 +161,8 @@
     display: flex;
     align-items: center;
     gap: 0;
+    flex-wrap: nowrap;
+    flex-shrink: 1;
+    min-width: 0;
   }
 </style>

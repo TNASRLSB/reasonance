@@ -1,6 +1,5 @@
 <script lang="ts">
   import { get } from 'svelte/store';
-  import { onDestroy } from 'svelte';
   import Terminal from './Terminal.svelte';
   import ImageDrop from './ImageDrop.svelte';
   import TerminalToolbar from './TerminalToolbar.svelte';
@@ -14,25 +13,18 @@
 
   let { adapter, cwd = '.' }: { adapter: Adapter; cwd?: string } = $props();
 
-  let configs = $state<LlmConfig[]>([]);
-  let tabs = $state<import('$lib/stores/terminals').TerminalTab[]>([]);
-  let activeTab = $state<string | null>(null);
-  let activeInstance = $state<string | null>(null);
   let showSwarmTab = $state(false);
   let showLLMDropdown = $state(false);
+  let selectedLlmName = $state<string>('');
 
-  const unsubConfigs = llmConfigs.subscribe((val) => {
-    configs = val.filter((c) => c.type === 'cli' && c.command);
-  });
-  const unsubTabs = terminalTabs.subscribe((val) => { tabs = val; });
-  const unsubActiveTab = activeTerminalTab.subscribe((val) => { activeTab = val; });
-  const unsubActiveInstance = activeInstanceId.subscribe((val) => { activeInstance = val; });
+  // Derived CLI configs from store
+  let configs = $derived($llmConfigs.filter((c) => c.type === 'cli' && c.command));
 
-  onDestroy(() => {
-    unsubConfigs();
-    unsubTabs();
-    unsubActiveTab();
-    unsubActiveInstance();
+  // Auto-select first LLM when configs load
+  $effect(() => {
+    if (!selectedLlmName && configs.length > 0) {
+      selectedLlmName = configs[0].name;
+    }
   });
 
   // Count instances per LLM for label generation
@@ -98,6 +90,10 @@
   }
 
   function closeInstance(llmName: string, id: string) {
+    const inst = get(terminalTabs).flatMap((t) => t.instances).find((i) => i.id === id);
+    const label = inst ? inst.label : id;
+    const ok = confirm(`Terminate session?\n\n${llmName} — ${label}\n\nThis will kill the running process. Any unsaved work in the terminal will be lost.`);
+    if (!ok) return;
     adapter.killProcess(id).catch(() => {});
     terminalTabs.update((current) => {
       return current
@@ -132,24 +128,67 @@
 
   // Active tab instances
   let activeTabInstances = $derived(
-    tabs.find((t) => t.llmName === activeTab)?.instances ?? []
+    $terminalTabs.find((t) => t.llmName === $activeTerminalTab)?.instances ?? []
   );
 
-  let activeConfig = $derived(configs.find((c) => c.name === activeTab));
+  // Default slash commands for known CLIs
+  const defaultSlashCommands: Record<string, import('$lib/stores/config').SlashCommand[]> = {
+    claude: [
+      { command: '/help', description: 'Show available commands' },
+      { command: '/clear', description: 'Clear conversation history' },
+      { command: '/compact', description: 'Compact conversation context' },
+      { command: '/cost', description: 'Show token usage and cost' },
+      { command: '/doctor', description: 'Check Claude Code health' },
+      { command: '/init', description: 'Initialize project with CLAUDE.md' },
+      { command: '/review', description: 'Review code changes' },
+      { command: '/bug', description: 'Report a bug' },
+      { command: '/seurat', description: 'UI design system, wireframing, accessibility' },
+      { command: '/emmet', description: 'Testing, QA, tech debt audit, unit tests' },
+      { command: '/heimdall', description: 'Security audit, OWASP, credential detection' },
+      { command: '/ghostwriter', description: 'SEO + GEO copywriting optimization' },
+      { command: '/baptist', description: 'CRO, A/B testing, funnel analysis' },
+      { command: '/orson', description: 'Programmatic video generation' },
+      { command: '/scribe', description: 'Office documents and PDF handling' },
+      { command: '/forge', description: 'Create, audit, maintain skills' },
+    ],
+    ollama: [
+      { command: '/help', description: 'Show available commands' },
+      { command: '/clear', description: 'Clear conversation' },
+      { command: '/set', description: 'Set session parameters' },
+      { command: '/show', description: 'Show model info' },
+      { command: '/load', description: 'Load a model' },
+      { command: '/bye', description: 'Exit Ollama' },
+    ],
+  };
+
+  let activeConfig = $derived(configs.find((c) => c.name === $activeTerminalTab));
+
+  // Merge default slash commands with config
+  let activeSlashCommands = $derived.by(() => {
+    if (activeConfig?.slashCommands?.length) return activeConfig.slashCommands;
+    const cmd = activeConfig?.command?.toLowerCase() ?? '';
+    return defaultSlashCommands[cmd] ?? [];
+  });
 
   let activeInstanceData = $derived(
-    activeTabInstances.find((i) => i.id === activeInstance)
+    activeTabInstances.find((i) => i.id === $activeInstanceId)
   );
+
+  function generateBar(percent: number): string {
+    const filled = Math.round(percent / 12.5);
+    const empty = 8 - filled;
+    return '\u2588'.repeat(filled) + '\u2591'.repeat(empty);
+  }
 
 </script>
 
 <div class="terminal-manager">
   <!-- LLM Tab Bar -->
   <div class="llm-tabs">
-    {#each tabs as tab (tab.llmName)}
+    {#each $terminalTabs as tab (tab.llmName)}
       <button
         class="llm-tab"
-        class:active={tab.llmName === activeTab}
+        class:active={tab.llmName === $activeTerminalTab}
         onclick={() => selectTab(tab.llmName)}
       >
         {tab.llmName}
@@ -193,18 +232,29 @@
         <p class="hint">{$tr('terminal.swarmComingSoon')}</p>
       </div>
     </div>
-  {:else if tabs.length === 0}
+  {:else if $terminalTabs.length === 0}
     <div class="empty-state">
-      <p>{$tr('terminal.startLLM')}</p>
+      <div class="empty-header">TERMINAL</div>
+      <p class="empty-subtitle">{$tr('terminal.startLLM')}</p>
       {#if configs.length === 0}
         <p class="hint">{$tr('terminal.configHint')}</p>
       {:else}
-        <div class="start-buttons">
-          {#each configs as config (config.name)}
-            <button class="start-btn" onclick={() => addInstance(config.name)}>
-              + {config.name}
-            </button>
-          {/each}
+        <div class="llm-selector">
+          <div class="llm-card-list">
+            {#each configs as config (config.name)}
+              <button
+                class="llm-card"
+                class:selected={config.name === selectedLlmName}
+                onclick={() => { selectedLlmName = config.name; }}
+              >
+                <span class="llm-card-name">{config.name}</span>
+                <span class="llm-card-cmd">{config.command}</span>
+              </button>
+            {/each}
+          </div>
+          <button class="start-btn" onclick={() => { if (selectedLlmName) addInstance(selectedLlmName); }}>
+            &#9654; {$tr('terminal.startLLM')}
+          </button>
         </div>
       {/if}
     </div>
@@ -214,7 +264,7 @@
       {#each activeTabInstances as inst (inst.id)}
         <button
           class="instance-tab"
-          class:active={inst.id === activeInstance}
+          class:active={inst.id === $activeInstanceId}
           onclick={() => selectInstance(inst.id)}
         >
           {inst.label}
@@ -229,33 +279,33 @@
       {/each}
 
       <!-- Add instance button -->
-      {#if activeTab}
+      {#if $activeTerminalTab}
         <button
           class="instance-tab add-instance"
-          onclick={() => addInstance(activeTab!)}
+          onclick={() => addInstance($activeTerminalTab!)}
         >+</button>
       {/if}
     </div>
 
     <!-- Terminal Toolbar -->
-    {#if activeInstance && activeConfig}
+    {#if $activeInstanceId && activeConfig}
       <TerminalToolbar
         {adapter}
-        instanceId={activeInstance}
-        llmName={activeTab ?? ''}
+        instanceId={$activeInstanceId}
+        llmName={$activeTerminalTab ?? ''}
         activeMode={activeInstanceData?.activeMode}
         modes={activeConfig.modes ?? []}
-        slashCommands={activeConfig.slashCommands ?? []}
+        slashCommands={activeSlashCommands}
       />
     {/if}
 
     <!-- Terminal instances (hidden with display:none to keep them alive) -->
     <div class="terminal-area">
-      {#each tabs as tab (tab.llmName)}
+      {#each $terminalTabs as tab (tab.llmName)}
         {#each tab.instances as inst (inst.id)}
           <div
             class="terminal-wrap"
-            style="display: {inst.id === activeInstance ? 'flex' : 'none'};"
+            style="display: {inst.id === $activeInstanceId ? 'flex' : 'none'};"
           >
             <ImageDrop {adapter} instanceId={inst.id} llmName={inst.llmName}>
               {#snippet children()}
@@ -266,6 +316,29 @@
         {/each}
       {/each}
     </div>
+
+    <!-- Model info bar (per-instance) -->
+    {#if activeInstanceData}
+      <div class="model-info-bar">
+        {#if activeInstanceData.contextPercent != null}
+          <span class="ctx-info" title="Context window usage">
+            ctx <span class="ctx-bar">{generateBar(activeInstanceData.contextPercent)}</span> {activeInstanceData.contextPercent}%
+          </span>
+        {/if}
+        {#if activeInstanceData.tokenCount}
+          <span class="token-count" title="Tokens used">{activeInstanceData.tokenCount} tokens</span>
+        {/if}
+        {#if activeInstanceData.modelName}
+          <span class="model-name">{activeInstanceData.modelName}</span>
+        {/if}
+        {#if activeInstanceData.resetTimer}
+          <span class="reset-timer" title="Rate limit reset">&#9201; {activeInstanceData.resetTimer}</span>
+        {/if}
+        {#if activeInstanceData.messagesLeft != null}
+          <span class="msg-left" title="Messages remaining">&#9993; {activeInstanceData.messagesLeft}</span>
+        {/if}
+      </div>
+    {/if}
   {/if}
 </div>
 
@@ -278,15 +351,62 @@
     background: var(--bg-surface);
   }
 
+  .model-info-bar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 4px 10px;
+    background: var(--bg-primary);
+    border-top: 2px solid var(--border);
+    font-family: var(--font-mono);
+    font-size: var(--font-size-tiny);
+    color: var(--text-secondary);
+    flex-shrink: 0;
+  }
+
+  .ctx-info {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .ctx-bar {
+    letter-spacing: 0.05em;
+    font-size: 10px;
+    color: var(--accent);
+  }
+
+  .token-count {
+    color: var(--text-body);
+    font-weight: 500;
+  }
+
+  .model-name {
+    font-weight: 700;
+    color: var(--text-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+  }
+
+  .reset-timer {
+    color: var(--warning);
+  }
+
+  .msg-left {
+    color: var(--text-secondary);
+  }
+
   .llm-tabs {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     gap: 0;
     padding: 0;
     background: var(--bg-primary);
-    border-bottom: var(--border-width) solid var(--border);
+    border-bottom: 2px solid var(--border);
     flex-shrink: 0;
     font-family: var(--font-ui);
+    min-height: 38px;
+    align-items: stretch;
   }
 
   .llm-tab {
@@ -365,9 +485,9 @@
     display: flex;
     align-items: center;
     gap: 2px;
-    padding: 3px 6px;
+    padding: 4px 8px;
     background: var(--bg-primary);
-    border-bottom: 1px solid var(--border);
+    border-bottom: 2px solid var(--border);
     flex-shrink: 0;
     overflow-x: auto;
     font-family: var(--font-ui);
@@ -438,14 +558,35 @@
     align-items: center;
     justify-content: center;
     gap: 16px;
-    color: var(--text-muted);
+    color: var(--text-primary);
     font-family: var(--font-ui);
+    padding: 24px;
+    min-height: 200px;
+    background: var(--bg-primary);
+  }
+
+  .empty-header {
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+  }
+
+  .empty-subtitle {
+    margin: 0;
+    font-size: var(--font-size-base);
+    font-weight: 700;
+    text-align: center;
+    color: var(--text-primary);
   }
 
   .empty-state p {
     margin: 0;
     font-size: var(--font-size-base);
-    font-weight: 500;
+    font-weight: 600;
+    text-align: center;
   }
 
   .hint {
@@ -453,31 +594,80 @@
     color: var(--text-muted);
   }
 
-  .start-buttons {
+  .llm-selector {
     display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-    justify-content: center;
-    margin-top: 4px;
+    flex-direction: column;
+    gap: 12px;
+    align-items: center;
+    margin-top: 8px;
+    width: 100%;
+    max-width: 280px;
+  }
+
+  .llm-card-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: 100%;
+  }
+
+  .llm-card {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    width: 100%;
+    padding: 10px 14px;
+    background: var(--bg-secondary);
+    border: 2px solid var(--border);
+    border-radius: 0;
+    color: var(--text-body);
+    font-family: var(--font-ui);
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.1s, border-color 0.1s;
+  }
+
+  .llm-card:hover {
+    background: var(--bg-tertiary);
+    border-color: var(--text-muted);
+  }
+
+  .llm-card.selected {
+    border-color: var(--accent);
+    background: var(--bg-tertiary);
+  }
+
+  .llm-card-name {
+    font-size: var(--font-size-base);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    color: var(--text-primary);
+  }
+
+  .llm-card-cmd {
+    font-size: var(--font-size-tiny);
+    font-family: var(--font-mono);
+    color: var(--text-muted);
   }
 
   .start-btn {
-    padding: 8px 20px;
+    width: 100%;
+    padding: 12px 20px;
     font-family: var(--font-ui);
-    font-size: var(--font-size-small);
+    font-size: var(--font-size-base);
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.04em;
     border: 2px solid var(--accent);
     border-radius: 0;
-    background: transparent;
-    color: var(--accent);
+    background: var(--accent);
+    color: #fff;
     cursor: pointer;
-    transition: background 0.1s, color 0.1s;
+    transition: background 0.1s, opacity 0.1s;
   }
 
   .start-btn:hover {
-    background: var(--accent);
-    color: var(--text-primary);
+    opacity: 0.85;
   }
 </style>

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { get } from 'svelte/store';
   import { openFiles, activeFilePath, closeFile } from '$lib/stores/files';
   import { tr } from '$lib/i18n/index';
 
@@ -8,6 +9,12 @@
 
   function handleClose(e: MouseEvent, path: string) {
     e.stopPropagation();
+    const file = get(openFiles).find((f) => f.path === path);
+    if (file?.isDirty) {
+      const fileName = file.name;
+      const ok = confirm(`Save changes to "${fileName}"?\n\nYour unsaved changes will be lost if you close without saving.\n\nClick Cancel to go back, or OK to close without saving.`);
+      if (!ok) return;
+    }
     closeFile(path);
   }
 
@@ -76,7 +83,7 @@
     min-width: 100px;
     max-width: 200px;
     cursor: pointer;
-    border-right: 1px solid var(--border);
+    border-right: 2px solid var(--border);
     font-size: 12px;
     font-weight: 500;
     color: var(--text-muted);
