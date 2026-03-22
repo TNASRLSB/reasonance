@@ -142,6 +142,10 @@ impl NormalizerRegistry {
 
                 let state_machine: Box<dyn StateMachine> = match name.as_str() {
                     "claude" => Box::new(ClaudeStateMachine::new()),
+                    "gemini" => Box::new(state_machines::gemini::GeminiStateMachine::new()),
+                    "kimi" => Box::new(state_machines::kimi::KimiStateMachine::new()),
+                    "qwen" => Box::new(state_machines::qwen::QwenStateMachine::new()),
+                    "codex" => Box::new(state_machines::codex::CodexStateMachine::new()),
                     _ => Box::new(GenericStateMachine::new()),
                 };
 
@@ -188,6 +192,10 @@ impl NormalizerRegistry {
 
         let state_machine: Box<dyn StateMachine> = match provider {
             "claude" => Box::new(ClaudeStateMachine::new()),
+            "gemini" => Box::new(state_machines::gemini::GeminiStateMachine::new()),
+            "kimi" => Box::new(state_machines::kimi::KimiStateMachine::new()),
+            "qwen" => Box::new(state_machines::qwen::QwenStateMachine::new()),
+            "codex" => Box::new(state_machines::codex::CodexStateMachine::new()),
             _ => Box::new(GenericStateMachine::new()),
         };
 

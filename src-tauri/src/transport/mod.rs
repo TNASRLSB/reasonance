@@ -79,6 +79,10 @@ impl StructuredAgentTransport {
 
         let state_machine: Box<dyn crate::normalizer::state_machines::StateMachine> = match provider.as_str() {
             "claude" => Box::new(crate::normalizer::state_machines::claude::ClaudeStateMachine::new()),
+            "gemini" => Box::new(crate::normalizer::state_machines::gemini::GeminiStateMachine::new()),
+            "kimi" => Box::new(crate::normalizer::state_machines::kimi::KimiStateMachine::new()),
+            "qwen" => Box::new(crate::normalizer::state_machines::qwen::QwenStateMachine::new()),
+            "codex" => Box::new(crate::normalizer::state_machines::codex::CodexStateMachine::new()),
             _ => Box::new(crate::normalizer::state_machines::generic::GenericStateMachine::new()),
         };
         let pipeline = Arc::new(Mutex::new(
