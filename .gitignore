@@ -7,6 +7,9 @@ dist/
 *.js.map
 .DS_Store
 
+# Worktrees
+.worktrees/
+
 # Claude / Vibe Framework
 .claude/
 CLAUDE.md
