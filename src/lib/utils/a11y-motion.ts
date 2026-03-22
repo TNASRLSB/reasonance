@@ -8,7 +8,3 @@ export const prefersReducedMotion = readable<boolean>(false, (set) => {
   query.addEventListener('change', handler);
   return () => query.removeEventListener('change', handler);
 });
-
-export function motionTransition(duration: string): string {
-  return duration;
-}

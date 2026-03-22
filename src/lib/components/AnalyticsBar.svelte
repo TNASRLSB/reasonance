@@ -498,4 +498,10 @@
       display: inline;
     }
   }
+
+  @media (prefers-reduced-motion: reduce) {
+    .skeleton {
+      animation: none;
+    }
+  }
 </style>

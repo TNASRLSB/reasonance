@@ -291,14 +291,6 @@
     }
   }
 
-  function debounce(fn: (...args: unknown[]) => void, ms: number) {
-    let timer: ReturnType<typeof setTimeout>;
-    return (...args: unknown[]) => {
-      clearTimeout(timer);
-      timer = setTimeout(() => fn(...args), ms);
-    };
-  }
-
   async function testConnection(providerName: string) {
     testingProvider = providerName;
     connectionSteps.set(providerName, []);
