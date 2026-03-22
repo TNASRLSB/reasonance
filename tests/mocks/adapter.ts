@@ -12,6 +12,7 @@ import type {
   WorkflowRun,
 } from '$lib/adapter/index';
 import type { AgentEvent, AgentEventPayload, SessionHandle, SessionSummary, ViewMode } from '$lib/types/agent-event';
+import type { NegotiatedCapabilities, CliVersionInfo, VersionEntry, HealthReport } from '$lib/types/capability';
 
 let _ptyIdCounter = 0;
 let _agentIdCounter = 0;
@@ -363,6 +364,44 @@ export function createMockAdapter(overrides?: Partial<Adapter>): Adapter {
     },
     sessionSetViewMode(_sessionId: string, _mode: ViewMode): Promise<void> {
       return Promise.resolve();
+    },
+
+    // Capability & Health
+    getCapabilities(): Promise<Record<string, NegotiatedCapabilities>> {
+      return Promise.resolve({});
+    },
+    getProviderCapabilities(_provider: string): Promise<NegotiatedCapabilities> {
+      return Promise.resolve({
+        provider: _provider,
+        cli_version: '0.0.0',
+        cli_mode: 'basic_print',
+        features: {},
+        negotiated_at: Date.now(),
+      });
+    },
+    getCliVersions(): Promise<CliVersionInfo[]> {
+      return Promise.resolve([]);
+    },
+    getNormalizerVersions(_provider: string): Promise<VersionEntry[]> {
+      return Promise.resolve([]);
+    },
+    rollbackNormalizer(_provider: string, _versionId: string): Promise<string> {
+      return Promise.resolve('');
+    },
+    getHealthReport(_provider: string): Promise<HealthReport> {
+      return Promise.resolve({
+        provider: _provider,
+        status: { type: 'healthy' },
+        results: [],
+        capabilities_confirmed: [],
+        capabilities_missing: [],
+        capabilities_broken: [],
+        tested_at: Date.now(),
+        cli_version: '0.0.0',
+      });
+    },
+    getAllHealthReports(): Promise<Record<string, HealthReport>> {
+      return Promise.resolve({});
     },
   };
 
