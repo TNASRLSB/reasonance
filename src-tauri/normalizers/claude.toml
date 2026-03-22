@@ -107,6 +107,22 @@ name = "done"
 when = 'type == "message_stop"'
 emit = "done"
 
+[[rules]]
+name = "result_metrics"
+when = 'type == "result"'
+emit = "usage"
+# NOTE: Do NOT map input_tokens/output_tokens here — they are already
+# counted from the message_delta usage rule. Mapping them again would double-count.
+
+[rules.mappings]
+cache_creation_tokens = "usage.cache_creation_input_tokens"
+cache_read_tokens = "usage.cache_read_input_tokens"
+duration_ms = "duration_ms"
+duration_api_ms = "duration_api_ms"
+num_turns = "num_turns"
+stop_reason = "stop_reason"
+total_cost_usd = "total_cost_usd"
+
 [[tests]]
 name = "basic_text"
 prompt = "Reply with exactly: REASONANCE_TEST_OK"

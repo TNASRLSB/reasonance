@@ -71,6 +71,26 @@ pub struct AgentEventMetadata {
     pub stream_metrics: Option<StreamMetrics>,
     #[serde(default)]
     pub incomplete: Option<bool>,
+    #[serde(default)]
+    pub cache_creation_tokens: Option<u64>,
+    #[serde(default)]
+    pub cache_read_tokens: Option<u64>,
+    #[serde(default)]
+    pub duration_ms: Option<u64>,
+    #[serde(default)]
+    pub duration_api_ms: Option<u64>,
+    #[serde(default)]
+    pub num_turns: Option<u32>,
+    #[serde(default)]
+    pub stop_reason: Option<String>,
+    #[serde(default)]
+    pub context_usage: Option<f64>,
+    #[serde(default)]
+    pub context_tokens: Option<u64>,
+    #[serde(default)]
+    pub max_context_tokens: Option<u64>,
+    #[serde(default)]
+    pub total_cost_usd: Option<f64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -103,6 +123,16 @@ impl AgentEvent {
             error_code: None,
             stream_metrics: None,
             incomplete: None,
+            cache_creation_tokens: None,
+            cache_read_tokens: None,
+            duration_ms: None,
+            duration_api_ms: None,
+            num_turns: None,
+            stop_reason: None,
+            context_usage: None,
+            context_tokens: None,
+            max_context_tokens: None,
+            total_cost_usd: None,
         }
     }
 
@@ -298,5 +328,65 @@ mod tests {
             }],
         };
         assert!(matches!(content, EventContent::Diff { .. }));
+    }
+
+    #[test]
+    fn test_metadata_new_fields_default_none() {
+        let meta = AgentEventMetadata {
+            session_id: None,
+            input_tokens: None,
+            output_tokens: None,
+            tool_name: None,
+            model: None,
+            provider: "claude".to_string(),
+            error_severity: None,
+            error_code: None,
+            stream_metrics: None,
+            incomplete: None,
+            cache_creation_tokens: None,
+            cache_read_tokens: None,
+            duration_ms: None,
+            duration_api_ms: None,
+            num_turns: None,
+            stop_reason: None,
+            context_usage: None,
+            context_tokens: None,
+            max_context_tokens: None,
+            total_cost_usd: None,
+        };
+        assert!(meta.cache_creation_tokens.is_none());
+        assert!(meta.total_cost_usd.is_none());
+    }
+
+    #[test]
+    fn test_metadata_serialization_with_new_fields() {
+        let mut meta = AgentEvent::base_metadata("claude");
+        meta.cache_creation_tokens = Some(500);
+        meta.cache_read_tokens = Some(1000);
+        meta.duration_ms = Some(4105);
+        meta.total_cost_usd = Some(0.055);
+        meta.num_turns = Some(3);
+        meta.stop_reason = Some("end_turn".to_string());
+
+        let json = serde_json::to_string(&meta).unwrap();
+        assert!(json.contains("cache_creation_tokens"));
+        assert!(json.contains("500"));
+        assert!(json.contains("total_cost_usd"));
+
+        let deserialized: AgentEventMetadata = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.cache_creation_tokens, Some(500));
+        assert_eq!(deserialized.total_cost_usd, Some(0.055));
+        assert_eq!(deserialized.num_turns, Some(3));
+    }
+
+    #[test]
+    fn test_metadata_deserialization_without_new_fields() {
+        // Old JSON without new fields should deserialize with None defaults
+        let json = r#"{"provider":"claude"}"#;
+        let meta: AgentEventMetadata = serde_json::from_str(json).unwrap();
+        assert_eq!(meta.provider, "claude");
+        assert!(meta.cache_creation_tokens.is_none());
+        assert!(meta.duration_ms.is_none());
+        assert!(meta.total_cost_usd.is_none());
     }
 }

@@ -15,6 +15,7 @@ mod normalizer_version;
 mod normalizer_health;
 mod capability;
 mod self_heal;
+mod analytics;
 
 use commands::fs::ProjectRootState;
 use fs_watcher::FsWatcherState;
@@ -72,6 +73,17 @@ pub fn run() {
         .manage(cli_updater::CliUpdater::new())
         .manage(normalizer_health::NormalizerHealth::new())
         .manage({
+            let analytics_dir = dirs::data_dir()
+                .unwrap_or_else(|| std::path::PathBuf::from("."))
+                .join("reasonance")
+                .join("analytics");
+            let store = std::sync::Arc::new(
+                analytics::store::AnalyticsStore::new(&analytics_dir)
+                    .expect("Failed to init analytics store")
+            );
+            std::sync::Arc::new(analytics::collector::AnalyticsCollector::new(store))
+        })
+        .manage({
             let versions_dir = dirs::data_dir()
                 .unwrap_or_else(|| std::path::PathBuf::from("."))
                 .join("reasonance")
@@ -95,6 +107,19 @@ pub fn run() {
                 }
             }
             transport.event_bus().subscribe(Box::new(SessionRecorderWrapper(session_recorder)));
+
+            // Wire AnalyticsCollector into event bus
+            let analytics: tauri::State<'_, std::sync::Arc<analytics::collector::AnalyticsCollector>> = app.state();
+            struct AnalyticsWrapper(std::sync::Arc<analytics::collector::AnalyticsCollector>);
+            impl transport::event_bus::AgentEventSubscriber for AnalyticsWrapper {
+                fn on_event(&self, session_id: &str, event: &crate::agent_event::AgentEvent) {
+                    self.0.on_event(session_id, event);
+                }
+                fn filter(&self) -> Option<transport::event_bus::EventFilter> {
+                    self.0.filter()
+                }
+            }
+            transport.event_bus().subscribe(Box::new(AnalyticsWrapper(analytics.inner().clone())));
 
             // Load capability cache
             let negotiator: tauri::State<'_, capability::CapabilityNegotiator> = app.state();
@@ -209,6 +234,12 @@ pub fn run() {
             commands::capability::rollback_normalizer,
             commands::capability::get_health_report,
             commands::capability::get_all_health_reports,
+            commands::analytics::analytics_provider,
+            commands::analytics::analytics_compare,
+            commands::analytics::analytics_model_breakdown,
+            commands::analytics::analytics_session,
+            commands::analytics::analytics_daily,
+            commands::analytics::analytics_active,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

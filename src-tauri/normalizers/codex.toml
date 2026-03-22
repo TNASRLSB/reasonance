@@ -92,6 +92,7 @@ emit = "usage"
 [rules.mappings]
 input_tokens = "params.usage.input_tokens"
 output_tokens = "params.usage.output_tokens"
+cache_read_tokens = "params.usage.cachedInputTokens"
 
 [[rules]]
 name = "done"
