@@ -112,7 +112,7 @@
 
 <style>
   .skip-links {
-    position: absolute;
+    position: fixed;
     top: 0;
     left: 0;
     z-index: 9999;
@@ -120,24 +120,36 @@
 
   .skip-link {
     position: absolute;
-    top: -100%;
-    left: 0;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
     background: var(--bg-primary);
     color: var(--accent-text);
-    border: 2px solid var(--accent);
-    padding: 8px 16px;
     font-family: var(--font-ui);
     font-size: var(--font-size-small);
     font-weight: 700;
     text-decoration: none;
-    white-space: nowrap;
-    transition: top 0.1s;
   }
 
   .skip-link:focus {
-    top: 0;
+    position: fixed;
+    top: 4px;
+    left: 4px;
+    width: auto;
+    height: auto;
+    padding: 8px 16px;
+    margin: 0;
+    overflow: visible;
+    clip: auto;
+    border: 2px solid var(--accent);
     outline: var(--focus-ring);
     outline-offset: var(--focus-offset);
+    z-index: 10000;
   }
 
   header,
