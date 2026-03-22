@@ -12,3 +12,4 @@ pub mod transport;
 pub mod session;
 pub mod capability;
 pub mod analytics;
+pub mod provider;

@@ -5,6 +5,7 @@ programmatic_args = ["-p", "{prompt}", "--output-format", "stream-json", "--incl
 resume_args = ["--continue", "-p", "{prompt}", "--output-format", "stream-json", "--include-partial-messages"]
 version_command = ["qwen", "--version"]
 update_command = ["npm", "install", "-g", "@qwen-code/qwen-code@latest"]
+api_key_env = "DASHSCOPE_API_KEY"
 
 [capabilities]
 streaming = true

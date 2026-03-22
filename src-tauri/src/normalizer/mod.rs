@@ -44,6 +44,8 @@ pub struct CliConfig {
     pub version_command: Vec<String>,
     #[serde(default)]
     pub update_command: Vec<String>,
+    #[serde(default)]
+    pub api_key_env: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]

@@ -13,6 +13,7 @@ import type {
 } from '$lib/adapter/index';
 import type { AgentEvent, AgentEventPayload, SessionHandle, SessionSummary, ViewMode } from '$lib/types/agent-event';
 import type { NegotiatedCapabilities, CliVersionInfo, VersionEntry, HealthReport } from '$lib/types/capability';
+import type { ProviderAnalytics, ModelAnalytics, DailyStats, SessionMetrics, ConnectionTestStep } from '$lib/types/analytics';
 
 let _ptyIdCounter = 0;
 let _agentIdCounter = 0;
@@ -402,6 +403,42 @@ export function createMockAdapter(overrides?: Partial<Adapter>): Adapter {
     },
     getAllHealthReports(): Promise<Record<string, HealthReport>> {
       return Promise.resolve({});
+    },
+
+    // Analytics
+    analyticsProvider(_provider: string, _from?: number, _to?: number): Promise<ProviderAnalytics> {
+      return Promise.resolve({
+        provider: _provider, total_sessions: 0, total_input_tokens: 0, total_output_tokens: 0,
+        total_cache_creation_tokens: 0, total_cache_read_tokens: 0, cache_hit_rate: 0,
+        total_errors: 0, recovered_errors: 0, error_rate: 0, avg_duration_ms: 0,
+        avg_tokens_per_second: 0, most_used_model: '', total_tool_invocations: 0, total_cost_usd: null,
+      });
+    },
+    analyticsCompare(_from?: number, _to?: number): Promise<ProviderAnalytics[]> {
+      return Promise.resolve([]);
+    },
+    analyticsModelBreakdown(_provider: string, _from?: number, _to?: number): Promise<ModelAnalytics[]> {
+      return Promise.resolve([]);
+    },
+    analyticsSession(_sessionId: string): Promise<SessionMetrics | null> {
+      return Promise.resolve(null);
+    },
+    analyticsDaily(_provider?: string, _days?: number): Promise<DailyStats[]> {
+      return Promise.resolve([]);
+    },
+    analyticsActive(): Promise<SessionMetrics[]> {
+      return Promise.resolve([]);
+    },
+
+    // Provider management
+    testProviderConnection(_provider: string): Promise<void> {
+      return Promise.resolve();
+    },
+    onConnectionTest(_callback: (step: ConnectionTestStep) => void): Promise<() => void> {
+      return Promise.resolve(() => {});
+    },
+    reloadNormalizers(): Promise<void> {
+      return Promise.resolve();
     },
   };
 

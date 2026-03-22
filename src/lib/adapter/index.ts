@@ -1,5 +1,6 @@
 import type { AgentEvent, AgentEventPayload, SessionHandle, SessionSummary, ViewMode } from '$lib/types/agent-event';
 import type { NegotiatedCapabilities, CliVersionInfo, VersionEntry, HealthReport } from '$lib/types/capability';
+import type { ProviderAnalytics, ModelAnalytics, DailyStats, SessionMetrics, ConnectionTestStep } from '$lib/types/analytics';
 
 export interface FileEntry {
   name: string;
@@ -117,6 +118,19 @@ export interface Adapter {
   rollbackNormalizer(provider: string, versionId: string): Promise<string>;
   getHealthReport(provider: string): Promise<HealthReport>;
   getAllHealthReports(): Promise<Record<string, HealthReport>>;
+
+  // Analytics
+  analyticsProvider(provider: string, from?: number, to?: number): Promise<ProviderAnalytics>;
+  analyticsCompare(from?: number, to?: number): Promise<ProviderAnalytics[]>;
+  analyticsModelBreakdown(provider: string, from?: number, to?: number): Promise<ModelAnalytics[]>;
+  analyticsSession(sessionId: string): Promise<SessionMetrics | null>;
+  analyticsDaily(provider?: string, days?: number): Promise<DailyStats[]>;
+  analyticsActive(): Promise<SessionMetrics[]>;
+
+  // Provider management
+  testProviderConnection(provider: string): Promise<void>;
+  onConnectionTest(callback: (step: ConnectionTestStep) => void): Promise<() => void>;
+  reloadNormalizers(): Promise<void>;
 }
 
 export interface GrepResult {

@@ -5,6 +5,7 @@ programmatic_args = ["-p", "{prompt}", "--output-format", "stream-json"]
 resume_args = ["-C", "-p", "{prompt}", "--output-format", "stream-json"]
 version_command = ["kimi", "--version"]
 update_command = ["npm", "install", "-g", "kimi@latest"]
+api_key_env = "MOONSHOT_API_KEY"
 
 [capabilities]
 streaming = true

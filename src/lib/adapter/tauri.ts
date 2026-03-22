@@ -2,6 +2,7 @@ import { invoke } from '@tauri-apps/api/core';
 import type { Adapter, FileEntry, FsEvent, GrepResult, PtyHandle, DiscoveredAgent, Workflow, AgentState, AgentInstance, AgentMessage, WorkflowRun } from './index';
 import type { AgentEvent, AgentEventPayload, SessionHandle, SessionSummary, ViewMode } from '$lib/types/agent-event';
 import type { NegotiatedCapabilities, CliVersionInfo, VersionEntry, HealthReport } from '$lib/types/capability';
+import type { ProviderAnalytics, ModelAnalytics, DailyStats, SessionMetrics, ConnectionTestStep } from '$lib/types/analytics';
 
 export class TauriAdapter implements Adapter {
   async setProjectRoot(path: string): Promise<void> {
@@ -272,5 +273,36 @@ export class TauriAdapter implements Adapter {
   }
   async getAllHealthReports(): Promise<Record<string, HealthReport>> {
     return invoke('get_all_health_reports');
+  }
+
+  async analyticsProvider(provider: string, from?: number, to?: number): Promise<ProviderAnalytics> {
+    return invoke<ProviderAnalytics>('analytics_provider', { provider, from, to });
+  }
+  async analyticsCompare(from?: number, to?: number): Promise<ProviderAnalytics[]> {
+    return invoke<ProviderAnalytics[]>('analytics_compare', { from, to });
+  }
+  async analyticsModelBreakdown(provider: string, from?: number, to?: number): Promise<ModelAnalytics[]> {
+    return invoke<ModelAnalytics[]>('analytics_model_breakdown', { provider, from, to });
+  }
+  async analyticsSession(sessionId: string): Promise<SessionMetrics | null> {
+    return invoke<SessionMetrics | null>('analytics_session', { sessionId });
+  }
+  async analyticsDaily(provider?: string, days?: number): Promise<DailyStats[]> {
+    return invoke<DailyStats[]>('analytics_daily', { provider, days });
+  }
+  async analyticsActive(): Promise<SessionMetrics[]> {
+    return invoke<SessionMetrics[]>('analytics_active');
+  }
+  async testProviderConnection(provider: string): Promise<void> {
+    return invoke<void>('test_provider_connection', { provider });
+  }
+  async onConnectionTest(callback: (step: ConnectionTestStep) => void): Promise<() => void> {
+    const { listen } = await import('@tauri-apps/api/event');
+    return listen<ConnectionTestStep>('connection_test_step', (event) => {
+      callback(event.payload);
+    });
+  }
+  async reloadNormalizers(): Promise<void> {
+    return invoke<void>('reload_normalizers');
   }
 }

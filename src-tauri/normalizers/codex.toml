@@ -5,6 +5,7 @@ programmatic_args = ["-q", "--json", "{prompt}"]
 resume_args = ["-q", "--json", "{prompt}"]
 version_command = ["codex", "--version"]
 update_command = ["npm", "install", "-g", "@openai/codex@latest"]
+api_key_env = "OPENAI_API_KEY"
 
 [capabilities]
 streaming = true

@@ -240,6 +240,8 @@ pub fn run() {
             commands::analytics::analytics_session,
             commands::analytics::analytics_daily,
             commands::analytics::analytics_active,
+            commands::provider::test_provider_connection,
+            commands::provider::reload_normalizers,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

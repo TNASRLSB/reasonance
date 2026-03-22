@@ -5,6 +5,7 @@ programmatic_args = ["-p", "{prompt}", "--output-format", "stream-json"]
 resume_args = ["--resume", "latest", "-p", "{prompt}", "--output-format", "stream-json"]
 version_command = ["gemini", "--version"]
 update_command = ["npm", "install", "-g", "@FIXME/gemini-cli@latest"]
+api_key_env = "GEMINI_API_KEY"
 
 [capabilities]
 streaming = true
