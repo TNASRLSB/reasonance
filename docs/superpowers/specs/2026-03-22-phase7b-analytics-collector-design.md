@@ -161,8 +161,6 @@ name = "result_metrics"
 when = 'type == "result"'
 emit = "usage"
 [rules.mappings]
-input_tokens = "usage.input_tokens"
-output_tokens = "usage.output_tokens"
 cache_creation_tokens = "usage.cache_creation_input_tokens"
 cache_read_tokens = "usage.cache_read_input_tokens"
 duration_ms = "duration_ms"
@@ -172,7 +170,7 @@ stop_reason = "stop_reason"
 total_cost_usd = "total_cost_usd"
 ```
 
-**Note:** The `result` event is the authoritative source for token counts (includes cache), duration, and cost. The `message_delta` usage events are streaming increments. The AnalyticsCollector uses last-write-wins for `duration_ms`, `num_turns`, `stop_reason`, `total_cost_usd`, and accumulates `input_tokens`/`output_tokens`.
+**Note:** The `result_metrics` rule intentionally does NOT map `input_tokens`/`output_tokens` — these are already accumulated from the streaming `message_delta` usage events. Mapping them here would cause double-counting. The `result` event carries cache tokens, timing, and cost which are not available in `message_delta`.
 
 ### Gemini — `gemini.toml`
 
@@ -590,7 +588,7 @@ commands::analytics::analytics_active,
 
 | File | Changes |
 |------|---------|
-| `src-tauri/src/agent_event.rs` | Add 9 optional fields to `AgentEventMetadata`, update `base_metadata()` |
+| `src-tauri/src/agent_event.rs` | Add 10 optional fields to `AgentEventMetadata`, update `base_metadata()` |
 | `src-tauri/src/normalizer/pipeline.rs` | Extract new metadata fields in `build_event()` |
 | `src-tauri/normalizers/claude.toml` | Add cache/duration mappings, add `result_metrics` rule |
 | `src-tauri/normalizers/gemini.toml` | Add cache/duration mappings to usage rule |
