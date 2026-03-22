@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.4.0] - 2026-03-22
+
+### Features
+
+- feat: security hardening, Rust LLM proxy, CI fixes, IPv4 dev server
+
+### Other
+
+- - Move LLM API calls from frontend fetch to Rust backend proxy via
+-   invoke('call_llm_api'), keeping API keys server-side
+- - Fix CI release workflow: Node 22, simplified artifact upload paths
+- - Fix dev server: bind Vite to 127.0.0.1 explicitly to prevent
+-   IPv6 mismatch with WebKit2GTK (localhost resolves to ::1)
+- - Update README with accurate project info and security section
+- - Update tests to match new invoke-based LLM API
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+
+
+
 ## [0.3.1] - 2026-03-22
 
 ### Bug Fixes
