@@ -1,4 +1,259 @@
-pub mod content_parser;
-pub mod pipeline;
 pub mod rules_engine;
+pub mod content_parser;
 pub mod state_machines;
+pub mod pipeline;
+
+use crate::agent_event::AgentEvent;
+use rules_engine::Rule;
+use pipeline::NormalizerPipeline;
+use state_machines::{StateMachine, generic::GenericStateMachine, claude::ClaudeStateMachine};
+use std::collections::HashMap;
+use std::path::Path;
+use serde::Deserialize;
+
+#[derive(Debug, Deserialize)]
+pub struct TomlConfig {
+    pub cli: CliConfig,
+    #[serde(default)]
+    pub capabilities: HashMap<String, toml::Value>,
+    #[serde(default)]
+    pub rules: Vec<TomlRule>,
+    #[serde(default)]
+    pub context: Option<ContextConfig>,
+    #[serde(default)]
+    pub retry: Option<RetryConfig>,
+    #[serde(default)]
+    pub session: Option<SessionConfig>,
+    #[serde(default)]
+    pub commands: Option<CommandsConfig>,
+    #[serde(default)]
+    pub tests: Vec<TomlTest>,
+    #[serde(default)]
+    pub direct_api: Option<DirectApiConfig>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CliConfig {
+    pub name: String,
+    pub binary: String,
+    #[serde(default)]
+    pub programmatic_args: Vec<String>,
+    #[serde(default)]
+    pub resume_args: Vec<String>,
+    #[serde(default)]
+    pub version_command: Vec<String>,
+    #[serde(default)]
+    pub update_command: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct TomlRule {
+    pub name: String,
+    pub when: String,
+    pub emit: String,
+    #[serde(default)]
+    pub mappings: HashMap<String, String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ContextConfig {
+    pub mode: Option<String>,
+    pub flag: Option<String>,
+    pub file_format: Option<String>,
+    pub selection_format: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct RetryConfig {
+    pub max_retries: Option<u32>,
+    pub backoff: Option<toml::Value>,
+    pub retryable_codes: Option<Vec<String>>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SessionConfig {
+    pub session_id_path: Option<String>,
+    pub model_path: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CommandsConfig {
+    pub cancel: Option<toml::Value>,
+    pub pause: Option<toml::Value>,
+    pub interrupt: Option<toml::Value>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct TomlTest {
+    pub name: String,
+    pub prompt: String,
+    pub max_tokens: Option<u32>,
+    #[serde(default)]
+    pub expected: Vec<toml::Value>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct DirectApiConfig {
+    pub endpoint: Option<String>,
+    pub auth_header: Option<String>,
+    pub auth_env: Option<String>,
+    pub stream: Option<bool>,
+    pub request_template: Option<toml::Value>,
+}
+
+impl TomlConfig {
+    pub fn parse(toml_str: &str) -> Result<Self, String> {
+        toml::from_str(toml_str).map_err(|e| format!("TOML parse error: {}", e))
+    }
+
+    pub fn to_rules(&self) -> Vec<Rule> {
+        self.rules.iter().map(|r| Rule {
+            name: r.name.clone(),
+            when: r.when.clone(),
+            emit: r.emit.clone(),
+            mappings: r.mappings.clone(),
+        }).collect()
+    }
+}
+
+pub struct NormalizerRegistry {
+    pipelines: HashMap<String, NormalizerPipeline>,
+    configs: HashMap<String, TomlConfig>,
+}
+
+impl NormalizerRegistry {
+    pub fn load_from_dir(dir: &Path) -> Result<Self, String> {
+        let mut pipelines = HashMap::new();
+        let mut configs = HashMap::new();
+
+        if !dir.exists() {
+            return Ok(Self { pipelines, configs });
+        }
+
+        for entry in std::fs::read_dir(dir).map_err(|e| e.to_string())? {
+            let entry = entry.map_err(|e| e.to_string())?;
+            let path = entry.path();
+            if path.extension().and_then(|e| e.to_str()) == Some("toml") {
+                let content = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
+                let config = TomlConfig::parse(&content)?;
+                let name = config.cli.name.clone();
+
+                let state_machine: Box<dyn StateMachine> = match name.as_str() {
+                    "claude" => Box::new(ClaudeStateMachine::new()),
+                    _ => Box::new(GenericStateMachine::new()),
+                };
+
+                let pipeline = NormalizerPipeline::new(
+                    config.to_rules(),
+                    state_machine,
+                    name.clone(),
+                );
+
+                pipelines.insert(name.clone(), pipeline);
+                configs.insert(name, config);
+            }
+        }
+
+        Ok(Self { pipelines, configs })
+    }
+
+    pub fn has_provider(&self, name: &str) -> bool {
+        self.pipelines.contains_key(name)
+    }
+
+    pub fn process(&mut self, provider: &str, raw_json: &str) -> Vec<AgentEvent> {
+        match self.pipelines.get_mut(provider) {
+            Some(pipeline) => pipeline.process(raw_json),
+            None => vec![],
+        }
+    }
+
+    pub fn get_config(&self, provider: &str) -> Option<&TomlConfig> {
+        self.configs.get(provider)
+    }
+
+    pub fn providers(&self) -> Vec<String> {
+        self.pipelines.keys().cloned().collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+    use tempfile::TempDir;
+    use std::fs;
+
+    fn sample_toml() -> &'static str {
+        r#"
+[cli]
+name = "testprovider"
+binary = "test"
+programmatic_args = ["-p", "{prompt}"]
+version_command = ["test", "--version"]
+update_command = ["test", "update"]
+
+[capabilities]
+streaming = true
+session_resume = false
+
+[[rules]]
+name = "text"
+when = 'type == "text_delta"'
+emit = "text"
+
+[rules.mappings]
+content = "text"
+
+[[rules]]
+name = "done"
+when = 'type == "done"'
+emit = "done"
+"#
+    }
+
+    #[test]
+    fn test_parse_toml_config() {
+        let config = TomlConfig::parse(sample_toml()).unwrap();
+        assert_eq!(config.cli.name, "testprovider");
+        assert_eq!(config.cli.binary, "test");
+        assert_eq!(config.rules.len(), 2);
+        assert_eq!(config.rules[0].name, "text");
+        assert_eq!(config.rules[0].emit, "text");
+    }
+
+    #[test]
+    fn test_parse_toml_rules_have_mappings() {
+        let config = TomlConfig::parse(sample_toml()).unwrap();
+        assert_eq!(config.rules[0].mappings.get("content"), Some(&"text".to_string()));
+    }
+
+    #[test]
+    fn test_registry_load_from_dir() {
+        let dir = TempDir::new().unwrap();
+        let toml_path = dir.path().join("test.toml");
+        fs::write(&toml_path, sample_toml()).unwrap();
+
+        let registry = NormalizerRegistry::load_from_dir(dir.path()).unwrap();
+        assert!(registry.has_provider("testprovider"));
+    }
+
+    #[test]
+    fn test_registry_process_line() {
+        let dir = TempDir::new().unwrap();
+        let toml_path = dir.path().join("test.toml");
+        fs::write(&toml_path, sample_toml()).unwrap();
+
+        let mut registry = NormalizerRegistry::load_from_dir(dir.path()).unwrap();
+        let events = registry.process("testprovider", r#"{"type":"text_delta","text":"Hello"}"#);
+        assert_eq!(events.len(), 1);
+    }
+
+    #[test]
+    fn test_registry_unknown_provider() {
+        let dir = TempDir::new().unwrap();
+        let mut registry = NormalizerRegistry::load_from_dir(dir.path()).unwrap();
+        let events = registry.process("unknown", r#"{"type":"text"}"#);
+        assert!(events.is_empty());
+    }
+}
