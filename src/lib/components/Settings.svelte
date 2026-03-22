@@ -236,7 +236,7 @@
       if (localLocale !== get(locale)) {
         loadLocale(localLocale).then(() => {
           locale.set(localLocale);
-        }).catch(() => {});
+        }).catch((e) => console.warn('Failed to load locale:', e));
       }
     } catch (e) {
       console.error('Settings save error:', e);

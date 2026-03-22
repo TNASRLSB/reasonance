@@ -1,6 +1,5 @@
 <script lang="ts">
   import { get } from 'svelte/store';
-  import { readText } from '@tauri-apps/plugin-clipboard-manager';
   import { tr } from '$lib/i18n/index';
   import { yoloMode, enhancedReadability } from '$lib/stores/ui';
   import { themeMode } from '$lib/stores/theme';
@@ -75,7 +74,7 @@
         { divider: true },
         { label: $tr('menu.edit.cut'), shortcut: 'Ctrl+X', action: () => document.execCommand('cut') },
         { label: $tr('menu.edit.copy'), shortcut: 'Ctrl+C', action: () => document.execCommand('copy') },
-        { label: $tr('menu.edit.paste'), shortcut: 'Ctrl+V', action: () => readText().then(t => document.execCommand('insertText', false, t)).catch(() => {}) },
+        { label: $tr('menu.edit.paste'), shortcut: 'Ctrl+V', action: () => adapter.getClipboard().then(t => document.execCommand('insertText', false, t)).catch((e) => console.warn('Clipboard paste failed:', e)) },
         { divider: true },
         { label: $tr('menu.edit.find'), shortcut: 'Ctrl+F', action: () => document.dispatchEvent(new CustomEvent('reasonance:findInFile')) },
         { label: $tr('menu.edit.findInFiles'), shortcut: 'Ctrl+Shift+F', action: () => document.dispatchEvent(new CustomEvent('reasonance:findInFiles')) },

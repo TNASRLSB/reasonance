@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { EditorView, basicSetup } from 'codemirror';
-  import { EditorState } from '@codemirror/state';
+  import { EditorState, type Extension } from '@codemirror/state';
   import { foldGutter } from '@codemirror/language';
   import { oneDark } from '@codemirror/theme-one-dark';
   import { getLangAsync } from '$lib/editor/languages';
@@ -55,7 +55,7 @@
   let view: EditorView | null = null;
   let readOnly = $state(true);
   let showMarkdownPreview = $state(false);
-  let currentLangExts: any[] = [];
+  let currentLangExts: Extension[] = [];
 
   // Context menu state
   let ctxVisible = $state(false);
@@ -106,8 +106,8 @@
     }
   });
 
-  function buildState(content: string, langExts: any[], ro: boolean) {
-    let themeExt: any[];
+  function buildState(content: string, langExts: Extension[], ro: boolean) {
+    let themeExt: Extension[];
     const selectedTheme = editorThemes[$editorTheme];
     if (selectedTheme && selectedTheme.extensions.length > 0) {
       themeExt = selectedTheme.extensions;

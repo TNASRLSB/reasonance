@@ -26,10 +26,7 @@
   import { get } from 'svelte/store';
   import { parse } from 'smol-toml';
   import { parseLlmConfig } from '$lib/utils/config-parser';
-  import { invoke } from '@tauri-apps/api/core';
   import { load } from '@tauri-apps/plugin-store';
-  import { getCurrentWindow } from '@tauri-apps/api/window';
-  import { open } from '@tauri-apps/plugin-dialog';
   import '../app.css';
 
   interface DiffState {
@@ -62,9 +59,9 @@
   // ── Open Folder / Switch Project ─────────────────────────────────────────
 
   async function openFolder() {
-    const selected = await open({ directory: true, multiple: false });
+    const selected = await adapter.openFolderDialog();
     if (selected) {
-      await switchProject(typeof selected === 'string' ? selected : selected[0]);
+      await switchProject(selected);
     }
   }
 
@@ -170,8 +167,8 @@
       // Restore locale
       const savedLocale = await store.get<string>('locale');
       if (savedLocale && ['en','it','de','es','fr','pt','zh','hi','ar'].includes(savedLocale)) {
-        await loadLocale(savedLocale as any);
-        locale.set(savedLocale as any);
+        await loadLocale(savedLocale as import('$lib/i18n/index').Locale);
+        locale.set(savedLocale as import('$lib/i18n/index').Locale);
       }
 
       // Restore project root and recent projects
@@ -276,9 +273,7 @@
       const configs = get(llmConfigs);
       if (configs.length === 0) {
         try {
-          const discovered = await invoke<Array<{ name: string; command: string; found: boolean }>>(
-            'discover_llms'
-          );
+          const discovered = await adapter.discoverLlms();
           const found = discovered.filter((d) => d.found);
           if (found.length > 0) {
             const newConfigs: import('$lib/stores/config').LlmConfig[] = found.map((d) => ({
@@ -338,10 +333,7 @@
     }
 
     // Listen for window close to save session state
-    const appWindow = getCurrentWindow();
-    appWindow.onCloseRequested(async () => {
-      await saveSession();
-    });
+    await adapter.onWindowClose(saveSession);
 
     // Register global keyboard shortcuts
     registerKeybinding('ctrl+p', () => { showSearchPalette = true; });
@@ -445,7 +437,7 @@
 </script>
 
 {#if showWelcome}
-  <WelcomeScreen onOpenFolder={openFolder} onSelectProject={switchProject} />
+  <WelcomeScreen {adapter} onOpenFolder={openFolder} onSelectProject={switchProject} />
 {:else}
   <App {adapter}>
     {#snippet fileTree()}

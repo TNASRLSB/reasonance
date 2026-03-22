@@ -94,7 +94,7 @@
     const label = inst ? inst.label : id;
     const ok = confirm(`Terminate session?\n\n${llmName} — ${label}\n\nThis will kill the running process. Any unsaved work in the terminal will be lost.`);
     if (!ok) return;
-    adapter.killProcess(id).catch(() => {});
+    adapter.killProcess(id).catch((e) => console.warn('Failed to kill process:', e));
     terminalTabs.update((current) => {
       return current
         .map((t) => {

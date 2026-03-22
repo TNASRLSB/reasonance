@@ -6,23 +6,32 @@ export const locale = writable<Locale>('en');
 export const isRTL = derived(locale, ($l) => $l === 'ar');
 
 import en from './en.json';
-import it from './it.json';
-import de from './de.json';
-import es from './es.json';
-import fr from './fr.json';
-import pt from './pt.json';
-import zh from './zh.json';
-import hi from './hi.json';
-import ar from './ar.json';
 
-const translations: Record<string, Record<string, string>> = {
-  en, it, de, es, fr, pt, zh, hi, ar,
+const translations: Record<string, Record<string, string>> = { en };
+
+const localeLoaders: Record<string, () => Promise<{ default: Record<string, string> }>> = {
+  it: () => import('./it.json'),
+  de: () => import('./de.json'),
+  es: () => import('./es.json'),
+  fr: () => import('./fr.json'),
+  pt: () => import('./pt.json'),
+  zh: () => import('./zh.json'),
+  hi: () => import('./hi.json'),
+  ar: () => import('./ar.json'),
 };
 
 export async function loadLocale(loc: Locale): Promise<void> {
-  // All locales are statically imported — this is a no-op kept for API compatibility
-  if (!translations[loc]) {
+  if (translations[loc]) return;
+  const loader = localeLoaders[loc];
+  if (!loader) {
     console.warn(`Unknown locale: ${loc}`);
+    return;
+  }
+  try {
+    const mod = await loader();
+    translations[loc] = mod.default;
+  } catch (e) {
+    console.warn(`Failed to load locale ${loc}:`, e);
   }
 }
 
