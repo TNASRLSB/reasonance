@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.1] - 2026-03-22
+
+### Bug Fixes
+
+- fix: add missing quotes around updater pubkey in tauri.conf.json
+
+
+
 ## [0.2.0] - 2026-03-22
 
 ### Features
