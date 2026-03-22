@@ -3,6 +3,7 @@
   import { markedHighlight } from 'marked-highlight';
   import hljs from 'highlight.js';
   import 'highlight.js/styles/github-dark.css';
+  import DOMPurify from 'dompurify';
   import { tr } from '$lib/i18n/index';
 
   interface Props {
@@ -26,7 +27,7 @@
     { gfm: true, breaks: true }
   );
 
-  const rendered = $derived(markedInstance.parse(content) as string);
+  const rendered = $derived(DOMPurify.sanitize(markedInstance.parse(content) as string));
 </script>
 
 {#if visible}

@@ -4,9 +4,6 @@ import { defineConfig } from 'vite';
 export default defineConfig({
 	plugins: [sveltekit()],
 	clearScreen: false,
-	resolve: {
-		tsconfigPaths: true,
-	},
 	optimizeDeps: {
 		include: [
 			'codemirror',
@@ -14,7 +11,6 @@ export default defineConfig({
 			'@codemirror/view',
 			'@codemirror/language',
 			'@codemirror/lang-javascript',
-			'@codemirror/lang-typescript',
 			'@codemirror/lang-html',
 			'@codemirror/lang-css',
 			'@codemirror/lang-python',
@@ -28,9 +24,12 @@ export default defineConfig({
 		],
 	},
 	server: {
+		host: '127.0.0.1',
 		port: 1420,
 		strictPort: true,
-		forwardConsole: true,
+		hmr: {
+			overlay: false,
+		},
 	},
 	define: {
 		__APP_VERSION__: JSON.stringify(process.env.npm_package_version || '0.0.0'),

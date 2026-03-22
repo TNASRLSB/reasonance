@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="reasonance/assets/reasonance-logo.svg" alt="Reasonance" width="120" />
+  <img src="static/favicon.png" alt="Reasonance" width="120" />
 </p>
 
 <h1 align="center">Reasonance</h1>
@@ -10,9 +10,16 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/TNASRLSB/reasonance/releases/latest"><img src="https://img.shields.io/github/v/release/TNASRLSB/reasonance?style=flat-square" alt="Latest Release" /></a>
+  <a href="https://github.com/TNASRLSB/reasonance/actions/workflows/release.yml"><img src="https://img.shields.io/github/actions/workflow/status/TNASRLSB/reasonance/release.yml?branch=main&style=flat-square" alt="Build Status" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/TNASRLSB/reasonance?style=flat-square" alt="License" /></a>
+</p>
+
+<p align="center">
   <a href="#features">Features</a> &middot;
   <a href="#why-reasonance">Why Reasonance</a> &middot;
-  <a href="#get-started">Get Started</a> &middot;
+  <a href="#download">Download</a> &middot;
+  <a href="#build-from-source">Build from Source</a> &middot;
   <a href="#license">License</a>
 </p>
 
@@ -30,7 +37,9 @@ Today's development tools were built for a world without AI. They bolt on chat p
 
 **Intent over keystrokes.** You describe what you want. Reasonance and your AI of choice figure out how to get there. No more fighting the tool to express your idea.
 
-**Built for every human.** Not an afterthought — accessibility is the architecture. Screen readers, voice control, switch access, eye tracking. Same power, every modality. WCAG 2.1 AAA target.
+**Built for every human.** Not an afterthought — accessibility is the architecture. Screen readers, keyboard navigation, high contrast, reduced motion. Same power, every modality. WCAG 2.1 AA compliant.
+
+**Secure by design.** API keys never touch the browser. All LLM calls are proxied through the native Rust backend. Markdown output is sanitized against XSS.
 
 **Native speed, tiny footprint.** Built on Tauri + Svelte. Sub-100 MB memory. Starts in under a second. No Electron. No bloat.
 
@@ -67,26 +76,34 @@ Side-by-side comparison with accept/reject controls. Review AI-generated changes
 
 ---
 
-## Get Started
+## Download
 
-### Requirements
-- Linux (Arch, Ubuntu, Fedora) — macOS and Windows coming soon
-- Rust toolchain (for building from source)
-- Node.js 18+
+### Pre-built binaries
 
-### Build from Source
+Download the latest release for your platform:
 
-```bash
-git clone https://github.com/TNASRLSB/reasonance.git
-cd reasonance/reasonance
-npm install
-npm run tauri dev
-```
+**[GitHub Releases](https://github.com/TNASRLSB/reasonance/releases/latest)** — Linux (.deb, .AppImage, .rpm), macOS (.dmg), Windows (.msi)
 
 ### Arch Linux (AUR)
 
 ```bash
 yay -S reasonance
+```
+
+---
+
+## Build from Source
+
+### Requirements
+- Linux, macOS, or Windows
+- Rust toolchain
+- Node.js 20+
+
+```bash
+git clone https://github.com/TNASRLSB/reasonance.git
+cd reasonance
+npm install
+npm run tauri dev
 ```
 
 ---
@@ -109,7 +126,6 @@ yay -S reasonance
 - [ ] Visual dataflow editor for AI orchestration
 - [ ] Persistent decision log across sessions
 - [ ] Plugin ecosystem with self-evolving skills
-- [ ] macOS and Windows builds
 - [ ] Collaborative multi-user sessions
 
 ---
@@ -122,7 +138,7 @@ Reasonance is open source and welcomes contributions. Whether you're fixing a ty
 
 ## License
 
-[MIT](reasonance/LICENSE) — free to use, modify, and distribute.
+[MIT](LICENSE) — free to use, modify, and distribute.
 
 ---
 

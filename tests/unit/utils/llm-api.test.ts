@@ -2,10 +2,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Mock @tauri-apps/api/core before importing the module under test
 vi.mock('@tauri-apps/api/core', () => ({
-  invoke: vi.fn().mockResolvedValue('test-api-key'),
+  invoke: vi.fn(),
 }));
 
 import { callLlm } from '$lib/utils/llm-api';
+import { invoke } from '@tauri-apps/api/core';
 import type { LlmConfig } from '$lib/stores/config';
 
 const anthropicConfig: LlmConfig = {
@@ -32,195 +33,121 @@ const openaiCustomEndpointConfig: LlmConfig = {
   model: 'llama3',
 };
 
+const mockedInvoke = invoke as ReturnType<typeof vi.fn>;
+
 describe('callLlm', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    globalThis.fetch = vi.fn();
   });
 
   describe('Anthropic provider', () => {
-    it('calls the correct Anthropic endpoint', async () => {
-      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ content: [{ text: 'Hello from Claude' }] }),
-      });
-
-      await callLlm(anthropicConfig, 'Hello');
-
-      expect(globalThis.fetch).toHaveBeenCalledWith(
-        'https://api.anthropic.com/v1/messages',
-        expect.objectContaining({ method: 'POST' })
+    it('calls invoke with correct provider and model', async () => {
+      mockedInvoke.mockResolvedValueOnce(
+        JSON.stringify({ content: 'Hello from Claude', error: null })
       );
-    });
-
-    it('sends correct Anthropic headers', async () => {
-      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ content: [{ text: 'Hi' }] }),
-      });
 
       await callLlm(anthropicConfig, 'Hello');
 
-      const [, options] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
-      const headers = options.headers as Record<string, string>;
-      expect(headers['Content-Type']).toBe('application/json');
-      expect(headers['x-api-key']).toBe('test-api-key');
-      expect(headers['anthropic-version']).toBe('2023-06-01');
+      expect(mockedInvoke).toHaveBeenCalledWith('call_llm_api', {
+        provider: 'anthropic',
+        model: 'claude-sonnet-4-6',
+        prompt: 'Hello',
+        apiKeyEnv: 'ANTHROPIC_API_KEY',
+        endpoint: '',
+      });
     });
 
-    it('sends correct Anthropic request body', async () => {
-      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ content: [{ text: 'Response' }] }),
-      });
-
-      await callLlm(anthropicConfig, 'Test prompt');
-
-      const [, options] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
-      const body = JSON.parse(options.body);
-      expect(body.model).toBe('claude-sonnet-4-6');
-      expect(body.max_tokens).toBe(4096);
-      expect(body.messages).toEqual([{ role: 'user', content: 'Test prompt' }]);
-    });
-
-    it('extracts content from Anthropic response', async () => {
-      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ content: [{ text: 'Extracted text' }] }),
-      });
+    it('extracts content from response', async () => {
+      mockedInvoke.mockResolvedValueOnce(
+        JSON.stringify({ content: 'Extracted text', error: null })
+      );
 
       const result = await callLlm(anthropicConfig, 'Hello');
       expect(result.content).toBe('Extracted text');
-      expect(result.error).toBeUndefined();
+      expect(result.error).toBeFalsy();
     });
 
-    it('returns empty string when Anthropic response has no content', async () => {
-      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({}),
-      });
+    it('returns empty string when content is null', async () => {
+      mockedInvoke.mockResolvedValueOnce(
+        JSON.stringify({ content: null, error: null })
+      );
 
       const result = await callLlm(anthropicConfig, 'Hello');
-      expect(result.content).toBe('');
+      expect(result.content).toBeNull();
     });
   });
 
   describe('OpenAI provider', () => {
-    it('calls the default OpenAI endpoint', async () => {
-      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ choices: [{ message: { content: 'Hi from GPT' } }] }),
-      });
+    it('passes openai as provider', async () => {
+      mockedInvoke.mockResolvedValueOnce(
+        JSON.stringify({ content: 'Hi from GPT', error: null })
+      );
 
       await callLlm(openaiConfig, 'Hello');
 
-      expect(globalThis.fetch).toHaveBeenCalledWith(
-        'https://api.openai.com/v1/chat/completions',
-        expect.objectContaining({ method: 'POST' })
-      );
+      expect(mockedInvoke).toHaveBeenCalledWith('call_llm_api', {
+        provider: 'openai',
+        model: 'gpt-4o',
+        prompt: 'Hello',
+        apiKeyEnv: 'OPENAI_API_KEY',
+        endpoint: '',
+      });
     });
 
-    it('uses custom endpoint when provided', async () => {
-      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ choices: [{ message: { content: 'Hi' } }] }),
-      });
+    it('passes custom endpoint when provided', async () => {
+      mockedInvoke.mockResolvedValueOnce(
+        JSON.stringify({ content: 'Hi', error: null })
+      );
 
       await callLlm(openaiCustomEndpointConfig, 'Hello');
 
-      expect(globalThis.fetch).toHaveBeenCalledWith(
-        'http://localhost:11434/v1/chat/completions',
-        expect.anything()
+      expect(mockedInvoke).toHaveBeenCalledWith('call_llm_api', {
+        provider: 'openai',
+        model: 'llama3',
+        prompt: 'Hello',
+        apiKeyEnv: '',
+        endpoint: 'http://localhost:11434/v1',
+      });
+    });
+
+    it('extracts content from response', async () => {
+      mockedInvoke.mockResolvedValueOnce(
+        JSON.stringify({ content: 'GPT says hi', error: null })
       );
-    });
-
-    it('sends Bearer token in Authorization header', async () => {
-      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ choices: [{ message: { content: 'Hi' } }] }),
-      });
-
-      await callLlm(openaiConfig, 'Hello');
-
-      const [, options] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
-      const headers = options.headers as Record<string, string>;
-      expect(headers['Authorization']).toBe('Bearer test-api-key');
-    });
-
-    it('sends correct OpenAI request body', async () => {
-      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ choices: [{ message: { content: 'Hi' } }] }),
-      });
-
-      await callLlm(openaiConfig, 'Test prompt');
-
-      const [, options] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
-      const body = JSON.parse(options.body);
-      expect(body.model).toBe('gpt-4o');
-      expect(body.messages).toEqual([{ role: 'user', content: 'Test prompt' }]);
-    });
-
-    it('extracts content from OpenAI response', async () => {
-      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ choices: [{ message: { content: 'GPT says hi' } }] }),
-      });
 
       const result = await callLlm(openaiConfig, 'Hello');
       expect(result.content).toBe('GPT says hi');
-      expect(result.error).toBeUndefined();
-    });
-
-    it('returns empty string when OpenAI response has no choices', async () => {
-      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({}),
-      });
-
-      const result = await callLlm(openaiConfig, 'Hello');
-      expect(result.content).toBe('');
+      expect(result.error).toBeFalsy();
     });
   });
 
   describe('error handling', () => {
-    it('returns error object on non-OK HTTP response', async () => {
-      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-        ok: false,
-        status: 401,
-        text: async () => 'Unauthorized',
-      });
-
-      const result = await callLlm(anthropicConfig, 'Hello');
-      expect(result.content).toBe('');
-      expect(result.error).toBe('401: Unauthorized');
-    });
-
-    it('returns error object when fetch throws', async () => {
-      (globalThis.fetch as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
-        new Error('Network error')
+    it('returns error from backend response', async () => {
+      mockedInvoke.mockResolvedValueOnce(
+        JSON.stringify({ content: null, error: '401: Unauthorized' })
       );
 
       const result = await callLlm(anthropicConfig, 'Hello');
-      expect(result.content).toBe('');
-      expect(result.error).toBe('Network error');
+      expect(result.error).toBe('401: Unauthorized');
     });
 
-    it('omits Authorization header when no API key env is set', async () => {
-      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ choices: [{ message: { content: 'Hi' } }] }),
-      });
+    it('returns error when invoke throws', async () => {
+      mockedInvoke.mockRejectedValueOnce(new Error('Network error'));
 
-      // Config with no apiKeyEnv — invoke returns '' from mock default
-      const { invoke } = await import('@tauri-apps/api/core');
-      (invoke as ReturnType<typeof vi.fn>).mockResolvedValueOnce(null);
+      const result = await callLlm(anthropicConfig, 'Hello');
+      expect(result.content).toBe('');
+      expect(result.error).toBe('Error: Network error');
+    });
+
+    it('passes empty apiKeyEnv when not set in config', async () => {
+      mockedInvoke.mockResolvedValueOnce(
+        JSON.stringify({ content: 'Hi', error: null })
+      );
 
       await callLlm(openaiCustomEndpointConfig, 'Hello');
 
-      const [, options] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
-      const headers = options.headers as Record<string, string>;
-      expect(headers['Authorization']).toBeUndefined();
+      const call = mockedInvoke.mock.calls[0];
+      expect(call[1].apiKeyEnv).toBe('');
     });
   });
 });

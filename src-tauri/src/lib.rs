@@ -94,6 +94,7 @@ pub fn run() {
             commands::engine::step_workflow,
             commands::engine::get_run_status,
             commands::engine::notify_node_completed,
+            commands::llm::call_llm_api,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
