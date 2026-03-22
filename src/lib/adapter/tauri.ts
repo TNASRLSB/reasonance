@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import type { Adapter, FileEntry, FsEvent, GrepResult, PtyHandle, DiscoveredAgent, Workflow, AgentState, AgentInstance, AgentMessage, WorkflowRun } from './index';
+import type { AgentEvent, AgentEventPayload, SessionHandle, SessionSummary, ViewMode } from '$lib/types/agent-event';
 
 export class TauriAdapter implements Adapter {
   async setProjectRoot(path: string): Promise<void> {
@@ -201,5 +202,51 @@ export class TauriAdapter implements Adapter {
   }
   async notifyNodeCompleted(runId: string, nodeId: string, success: boolean, workflowPath: string, cwd: string): Promise<void> {
     return invoke('notify_node_completed', { runId, nodeId, success, workflowPath, cwd });
+  }
+
+  // Structured Transport
+  async agentSend(prompt: string, provider: string, model?: string, sessionId?: string): Promise<string> {
+    return invoke<string>('agent_send', {
+      request: { prompt, provider, model: model ?? null, context: [], session_id: sessionId ?? null, system_prompt: null, max_tokens: null, allowed_tools: null }
+    });
+  }
+  async agentStop(sessionId: string): Promise<void> {
+    return invoke<void>('agent_stop', { sessionId });
+  }
+  async agentGetEvents(sessionId: string): Promise<AgentEvent[]> {
+    return invoke<AgentEvent[]>('agent_get_events', { sessionId });
+  }
+  async onAgentEvent(callback: (payload: AgentEventPayload) => void): Promise<() => void> {
+    const { listen } = await import('@tauri-apps/api/event');
+    const unlisten = await listen<AgentEventPayload>('agent-event', (event) => {
+      callback(event.payload);
+    });
+    return unlisten;
+  }
+
+  // Session Management
+  async sessionCreate(provider: string, model: string): Promise<string> {
+    return invoke<string>('session_create', { provider, model });
+  }
+  async sessionRestore(sessionId: string): Promise<SessionHandle> {
+    return invoke<SessionHandle>('session_restore', { sessionId });
+  }
+  async sessionGetEvents(sessionId: string): Promise<AgentEvent[]> {
+    return invoke<AgentEvent[]>('session_get_events', { sessionId });
+  }
+  async sessionList(): Promise<SessionSummary[]> {
+    return invoke<SessionSummary[]>('session_list');
+  }
+  async sessionDelete(sessionId: string): Promise<void> {
+    return invoke<void>('session_delete', { sessionId });
+  }
+  async sessionRename(sessionId: string, title: string): Promise<void> {
+    return invoke<void>('session_rename', { sessionId, title });
+  }
+  async sessionFork(sessionId: string, forkEventIndex: number): Promise<string> {
+    return invoke<string>('session_fork', { sessionId, forkEventIndex });
+  }
+  async sessionSetViewMode(sessionId: string, mode: ViewMode): Promise<void> {
+    return invoke<void>('session_set_view_mode', { sessionId, mode });
   }
 }
