@@ -1,0 +1,110 @@
+[cli]
+name = "kimi"
+binary = "kimi"
+programmatic_args = ["-p", "{prompt}", "--output-format", "stream-json"]
+resume_args = ["-C", "-p", "{prompt}", "--output-format", "stream-json"]
+version_command = ["kimi", "--version"]
+update_command = ["npm", "install", "-g", "kimi@latest"]
+
+[capabilities]
+streaming = true
+session_resume = true
+tool_use = true
+thinking = true
+structured_output = true
+diff_output = false
+
+[retry]
+max_retries = 3
+backoff = { strategy = "exponential", base_ms = 1000, max_ms = 30000 }
+retryable_codes = ["overloaded", "rate_limit", "timeout"]
+
+[commands]
+cancel = { method = "signal", signal = "SIGINT" }
+
+[session]
+session_id_path = "message.id"
+model_path = "message.model"
+
+[[rules]]
+name = "error_rate_limit"
+when = 'type == "error" && error.type == "overloaded"'
+emit = "error"
+[rules.mappings]
+content = "error.message"
+error_code = "error.type"
+severity = "recoverable"
+
+[[rules]]
+name = "error_generic"
+when = 'type == "error"'
+emit = "error"
+[rules.mappings]
+content = "error.message"
+error_code = "error.type"
+severity = "fatal"
+
+[[rules]]
+name = "text_chunk"
+when = 'type == "content_block_delta" && delta.type == "text_delta"'
+emit = "text"
+[rules.mappings]
+content = "delta.text"
+
+[[rules]]
+name = "thinking"
+when = 'type == "content_block_delta" && delta.type == "thinking_delta"'
+emit = "thinking"
+[rules.mappings]
+content = "delta.thinking"
+
+[[rules]]
+name = "tool_start"
+when = 'type == "content_block_start" && content_block.type == "tool_use"'
+emit = "tool_use"
+[rules.mappings]
+content = "content_block.input"
+tool_name = "content_block.name"
+parent_id = "content_block.id"
+
+[[rules]]
+name = "tool_input_delta"
+when = 'type == "content_block_delta" && delta.type == "input_json_delta"'
+emit = "tool_use"
+[rules.mappings]
+content = "delta.partial_json"
+
+[[rules]]
+name = "block_stop"
+when = 'type == "content_block_stop"'
+emit = "status"
+
+[[rules]]
+name = "usage"
+when = 'type == "message_delta" && exists(usage)'
+emit = "usage"
+[rules.mappings]
+input_tokens = "usage.input_tokens"
+output_tokens = "usage.output_tokens"
+
+[[rules]]
+name = "done"
+when = 'type == "message_stop"'
+emit = "done"
+
+[[tests]]
+name = "basic_text"
+prompt = "Reply with exactly: REASONANCE_TEST_OK"
+max_tokens = 50
+expected = [
+  { event_type = "text", required = true, validate = { type = "content_matches", pattern = "REASONANCE_TEST_OK" } },
+  { event_type = "done", required = true, validate = "exists" },
+]
+
+[[tests]]
+name = "thinking"
+prompt = "Think step by step: what is 2+2?"
+max_tokens = 200
+expected = [
+  { event_type = "thinking", required = false, validate = "content_not_empty" },
+]
