@@ -5,14 +5,17 @@
   import 'highlight.js/styles/github-dark.css';
   import DOMPurify from 'dompurify';
   import { tr } from '$lib/i18n/index';
+  import AnalyticsBar from './AnalyticsBar.svelte';
+  import { analyticsDashboard } from '$lib/stores/ui';
 
   interface Props {
     content: string;
     visible: boolean;
     onClose: () => void;
+    adapter?: any;
   }
 
-  const { content, visible, onClose }: Props = $props();
+  const { content, visible, onClose, adapter }: Props = $props();
 
   const markedInstance = new Marked(
     markedHighlight({
@@ -41,6 +44,10 @@
         {@html rendered}
       </div>
     </div>
+    <AnalyticsBar
+      {adapter}
+      onOpenDashboard={() => analyticsDashboard.set({ open: true, focus: null })}
+    />
   </div>
 {/if}
 
