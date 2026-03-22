@@ -13,6 +13,7 @@ pub struct AgentSession {
     pub events: Vec<AgentEvent>,
     pub created_at: u64,
     pub cli_session_id: Option<String>,
+    pub abort_handle: Option<tokio::task::AbortHandle>,
 }
 
 impl AgentSession {
@@ -32,7 +33,12 @@ impl AgentSession {
             events: Vec::new(),
             created_at: now,
             cli_session_id: None,
+            abort_handle: None,
         }
+    }
+
+    pub fn set_abort_handle(&mut self, handle: tokio::task::AbortHandle) {
+        self.abort_handle = Some(handle);
     }
 
     pub fn add_event(&mut self, event: AgentEvent) {

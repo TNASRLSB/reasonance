@@ -100,7 +100,7 @@ impl StructuredAgentTransport {
 
         let rx = spawn_stream_reader(stdout, pipeline, event_bus, sid.clone());
 
-        tokio::spawn(async move {
+        let join_handle = tokio::spawn(async move {
             let _ = child.wait().await;
             if let Ok(result) = rx.await {
                 let mut sessions = sessions_ref.lock().unwrap();
@@ -114,6 +114,11 @@ impl StructuredAgentTransport {
             }
         });
 
+        self.sessions.lock().unwrap()
+            .get_mut(&session_id)
+            .unwrap()
+            .set_abort_handle(join_handle.abort_handle());
+
         Ok(session_id)
     }
 
@@ -121,6 +126,9 @@ impl StructuredAgentTransport {
         let mut sessions = self.sessions.lock().unwrap();
         let session = sessions.get_mut(session_id)
             .ok_or_else(|| format!("Session {} not found", session_id))?;
+        if let Some(handle) = session.abort_handle.take() {
+            handle.abort();
+        }
         session.set_status(SessionStatus::Terminated);
         Ok(())
     }
