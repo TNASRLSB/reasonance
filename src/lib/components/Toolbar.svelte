@@ -2,13 +2,10 @@
   import { yoloMode, showSettings } from '$lib/stores/ui';
   import type { Adapter } from '$lib/adapter/index';
   import MenuBar from './MenuBar.svelte';
-  import { getCurrentWindow } from '@tauri-apps/api/window';
   import { activeInstanceId } from '$lib/stores/terminals';
   import { get } from 'svelte/store';
 
   let { adapter }: { adapter: Adapter } = $props();
-
-  const appWindow = getCurrentWindow();
 
   function toggleYolo() {
     const current = get(yoloMode);
@@ -85,9 +82,9 @@
     </button>
     <button class="settings-btn" onclick={openSettings} title="Settings">&#9881;</button>
     <div class="window-controls">
-      <button class="win-btn" onclick={() => appWindow.minimize()} title="Minimize">&#8722;</button>
-      <button class="win-btn" onclick={() => appWindow.toggleMaximize()} title="Maximize">&#9723;</button>
-      <button class="win-btn close" onclick={() => appWindow.close()} title="Close">&#10005;</button>
+      <button class="win-btn" onclick={() => adapter.minimizeWindow()} title="Minimize">&#8722;</button>
+      <button class="win-btn" onclick={() => adapter.maximizeWindow()} title="Maximize">&#9723;</button>
+      <button class="win-btn close" onclick={() => adapter.closeWindow()} title="Close">&#10005;</button>
     </div>
   </div>
 </div>
@@ -232,16 +229,10 @@
     background: var(--danger-dark);
     border-color: var(--danger);
     color: var(--text-primary);
-    animation: yolo-pulse 2s ease-in-out infinite;
   }
 
   .yolo-btn.active:hover {
     background: var(--danger);
-  }
-
-  @keyframes yolo-pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.8; }
   }
 
   .settings-btn {

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte';
+  import { onMount } from 'svelte';
   import { MergeView } from '@codemirror/merge';
   import { EditorState } from '@codemirror/state';
   import { EditorView, basicSetup } from 'codemirror';
@@ -43,12 +43,8 @@
   let container: HTMLDivElement;
   let mergeView: MergeView | null = null;
 
-  // Track dark/light theme reactively
-  let currentIsDark = $state(true);
-  const unsubIsDark = isDark.subscribe((v) => { currentIsDark = v; });
-
   function buildEditorState(doc: string) {
-    const themeExt = currentIsDark ? [oneDark, forgeDarkDiffTheme] : [forgeLightDiffTheme];
+    const themeExt = $isDark ? [oneDark, forgeDarkDiffTheme] : [forgeLightDiffTheme];
     return EditorState.create({
       doc,
       extensions: [basicSetup, ...themeExt, EditorView.editable.of(false), EditorState.readOnly.of(true)],
@@ -70,20 +66,18 @@
 
   onMount(() => {
     rebuildMergeView();
+    return () => {
+      if (mergeView) {
+        mergeView.destroy();
+        mergeView = null;
+      }
+    };
   });
 
   // Rebuild on theme change
   $effect(() => {
-    const _dark = currentIsDark;
+    const _dark = $isDark;
     if (mergeView) rebuildMergeView();
-  });
-
-  onDestroy(() => {
-    unsubIsDark();
-    if (mergeView) {
-      mergeView.destroy();
-      mergeView = null;
-    }
   });
 
   async function handleAccept() {

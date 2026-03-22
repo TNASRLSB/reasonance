@@ -113,5 +113,22 @@
   "settings.llm.addBtn": "Hinzufügen",
   "settings.terminal.title": "Terminal-Einstellungen",
   "settings.accessibility.title": "Barrierefreiheit",
-  "settings.readability.hint": "Größerer Text (18px), mehr Abstand, stärkere Schrift. Basiert auf Lesbarkeitsforschung für Legasthenie."
+  "settings.readability.hint": "Größerer Text (18px), mehr Abstand, stärkere Schrift. Basiert auf Lesbarkeitsforschung für Legasthenie.",
+  "status.noSession": "Keine aktive Sitzung",
+  "search.ariaLabel": "Dateisuche",
+  "search.inputLabel": "Dateien suchen",
+  "search.placeholder": "Zur Datei gehen\u2026",
+  "search.loading": "Laden\u2026",
+  "search.escClose": "ESC zum Schließen",
+  "search.noMatch": "Keine Dateien entsprechen \"{query}\"",
+  "search.hint": "Tippen um Dateien im Projekt zu suchen",
+  "search.errorOpen": "Datei konnte nicht geöffnet werden",
+  "fif.ariaLabel": "In Dateien suchen",
+  "fif.title": "In Dateien suchen",
+  "fif.placeholder": "Suchmuster\u2026",
+  "fif.searching": "Suche läuft\u2026",
+  "fif.search": "Suchen",
+  "fif.error": "Suche fehlgeschlagen. Versuche ein einfacheres Muster oder prüfe, ob der Projektordner zugänglich ist.",
+  "fif.noResults": "Keine Ergebnisse für \"{pattern}\"",
+  "fif.summary": "{count} Ergebnis(se) in {files} Datei(en)"
 }

@@ -1,30 +1,14 @@
 <script lang="ts">
   import { tr } from '$lib/i18n/index';
   import { yoloMode } from '$lib/stores/ui';
-  import { activeInstanceId, terminalTabs } from '$lib/stores/terminals';
   import { activeFilePath } from '$lib/stores/files';
   import { llmConfigs } from '$lib/stores/config';
-  import type { TerminalInstance, TerminalTab } from '$lib/stores/terminals';
-  import { onDestroy } from 'svelte';
+  import { terminalTabs, activeTerminalTab, activeInstanceId } from '$lib/stores/terminals';
 
-  let tabs = $state<TerminalTab[]>([]);
-  let activeId = $state<string | null>(null);
-  let activePath = $state<string | null>(null);
-  let configCount = $state(0);
-
-  const unsubTabs = terminalTabs.subscribe((v) => { tabs = v; });
-  const unsubActive = activeInstanceId.subscribe((v) => { activeId = v; });
-  const unsubPath = activeFilePath.subscribe((v) => { activePath = v; });
-  const unsubConfigs = llmConfigs.subscribe((v) => { configCount = v.length; });
-
-  onDestroy(() => { unsubTabs(); unsubActive(); unsubPath(); unsubConfigs(); });
-
-  let activeInst = $derived.by(() => {
-    for (const tab of tabs) {
-      const inst = tab.instances.find((i: TerminalInstance) => i.id === activeId);
-      if (inst) return inst;
-    }
-    return null;
+  let activeInstanceData = $derived.by(() => {
+    if (!$activeTerminalTab || !$activeInstanceId) return null;
+    const tab = $terminalTabs.find(t => t.llmName === $activeTerminalTab);
+    return tab?.instances.find(i => i.id === $activeInstanceId) ?? null;
   });
 
   function generateBar(percent: number): string {
@@ -46,38 +30,46 @@
 
 <div class="status-bar" class:yolo={$yoloMode}>
   {#if $yoloMode}
-    <span class="yolo-label">{$tr('status.yolo')}</span>
+    <span class="yolo-label">&#10005; YOLO MODE — CONFIRMATIONS DISABLED</span>
   {:else}
     <div class="status-left">
       <span class="app-name">REASONANCE</span>
       <span class="separator">|</span>
-      <span class="llm-count">{$tr('status.llmDetected', { count: String(configCount) })}</span>
+      <span class="llm-count">{$tr('status.llmDetected', { count: String($llmConfigs.length) })}</span>
     </div>
 
     <div class="status-center">
-      {#if activeInst}
-        {#if activeInst.contextPercent != null}
-          <span class="ctx-info" title="Context window usage">
-            {$tr('status.session', { percent: String(activeInst.contextPercent) })}
-            <span class="ctx-bar">{generateBar(activeInst.contextPercent)}</span>
-          </span>
+      {#if activeInstanceData}
+        {#if activeInstanceData.contextPercent != null}
+          <span class="ctx-status">ctx {generateBar(activeInstanceData.contextPercent)} {activeInstanceData.contextPercent}%</span>
         {/if}
-        {#if activeInst.modelName}
-          <span class="model-name">{activeInst.modelName}</span>
+        {#if activeInstanceData.tokenCount}
+          <span class="token-status">{activeInstanceData.tokenCount} tokens</span>
         {/if}
-        {#if activeInst.resetTimer}
-          <span class="reset-timer">{$tr('status.resetIn', { time: activeInst.resetTimer })}</span>
+        {#if activeInstanceData.resetTimer}
+          <span class="reset-status">reset: {activeInstanceData.resetTimer}</span>
         {/if}
-        {#if activeInst.messagesLeft != null}
-          <span class="msg-count">{$tr('status.messagesLeft', { count: String(activeInst.messagesLeft) })}</span>
+        {#if activeInstanceData.messagesLeft != null}
+          <span class="msg-status">msg: {activeInstanceData.messagesLeft}</span>
         {/if}
+        {#if activeInstanceData.progressState === 1}
+          <span class="progress-status">&#9654; {activeInstanceData.progressValue}%</span>
+        {:else if activeInstanceData.progressState === 2}
+          <span class="progress-status error">&#10007; error</span>
+        {:else if activeInstanceData.progressState === 3}
+          <span class="progress-status">&#8943; working</span>
+        {:else if activeInstanceData.progressState === 4}
+          <span class="progress-status paused">&#10074;&#10074; paused</span>
+        {/if}
+      {:else}
+        <span class="idle-hint">{$tr('status.noSession')}</span>
       {/if}
     </div>
 
     <div class="status-right">
-      {#if activePath}
-        <span class="file-name">{activePath.split('/').pop()}</span>
-        <span class="file-lang">{getLang(activePath)}</span>
+      {#if $activeFilePath}
+        <span class="file-name">{$activeFilePath.split('/').pop()}</span>
+        <span class="file-lang">{getLang($activeFilePath)}</span>
         <span class="file-encoding">UTF-8</span>
       {/if}
     </div>
@@ -98,7 +90,7 @@
     font-size: var(--font-size-small);
     font-weight: 600;
     user-select: none;
-    border-top: none;
+    border-top: 2px solid var(--border);
   }
 
   .status-bar.yolo {
@@ -149,30 +141,6 @@
     opacity: 0.85;
   }
 
-  .ctx-info {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-
-  .ctx-bar {
-    font-family: var(--font-mono);
-    letter-spacing: 0.05em;
-  }
-
-  .model-name {
-    opacity: 0.85;
-    font-weight: 500;
-  }
-
-  .reset-timer {
-    opacity: 0.85;
-  }
-
-  .msg-count {
-    opacity: 0.85;
-  }
-
   .file-name {
     font-weight: 500;
   }
@@ -183,5 +151,40 @@
 
   .file-encoding {
     opacity: 0.5;
+  }
+
+  .ctx-status {
+    font-family: var(--font-mono);
+    font-size: var(--font-size-tiny);
+    letter-spacing: 0.02em;
+  }
+
+  .token-status,
+  .reset-status,
+  .msg-status {
+    font-family: var(--font-mono);
+    font-size: var(--font-size-tiny);
+    opacity: 0.85;
+  }
+
+  .progress-status {
+    font-family: var(--font-mono);
+    font-size: var(--font-size-tiny);
+    opacity: 0.85;
+  }
+
+  .progress-status.error {
+    color: #ff6b6b;
+  }
+
+  .progress-status.paused {
+    color: #fbbf24;
+  }
+
+  .idle-hint {
+    font-family: var(--font-mono);
+    font-size: var(--font-size-tiny);
+    opacity: 0.5;
+    font-style: italic;
   }
 </style>

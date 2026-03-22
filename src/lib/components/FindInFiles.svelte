@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { invoke } from '@tauri-apps/api/core';
-  import type { Adapter } from '$lib/adapter/index';
+  import type { Adapter, GrepResult } from '$lib/adapter/index';
   import { addOpenFile, activeFilePath } from '$lib/stores/files';
+  import { tr } from '$lib/i18n/index';
 
   let {
     adapter,
@@ -12,12 +12,6 @@
     visible: boolean;
     onClose: () => void;
   } = $props();
-
-  interface GrepResult {
-    path: string;
-    line_number: number;
-    line: string;
-  }
 
   let pattern = $state('');
   let results = $state<GrepResult[]>([]);
@@ -50,11 +44,7 @@
     error = '';
     searched = false;
     try {
-      results = await invoke<GrepResult[]>('grep_files', {
-        path: '.',
-        pattern: q,
-        respectGitignore: true,
-      });
+      results = await adapter.grepFiles('.', q, true);
       searched = true;
     } catch (e) {
       console.error('Find in files error:', e);
@@ -107,9 +97,9 @@
 
 {#if visible}
   <div class="fif-overlay" role="button" tabindex="-1" onclick={handleOverlayClick} onkeydown={(e) => { if (e.key === 'Escape') handleOverlayClick(); }}>
-    <div class="fif-panel" role="dialog" aria-label="Find in files" aria-modal="true">
+    <div class="fif-panel" role="dialog" aria-label={$tr('fif.ariaLabel')} aria-modal="true">
       <div class="fif-header">
-        <span class="fif-title">Find in Files</span>
+        <span class="fif-title">{$tr('fif.title')}</span>
         <button class="close-btn" onclick={onClose} aria-label="Close">&#10005;</button>
       </div>
 
@@ -119,28 +109,28 @@
           bind:value={pattern}
           onkeydown={handleKeydown}
           type="text"
-          placeholder="Search pattern…"
+          placeholder={$tr('fif.placeholder')}
           class="fif-input"
-          aria-label="Search pattern"
+          aria-label={$tr('fif.placeholder')}
           autocomplete="off"
           spellcheck="false"
         />
         <button class="search-btn" onclick={runSearch} disabled={searching || !pattern.trim()}>
-          {searching ? 'Searching…' : 'Search'}
+          {searching ? $tr('fif.searching') : $tr('fif.search')}
         </button>
       </div>
 
       {#if error}
-        <p class="fif-error">{error}</p>
+        <p class="fif-error">{$tr('fif.error')}</p>
       {/if}
 
       {#if searched && results.length === 0}
-        <p class="fif-empty">No results found for "{pattern}"</p>
+        <p class="fif-empty">{$tr('fif.noResults', { pattern })}</p>
       {/if}
 
       {#if results.length > 0}
         <div class="fif-summary">
-          {results.length} result{results.length !== 1 ? 's' : ''} in {fileCount} file{fileCount !== 1 ? 's' : ''}
+          {$tr('fif.summary', { count: String(results.length), files: String(fileCount) })}
         </div>
 
         <div class="fif-results">

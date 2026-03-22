@@ -10,7 +10,7 @@
   import '@xterm/xterm/css/xterm.css';
   import type { Adapter } from '$lib/adapter/index';
   import { terminalTabs } from '$lib/stores/terminals';
-  import { enhancedReadability } from '$lib/stores/ui';
+  import { enhancedReadability, fontFamily, fontSize } from '$lib/stores/ui';
   import { isDark } from '$lib/stores/theme';
 
   const darkXtermTheme = {
@@ -45,8 +45,8 @@
 
   onMount(() => {
     term = new Terminal({
-      fontFamily: "'Atkinson Hyperlegible Mono', monospace",
-      fontSize: 14,
+      fontFamily: $fontFamily,
+      fontSize: $fontSize,
       lineHeight: 1.3,
       cursorBlink: false,
       cursorStyle: 'block',
@@ -214,7 +214,20 @@
   $effect(() => {
     const on = $enhancedReadability;
     if (term) {
-      term.options.fontSize = on ? 16 : 14;
+      term.options.fontSize = on ? 16 : $fontSize;
+      fitAddon?.fit();
+    }
+  });
+
+  // React to font family/size store changes
+  $effect(() => {
+    const ff = $fontFamily;
+    const fs = $fontSize;
+    if (term) {
+      term.options.fontFamily = ff;
+      if (!$enhancedReadability) {
+        term.options.fontSize = fs;
+      }
       fitAddon?.fit();
     }
   });

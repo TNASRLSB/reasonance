@@ -113,5 +113,22 @@
   "settings.llm.addBtn": "जोड़ें",
   "settings.terminal.title": "टर्मिनल सेटिंग्स",
   "settings.accessibility.title": "अभिगम्यता",
-  "settings.readability.hint": "बड़ा टेक्स्ट (18px), बढ़ी हुई रिक्ति, भारी वजन। डिस्लेक्सिया पठनीयता अनुसंधान पर आधारित।"
+  "settings.readability.hint": "बड़ा टेक्स्ट (18px), बढ़ी हुई रिक्ति, भारी वजन। डिस्लेक्सिया पठनीयता अनुसंधान पर आधारित।",
+  "status.noSession": "कोई सक्रिय सत्र नहीं",
+  "search.ariaLabel": "फ़ाइल खोज",
+  "search.inputLabel": "फ़ाइलें खोजें",
+  "search.placeholder": "फ़ाइल पर जाएं\u2026",
+  "search.loading": "लोड हो रहा है\u2026",
+  "search.escClose": "ESC बंद करने के लिए",
+  "search.noMatch": "\"{query}\" से कोई फ़ाइल मेल नहीं खाती",
+  "search.hint": "प्रोजेक्ट में फ़ाइलें खोजने के लिए टाइप करें",
+  "search.errorOpen": "फ़ाइल नहीं खोली जा सकी",
+  "fif.ariaLabel": "फ़ाइलों में खोजें",
+  "fif.title": "फ़ाइलों में खोजें",
+  "fif.placeholder": "खोज पैटर्न\u2026",
+  "fif.searching": "खोज रहे हैं\u2026",
+  "fif.search": "खोजें",
+  "fif.error": "खोज विफल रही। सरल पैटर्न आज़माएं या जांचें कि प्रोजेक्ट फ़ोल्डर सुलभ है।",
+  "fif.noResults": "\"{pattern}\" के लिए कोई परिणाम नहीं मिला",
+  "fif.summary": "{files} फ़ाइल(ों) में {count} परिणाम"
 }

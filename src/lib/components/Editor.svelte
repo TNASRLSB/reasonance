@@ -7,7 +7,7 @@
   import { getLangAsync } from '$lib/editor/languages';
   import { openFiles, activeFilePath } from '$lib/stores/files';
   import { isDark } from '$lib/stores/theme';
-  import { editorTheme } from '$lib/stores/ui';
+  import { editorTheme, fontFamily, fontSize } from '$lib/stores/ui';
   import { editorThemes } from '$lib/editor/themes';
   import MarkdownPreview from './MarkdownPreview.svelte';
   import ContextMenu from './ContextMenu.svelte';
@@ -106,6 +106,13 @@
     }
   });
 
+  function buildFontExt(): Extension {
+    return EditorView.theme({
+      '.cm-content': { fontFamily: $fontFamily, fontSize: `${$fontSize}px` },
+      '.cm-gutters': { fontFamily: $fontFamily },
+    });
+  }
+
   function buildState(content: string, langExts: Extension[], ro: boolean) {
     let themeExt: Extension[];
     const selectedTheme = editorThemes[$editorTheme];
@@ -124,6 +131,7 @@
         basicSetup,
         foldGutter(),
         ...themeExt,
+        buildFontExt(),
         ...langExts,
         EditorView.editable.of(!ro),
         EditorState.readOnly.of(ro),
@@ -180,6 +188,16 @@
   $effect(() => {
     const _dark = $isDark;
     const _theme = $editorTheme;
+    if (!view || !$activeFilePath) return;
+    const doc = view.state.doc.toString();
+    const state = buildState(doc, currentLangExts, readOnly);
+    view.setState(state);
+  });
+
+  // Watch for font changes — rebuild editor with new font settings
+  $effect(() => {
+    const _ff = $fontFamily;
+    const _fs = $fontSize;
     if (!view || !$activeFilePath) return;
     const doc = view.state.doc.toString();
     const state = buildState(doc, currentLangExts, readOnly);

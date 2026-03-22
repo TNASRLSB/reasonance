@@ -113,5 +113,22 @@
   "settings.llm.addBtn": "إضافة",
   "settings.terminal.title": "إعدادات الطرفية",
   "settings.accessibility.title": "إمكانية الوصول",
-  "settings.readability.hint": "نص أكبر (18px)، تباعد أكبر، وزن أثقل. مستند إلى أبحاث قابلية القراءة لعسر القراءة."
+  "settings.readability.hint": "نص أكبر (18px)، تباعد أكبر، وزن أثقل. مستند إلى أبحاث قابلية القراءة لعسر القراءة.",
+  "status.noSession": "لا توجد جلسة نشطة",
+  "search.ariaLabel": "البحث عن ملفات",
+  "search.inputLabel": "البحث في الملفات",
+  "search.placeholder": "الانتقال إلى ملف\u2026",
+  "search.loading": "جارٍ التحميل\u2026",
+  "search.escClose": "ESC للإغلاق",
+  "search.noMatch": "لا توجد ملفات تطابق \"{query}\"",
+  "search.hint": "اكتب للبحث عن ملفات في المشروع",
+  "search.errorOpen": "تعذّر فتح الملف",
+  "fif.ariaLabel": "البحث في الملفات",
+  "fif.title": "البحث في الملفات",
+  "fif.placeholder": "نمط البحث\u2026",
+  "fif.searching": "جارٍ البحث\u2026",
+  "fif.search": "بحث",
+  "fif.error": "فشل البحث. جرّب نمطاً أبسط أو تحقق من إمكانية الوصول إلى مجلد المشروع.",
+  "fif.noResults": "لا نتائج لـ \"{pattern}\"",
+  "fif.summary": "{count} نتيجة في {files} ملف"
 }

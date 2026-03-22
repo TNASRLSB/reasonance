@@ -3,6 +3,7 @@
   import type { Adapter, FileEntry } from '$lib/adapter/index';
   import { addOpenFile, projectRoot } from '$lib/stores/files';
   import { showToast } from '$lib/stores/toast';
+  import { tr } from '$lib/i18n/index';
 
   let {
     adapter,
@@ -119,7 +120,7 @@
     } catch (e) {
       console.error('SearchPalette openFile error:', e);
       const name = path.split('/').pop() ?? path;
-      showToast('error', 'Could not open file', name);
+      showToast('error', $tr('search.errorOpen'), name);
       return;
     }
     onClose();
@@ -157,7 +158,7 @@
 
 {#if visible}
   <div class="palette-overlay" role="button" tabindex="-1" onclick={handleOverlayClick} onkeydown={(e) => { if (e.key === 'Escape') onClose(); }}>
-    <div class="palette" role="dialog" aria-label="File search" aria-modal="true">
+    <div class="palette" role="dialog" aria-label={$tr('search.ariaLabel')} aria-modal="true">
       <div class="palette-input-row">
         <span class="palette-icon">&#128269;</span>
         <input
@@ -165,16 +166,16 @@
           bind:value={query}
           onkeydown={handleKeydown}
           type="text"
-          placeholder="Go to file…"
+          placeholder={$tr('search.placeholder')}
           class="palette-input"
-          aria-label="Search files"
+          aria-label={$tr('search.inputLabel')}
           autocomplete="off"
           spellcheck="false"
         />
         {#if loading}
-          <span class="palette-hint">Loading…</span>
+          <span class="palette-hint">{$tr('search.loading')}</span>
         {:else}
-          <span class="palette-hint">ESC to close</span>
+          <span class="palette-hint">{$tr('search.escClose')}</span>
         {/if}
       </div>
 
@@ -195,9 +196,9 @@
           {/each}
         </ul>
       {:else if !loading && query.trim()}
-        <p class="palette-empty">No files match "{query}"</p>
+        <p class="palette-empty">{$tr('search.noMatch', { query })}</p>
       {:else if !loading}
-        <p class="palette-empty">Type to search files in the project</p>
+        <p class="palette-empty">{$tr('search.hint')}</p>
       {/if}
     </div>
   </div>

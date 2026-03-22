@@ -113,5 +113,22 @@
   "settings.llm.addBtn": "Add",
   "settings.terminal.title": "Terminal Settings",
   "settings.accessibility.title": "Accessibility",
-  "settings.readability.hint": "Larger text (18px), increased spacing, heavier weight. Based on dyslexia readability research."
+  "settings.readability.hint": "Larger text (18px), increased spacing, heavier weight. Based on dyslexia readability research.",
+  "status.noSession": "No active session",
+  "search.ariaLabel": "File search",
+  "search.inputLabel": "Search files",
+  "search.placeholder": "Go to file\u2026",
+  "search.loading": "Loading\u2026",
+  "search.escClose": "ESC to close",
+  "search.noMatch": "No files match \"{query}\"",
+  "search.hint": "Type to search files in the project",
+  "search.errorOpen": "Could not open file",
+  "fif.ariaLabel": "Find in files",
+  "fif.title": "Find in Files",
+  "fif.placeholder": "Search pattern\u2026",
+  "fif.searching": "Searching\u2026",
+  "fif.search": "Search",
+  "fif.error": "Search failed. Try a simpler pattern or check that the project folder is accessible.",
+  "fif.noResults": "No results found for \"{pattern}\"",
+  "fif.summary": "{count} result(s) in {files} file(s)"
 }

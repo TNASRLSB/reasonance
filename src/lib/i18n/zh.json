@@ -113,5 +113,22 @@
   "settings.llm.addBtn": "添加",
   "settings.terminal.title": "终端设置",
   "settings.accessibility.title": "无障碍",
-  "settings.readability.hint": "更大字体（18px）、增加间距、更粗字重。基于阅读障碍可读性研究。"
+  "settings.readability.hint": "更大字体（18px）、增加间距、更粗字重。基于阅读障碍可读性研究。",
+  "status.noSession": "无活动会话",
+  "search.ariaLabel": "文件搜索",
+  "search.inputLabel": "搜索文件",
+  "search.placeholder": "跳转到文件\u2026",
+  "search.loading": "加载中\u2026",
+  "search.escClose": "ESC 关闭",
+  "search.noMatch": "没有文件匹配 \"{query}\"",
+  "search.hint": "输入以在项目中搜索文件",
+  "search.errorOpen": "无法打开文件",
+  "fif.ariaLabel": "在文件中查找",
+  "fif.title": "在文件中查找",
+  "fif.placeholder": "搜索模式\u2026",
+  "fif.searching": "搜索中\u2026",
+  "fif.search": "搜索",
+  "fif.error": "搜索失败。请尝试更简单的模式，或检查项目文件夹是否可访问。",
+  "fif.noResults": "\"{pattern}\" 没有找到结果",
+  "fif.summary": "{count} 个结果，共 {files} 个文件"
 }

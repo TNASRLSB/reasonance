@@ -113,5 +113,22 @@
   "settings.llm.addBtn": "Añadir",
   "settings.terminal.title": "Configuración del terminal",
   "settings.accessibility.title": "Accesibilidad",
-  "settings.readability.hint": "Texto más grande (18px), mayor espaciado, peso más pesado. Basado en investigación de legibilidad para dislexia."
+  "settings.readability.hint": "Texto más grande (18px), mayor espaciado, peso más pesado. Basado en investigación de legibilidad para dislexia.",
+  "status.noSession": "Sin sesión activa",
+  "search.ariaLabel": "Búsqueda de archivos",
+  "search.inputLabel": "Buscar archivos",
+  "search.placeholder": "Ir al archivo\u2026",
+  "search.loading": "Cargando\u2026",
+  "search.escClose": "ESC para cerrar",
+  "search.noMatch": "Ningún archivo coincide con \"{query}\"",
+  "search.hint": "Escribe para buscar archivos en el proyecto",
+  "search.errorOpen": "No se pudo abrir el archivo",
+  "fif.ariaLabel": "Buscar en archivos",
+  "fif.title": "Buscar en archivos",
+  "fif.placeholder": "Patrón de búsqueda\u2026",
+  "fif.searching": "Buscando\u2026",
+  "fif.search": "Buscar",
+  "fif.error": "Búsqueda fallida. Intenta con un patrón más simple o verifica que la carpeta del proyecto sea accesible.",
+  "fif.noResults": "No se encontraron resultados para \"{pattern}\"",
+  "fif.summary": "{count} resultado(s) en {files} archivo(s)"
 }
