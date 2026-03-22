@@ -40,11 +40,40 @@ pub fn discover_llms() -> Vec<DiscoveredLlm> {
 
 #[tauri::command]
 pub fn open_external(path: String) -> Result<(), String> {
+    // SEC-06: only allow http:// and https:// schemes to prevent file:// and app:// abuse
+    if !path.starts_with("https://") && !path.starts_with("http://") {
+        return Err(format!("Rejected URL with disallowed scheme: {}", path));
+    }
     open::that(&path).map_err(|e| e.to_string())
 }
 
+/// SEC-04: restricted to a hard-coded allowlist of known LLM-related env var names.
+/// Arbitrary env var access is not permitted to prevent credential or path leakage.
+const ENV_VAR_ALLOWLIST: &[&str] = &[
+    "ANTHROPIC_API_KEY",
+    "OPENAI_API_KEY",
+    "GOOGLE_API_KEY",
+    "GEMINI_API_KEY",
+    "GROQ_API_KEY",
+    "MISTRAL_API_KEY",
+    "TOGETHER_API_KEY",
+    "DEEPSEEK_API_KEY",
+    "OPENROUTER_API_KEY",
+    "HF_TOKEN",
+    "OLLAMA_HOST",
+    "PATH",
+    "HOME",
+    "USER",
+    "SHELL",
+    "TERM",
+    "XDG_CONFIG_HOME",
+];
+
 #[tauri::command]
 pub fn get_env_var(name: String) -> Result<Option<String>, String> {
+    if !ENV_VAR_ALLOWLIST.contains(&name.as_str()) {
+        return Err(format!("Environment variable '{}' is not in the allowed list", name));
+    }
     Ok(std::env::var(&name).ok())
 }
 

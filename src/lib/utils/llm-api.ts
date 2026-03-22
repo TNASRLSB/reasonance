@@ -36,6 +36,10 @@ function getEndpoint(config: LlmConfig): string {
 }
 
 async function getHeaders(config: LlmConfig): Promise<Record<string, string>> {
+  // SEC-05: The API key is fetched from the process environment via a Tauri command
+  // and held in JS memory for the duration of the request. This is a known design
+  // limitation: JS memory is inspectable by WebView devtools if the app is compromised.
+  // TODO: proxy LLM API calls through a Tauri command so the key never enters JS memory.
   const apiKey = await getApiKey(config.apiKeyEnv);
   if (config.provider === 'anthropic') {
     return { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' };

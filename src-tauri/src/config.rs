@@ -45,6 +45,13 @@ pub fn config_path() -> PathBuf {
     config_dir.join("reasonance").join("llms.toml")
 }
 
+// SEC-07: The config file (llms.toml) is stored as plain-text TOML on disk.
+// It contains LLM configuration such as command names, model names, and env var
+// names (e.g. "ANTHROPIC_API_KEY") — but NOT the actual secret values.
+// Actual secrets are read at runtime from the process environment via get_env_var.
+// This is acceptable: the config file is user-owned and stored in the user's
+// XDG config directory (~/.config/reasonance/). No encryption is applied.
+
 #[cfg(test)]
 mod tests {
     use super::*;
