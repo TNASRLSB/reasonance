@@ -86,11 +86,26 @@ impl StructuredAgentTransport {
             .ok_or_else(|| format!("No config for provider: {}", provider))?;
 
         let binary = config.cli.binary.clone();
-        // Check if there's an existing CLI session to resume
-        let cli_session_id = request.session_id.as_ref().and_then(|sid| {
+
+        // Determine session ID
+        let session_id = request.session_id.clone()
+            .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+
+        // Look up existing session for CLI session ID (for resume) and validate state
+        // Use a single lock scope to avoid TOCTOU race
+        let cli_session_id = {
             let sessions = self.sessions.lock().unwrap_or_else(|e| e.into_inner());
-            sessions.get(sid).and_then(|s| s.cli_session_id.clone())
-        });
+            if let Some(existing) = sessions.get(&session_id) {
+                if existing.status == SessionStatus::Active {
+                    return Err(format!("Session {} is still active, wait for completion or stop it first", session_id));
+                }
+                debug!("Transport: reusing session={} cli_session_id={:?}", session_id, existing.cli_session_id);
+                existing.cli_session_id.clone()
+            } else {
+                None
+            }
+        };
+
         let args = Self::build_cli_args(config, &request, cli_session_id.as_deref());
         let permission_args = Self::build_permission_args(config, request.cwd.as_deref(), request.yolo);
         let rules = config.to_rules();
@@ -109,10 +124,21 @@ impl StructuredAgentTransport {
             crate::normalizer::pipeline::NormalizerPipeline::new(rules, state_machine, provider.clone())
         ));
 
-        let session = AgentSession::new(request.clone(), CliMode::Structured);
-        let session_id = session.id.clone();
-        debug!("Transport: created agent session={}", session_id);
-        self.sessions.lock().unwrap_or_else(|e| e.into_inner()).insert(session_id.clone(), session);
+        // Create or reactivate session
+        {
+            let mut sessions = self.sessions.lock().unwrap_or_else(|e| e.into_inner());
+            if let Some(existing) = sessions.get_mut(&session_id) {
+                existing.set_status(SessionStatus::Active);
+                existing.request = request.clone();
+                debug!("Transport: reactivated agent session={}", session_id);
+            } else {
+                let mut session = AgentSession::new(request.clone(), CliMode::Structured);
+                // Ensure session ID matches (AgentSession::new may generate a new one if request.session_id is None)
+                session.id = session_id.clone();
+                debug!("Transport: created agent session={}", session_id);
+                sessions.insert(session_id.clone(), session);
+            }
+        }
 
         let mut cmd = Command::new(&binary);
         cmd.args(&args);
@@ -382,6 +408,29 @@ mod tests {
         let transport = StructuredAgentTransport::new(Path::new("normalizers")).unwrap();
         let events = transport.get_events("nonexistent");
         assert!(events.is_empty());
+    }
+
+    #[test]
+    fn test_build_cli_args_resume_uses_resume_args() {
+        let transport = StructuredAgentTransport::new(Path::new("normalizers")).unwrap();
+        let registry = transport.registry.lock().unwrap_or_else(|e| e.into_inner());
+        let config = registry.get_config("claude").unwrap();
+        let request = AgentRequest {
+            prompt: "follow-up question".to_string(),
+            provider: "claude".to_string(),
+            model: None,
+            context: vec![],
+            session_id: Some("existing-session".to_string()),
+            system_prompt: None,
+            max_tokens: None,
+            allowed_tools: None,
+            cwd: None,
+            yolo: false,
+        };
+        let args = StructuredAgentTransport::build_cli_args(config, &request, Some("msg_abc123"));
+        assert!(args.contains(&"--resume".to_string()));
+        assert!(args.contains(&"msg_abc123".to_string()));
+        assert!(args.contains(&"follow-up question".to_string()));
     }
 
     #[test]
