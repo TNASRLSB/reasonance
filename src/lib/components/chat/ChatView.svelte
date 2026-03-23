@@ -5,10 +5,11 @@
   import ChatMessages from './ChatMessages.svelte';
   import ChatInput from './ChatInput.svelte';
   import { agentEvents, streamingSessionIds, setSessionEvents, setStreaming } from '$lib/stores/agent-events';
-  import { agentSessions } from '$lib/stores/agent-session';
+  import { agentSessions, upsertSession } from '$lib/stores/agent-session';
   import { projectRoot } from '$lib/stores/files';
   import { yoloMode } from '$lib/stores/ui';
   import { get } from 'svelte/store';
+  import { MODEL_INFO } from '$lib/data/model-info';
 
   let { adapter, sessionId, provider, model }: {
     adapter: Adapter;
@@ -27,6 +28,36 @@
   let currentSpeed = $derived(session?.currentSpeed ?? 0);
   let elapsed = $derived(session?.elapsed ?? 0);
   let status = $derived(session?.status ?? 'active');
+
+  // Context window usage: total tokens / model's context window
+  let contextPercent = $derived(() => {
+    if (tokenCount === 0) return null;
+    // Match by provider since the model prop may not be a precise model ID
+    const info = MODEL_INFO.find((m) => m.provider === provider.toLowerCase());
+    if (!info) return null;
+    return Math.min(100, Math.round((tokenCount / info.context_window) * 100));
+  });
+
+  // Ensure session exists in the store so token tracking works
+  $effect(() => {
+    const existing = get(agentSessions).get(sessionId);
+    if (!existing) {
+      upsertSession({
+        id: sessionId,
+        provider,
+        model,
+        status: 'active',
+        viewMode: 'chat',
+        cliMode: 'structured',
+        title: '',
+        totalInputTokens: 0,
+        totalOutputTokens: 0,
+        currentSpeed: 0,
+        elapsed: 0,
+        turnCount: 0,
+      });
+    }
+  });
 
   // Load existing events on mount
   $effect(() => {
@@ -93,6 +124,7 @@
     onSend={handleSend}
     disabled={streaming}
     {model}
+    contextPercent={contextPercent()}
   />
 </div>
 
