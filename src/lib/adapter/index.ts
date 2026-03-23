@@ -31,6 +31,7 @@ export interface Adapter {
   minimizeWindow(): Promise<void>;
   maximizeWindow(): Promise<void>;
   closeWindow(): Promise<void>;
+  startDragging(): Promise<void>;
   onWindowClose(callback: () => Promise<void>): Promise<void>;
 
   // Discovery

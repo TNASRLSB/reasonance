@@ -80,6 +80,9 @@ export function createMockAdapter(overrides?: Partial<Adapter>): Adapter {
     closeWindow() {
       return Promise.resolve();
     },
+    startDragging() {
+      return Promise.resolve();
+    },
     onWindowClose(_callback: () => Promise<void>) {
       return Promise.resolve();
     },

@@ -50,6 +50,10 @@ export class TauriAdapter implements Adapter {
     const { getCurrentWindow } = await import('@tauri-apps/api/window');
     return getCurrentWindow().close();
   }
+  async startDragging(): Promise<void> {
+    const { getCurrentWindow } = await import('@tauri-apps/api/window');
+    return getCurrentWindow().startDragging();
+  }
   async onWindowClose(callback: () => Promise<void>): Promise<void> {
     const { getCurrentWindow } = await import('@tauri-apps/api/window');
     getCurrentWindow().onCloseRequested(async () => { await callback(); });

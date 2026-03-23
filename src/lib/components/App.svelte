@@ -178,6 +178,7 @@
     top: 0;
     left: 0;
     z-index: 9999;
+    pointer-events: none;
   }
 
   .skip-link {
@@ -212,6 +213,7 @@
     outline: var(--focus-ring);
     outline-offset: var(--focus-offset);
     z-index: 10000;
+    pointer-events: auto;
   }
 
   header,
