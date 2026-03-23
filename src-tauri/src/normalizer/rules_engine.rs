@@ -106,6 +106,9 @@ pub struct Rule {
     pub when: String,
     pub emit: String,
     pub mappings: HashMap<String, String>,
+    /// Optional JSON path to an array of content blocks.
+    /// When set, the pipeline iterates and emits one event per block.
+    pub content_blocks: Option<String>,
 }
 
 pub fn find_matching_rule<'a>(rules: &'a [Rule], value: &Value) -> Option<&'a Rule> {
@@ -227,8 +230,8 @@ mod tests {
     #[test]
     fn test_rule_first_match_wins() {
         let rules = vec![
-            Rule { name: "specific".into(), when: r#"type == "content_block_delta" && delta.type == "text_delta""#.into(), emit: "text".into(), mappings: Default::default() },
-            Rule { name: "generic".into(), when: r#"type == "content_block_delta""#.into(), emit: "thinking".into(), mappings: Default::default() },
+            Rule { name: "specific".into(), when: r#"type == "content_block_delta" && delta.type == "text_delta""#.into(), emit: "text".into(), mappings: Default::default(), content_blocks: None },
+            Rule { name: "generic".into(), when: r#"type == "content_block_delta""#.into(), emit: "thinking".into(), mappings: Default::default(), content_blocks: None },
         ];
         let v = sample_json();
         let matched = find_matching_rule(&rules, &v);
@@ -238,7 +241,7 @@ mod tests {
     #[test]
     fn test_rule_no_match_returns_none() {
         let rules = vec![
-            Rule { name: "error".into(), when: r#"type == "error""#.into(), emit: "error".into(), mappings: Default::default() },
+            Rule { name: "error".into(), when: r#"type == "error""#.into(), emit: "error".into(), mappings: Default::default(), content_blocks: None },
         ];
         let v = sample_json();
         let matched = find_matching_rule(&rules, &v);

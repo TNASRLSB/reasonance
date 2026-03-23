@@ -94,10 +94,17 @@ impl StructuredAgentTransport {
         // Look up existing session for CLI session ID (for resume) and validate state
         // Use a single lock scope to avoid TOCTOU race
         let cli_session_id = {
-            let sessions = self.sessions.lock().unwrap_or_else(|e| e.into_inner());
-            if let Some(existing) = sessions.get(&session_id) {
+            let mut sessions = self.sessions.lock().unwrap_or_else(|e| e.into_inner());
+            if let Some(existing) = sessions.get_mut(&session_id) {
                 if existing.status == SessionStatus::Active {
-                    return Err(format!("Session {} is still active, wait for completion or stop it first", session_id));
+                    // The frontend already received the done event (which re-enabled input),
+                    // but the async task that updates session status hasn't completed yet.
+                    // Force-stop the stale session so the user can send a follow-up message.
+                    if let Some(handle) = existing.abort_handle.take() {
+                        handle.abort();
+                    }
+                    existing.set_status(SessionStatus::Terminated);
+                    warn!("Transport: force-stopped stale active session={} to allow new message", session_id);
                 }
                 debug!("Transport: reusing session={} cli_session_id={:?}", session_id, existing.cli_session_id);
                 existing.cli_session_id.clone()
@@ -144,6 +151,7 @@ impl StructuredAgentTransport {
         cmd.args(&args);
         // Append permission args from normalizer config (e.g. --dangerously-skip-permissions)
         cmd.args(&permission_args);
+        cmd.stdin(Stdio::null());
         cmd.stdout(Stdio::piped());
         cmd.stderr(Stdio::piped());
 

@@ -59,6 +59,11 @@ pub struct TomlRule {
     pub emit: String,
     #[serde(default)]
     pub mappings: HashMap<String, String>,
+    /// Optional JSON path to an array of content blocks (e.g. "message.content").
+    /// When set, the pipeline iterates over each element and emits one event per block,
+    /// mapping each block's `type` field to the appropriate AgentEventType.
+    #[serde(default)]
+    pub content_blocks: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -118,6 +123,7 @@ impl TomlConfig {
             when: r.when.clone(),
             emit: r.emit.clone(),
             mappings: r.mappings.clone(),
+            content_blocks: r.content_blocks.clone(),
         }).collect()
     }
 

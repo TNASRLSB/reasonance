@@ -33,19 +33,19 @@ pause = false
 interrupt = { method = "stdin", format = "\n{message}\n" }
 
 [session]
-session_id_path = "message.id"
+session_id_path = "session_id"
 model_path = "message.model"
 
 # --- Claude CLI stream-json format rules ---
 # The CLI outputs: type="assistant" (response), type="result" (final), type="system" (hooks/init)
 
 [[rules]]
-name = "assistant_text"
+name = "assistant_content"
 when = 'type == "assistant" && exists(message.content)'
 emit = "text"
+content_blocks = "message.content"
 
 [rules.mappings]
-content = "message.content[0].text"
 model = "message.model"
 
 [[rules]]

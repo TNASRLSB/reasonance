@@ -32,10 +32,21 @@ pub fn run() {
         std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
     }
 
+    // Dev: DEBUG by default, override with RUST_LOG env var.
+    // Release: INFO to avoid log noise.
+    let log_level = if cfg!(debug_assertions) {
+        std::env::var("RUST_LOG")
+            .ok()
+            .and_then(|v| v.parse::<log::LevelFilter>().ok())
+            .unwrap_or(log::LevelFilter::Debug)
+    } else {
+        log::LevelFilter::Info
+    };
+
     tauri::Builder::default()
         .plugin(
             tauri_plugin_log::Builder::new()
-                .level(log::LevelFilter::Debug)
+                .level(log_level)
                 .target(tauri_plugin_log::Target::new(
                     tauri_plugin_log::TargetKind::Stdout,
                 ))
