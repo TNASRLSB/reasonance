@@ -145,10 +145,10 @@
     color: var(--text-primary);
   }
 
-  .text-block :global(h1) { font-size: 18px; }
-  .text-block :global(h2) { font-size: 16px; }
-  .text-block :global(h3) { font-size: 14px; }
-  .text-block :global(h4) { font-size: 12px; }
+  .text-block :global(h1) { font-size: var(--font-size-md); line-height: var(--line-height-md); font-weight: var(--font-weight-lg); }
+  .text-block :global(h2) { font-size: var(--font-size-base); line-height: var(--line-height-base); font-weight: var(--font-weight-md); }
+  .text-block :global(h3) { font-size: var(--font-size-base); line-height: var(--line-height-base); font-weight: var(--font-weight-md); }
+  .text-block :global(h4) { font-size: var(--font-size-sm); line-height: var(--line-height-sm); font-weight: var(--font-weight-sm); }
 
   .text-block :global(hr) {
     border: none;

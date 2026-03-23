@@ -256,7 +256,7 @@
   }
 
   .palette-icon {
-    font-size: 14px;
+    font-size: var(--font-size-base);
     opacity: 0.6;
   }
 
@@ -266,7 +266,7 @@
     border: none;
     outline: none;
     color: var(--text-primary);
-    font-size: 14px;
+    font-size: var(--font-size-base);
     font-family: var(--font-ui);
   }
 
@@ -275,7 +275,7 @@
   }
 
   .palette-hint {
-    font-size: 11px;
+    font-size: var(--font-size-sm);
     color: var(--text-secondary);
     flex-shrink: 0;
   }
@@ -309,7 +309,7 @@
   }
 
   .item-name {
-    font-size: 13px;
+    font-size: var(--font-size-sm);
     font-weight: 500;
     color: var(--text-primary);
     flex-shrink: 0;
@@ -317,7 +317,7 @@
   }
 
   .item-dir {
-    font-size: 11px;
+    font-size: var(--font-size-sm);
     color: var(--text-secondary);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -326,7 +326,7 @@
 
   .palette-empty {
     padding: 20px 14px;
-    font-size: 12px;
+    font-size: var(--font-size-sm);
     color: var(--text-secondary);
     margin: 0;
     text-align: center;
@@ -337,7 +337,7 @@
     background: transparent;
     border: none;
     color: var(--text-secondary);
-    font-size: 12px;
+    font-size: var(--font-size-sm);
     padding: 4px 6px;
     cursor: pointer;
     line-height: 1;

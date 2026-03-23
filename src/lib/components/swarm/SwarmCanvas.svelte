@@ -252,7 +252,7 @@
     border: 2px solid var(--border);
     border-radius: 0;
     padding: 3px 10px;
-    font-size: 11px;
+    font-size: var(--font-size-sm);
     cursor: pointer;
     font-family: var(--font-ui);
     font-weight: 600;
@@ -270,7 +270,7 @@
     color: var(--text-secondary);
     padding: 3px 8px;
     cursor: pointer;
-    font-size: 14px;
+    font-size: var(--font-size-base);
   }
   .close-btn:hover {
     color: var(--danger);
@@ -307,12 +307,12 @@
     border: none;
     padding: 12px;
     font-family: var(--font-mono, monospace);
-    font-size: 12px;
+    font-size: var(--font-size-sm);
     resize: none;
   }
   .json-error {
     padding: 4px 12px;
-    font-size: 11px;
+    font-size: var(--font-size-sm);
     color: var(--danger);
     background: var(--bg-secondary);
     border-top: 2px solid var(--danger);

@@ -114,7 +114,7 @@
   }
 
   .dialog-title {
-    font-size: 13px;
+    font-size: var(--font-size-sm);
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.06em;
@@ -125,7 +125,7 @@
     background: none;
     border: none;
     color: var(--text-secondary);
-    font-size: 14px;
+    font-size: var(--font-size-base);
     cursor: pointer;
     padding: 4px 6px;
     border-radius: 0;
@@ -158,7 +158,7 @@
   }
 
   .group-label {
-    font-size: 10px;
+    font-size: var(--font-size-sm);
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.08em;
@@ -180,7 +180,7 @@
   }
 
   .shortcut-desc {
-    font-size: 12px;
+    font-size: var(--font-size-sm);
     color: var(--text-primary);
     flex: 1;
   }
@@ -198,7 +198,7 @@
     border: var(--border-width) solid var(--border);
     color: var(--text-secondary);
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: var(--font-size-sm);
     font-weight: 700;
     padding: 2px 6px;
     min-width: 24px;
@@ -207,7 +207,7 @@
   }
 
   .plus {
-    font-size: 10px;
+    font-size: var(--font-size-sm);
     color: var(--text-muted);
     padding: 0 1px;
   }
@@ -227,7 +227,7 @@
     border-radius: 0;
     padding: 4px 16px;
     font-family: var(--font-ui);
-    font-size: 11px;
+    font-size: var(--font-size-sm);
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.04em;

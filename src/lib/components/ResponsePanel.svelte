@@ -128,7 +128,7 @@
     border: none;
     color: var(--text-secondary, #94a3b8);
     cursor: pointer;
-    font-size: 14px;
+    font-size: var(--font-size-base);
     padding: 2px 6px;
     border-radius: 4px;
     line-height: 1;
@@ -150,8 +150,9 @@
     padding: 20px 24px;
     color: var(--text-primary, #e2e8f0);
     font-family: var(--font-ui);
-    font-size: 14px;
-    line-height: 1.7;
+    font-size: var(--font-size-base);
+    line-height: var(--line-height-base);
+    max-width: var(--measure);
   }
 
   .markdown-preview :global(h1),
@@ -169,7 +170,7 @@
 
   .markdown-preview :global(h1) { font-size: 1.6em; border-bottom: 1px solid var(--border, #334155); padding-bottom: 0.25em; }
   .markdown-preview :global(h2) { font-size: 1.3em; border-bottom: 1px solid var(--border, #334155); padding-bottom: 0.2em; }
-  .markdown-preview :global(h3) { font-size: 1.1em; }
+  .markdown-preview :global(h3) { font-size: var(--font-size-md); line-height: var(--line-height-md); }
 
   .markdown-preview :global(p) { margin: 0.65em 0; }
 
@@ -182,7 +183,7 @@
     padding: 0.15em 0.4em;
     border-radius: 4px;
     font-family: var(--font-mono);
-    font-size: 0.875em;
+    font-size: var(--font-size-sm);
   }
 
   .markdown-preview :global(pre) {
@@ -199,7 +200,7 @@
     color: inherit;
     padding: 0;
     border-radius: 0;
-    font-size: 0.875em;
+    font-size: var(--font-size-sm);
   }
 
   .markdown-preview :global(blockquote) {
@@ -222,7 +223,7 @@
     width: 100%;
     border-collapse: collapse;
     margin: 0.75em 0;
-    font-size: 0.875em;
+    font-size: var(--font-size-sm);
   }
 
   .markdown-preview :global(th),

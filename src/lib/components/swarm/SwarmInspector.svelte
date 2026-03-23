@@ -85,11 +85,11 @@
   }
   .inspector-header h3 {
     margin: 0;
-    font-size: 14px;
+    font-size: var(--font-size-base);
     color: var(--text-primary);
   }
   .node-type {
-    font-size: 11px;
+    font-size: var(--font-size-sm);
     text-transform: uppercase;
     color: var(--text-secondary);
     padding: 2px 6px;
@@ -100,25 +100,25 @@
     margin-bottom: 10px;
   }
   .section-label {
-    font-size: 11px;
+    font-size: var(--font-size-sm);
     color: var(--text-muted);
     text-transform: uppercase;
     margin-bottom: 2px;
   }
   .section-value {
-    font-size: 13px;
+    font-size: var(--font-size-sm);
     color: var(--text-primary);
   }
   .section-value.mono {
     font-family: var(--font-mono, monospace);
-    font-size: 12px;
+    font-size: var(--font-size-sm);
   }
   .toggle-json {
     background: var(--bg-tertiary);
     color: var(--text-secondary);
     border: 1px solid var(--border);
     padding: 3px 8px;
-    font-size: 11px;
+    font-size: var(--font-size-sm);
     cursor: pointer;
     font-family: var(--font-ui);
   }
@@ -129,7 +129,7 @@
     background: var(--bg-primary);
     border: 1px solid var(--border);
     padding: 8px;
-    font-size: 11px;
+    font-size: var(--font-size-sm);
     font-family: var(--font-mono, monospace);
     color: var(--text-body);
     margin-top: 6px;

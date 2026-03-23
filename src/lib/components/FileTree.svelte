@@ -378,7 +378,7 @@
 
   .icon {
     flex-shrink: 0;
-    font-size: 14px;
+    font-size: var(--font-size-base);
     line-height: 1;
   }
 
@@ -397,7 +397,7 @@
     background: none;
     border: none;
     color: var(--text-muted);
-    font-size: 12px;
+    font-size: var(--font-size-sm);
     cursor: pointer;
     padding: 0 4px;
     line-height: 1;

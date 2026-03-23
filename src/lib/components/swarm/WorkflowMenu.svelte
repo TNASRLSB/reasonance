@@ -166,7 +166,7 @@
     color: var(--text-primary);
     border: var(--border-width) solid var(--border);
     padding: 4px 10px;
-    font-size: 12px;
+    font-size: var(--font-size-sm);
     font-family: var(--font-ui);
     cursor: pointer;
   }
@@ -193,7 +193,7 @@
     border: none;
     color: var(--text-primary);
     padding: 6px 12px;
-    font-size: 12px;
+    font-size: var(--font-size-sm);
     font-family: var(--font-ui);
     cursor: pointer;
     text-align: start;
@@ -202,7 +202,7 @@
     background: var(--bg-hover);
   }
   .shortcut {
-    font-size: 10px;
+    font-size: var(--font-size-sm);
     color: var(--text-muted);
   }
   .menu-divider {
@@ -214,10 +214,10 @@
     padding-inline-start: 12px;
   }
   .template-item {
-    font-size: 11px;
+    font-size: var(--font-size-sm);
   }
   .no-templates {
-    font-size: 11px;
+    font-size: var(--font-size-sm);
     color: var(--text-muted);
     padding: 4px 12px;
     display: block;

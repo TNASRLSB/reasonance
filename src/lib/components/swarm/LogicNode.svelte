@@ -58,16 +58,16 @@
     gap: 6px;
   }
   .node-icon {
-    font-size: 12px;
+    font-size: var(--font-size-sm);
     color: var(--warning, #ca8a04);
   }
   .node-label {
     font-weight: 700;
-    font-size: 13px;
+    font-size: var(--font-size-sm);
     color: var(--text-primary, #f0f0f0);
   }
   .node-rule {
-    font-size: 11px;
+    font-size: var(--font-size-sm);
     color: var(--text-muted, #666);
     margin-top: 4px;
     font-family: var(--font-mono, monospace);

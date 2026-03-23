@@ -36,7 +36,7 @@
     color: var(--text-primary);
     border: var(--border-width) solid var(--border);
     padding: 4px 10px;
-    font-size: 12px;
+    font-size: var(--font-size-sm);
     font-family: var(--font-ui);
     cursor: pointer;
   }
@@ -44,7 +44,7 @@
     background: var(--bg-hover);
   }
   .btn-icon {
-    font-size: 10px;
+    font-size: var(--font-size-sm);
   }
   .catalog-btn.agent .btn-icon { color: var(--accent); }
   .catalog-btn.resource .btn-icon { color: var(--success); }

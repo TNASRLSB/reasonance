@@ -80,7 +80,7 @@
     color: var(--text-secondary);
     padding: 2px 6px;
     cursor: pointer;
-    font-size: 14px;
+    font-size: var(--font-size-base);
   }
   .expand-btn:hover {
     background: var(--bg-hover);
@@ -102,11 +102,11 @@
     display: inline-block;
   }
   .no-nodes {
-    font-size: 11px;
+    font-size: var(--font-size-sm);
     color: var(--text-muted);
   }
   .status-line {
-    font-size: 12px;
+    font-size: var(--font-size-sm);
     color: var(--text-secondary);
   }
 </style>

@@ -176,7 +176,7 @@
 
   .diff-prefix {
     font-weight: 700;
-    font-size: 1.1em;
+    font-size: var(--font-size-md);
     margin-inline-end: 2px;
   }
 

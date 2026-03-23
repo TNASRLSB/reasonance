@@ -51,14 +51,14 @@
     align-items: center;
     gap: 6px;
   }
-  .node-icon { font-size: 14px; }
+  .node-icon { font-size: var(--font-size-base); }
   .node-label {
     font-weight: 700;
-    font-size: 13px;
+    font-size: var(--font-size-sm);
     color: var(--text-primary, #f0f0f0);
   }
   .node-path {
-    font-size: 11px;
+    font-size: var(--font-size-sm);
     color: var(--text-muted, #666);
     margin-top: 4px;
     overflow: hidden;

@@ -111,7 +111,7 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    font-size: 0.875rem;
+    font-size: var(--font-size-sm);
     font-weight: bold;
     flex-shrink: 0;
     margin-top: 1px;
@@ -150,7 +150,7 @@
     border: none;
     cursor: pointer;
     color: var(--text-secondary);
-    font-size: 1rem;
+    font-size: var(--font-size-base);
     line-height: 1;
     padding: 4px;
     margin-top: -1px;
@@ -191,7 +191,7 @@
     padding: 0.25rem 0.75rem;
     cursor: pointer;
     font-family: inherit;
-    font-size: 0.85rem;
+    font-size: var(--font-size-sm);
   }
   .toast-action-btn:hover {
     background: var(--accent);

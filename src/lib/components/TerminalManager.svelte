@@ -464,7 +464,7 @@
   }
 
   .close-btn {
-    font-size: 13px;
+    font-size: var(--font-size-sm);
     line-height: 1;
     opacity: 0;
     cursor: pointer;
@@ -507,7 +507,7 @@
   .error-indicator {
     color: var(--danger-text);
     font-weight: 800;
-    font-size: 10px;
+    font-size: var(--font-size-sm);
   }
 
   .status-badge {
@@ -597,7 +597,7 @@
   }
 
   .empty-header {
-    font-size: 11px;
+    font-size: var(--font-size-sm);
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0.08em;
@@ -682,7 +682,7 @@
   }
 
   .llm-card-badge {
-    font-size: 9px;
+    font-size: var(--font-size-sm);
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.04em;

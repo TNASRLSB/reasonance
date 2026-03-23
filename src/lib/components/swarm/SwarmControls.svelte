@@ -83,7 +83,7 @@
     color: var(--text-primary);
     border: var(--border-width) solid var(--border);
     padding: 4px 10px;
-    font-size: 14px;
+    font-size: var(--font-size-base);
     cursor: pointer;
     font-family: var(--font-ui);
   }

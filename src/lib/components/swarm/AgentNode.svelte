@@ -68,23 +68,23 @@
     margin-bottom: 4px;
   }
   .node-icon {
-    font-size: 10px;
+    font-size: var(--font-size-sm);
     color: var(--accent, #1d4ed8);
   }
   .node-label {
     font-weight: 700;
-    font-size: 13px;
+    font-size: var(--font-size-sm);
     color: var(--text-primary, #f0f0f0);
   }
   .node-meta {
     display: flex;
     justify-content: space-between;
-    font-size: 11px;
+    font-size: var(--font-size-sm);
     color: var(--text-secondary, #a3a3a3);
   }
   .node-state {
     font-weight: 500;
     text-transform: uppercase;
-    font-size: 10px;
+    font-size: var(--font-size-sm);
   }
 </style>

@@ -908,7 +908,7 @@
 
   .modal-header h2 {
     margin: 0;
-    font-size: 16px;
+    font-size: var(--font-size-base);
     font-weight: 600;
     color: var(--text-primary);
   }
@@ -917,7 +917,7 @@
     background: none;
     border: none;
     color: var(--text-secondary);
-    font-size: 16px;
+    font-size: var(--font-size-base);
     cursor: pointer;
     padding: 4px 6px;
     border-radius: 0;
@@ -937,7 +937,7 @@
     background: var(--danger, #ef4444);
     color: var(--text-on-accent);
     padding: 8px 20px;
-    font-size: 12px;
+    font-size: var(--font-size-sm);
     flex-shrink: 0;
   }
 
@@ -952,11 +952,12 @@
 
   section h3 {
     margin: 0 0 12px;
-    font-size: 13px;
-    font-weight: 600;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-md);
     color: var(--accent);
     text-transform: uppercase;
     letter-spacing: 0.06em;
+    line-height: var(--line-height-sm);
   }
 
   .field-row {
@@ -970,7 +971,7 @@
   .field-row .field-label {
     width: 160px;
     flex-shrink: 0;
-    font-size: 12px;
+    font-size: var(--font-size-sm);
     color: var(--text-secondary);
   }
 
@@ -982,7 +983,7 @@
     border-radius: 0;
     color: var(--text-primary);
     padding: 5px 8px;
-    font-size: 12px;
+    font-size: var(--font-size-sm);
     font-family: inherit;
   }
 
@@ -995,7 +996,7 @@
 
   .font-preview {
     font-family: var(--font-mono);
-    font-size: 13px;
+    font-size: var(--font-size-sm);
     color: var(--text-secondary);
   }
 
@@ -1030,7 +1031,7 @@
   }
 
   .pending-delete-label {
-    font-size: 10px;
+    font-size: var(--font-size-sm);
     color: var(--danger, #ef4444);
     font-style: italic;
   }
@@ -1043,13 +1044,13 @@
   }
 
   .llm-name {
-    font-size: 13px;
+    font-size: var(--font-size-sm);
     font-weight: 600;
     color: var(--text-primary);
   }
 
   .llm-type-badge {
-    font-size: 10px;
+    font-size: var(--font-size-sm);
     background: var(--accent);
     color: var(--text-on-accent);
     padding: 1px 5px;
@@ -1059,7 +1060,7 @@
   }
 
   .llm-detail {
-    font-size: 11px;
+    font-size: var(--font-size-sm);
     color: var(--text-secondary);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1073,7 +1074,7 @@
   }
 
   .empty-hint {
-    font-size: 12px;
+    font-size: var(--font-size-sm);
     color: var(--text-secondary);
     margin: 0 0 10px;
   }
@@ -1089,7 +1090,7 @@
 
   .llm-form h4 {
     margin: 0 0 12px;
-    font-size: 12px;
+    font-size: var(--font-size-sm);
     font-weight: 600;
     color: var(--text-primary);
   }
@@ -1108,7 +1109,7 @@
 
   .theme-btn {
     padding: 6px 16px;
-    font-size: 12px;
+    font-size: var(--font-size-sm);
     border-radius: 0;
     border: var(--border-width) solid var(--border);
     background: var(--bg-secondary);
@@ -1144,7 +1145,7 @@
     border: var(--border-width) solid var(--border);
     border-radius: 0;
     padding: 5px 12px;
-    font-size: 12px;
+    font-size: var(--font-size-sm);
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.04em;
@@ -1190,7 +1191,7 @@
   }
 
   .add-btn {
-    font-size: 12px;
+    font-size: var(--font-size-sm);
     padding: 5px 12px;
   }
 
@@ -1252,7 +1253,7 @@
   }
 
   .scan-cli-btn {
-    font-size: 11px;
+    font-size: var(--font-size-sm);
     padding: 3px 10px;
   }
 
@@ -1288,7 +1289,7 @@
   }
 
   .provider-name {
-    font-size: 13px;
+    font-size: var(--font-size-sm);
     font-weight: 600;
     color: var(--text-primary);
     min-width: 80px;
@@ -1296,7 +1297,7 @@
 
   .provider-model-hint {
     flex: 1;
-    font-size: 11px;
+    font-size: var(--font-size-sm);
     color: var(--text-secondary);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1304,7 +1305,7 @@
   }
 
   .provider-expand-btn {
-    font-size: 10px;
+    font-size: var(--font-size-sm);
     padding: 2px 6px;
     flex-shrink: 0;
   }
@@ -1323,12 +1324,12 @@
   }
 
   .test-btn {
-    font-size: 11px;
+    font-size: var(--font-size-sm);
     padding: 4px 10px;
   }
 
   .shortcut-capture-btn {
-    font-size: 11px;
+    font-size: var(--font-size-sm);
     padding: 4px 10px;
     flex: 1;
   }
@@ -1351,7 +1352,7 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    font-size: 11px;
+    font-size: var(--font-size-sm);
     padding: 4px 6px;
     background: var(--bg-secondary);
     border: var(--border-width) solid var(--border);
@@ -1373,7 +1374,7 @@
   }
 
   .step-icon {
-    font-size: 12px;
+    font-size: var(--font-size-sm);
     font-weight: 700;
     flex-shrink: 0;
     width: 14px;
@@ -1385,7 +1386,7 @@
   }
 
   .step-detail {
-    font-size: 10px;
+    font-size: var(--font-size-sm);
     color: var(--text-muted);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1394,7 +1395,7 @@
   }
 
   .connection-ready {
-    font-size: 11px;
+    font-size: var(--font-size-sm);
     font-weight: 700;
     color: var(--success);
     text-transform: uppercase;
@@ -1414,7 +1415,7 @@
 
   .budget-title {
     margin: 0 0 10px;
-    font-size: 11px;
+    font-size: var(--font-size-sm);
     font-weight: 700;
     color: var(--text-secondary);
     text-transform: uppercase;
@@ -1422,7 +1423,7 @@
   }
 
   .version-label {
-    font-size: 11px;
+    font-size: var(--font-size-sm);
     color: var(--text-muted);
     justify-content: flex-end;
   }

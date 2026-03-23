@@ -412,7 +412,7 @@
     border: none;
     cursor: pointer;
     padding: 0;
-    font-size: 14px;
+    font-size: var(--font-size-base);
     line-height: 1;
     display: flex;
     align-items: center;

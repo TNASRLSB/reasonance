@@ -156,7 +156,7 @@
 
   .logo {
     font-weight: 800;
-    font-size: 14px;
+    font-size: var(--font-size-base);
     color: var(--text-primary);
     text-transform: uppercase;
     letter-spacing: -0.02em;
@@ -293,7 +293,7 @@
     background: transparent;
     border: none;
     color: var(--text-secondary);
-    font-size: 12px;
+    font-size: var(--font-size-sm);
     padding: 0 14px;
     min-height: unset;
     height: 100%;

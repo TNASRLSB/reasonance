@@ -228,7 +228,7 @@
 
   .menu-arrow {
     color: var(--text-muted);
-    font-size: 8px;
+    font-size: var(--font-size-sm);
     margin-inline-start: 12px;
   }
 

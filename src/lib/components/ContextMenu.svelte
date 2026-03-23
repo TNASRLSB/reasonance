@@ -153,7 +153,7 @@
     padding: 4px 0;
     min-width: 200px;
     max-width: 280px;
-    font-size: 13px;
+    font-size: var(--font-size-sm);
     font-family: var(--font-ui);
   }
 
@@ -187,7 +187,7 @@
 
   .context-menu-hint {
     padding: 6px 14px;
-    font-size: 11px;
+    font-size: var(--font-size-sm);
     color: var(--text-secondary, #94a3b8);
     border-top: 1px solid var(--border, #334155);
     margin-top: 4px;

@@ -312,7 +312,7 @@
 
   .divider-handle {
     writing-mode: vertical-lr;
-    font-size: 10px;
+    font-size: var(--font-size-sm);
     color: var(--text-muted);
     pointer-events: none;
     user-select: none;

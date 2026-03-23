@@ -152,7 +152,7 @@
     background: none;
     border: none;
     color: var(--text-secondary);
-    font-size: 16px;
+    font-size: var(--font-size-base);
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -175,7 +175,7 @@
     background: none;
     border: none;
     color: var(--text-secondary);
-    font-size: 14px;
+    font-size: var(--font-size-base);
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -212,17 +212,18 @@
   }
 
   .welcome-logo {
-    font-weight: 800;
-    font-size: 32px;
+    font-weight: var(--font-weight-hero);
+    font-size: var(--font-size-hero);
     color: var(--text-primary);
     letter-spacing: -0.02em;
     margin: 0;
     font-family: var(--font-ui);
+    line-height: var(--line-height-hero);
   }
 
   .welcome-subtitle {
     color: var(--text-muted);
-    font-size: 14px;
+    font-size: var(--font-size-base);
     margin: 0 0 24px;
     font-family: var(--font-ui);
   }
@@ -230,7 +231,7 @@
   .welcome-btn.primary {
     padding: 12px 32px;
     font-family: var(--font-ui);
-    font-size: 14px;
+    font-size: var(--font-size-base);
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.04em;
@@ -253,7 +254,7 @@
   }
 
   .recent-title {
-    font-size: 12px;
+    font-size: var(--font-size-sm);
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0.12em;
@@ -264,7 +265,7 @@
 
   .no-recent {
     color: var(--text-muted);
-    font-size: 13px;
+    font-size: var(--font-size-sm);
     margin: 0;
     font-family: var(--font-ui);
   }
@@ -283,7 +284,7 @@
     width: 100%;
     padding: 8px 12px;
     font-family: var(--font-ui);
-    font-size: 13px;
+    font-size: var(--font-size-sm);
     text-align: start;
     color: var(--text-body);
     background: none;
@@ -313,7 +314,7 @@
   }
 
   .onboarding-icon {
-    font-size: 22px;
+    font-size: var(--font-size-lg);
     flex-shrink: 0;
   }
 
@@ -323,14 +324,14 @@
 
   .onboarding-text strong {
     display: block;
-    font-size: 13px;
+    font-size: var(--font-size-sm);
     font-weight: 800;
     color: var(--text-primary);
     margin-bottom: 2px;
   }
 
   .onboarding-text p {
-    font-size: 12px;
+    font-size: var(--font-size-sm);
     color: var(--text-secondary);
     margin: 0;
     line-height: 1.4;
@@ -339,7 +340,7 @@
   .welcome-btn.secondary {
     padding: 8px 16px;
     font-family: var(--font-ui);
-    font-size: 12px;
+    font-size: var(--font-size-sm);
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.04em;

@@ -129,7 +129,7 @@
     max-width: 200px;
     cursor: pointer;
     border-inline-end: 2px solid var(--border);
-    font-size: 12px;
+    font-size: var(--font-size-sm);
     font-weight: 500;
     color: var(--text-muted);
     user-select: none;
@@ -169,7 +169,7 @@
     border: none;
     color: var(--text-secondary);
     cursor: pointer;
-    font-size: 12px;
+    font-size: var(--font-size-sm);
     line-height: 1;
     padding: 3px 4px;
     min-width: 22px;
@@ -193,7 +193,7 @@
     border: none;
     color: var(--text-secondary);
     cursor: pointer;
-    font-size: 14px;
+    font-size: var(--font-size-base);
     line-height: 1;
     padding: 5px 6px;
     min-width: 24px;

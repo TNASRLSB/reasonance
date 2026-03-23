@@ -417,8 +417,9 @@
   }
 
   .about-logo {
-    font-size: 22px;
-    font-weight: 800;
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-hero);
+    line-height: var(--line-height-lg);
     color: var(--text-primary);
     letter-spacing: -0.02em;
     margin-bottom: 4px;
@@ -471,7 +472,7 @@
     border-radius: var(--radius);
     color: var(--text-secondary);
     font-family: var(--font-ui);
-    font-size: 10px;
+    font-size: var(--font-size-sm);
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.02em;

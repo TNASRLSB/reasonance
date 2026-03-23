@@ -907,10 +907,10 @@
 
   .kpi-value {
     font-family: var(--font-mono);
-    font-size: 20px;
-    font-weight: 800;
+    font-size: var(--font-size-md);
+    font-weight: var(--font-weight-hero);
     color: var(--text-primary);
-    line-height: 1.2;
+    line-height: var(--line-height-hero);
   }
 
   .kpi-secondary {
@@ -1034,7 +1034,7 @@
     border-radius: 0;
     color: var(--text-muted);
     cursor: pointer;
-    font-size: 11px;
+    font-size: var(--font-size-sm);
     padding: 2px 6px;
     min-height: unset;
     flex-shrink: 0;
@@ -1142,7 +1142,7 @@
   }
 
   .expand-chevron {
-    font-size: 8px;
+    font-size: var(--font-size-sm);
     color: var(--text-muted);
   }
 
@@ -1294,7 +1294,7 @@
   }
 
   .trend-bar-label {
-    font-size: 9px;
+    font-size: var(--font-size-sm);
     color: var(--text-muted);
     font-family: var(--font-mono);
     white-space: nowrap;

@@ -193,7 +193,7 @@
     background: transparent;
     border: none;
     color: var(--text-secondary);
-    font-size: 12px;
+    font-size: var(--font-size-sm);
     cursor: pointer;
     min-width: 32px;
     min-height: 32px;
@@ -266,7 +266,7 @@
     border: none;
     text-align: start;
     font-family: var(--font-ui);
-    font-size: 13px;
+    font-size: var(--font-size-sm);
     font-weight: 700;
     color: var(--text-primary);
     cursor: pointer;
@@ -287,7 +287,7 @@
     color: var(--text-primary);
     padding: 2px 6px;
     font-family: var(--font-ui);
-    font-size: 13px;
+    font-size: var(--font-size-sm);
   }
 
   .session-meta {
@@ -329,7 +329,7 @@
     background: transparent;
     border: none;
     color: var(--text-muted);
-    font-size: 12px;
+    font-size: var(--font-size-sm);
     cursor: pointer;
     min-width: 28px;
     min-height: 28px;

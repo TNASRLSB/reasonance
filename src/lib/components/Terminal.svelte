@@ -345,7 +345,7 @@
     border-radius: 0;
     color: var(--text-secondary);
     cursor: pointer;
-    font-size: 10px;
+    font-size: var(--font-size-sm);
     padding: 2px 6px;
     font-weight: 800;
   }

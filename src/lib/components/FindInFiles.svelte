@@ -212,7 +212,7 @@
     background: none;
     border: none;
     color: var(--text-secondary);
-    font-size: 14px;
+    font-size: var(--font-size-base);
     cursor: pointer;
     padding: 2px 6px;
     border-radius: var(--radius);
@@ -237,7 +237,7 @@
     border: var(--border-width) solid var(--border);
     border-radius: var(--radius);
     color: var(--text-primary);
-    font-size: 13px;
+    font-size: var(--font-size-sm);
     font-family: inherit;
     padding: 6px 10px;
     outline: none;
@@ -253,7 +253,7 @@
     border: var(--border-width) solid var(--accent);
     border-radius: var(--radius);
     padding: 6px 14px;
-    font-size: 12px;
+    font-size: var(--font-size-sm);
     cursor: pointer;
     flex-shrink: 0;
     transition: opacity 0.15s;
@@ -270,7 +270,7 @@
 
   .fif-error {
     padding: 8px 14px;
-    font-size: 12px;
+    font-size: var(--font-size-sm);
     color: var(--danger, #e74c3c);
     margin: 0;
     flex-shrink: 0;
@@ -278,7 +278,7 @@
 
   .fif-empty {
     padding: 20px 14px;
-    font-size: 12px;
+    font-size: var(--font-size-sm);
     color: var(--text-secondary);
     margin: 0;
     text-align: center;
@@ -286,7 +286,7 @@
 
   .fif-summary {
     padding: 6px 14px;
-    font-size: 11px;
+    font-size: var(--font-size-sm);
     color: var(--text-secondary);
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
@@ -303,7 +303,7 @@
 
   .fif-file-header {
     padding: 6px 14px;
-    font-size: 11px;
+    font-size: var(--font-size-sm);
     font-weight: 600;
     color: var(--accent);
     background: var(--bg-secondary);
@@ -331,7 +331,7 @@
   }
 
   .fif-line-num {
-    font-size: 11px;
+    font-size: var(--font-size-sm);
     color: var(--text-secondary);
     font-variant-numeric: tabular-nums;
     min-width: 28px;
@@ -340,7 +340,7 @@
   }
 
   .fif-line-text {
-    font-size: 12px;
+    font-size: var(--font-size-sm);
     color: var(--text-primary);
     font-family: var(--font-mono);
     overflow: hidden;

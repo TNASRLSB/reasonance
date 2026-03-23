@@ -129,7 +129,7 @@
     background: var(--bg-secondary);
     border-bottom: var(--border-width) solid var(--border);
     flex-shrink: 0;
-    font-size: 12px;
+    font-size: var(--font-size-sm);
     font-family: var(--font-ui);
   }
 
@@ -149,7 +149,7 @@
     padding: 3px 12px;
     border-radius: var(--radius);
     border: 1px solid transparent;
-    font-size: 12px;
+    font-size: var(--font-size-sm);
     cursor: pointer;
     transition: background 0.15s, color 0.15s;
   }

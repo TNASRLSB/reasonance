@@ -163,7 +163,7 @@
     border-radius: 0;
     color: var(--text-primary);
     font-family: var(--font-ui);
-    font-size: 14px;
+    font-size: var(--font-size-base);
     font-weight: 800;
     cursor: pointer;
     transition: background 0.1s, color 0.1s;
@@ -176,13 +176,13 @@
   }
 
   .tbtn-icon {
-    font-size: 14px;
+    font-size: var(--font-size-base);
     font-weight: 800;
     line-height: 1;
   }
 
   .tbtn-label {
-    font-size: 11px;
+    font-size: var(--font-size-sm);
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.04em;
@@ -209,7 +209,7 @@
     border-radius: 0;
     color: var(--text-secondary);
     font-family: var(--font-ui);
-    font-size: 10px;
+    font-size: var(--font-size-sm);
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.04em;

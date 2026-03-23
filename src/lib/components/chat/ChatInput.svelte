@@ -307,7 +307,7 @@
 
   .yolo-toggle {
     font-family: var(--font-ui);
-    font-size: 10px;
+    font-size: var(--font-size-sm);
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0.05em;
@@ -343,7 +343,7 @@
   }
 
   .progress-bar {
-    font-size: 9px;
+    font-size: var(--font-size-sm);
     letter-spacing: -0.5px;
     opacity: 0.7;
   }
