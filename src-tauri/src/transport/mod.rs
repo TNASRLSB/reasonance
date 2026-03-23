@@ -94,6 +94,7 @@ impl StructuredAgentTransport {
         let args = Self::build_cli_args(config, &request, cli_session_id.as_deref());
         let permission_args = Self::build_permission_args(config, request.cwd.as_deref(), request.yolo);
         let rules = config.to_rules();
+        let session_id_path = config.session_id_path().map(|s| s.to_string());
         drop(registry);
 
         let state_machine: Box<dyn crate::normalizer::state_machines::StateMachine> = match provider.as_str() {
@@ -161,10 +162,25 @@ impl StructuredAgentTransport {
         let sid = session_id.clone();
         let sessions_ref = self.sessions.clone();
 
-        let rx = spawn_stream_reader(stdout, pipeline, event_bus, sid.clone());
+        let cli_session_id_ref = Arc::new(Mutex::new(None::<String>));
+        let cli_sid_for_reader = cli_session_id_ref.clone();
+        let rx = spawn_stream_reader(stdout, pipeline, event_bus, sid.clone(), session_id_path, cli_sid_for_reader);
 
         let join_handle = tokio::spawn(async move {
             let _ = child.wait().await;
+
+            // Store captured CLI session ID in the session
+            {
+                let captured = cli_session_id_ref.lock().unwrap_or_else(|e| e.into_inner()).clone();
+                if let Some(ref cli_sid) = captured {
+                    let mut sessions = sessions_ref.lock().unwrap_or_else(|e| e.into_inner());
+                    if let Some(sess) = sessions.get_mut(&sid) {
+                        sess.set_cli_session_id(cli_sid.clone());
+                        log::info!("Transport: session={} stored CLI session ID={}", sid, cli_sid);
+                    }
+                }
+            }
+
             if let Ok(result) = rx.await {
                 let mut sessions = sessions_ref.lock().unwrap_or_else(|e| e.into_inner());
                 if let Some(sess) = sessions.get_mut(&sid) {

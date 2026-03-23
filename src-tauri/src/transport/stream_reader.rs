@@ -15,6 +15,8 @@ pub fn spawn_stream_reader(
     pipeline: Arc<Mutex<NormalizerPipeline>>,
     event_bus: Arc<AgentEventBus>,
     session_id: String,
+    session_id_path: Option<String>,
+    cli_session_id: Arc<Mutex<Option<String>>>,
 ) -> oneshot::Receiver<StreamResult> {
     let (tx, rx) = oneshot::channel();
 
@@ -32,11 +34,26 @@ pub fn spawn_stream_reader(
                         continue;
                     }
 
-                    // Log the raw JSON type for debugging
-                    let json_type = serde_json::from_str::<serde_json::Value>(&line)
-                        .ok()
+                    // Parse JSON once for both debug logging and session ID extraction
+                    let parsed_json = serde_json::from_str::<serde_json::Value>(&line).ok();
+                    let json_type = parsed_json.as_ref()
                         .and_then(|v| v.get("type").and_then(|t| t.as_str().map(|s| s.to_string())));
                     log::debug!("StreamReader[{}]: raw line type={:?} len={}", session_id, json_type, line.len());
+
+                    // Extract CLI session ID if configured and not yet captured
+                    if let Some(ref sid_path) = session_id_path {
+                        let already_captured = cli_session_id.lock().unwrap_or_else(|e| e.into_inner()).is_some();
+                        if !already_captured {
+                            if let Some(ref parsed) = parsed_json {
+                                if let Some(extracted) = crate::normalizer::rules_engine::resolve_path(parsed, sid_path) {
+                                    if let Some(id_str) = extracted.as_str() {
+                                        log::info!("StreamReader[{}]: captured CLI session ID: {}", session_id, id_str);
+                                        *cli_session_id.lock().unwrap_or_else(|e| e.into_inner()) = Some(id_str.to_string());
+                                    }
+                                }
+                            }
+                        }
+                    }
 
                     let events = {
                         let mut pl = pipeline.lock().unwrap_or_else(|e| e.into_inner());
@@ -121,7 +138,7 @@ mod tests {
         }
         bus.subscribe(Box::new(RecorderWrapper(recorder.clone())));
 
-        let rx = spawn_stream_reader(stdout, pipeline, bus, "test-session".to_string());
+        let rx = spawn_stream_reader(stdout, pipeline, bus, "test-session".to_string(), None, Arc::new(Mutex::new(None)));
 
         let result = rx.await.unwrap();
 
@@ -131,5 +148,45 @@ mod tests {
 
         let events = recorder_ref.get_events("test-session");
         assert!(events.len() >= 3);
+    }
+
+    #[tokio::test]
+    async fn test_stream_reader_captures_cli_session_id() {
+        let json1 = r#"{"type":"assistant","message":{"id":"msg_test_123","model":"claude-sonnet-4-6","content":[{"type":"text","text":"Hello"}]}}"#;
+
+        let mut child = Command::new("sh")
+            .arg("-c")
+            .arg(format!("echo '{}'", json1))
+            .stdout(Stdio::piped())
+            .spawn()
+            .expect("Failed to spawn echo");
+
+        let stdout = child.stdout.take().unwrap();
+
+        let registry = NormalizerRegistry::load_from_dir(
+            std::path::Path::new("normalizers")
+        ).unwrap();
+        let config = registry.get_config("claude").unwrap();
+        let rules = config.to_rules();
+        let state_machine = Box::new(
+            crate::normalizer::state_machines::generic::GenericStateMachine::new()
+        );
+        let pipeline = Arc::new(Mutex::new(
+            crate::normalizer::pipeline::NormalizerPipeline::new(rules, state_machine, "claude".to_string())
+        ));
+
+        let bus = Arc::new(AgentEventBus::new());
+        let cli_sid = Arc::new(Mutex::new(None::<String>));
+
+        let rx = spawn_stream_reader(
+            stdout, pipeline, bus, "test-session".to_string(),
+            Some("message.id".to_string()), cli_sid.clone(),
+        );
+
+        let result = rx.await.unwrap();
+        assert!(result.error.is_none());
+
+        let captured = cli_sid.lock().unwrap().clone();
+        assert_eq!(captured, Some("msg_test_123".to_string()));
     }
 }

@@ -74,7 +74,7 @@ mod tests {
         let pipeline = make_pipeline(provider);
         let (bus, recorder) = make_bus();
 
-        let rx = spawn_stream_reader(stdout, pipeline, bus, session_id.to_string());
+        let rx = spawn_stream_reader(stdout, pipeline, bus, session_id.to_string(), None, Arc::new(std::sync::Mutex::new(None)));
         let result = rx.await.unwrap();
         assert!(result.error.is_none(), "{}: stream error: {:?}", provider, result.error);
 
@@ -487,8 +487,8 @@ mod tests {
         let pipeline1 = make_pipeline("claude");
         let pipeline2 = make_pipeline("gemini");
 
-        let rx1 = spawn_stream_reader(stdout1, pipeline1, bus.clone(), "sid-claude".to_string());
-        let rx2 = spawn_stream_reader(stdout2, pipeline2, bus.clone(), "sid-gemini".to_string());
+        let rx1 = spawn_stream_reader(stdout1, pipeline1, bus.clone(), "sid-claude".to_string(), None, Arc::new(std::sync::Mutex::new(None)));
+        let rx2 = spawn_stream_reader(stdout2, pipeline2, bus.clone(), "sid-gemini".to_string(), None, Arc::new(std::sync::Mutex::new(None)));
 
         rx1.await.unwrap();
         rx2.await.unwrap();
