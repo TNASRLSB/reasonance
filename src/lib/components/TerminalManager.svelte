@@ -31,8 +31,8 @@
   });
   let selectedLlmName = $state<string>('');
 
-  // Derived CLI configs from store
-  let configs = $derived($llmConfigs.filter((c) => c.type === 'cli' && c.command));
+  // Derived configs from store (CLI with command + API with provider)
+  let configs = $derived($llmConfigs.filter((c) => (c.type === 'cli' && c.command) || c.type === 'api'));
 
   // Auto-select first LLM when configs load
   $effect(() => {
@@ -48,40 +48,57 @@
   // Uses $state() for Svelte 5 fine-grained reactivity on property access
   let instanceViewModes: Record<string, ViewMode> = $state({});
 
+  function isApiOnlyInstance(instanceId: string): boolean {
+    return get(terminalTabs).flatMap((t) => t.instances).find((i) => i.id === instanceId)?.apiOnly === true;
+  }
+
   function getViewMode(instanceId: string): ViewMode {
+    if (isApiOnlyInstance(instanceId)) return 'chat';
     return instanceViewModes[instanceId] ?? 'chat';
   }
 
   function toggleViewMode(instanceId: string) {
+    if (isApiOnlyInstance(instanceId)) return;
     instanceViewModes[instanceId] = getViewMode(instanceId) === 'chat' ? 'terminal' : 'chat';
   }
 
   export async function addInstance(llmName: string) {
     const config = get(llmConfigs).find((c) => c.name === llmName);
-    if (!config || !config.command) return;
+    if (!config) return;
 
-    // Build args, optionally appending yoloFlag when YOLO mode is active
-    const args = [...(config.args ?? [])];
-    if (get(yoloMode) && config.yoloFlag) {
-      args.push(config.yoloFlag);
-    }
+    const isApiOnly = config.type === 'api' || !config.command;
 
-    let handle;
-    try {
-      handle = await adapter.spawnProcess(config.command, args, cwd);
-    } catch (err) {
-      console.error('Failed to spawn process:', err);
-      return;
+    let instanceId: string;
+
+    if (isApiOnly) {
+      // API-type LLMs: no PTY, generate synthetic ID, chat view only
+      instanceId = `api-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    } else {
+      // CLI-type LLMs: spawn PTY process
+      const args = [...(config.args ?? [])];
+      if (get(yoloMode) && config.yoloFlag) {
+        args.push(config.yoloFlag);
+      }
+
+      let handle;
+      try {
+        handle = await adapter.spawnProcess(config.command!, args, cwd);
+      } catch (err) {
+        console.error('Failed to spawn process:', err);
+        return;
+      }
+      instanceId = handle.id;
     }
 
     instanceCounters[llmName] = (instanceCounters[llmName] ?? 0) + 1;
     const label = `${llmName} ${instanceCounters[llmName]}`;
 
     const instance: import('$lib/stores/terminals').TerminalInstance = {
-      id: handle.id,
+      id: instanceId,
       llmName,
       label,
       modelName: config.model ?? undefined,
+      apiOnly: isApiOnly || undefined,
     };
 
     terminalTabs.update((current) => {
@@ -95,7 +112,7 @@
     });
 
     activeTerminalTab.set(llmName);
-    activeInstanceId.set(handle.id);
+    activeInstanceId.set(instanceId);
   }
 
   function selectTab(llmName: string) {
@@ -121,7 +138,10 @@
     const label = inst ? inst.label : id;
     const ok = confirm($tr('terminal.terminateConfirm', { llmName, label }));
     if (!ok) return;
-    adapter.killProcess(id).catch((e) => console.warn('Failed to kill process:', e));
+    // Only kill PTY process for non-API instances
+    if (!id.startsWith('api-')) {
+      adapter.killProcess(id).catch((e) => console.warn('Failed to kill process:', e));
+    }
     terminalTabs.update((current) => {
       return current
         .map((t) => {
@@ -173,7 +193,7 @@
     activeTabInstances.find((i) => i.id === $activeInstanceId)
   );
 
-  // Restart all running instances when YOLO mode is toggled
+  // Restart all running CLI instances when YOLO mode is toggled
   let prevYolo: boolean | null = null;
   let isRestarting = false;
   $effect(() => {
@@ -189,13 +209,31 @@
     if (isRestarting) return; // Prevent concurrent restart loops from rapid toggling
 
     const tabs = get(terminalTabs);
-    const allInstances = tabs.flatMap((t) => t.instances.map((i) => ({ ...i, llmName: t.llmName })));
-    if (allInstances.length === 0) return;
+    // Only restart CLI instances (not API-only ones)
+    const cliInstances = tabs.flatMap((t) =>
+      t.instances
+        .filter((i) => !i.apiOnly)
+        .map((i) => ({ ...i, llmName: t.llmName }))
+    );
+    if (cliInstances.length === 0) return;
 
-    // Restart each instance with updated args
+    // Ask user to confirm restart of running conversations
+    const names = [...new Set(cliInstances.map((i) => i.llmName))].join(', ');
+    const ok = confirm(
+      $tr('terminal.yoloRestartConfirm', { names }) ||
+      `YOLO mode changed. This will restart ${cliInstances.length} running session(s) (${names}). Continue?`
+    );
+    if (!ok) {
+      // Revert the toggle
+      prevYolo = current;
+      yoloMode.set(!current);
+      return;
+    }
+
+    // Restart each CLI instance with updated args
     (async () => {
       isRestarting = true;
-      for (const inst of allInstances) {
+      for (const inst of cliInstances) {
         const config = get(llmConfigs).find((c) => c.name === inst.llmName);
         if (!config || !config.command) continue;
 
@@ -275,7 +313,7 @@
     <div class="llm-add-wrapper">
       <button class="llm-tab add-btn" onclick={() => showLLMDropdown = !showLLMDropdown} aria-label={$tr('terminal.addLlm')} aria-haspopup="true" aria-expanded={showLLMDropdown}>+</button>
       {#if showLLMDropdown}
-        <div class="llm-dropdown" role="menu" bind:this={llmMenuEl} onkeydown={(e) => menuKeyHandler(e, llmMenuEl!, '[role="menuitem"]')}>
+        <div class="llm-dropdown" role="menu" tabindex="-1" bind:this={llmMenuEl} onkeydown={(e) => menuKeyHandler(e, llmMenuEl!, '[role="menuitem"]')}>
           {#each configs as config (config.name)}
             <button
               class="llm-dropdown-item"
@@ -325,6 +363,7 @@
         </div>
       {:else}
         <div class="llm-selector">
+          <span class="llm-count">{$tr('status.llmDetected', { count: String(configs.length) })}</span>
           <div class="llm-card-list">
             {#each configs as config (config.name)}
               <button
@@ -333,7 +372,14 @@
                 onclick={() => { selectedLlmName = config.name; }}
               >
                 <span class="llm-card-name">{config.name}</span>
-                <span class="llm-card-cmd">{config.command}</span>
+                {#if config.type === 'api'}
+                  <span class="llm-card-badge">API</span>
+                {:else if config.command}
+                  {@const basename = config.command.split('/').pop()?.split('\\').pop() ?? config.command}
+                  {#if basename.toLowerCase() !== config.name.toLowerCase()}
+                    <span class="llm-card-cmd">{basename}</span>
+                  {/if}
+                {/if}
               </button>
             {/each}
           </div>
@@ -365,8 +411,8 @@
         </div>
       {/each}
 
-      <!-- View mode toggle -->
-      {#if $activeInstanceId}
+      <!-- View mode toggle (hidden for API-only instances) -->
+      {#if $activeInstanceId && !isApiOnlyInstance($activeInstanceId)}
         <ViewModeToggle
           mode={getViewMode($activeInstanceId)}
           onToggle={() => toggleViewMode($activeInstanceId!)}
@@ -683,12 +729,21 @@
     width: 100%;
   }
 
+  .llm-count {
+    font-size: var(--font-size-tiny);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+  }
+
   .llm-card {
     display: flex;
-    flex-direction: column;
-    gap: 2px;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
     width: 100%;
-    padding: 10px 14px;
+    padding: 7px 12px;
     background: var(--bg-secondary);
     border: 2px solid var(--border);
     border-radius: 0;
@@ -710,7 +765,7 @@
   }
 
   .llm-card-name {
-    font-size: var(--font-size-base);
+    font-size: var(--font-size-small);
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.02em;
@@ -720,6 +775,17 @@
   .llm-card-cmd {
     font-size: var(--font-size-tiny);
     font-family: var(--font-mono);
+    color: var(--text-muted);
+  }
+
+  .llm-card-badge {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 1px 5px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
     color: var(--text-muted);
   }
 

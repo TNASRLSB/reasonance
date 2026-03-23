@@ -31,6 +31,7 @@
   class:pulsing
   style="border-color: {borderColor}"
   onclick={() => onselect?.(id)}
+  onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onselect?.(id); } }}
   role="button"
   tabindex="0"
 >

@@ -84,6 +84,7 @@
   }
 </script>
 
+<!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="menu-item" tabindex="-1" onkeydown={handleKeydown}>
   <button
     class="menu-trigger"
@@ -97,7 +98,7 @@
   </button>
 
   {#if open}
-    <div class="menu-dropdown" role="menu" bind:this={menuDropdownEl} onkeydown={(e) => menuKeyHandler(e, menuDropdownEl!, '[role="menuitem"]')}>
+    <div class="menu-dropdown" role="menu" tabindex="-1" bind:this={menuDropdownEl} onkeydown={(e) => menuKeyHandler(e, menuDropdownEl!, '[role="menuitem"]')}>
       {#each items as item, i}
         {#if item.divider}
           <div class="menu-divider"></div>
@@ -158,6 +159,10 @@
 <style>
   .menu-item {
     position: relative;
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    height: 100%;
   }
 
   .menu-trigger {

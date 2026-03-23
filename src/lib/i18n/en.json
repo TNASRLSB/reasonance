@@ -266,6 +266,7 @@
   "terminal.addInstance": "Add new terminal instance",
   "terminal.closeTab": "Close {label} tab",
   "terminal.terminateConfirm": "Terminate session?\n\n{llmName} — {label}\n\nThis will kill the running process. Any unsaved work in the terminal will be lost.",
+  "terminal.yoloRestartConfirm": "YOLO mode changed. This will restart {names} session(s). Any conversation history in the terminal will be lost. Continue?",
   "terminal.comingSoon": "Coming Soon",
   "termToolbar.addFile": "Add file",
   "termToolbar.addFileTitle": "Add file to context",

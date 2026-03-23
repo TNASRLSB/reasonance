@@ -233,7 +233,7 @@
     </span>
   </div>
 
-  <div class="tree-scroll" role="tree" aria-label="File explorer" onkeydown={handleTreeKeydown}>
+  <div class="tree-scroll" role="tree" tabindex="-1" aria-label="File explorer" onkeydown={handleTreeKeydown}>
     {#snippet renderEntries(items: FileEntry[], depth: number)}
       {#each items as entry, idx (entry.path)}
         <button
@@ -293,8 +293,9 @@
 
 {#if ctxVisible}
   <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div class="ctx-overlay" onclick={() => { ctxVisible = false; }} oncontextmenu={(e) => { e.preventDefault(); ctxVisible = false; }}>
-    <div class="ctx-menu" style="left: {ctxX}px; top: {ctxY}px" onclick={(e) => e.stopPropagation()}>
+  <div class="ctx-overlay" onclick={() => { ctxVisible = false; }} onkeydown={(e) => { if (e.key === 'Escape') ctxVisible = false; }} oncontextmenu={(e) => { e.preventDefault(); ctxVisible = false; }}>
+    <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+    <div class="ctx-menu" role="menu" tabindex="-1" style="left: {ctxX}px; top: {ctxY}px" onclick={(e) => e.stopPropagation()}>
       <button class="ctx-item" onclick={() => startInlineCreate('file')}>New File</button>
       <button class="ctx-item" onclick={() => startInlineCreate('folder')}>New Folder</button>
     </div>

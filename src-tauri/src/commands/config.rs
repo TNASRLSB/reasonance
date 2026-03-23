@@ -31,6 +31,8 @@ pub fn write_config(content: String) -> Result<(), String> {
             "claude", "aider", "codex", "copilot", "continue",
             "ollama", "llm", "sgpt", "tgpt", "mods",
             "fabric", "cursor", "windsurf", "cline",
+            "gemini", "kimi", "qwen", "interpreter",
+            "github-copilot-cli",
         ];
 
         for llm in llms {

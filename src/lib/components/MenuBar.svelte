@@ -158,10 +158,12 @@
 <style>
   .menu-bar {
     display: flex;
+    flex-direction: row;
     align-items: center;
     gap: 0;
     flex-wrap: nowrap;
     flex-shrink: 1;
     min-width: 0;
+    height: 100%;
   }
 </style>

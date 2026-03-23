@@ -549,7 +549,7 @@
         <section>
           <h3>{$tr('settings.terminal.title')}</h3>
           <div class="field-row">
-            <label>{$tr('settings.font')}</label>
+            <span class="field-label">{$tr('settings.font')}</span>
             <span class="font-preview">Atkinson Hyperlegible Mono</span>
           </div>
           <div class="field-row">
@@ -746,7 +746,7 @@
                     </div>
 
                     <div class="field-row">
-                      <label>{$tr('settings.provider.shortcut')}</label>
+                      <span class="field-label">{$tr('settings.provider.shortcut')}</span>
                       <button
                         class="shortcut-capture-btn"
                         class:capturing={capturingShortcut === llm.name}
@@ -966,7 +966,8 @@
     margin-bottom: 8px;
   }
 
-  .field-row label {
+  .field-row label,
+  .field-row .field-label {
     width: 160px;
     flex-shrink: 0;
     font-size: 12px;

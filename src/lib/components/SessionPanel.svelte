@@ -11,6 +11,8 @@
     onRestore: (sessionId: string) => void;
   } = $props();
 
+  function autoFocus(node: HTMLElement) { node.focus(); }
+
   let sessions = $state<SessionSummary[]>([]);
   let loading = $state(false);
   let filter = $state('');
@@ -120,7 +122,7 @@
                     bind:value={renameValue}
                     onblur={commitRename}
                     onkeydown={(e) => { if (e.key === 'Enter') commitRename(); if (e.key === 'Escape') { renamingId = null; } }}
-                    autofocus
+                    use:autoFocus
                   />
                 {:else}
                   <button class="session-title" onclick={() => { onRestore(session.id); onClose(); }}>

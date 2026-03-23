@@ -1,9 +1,10 @@
 import { writable } from 'svelte/store';
 
 export interface TerminalInstance {
-  id: string;        // PTY id
+  id: string;        // PTY id (or synthetic id for API-only instances)
   llmName: string;
   label: string;     // "inst. 1", "inst. 2", etc.
+  apiOnly?: boolean; // true for API-type LLMs (no PTY, chat view only)
   contextPercent?: number;
   tokenCount?: string;
   activeMode?: string;

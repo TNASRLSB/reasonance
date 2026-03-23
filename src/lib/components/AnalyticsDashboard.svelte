@@ -588,6 +588,7 @@
                 {:else if $modelBreakdown.data}
                   <table class="model-table" aria-label="Model breakdown for {provider.provider}">
                     <thead>
+                      <!-- svelte-ignore component_name_lowercase -->
                       <tr>
                         <th>Model</th>
                         <th>Sessions</th>
@@ -598,6 +599,7 @@
                     </thead>
                     <tbody>
                       {#each $modelBreakdown.data.filter(m => m.provider === provider.provider) as model (model.model)}
+                        <!-- svelte-ignore component_name_lowercase -->
                         <tr>
                           <td>{model.model}</td>
                           <td>{model.session_count}</td>

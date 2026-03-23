@@ -263,6 +263,7 @@
   "terminal.addInstance": "Aggiungi nuova istanza terminale",
   "terminal.closeTab": "Chiudi scheda {label}",
   "terminal.terminateConfirm": "Terminare la sessione?\n\n{llmName} — {label}\n\nQuesto terminerà il processo in esecuzione. Qualsiasi lavoro non salvato nel terminale andrà perso.",
+  "terminal.yoloRestartConfirm": "Modalità YOLO cambiata. Questo riavvierà le sessioni {names}. La cronologia della conversazione nel terminale andrà persa. Continuare?",
   "terminal.comingSoon": "Prossimamente",
   "termToolbar.addFile": "Aggiungi file",
   "termToolbar.addFileTitle": "Aggiungi file al contesto",

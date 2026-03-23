@@ -109,6 +109,7 @@
     class="context-menu"
     style="left: {x}px; top: {y}px;"
     role="menu"
+    tabindex="-1"
     bind:this={contextMenuEl}
     onkeydown={(e) => { menuKeyHandler(e, contextMenuEl!, '[role="menuitem"]'); if (e.key === 'Escape') onClose(); }}
   >

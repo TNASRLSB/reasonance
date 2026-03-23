@@ -28,6 +28,7 @@
 
 <div class="toast-container" aria-live="polite" aria-atomic="false">
   {#each $toasts as toast (toast.id)}
+    <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
     <div
       class="toast"
       style="border-inline-start-color: {borderColors[toast.type] ?? borderColors.info}"

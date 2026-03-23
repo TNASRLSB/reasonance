@@ -17,16 +17,23 @@
 
   let messagesEl: HTMLElement | undefined = $state();
 
+  // Track previous event count to detect new messages
+  let prevEventCount = $state(0);
+
   // Auto-scroll to bottom when new events arrive
   $effect(() => {
-    if (events.length && messagesEl) {
+    const count = events.length;
+    if (count && messagesEl) {
+      const isNewMessage = count > prevEventCount;
       const { scrollTop, scrollHeight, clientHeight } = messagesEl;
       const nearBottom = scrollHeight - scrollTop - clientHeight < 100;
-      if (nearBottom) {
+      // Scroll if user is near bottom OR a new message just arrived
+      if (nearBottom || isNewMessage) {
         requestAnimationFrame(() => {
           messagesEl?.scrollTo({ top: messagesEl.scrollHeight, behavior: 'smooth' });
         });
       }
+      prevEventCount = count;
     }
   });
 
@@ -102,6 +109,7 @@
   {#each messageGroups as group, gi (gi)}
     <ActionableMessage events={group.events} role={group.role} forkIndex={group.lastEventIndex} {onFork}>
       {#snippet children()}
+        <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
         <div class="message-group {group.role}" role="article" tabindex="0">
           <div class="message-role">{group.role === 'agent' ? 'AGENT' : 'YOU'}</div>
           <div class="message-content">
@@ -134,6 +142,7 @@
 <style>
   .chat-messages {
     flex: 1;
+    min-height: 0;
     overflow-y: auto;
     padding: 16px;
     display: flex;
@@ -181,5 +190,31 @@
   .load-more:hover {
     background: var(--bg-hover);
     border-color: var(--accent);
+  }
+
+  .empty-state {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: var(--text-muted);
+    text-align: center;
+  }
+
+  .empty-title {
+    font-family: var(--font-ui);
+    font-size: var(--font-size-base);
+    font-weight: 700;
+    color: var(--text-secondary);
+    margin: 0;
+  }
+
+  .empty-hint {
+    font-family: var(--font-ui);
+    font-size: var(--font-size-small);
+    color: var(--text-muted);
+    margin: 0;
   }
 </style>

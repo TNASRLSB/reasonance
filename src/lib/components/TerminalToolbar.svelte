@@ -87,7 +87,7 @@
       ><span class="tbtn-icon" aria-hidden="true">/</span><span class="tbtn-label">{$tr('termToolbar.commands')}</span></button>
 
       {#if showSlashMenu && slashCommands.length > 0}
-        <div class="dropdown" role="menu" bind:this={slashMenuEl} onclick={(e) => e.stopPropagation()} onkeydown={(e) => { e.stopPropagation(); menuKeyHandler(e, slashMenuEl!, '.dropdown-item'); }}>
+        <div class="dropdown" role="menu" tabindex="-1" bind:this={slashMenuEl} onclick={(e) => e.stopPropagation()} onkeydown={(e) => { e.stopPropagation(); menuKeyHandler(e, slashMenuEl!, '.dropdown-item'); }}>
           {#each slashCommands as cmd (cmd.command)}
             <button class="dropdown-item" tabindex="-1" onclick={() => selectSlashCommand(cmd.command)}>
               <span class="cmd-name">{cmd.command}</span>
@@ -113,7 +113,7 @@
       </button>
 
       {#if showModeMenu && modes.length > 0}
-        <div class="dropdown mode-dropdown" role="menu" bind:this={modeMenuEl} onclick={(e) => e.stopPropagation()} onkeydown={(e) => { e.stopPropagation(); menuKeyHandler(e, modeMenuEl!, '.dropdown-item'); }}>
+        <div class="dropdown mode-dropdown" role="menu" tabindex="-1" bind:this={modeMenuEl} onclick={(e) => e.stopPropagation()} onkeydown={(e) => { e.stopPropagation(); menuKeyHandler(e, modeMenuEl!, '.dropdown-item'); }}>
           {#each modes as mode (mode.name)}
             <button
               class="dropdown-item"

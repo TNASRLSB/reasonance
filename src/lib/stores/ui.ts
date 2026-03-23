@@ -1,7 +1,17 @@
 import { writable } from 'svelte/store';
 
-export const fileTreeWidth = writable(200);
-export const terminalWidth = writable(300);
+function persistedWidth(key: string, fallback: number) {
+  const stored = typeof localStorage !== 'undefined' ? localStorage.getItem(key) : null;
+  const initial = stored ? Number(stored) : fallback;
+  const store = writable(isNaN(initial) ? fallback : initial);
+  store.subscribe((v) => {
+    if (typeof localStorage !== 'undefined') localStorage.setItem(key, String(v));
+  });
+  return store;
+}
+
+export const fileTreeWidth = persistedWidth('reasonance:fileTreeWidth', 200);
+export const terminalWidth = persistedWidth('reasonance:terminalWidth', 300);
 export const activeEditorTab = writable<string | null>(null);
 export const showSettings = writable(false);
 export const yoloMode = writable(false);

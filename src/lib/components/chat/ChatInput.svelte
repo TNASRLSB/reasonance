@@ -50,6 +50,7 @@
     padding: 12px 16px;
     border-top: var(--border-width) solid var(--border);
     background: var(--bg-surface);
+    flex-shrink: 0;
   }
 
   textarea {

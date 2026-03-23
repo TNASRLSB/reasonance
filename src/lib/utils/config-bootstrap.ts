@@ -3,7 +3,7 @@
  * Reasonance IDE.
  *
  * loadInitialConfig  — Reads forge.toml, parses LLM entries and app settings.
- * discoverAndApplyLlms — Auto-discovers installed LLM CLIs when no config exists.
+ * discoverAndApplyLlms — Auto-discovers installed LLM CLIs and merges new ones.
  */
 
 import { get } from 'svelte/store';
@@ -45,30 +45,41 @@ export async function loadInitialConfig(adapter: Adapter): Promise<void> {
 // ── LLM auto-discovery ────────────────────────────────────────────────────────
 
 /**
- * Discovers installed LLM CLIs and writes them to both the in-memory store
- * and the TOML config file. Only runs when no LLMs are currently configured.
+ * Discovers installed LLM CLIs and merges newly found ones into the
+ * existing config. Runs on every startup to pick up newly installed CLIs.
  */
 export async function discoverAndApplyLlms(adapter: Adapter): Promise<void> {
-  const configs = get(llmConfigs);
-  if (configs.length > 0) return;
-
   try {
     const discovered = await adapter.discoverLlms();
     const found = discovered.filter((d) => d.found);
     if (found.length === 0) return;
 
-    const newConfigs: LlmConfig[] = found.map((d) => ({
-      name: d.name,
-      type: 'cli' as const,
-      command: d.command,
-      args: [],
-      yoloFlag: d.command === 'claude' ? '--dangerously-skip-permissions' : undefined,
-      imageMode: 'path' as const,
-    }));
+    const existing = get(llmConfigs);
+    // Index existing configs by command (CLI) or name (API) for fast lookup
+    const existingCommands = new Set(existing.filter((c) => c.command).map((c) => c.command));
+    const existingNames = new Set(existing.map((c) => c.name));
 
-    // If Ollama was found, also add it as an API-type LLM (OpenAI-compatible)
-    if (found.some((d) => d.command === 'ollama')) {
-      newConfigs.push({
+    // Build list of newly discovered CLIs not already in config
+    const brandNew: LlmConfig[] = found
+      .filter((d) => !existingCommands.has(d.command) && !existingNames.has(d.name))
+      .map((d) => {
+        const isClaude = d.command.endsWith('/claude') || d.command === 'claude';
+        return {
+          name: d.name,
+          type: 'cli' as const,
+          command: d.command,
+          // Claude needs --dangerously-skip-permissions by default to work in embedded terminal
+          args: isClaude ? ['--dangerously-skip-permissions'] : [],
+          imageMode: 'path' as const,
+        };
+      });
+
+    // If Ollama was found and no API entry exists yet, add it
+    if (
+      found.some((d) => d.command === 'ollama') &&
+      !existingNames.has('Ollama (API)')
+    ) {
+      brandNew.push({
         name: 'Ollama (API)',
         type: 'api',
         provider: 'openai',
@@ -78,14 +89,34 @@ export async function discoverAndApplyLlms(adapter: Adapter): Promise<void> {
       });
     }
 
-    llmConfigs.set(newConfigs);
+    // Ensure existing Claude entries always have --dangerously-skip-permissions
+    // (needed for embedded terminal — Claude prompts for permissions otherwise)
+    let patched = false;
+    const updated = existing.map((c) => {
+      if (c.type !== 'cli') return c;
+      const cmd = c.command ?? '';
+      const isClaude = cmd.endsWith('/claude') || cmd === 'claude';
+      if (!isClaude) return c;
+      const args = c.args ?? [];
+      if (args.includes('--dangerously-skip-permissions')) return c;
+      patched = true;
+      return { ...c, args: ['--dangerously-skip-permissions', ...args] };
+    });
 
-    // Persist discovered LLMs to TOML so Settings can find them
+    if (brandNew.length === 0 && !patched) return;
+
+    const merged = [...updated, ...brandNew];
+    llmConfigs.set(merged);
+
+    // Persist merged config to TOML
     try {
       const { stringify } = await import('smol-toml');
       const tomlObj: Record<string, unknown> = {
-        settings: { default: '', context_menu_llm: '' },
-        llm: newConfigs.map((l) => {
+        settings: {
+          default: get(appSettings).default ?? '',
+          context_menu_llm: get(appSettings).contextMenuLlm ?? '',
+        },
+        llm: merged.map((l) => {
           const entry: Record<string, unknown> = { name: l.name, type: l.type };
           if (l.type === 'cli') {
             entry.command = l.command ?? '';
@@ -106,7 +137,7 @@ export async function discoverAndApplyLlms(adapter: Adapter): Promise<void> {
     showToast(
       'success',
       t('toast.llmFound'),
-      t('toast.detected', { names: found.map((d) => d.name).join(', ') })
+      t('toast.detected', { names: brandNew.map((d) => d.name).join(', ') })
     );
   } catch {
     // Silently ignore discovery errors

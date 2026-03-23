@@ -73,7 +73,7 @@
 
 {#if visible}
   <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div class="response-panel" bind:this={panelEl} role="dialog" aria-modal="true" aria-label={$tr('response.title')} onkeydown={handlePanelKeydown}>
+  <div class="response-panel" bind:this={panelEl} role="dialog" tabindex="-1" aria-modal="true" aria-label={$tr('response.title')} onkeydown={handlePanelKeydown}>
     <div class="response-header">
       <span class="response-title">{$tr('response.title')}</span>
       <button class="close-btn" onclick={onClose} title={$tr('response.close')} aria-label={$tr('response.close')}>✕</button>

@@ -64,8 +64,8 @@
   ]);
 </script>
 
-<!-- svelte-ignore a11y_no_static_element_interactions -->
 <svelte:window onclick={() => { showGitMenu = false; }} />
+<!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="toolbar" data-tauri-drag-region onmousedown={handleDrag}>
   <div class="toolbar-left">
     <svg class="logo-icon" viewBox="0 0 250.44 250.44" aria-hidden="true">
@@ -87,7 +87,7 @@
         GIT &#9662;
       </button>
       {#if showGitMenu}
-        <div class="git-dropdown" role="menu" bind:this={gitMenuEl} onkeydown={(e) => menuKeyHandler(e, gitMenuEl!, '[role="menuitem"]')}>
+        <div class="git-dropdown" role="menu" tabindex="-1" bind:this={gitMenuEl} onkeydown={(e) => menuKeyHandler(e, gitMenuEl!, '[role="menuitem"]')}>
           {#each gitCommands as g (g.label)}
             <button class="git-dropdown-item" role="menuitem" tabindex="-1" onclick={(e) => { e.stopPropagation(); gitCmd(g.cmd); }}>
               <span class="git-icon">{g.icon}</span>

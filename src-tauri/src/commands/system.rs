@@ -1,11 +1,96 @@
 use log::{info, warn, error, debug};
 use std::process::Command;
+use std::path::{Path, PathBuf};
+use std::env;
+use std::ffi::OsString;
 
 #[derive(serde::Serialize)]
 pub struct DiscoveredLlm {
     pub name: String,
     pub command: String,
     pub found: bool,
+}
+
+/// Build an extended PATH that includes common CLI installation directories
+/// not always present in the default PATH (npm global, cargo, pip, etc.).
+fn build_extended_path() -> OsString {
+    let current_path = env::var_os("PATH").unwrap_or_default();
+    let mut extra_dirs: Vec<PathBuf> = Vec::new();
+
+    if let Some(home) = dirs::home_dir() {
+        // npm global (custom prefix)
+        extra_dirs.push(home.join(".npm-global").join("bin"));
+        // npm global (default on macOS/Linux)
+        extra_dirs.push(home.join(".npm").join("bin"));
+        // cargo install
+        extra_dirs.push(home.join(".cargo").join("bin"));
+        // pip / pipx
+        extra_dirs.push(home.join(".local").join("bin"));
+        // pnpm global
+        extra_dirs.push(home.join(".local").join("share").join("pnpm"));
+        // bun global
+        extra_dirs.push(home.join(".bun").join("bin"));
+        // volta (Node version manager)
+        extra_dirs.push(home.join(".volta").join("bin"));
+        // nvm default (common symlink)
+        extra_dirs.push(home.join(".nvm").join("current").join("bin"));
+        // fnm
+        extra_dirs.push(home.join(".local").join("share").join("fnm").join("aliases").join("default").join("bin"));
+    }
+
+    #[cfg(target_os = "windows")]
+    if let Some(appdata) = env::var_os("APPDATA") {
+        // npm global on Windows
+        extra_dirs.push(PathBuf::from(&appdata).join("npm"));
+    }
+    #[cfg(target_os = "windows")]
+    if let Some(localappdata) = env::var_os("LOCALAPPDATA") {
+        extra_dirs.push(PathBuf::from(&localappdata).join("Programs").join("Python").join("Scripts"));
+    }
+
+    // Also try `npm prefix -g` for non-standard npm global locations
+    if let Ok(output) = Command::new("npm").args(["prefix", "-g"]).output() {
+        if output.status.success() {
+            if let Ok(prefix) = String::from_utf8(output.stdout) {
+                let npm_bin = PathBuf::from(prefix.trim()).join("bin");
+                if !extra_dirs.contains(&npm_bin) {
+                    extra_dirs.push(npm_bin);
+                }
+            }
+        }
+    }
+
+    // Filter to only existing directories, then prepend to PATH
+    let existing: Vec<PathBuf> = extra_dirs.into_iter().filter(|p| p.is_dir()).collect();
+
+    if existing.is_empty() {
+        return current_path;
+    }
+
+    let mut paths: Vec<PathBuf> = existing;
+    // Append original PATH entries
+    paths.extend(env::split_paths(&current_path));
+    env::join_paths(paths).unwrap_or(current_path)
+}
+
+/// Find a binary in the extended PATH, returning its full path if found.
+fn find_binary(cmd: &str, extended_path: &OsString) -> Option<String> {
+    let output = if cfg!(target_os = "windows") {
+        Command::new("where").arg(cmd).env("PATH", extended_path).output()
+    } else {
+        Command::new("which").arg(cmd).env("PATH", extended_path).output()
+    };
+
+    match output {
+        Ok(o) if o.status.success() => {
+            // Return the first line (full path to binary)
+            String::from_utf8(o.stdout)
+                .ok()
+                .and_then(|s| s.lines().next().map(|l| l.trim().to_string()))
+                .filter(|s| !s.is_empty())
+        }
+        _ => None,
+    }
 }
 
 #[tauri::command]
@@ -18,27 +103,38 @@ pub fn discover_llms() -> Vec<DiscoveredLlm> {
         ("GitHub Copilot", "github-copilot-cli"),
         ("Ollama", "ollama"),
         ("Open Interpreter", "interpreter"),
+        ("Kimi", "kimi"),
+        ("Qwen", "qwen"),
+        ("Codex", "codex"),
     ];
+
+    let extended_path = build_extended_path();
+    debug!("cmd::discover_llms using extended PATH");
 
     let result: Vec<DiscoveredLlm> = candidates
         .into_iter()
         .map(|(name, cmd)| {
-            let found = if cfg!(target_os = "windows") {
-                Command::new("where").arg(cmd).output()
-            } else {
-                Command::new("which").arg(cmd).output()
-            }
-            .map(|o| o.status.success())
-            .unwrap_or(false);
-
-            DiscoveredLlm {
-                name: name.to_string(),
-                command: cmd.to_string(),
-                found,
+            match find_binary(cmd, &extended_path) {
+                Some(full_path) => {
+                    info!("cmd::discover_llms found {} at {}", cmd, full_path);
+                    DiscoveredLlm {
+                        name: name.to_string(),
+                        // Use full path so spawn works even if PATH is limited
+                        command: full_path,
+                        found: true,
+                    }
+                }
+                None => {
+                    DiscoveredLlm {
+                        name: name.to_string(),
+                        command: cmd.to_string(),
+                        found: false,
+                    }
+                }
             }
         })
         .collect();
-    debug!("cmd::discover_llms found {} LLMs", result.iter().filter(|l| l.found).count());
+    info!("cmd::discover_llms found {} LLMs", result.iter().filter(|l| l.found).count());
     result
 }
 
