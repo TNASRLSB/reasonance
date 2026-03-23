@@ -751,7 +751,7 @@
   .period-btn.active {
     background: var(--accent);
     border-color: var(--accent);
-    color: #fff;
+    color: var(--text-on-accent);
   }
 
   .compare-btn {
@@ -761,7 +761,7 @@
   .compare-btn.active {
     background: var(--warning);
     border-color: var(--warning);
-    color: #000;
+    color: var(--text-primary);
   }
 
   /* Header buttons */

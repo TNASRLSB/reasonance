@@ -6,6 +6,7 @@
   import { showSwarmCanvas } from '$lib/stores/ui';
   import type { NodeRunState } from '$lib/adapter/index';
   import { onDestroy } from 'svelte';
+  import { getStateColor } from '$lib/utils/state-color';
 
   let { adapter, cwd = '.' }: { adapter: Adapter; cwd?: string } = $props();
 
@@ -16,17 +17,6 @@
   const unsubStatus = runStatus.subscribe((val) => { status = val; });
   const unsubSummary = statusSummary.subscribe((val) => { summary = val; });
   const unsubNodes = nodeStates.subscribe((val) => { nodes = val; });
-
-  const stateColors: Record<string, string> = {
-    idle: '#666666',
-    queued: '#ca8a04',
-    running: '#1d4ed8',
-    success: '#16a34a',
-    failed: '#dc2626',
-    retrying: '#ea580c',
-    fallback: '#ea580c',
-    error: '#dc2626',
-  };
 
   function openCanvas() {
     showSwarmCanvas.set(true);
@@ -46,7 +36,7 @@
     {#each nodes as ns}
       <span
         class="node-dot"
-        style="background: {stateColors[ns.state] || '#666'}"
+        style="background: {getStateColor(ns.state)}"
         title="{ns.node_id}: {ns.state}"
       ></span>
     {/each}

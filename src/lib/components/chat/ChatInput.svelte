@@ -260,7 +260,7 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    color: #fff;
+    color: var(--text-on-accent);
     background: var(--accent);
     border: var(--border-width) solid var(--accent);
     padding: 8px 16px;

@@ -452,7 +452,7 @@
   .about-close {
     background: var(--accent);
     border: none;
-    color: #fff;
+    color: var(--text-on-accent);
     padding: 6px 24px;
     font-family: var(--font-ui);
     font-size: var(--font-size-small);
@@ -489,7 +489,7 @@
   .editor-action.active {
     background: var(--accent);
     border-color: var(--accent);
-    color: #fff;
+    color: var(--text-on-accent);
   }
 
 </style>

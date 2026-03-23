@@ -1,5 +1,7 @@
 <script lang="ts">
   import type { AgentState } from '$lib/adapter/index';
+  import { getStateColor } from '$lib/utils/state-color';
+  import { isDark } from '$lib/stores/theme';
 
   let { id = '', label = 'Logic', kind = 'condition', rule = '', state = 'idle' as AgentState, selected = false, onselect }: {
     id?: string;
@@ -11,12 +13,11 @@
     onselect?: (id: string) => void;
   } = $props();
 
-  const stateColors: Record<string, string> = {
-    idle: '#666666',
-    success: '#16a34a',
-    error: '#dc2626',
-  };
-  let borderColor = $derived(stateColors[state] || '#666666');
+  let borderColor = $state('');
+  $effect(() => {
+    const _dark = $isDark;
+    borderColor = getStateColor(state);
+  });
 </script>
 
 <div
@@ -40,7 +41,7 @@
 <style>
   .logic-node {
     background: var(--bg-secondary, #1a1a1a);
-    border: 2px solid #666;
+    border: 2px solid var(--state-idle);
     padding: 10px 14px;
     min-width: 120px;
     font-family: var(--font-ui, sans-serif);

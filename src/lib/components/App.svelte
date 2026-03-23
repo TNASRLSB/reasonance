@@ -385,6 +385,6 @@
   .error-retry:hover {
     background: var(--accent);
     border-color: var(--accent);
-    color: #fff;
+    color: var(--text-on-accent);
   }
 </style>

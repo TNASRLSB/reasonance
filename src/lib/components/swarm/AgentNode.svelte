@@ -1,5 +1,7 @@
 <script lang="ts">
   import type { AgentState } from '$lib/adapter/index';
+  import { getStateColor, stateIcons } from '$lib/utils/state-color';
+  import { isDark } from '$lib/stores/theme';
 
   let { id = '', label = 'Agent', llm = '', state = 'idle' as AgentState, selected = false, onselect }: {
     id?: string;
@@ -10,18 +12,12 @@
     onselect?: (id: string) => void;
   } = $props();
 
-  const stateColors: Record<string, string> = {
-    idle: '#666666',
-    queued: '#ca8a04',
-    running: '#1d4ed8',
-    success: '#16a34a',
-    failed: '#dc2626',
-    retrying: '#ea580c',
-    fallback: '#ea580c',
-    error: '#dc2626',
-  };
-
-  let borderColor = $derived(stateColors[state] || '#666666');
+  let borderColor = $state('');
+  $effect(() => {
+    const _dark = $isDark; // track theme changes
+    borderColor = getStateColor(state);
+  });
+  let stateIcon = $derived(stateIcons[state] || '⏸');
   let pulsing = $derived(state === 'running');
 </script>
 
@@ -41,14 +37,14 @@
   </div>
   <div class="node-meta">
     <span class="node-llm">{llm || 'unset'}</span>
-    <span class="node-state" style="color: {borderColor}">{state}</span>
+    <span class="node-state" style="color: {borderColor}" aria-label="{state}"><span class="state-icon" aria-hidden="true">{stateIcon}</span> {state}</span>
   </div>
 </div>
 
 <style>
   .agent-node {
     background: var(--bg-secondary, #1a1a1a);
-    border: 2px solid #666;
+    border: 2px solid var(--state-idle);
     padding: 10px 14px;
     min-width: 140px;
     font-family: var(--font-ui, sans-serif);

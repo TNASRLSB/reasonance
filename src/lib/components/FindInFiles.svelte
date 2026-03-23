@@ -249,7 +249,7 @@
 
   .search-btn {
     background: var(--accent);
-    color: #fff;
+    color: var(--text-on-accent);
     border: var(--border-width) solid var(--accent);
     border-radius: var(--radius);
     padding: 6px 14px;
@@ -327,7 +327,7 @@
 
   .fif-result-row:hover .fif-line-num,
   .fif-result-row:hover .fif-line-text {
-    color: #fff;
+    color: var(--text-on-accent);
   }
 
   .fif-line-num {

@@ -215,7 +215,7 @@
 
   .diff-action.apply {
     background: var(--success);
-    color: #fff;
+    color: var(--text-on-accent);
     border-color: var(--success);
   }
 

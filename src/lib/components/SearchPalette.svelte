@@ -300,12 +300,12 @@
   .palette-item:hover,
   .palette-item.selected {
     background: var(--accent);
-    color: #fff;
+    color: var(--text-on-accent);
   }
 
   .palette-item.selected .item-dir,
   .palette-item:hover .item-dir {
-    color: rgba(255, 255, 255, 0.7);
+    color: color-mix(in srgb, var(--text-on-accent) 70%, transparent);
   }
 
   .item-name {

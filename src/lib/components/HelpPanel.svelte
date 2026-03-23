@@ -148,7 +148,7 @@
 
   .help-content :global(mark.help-highlight) {
     background: var(--warning);
-    color: #000;
+    color: var(--text-primary);
     border-radius: 2px;
     padding: 0 1px;
   }

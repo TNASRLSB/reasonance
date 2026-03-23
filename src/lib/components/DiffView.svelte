@@ -8,19 +8,27 @@
   import { isDark } from '$lib/stores/theme';
   import { tr } from '$lib/i18n/index';
 
-  const forgeDarkDiffTheme = EditorView.theme({
-    '&': { backgroundColor: '#0e0e0e', color: '#d4d4d4' },
-    '.cm-gutters': { backgroundColor: '#121212', color: '#444', borderRight: '2px solid #333' },
-    '.cm-activeLineGutter': { backgroundColor: '#1a1a1a' },
-    '.cm-activeLine': { backgroundColor: 'rgba(255,255,255,0.03)' },
-  }, { dark: true });
+  function getToken(name: string): string {
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  }
 
-  const forgeLightDiffTheme = EditorView.theme({
-    '&': { backgroundColor: '#fafafa', color: '#1a1a1a' },
-    '.cm-gutters': { backgroundColor: '#f0f0f0', color: '#999', borderRight: '2px solid #d4d4d4' },
-    '.cm-activeLineGutter': { backgroundColor: '#e5e5e5' },
-    '.cm-activeLine': { backgroundColor: 'rgba(0,0,0,0.03)' },
-  }, { dark: false });
+  function buildDarkDiffTheme() {
+    return EditorView.theme({
+      '&': { backgroundColor: getToken('--bg-primary'), color: getToken('--text-body') },
+      '.cm-gutters': { backgroundColor: getToken('--bg-surface'), color: getToken('--text-muted'), borderRight: `2px solid ${getToken('--border-color')}` },
+      '.cm-activeLineGutter': { backgroundColor: getToken('--bg-secondary') },
+      '.cm-activeLine': { backgroundColor: 'rgba(255,255,255,0.03)' },
+    }, { dark: true });
+  }
+
+  function buildLightDiffTheme() {
+    return EditorView.theme({
+      '&': { backgroundColor: getToken('--bg-primary'), color: getToken('--text-body') },
+      '.cm-gutters': { backgroundColor: getToken('--bg-secondary'), color: getToken('--text-muted'), borderRight: `2px solid ${getToken('--border-color')}` },
+      '.cm-activeLineGutter': { backgroundColor: getToken('--bg-tertiary') },
+      '.cm-activeLine': { backgroundColor: 'rgba(0,0,0,0.03)' },
+    }, { dark: false });
+  }
 
   let {
     original,
@@ -44,7 +52,7 @@
   let mergeView: MergeView | null = null;
 
   function buildEditorState(doc: string) {
-    const themeExt = $isDark ? [oneDark, forgeDarkDiffTheme] : [forgeLightDiffTheme];
+    const themeExt = $isDark ? [oneDark, buildDarkDiffTheme()] : [buildLightDiffTheme()];
     return EditorState.create({
       doc,
       extensions: [basicSetup, ...themeExt, EditorView.editable.of(false), EditorState.readOnly.of(true)],
@@ -148,7 +156,7 @@
 
   .btn-accept {
     background: var(--success);
-    color: #fff;
+    color: var(--text-on-accent);
     border-color: var(--success);
   }
 
@@ -164,7 +172,7 @@
 
   .btn-reject:hover {
     background: var(--danger);
-    color: #fff;
+    color: var(--text-on-accent);
     border-color: var(--danger);
   }
 

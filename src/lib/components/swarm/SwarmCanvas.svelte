@@ -260,7 +260,7 @@
   }
   .view-modes button.active {
     background: var(--accent);
-    color: #fff;
+    color: var(--text-on-accent);
     border-color: var(--accent);
   }
   .close-btn {

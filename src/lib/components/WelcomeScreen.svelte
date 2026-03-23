@@ -190,7 +190,7 @@
 
   .win-btn.close:hover {
     background: var(--danger);
-    color: #fff;
+    color: var(--text-on-accent);
   }
 
   .welcome-content {

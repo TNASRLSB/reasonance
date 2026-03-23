@@ -934,8 +934,8 @@
   }
 
   .error-banner {
-    background: var(--danger, #e74c3c);
-    color: #fff;
+    background: var(--danger, #ef4444);
+    color: var(--text-on-accent);
     padding: 8px 20px;
     font-size: 12px;
     flex-shrink: 0;
@@ -1019,8 +1019,8 @@
   }
 
   .llm-item.pending-delete {
-    background: color-mix(in srgb, var(--danger, #e74c3c) 8%, var(--bg-secondary));
-    border-color: var(--danger, #e74c3c);
+    background: color-mix(in srgb, var(--danger, #ef4444) 8%, var(--bg-secondary));
+    border-color: var(--danger, #ef4444);
     opacity: 0.75;
   }
 
@@ -1031,7 +1031,7 @@
 
   .pending-delete-label {
     font-size: 10px;
-    color: var(--danger, #e74c3c);
+    color: var(--danger, #ef4444);
     font-style: italic;
   }
 
@@ -1051,7 +1051,7 @@
   .llm-type-badge {
     font-size: 10px;
     background: var(--accent);
-    color: #fff;
+    color: var(--text-on-accent);
     padding: 1px 5px;
     border-radius: 0;
     text-transform: uppercase;
@@ -1123,18 +1123,18 @@
   .theme-btn:hover {
     border-color: var(--accent);
     background: var(--accent);
-    color: #fff;
+    color: var(--text-on-accent);
   }
 
   .theme-btn.active {
     background: var(--accent);
     border-color: var(--accent);
-    color: #fff;
+    color: var(--text-on-accent);
   }
 
   .theme-btn.active:hover {
     opacity: 0.85;
-    color: #fff;
+    color: var(--text-on-accent);
   }
 
   /* Buttons */
@@ -1155,13 +1155,13 @@
   button:hover {
     background: var(--accent);
     border-color: var(--accent);
-    color: #fff;
+    color: var(--text-on-accent);
   }
 
   button.primary {
     background: var(--accent);
     border-color: var(--accent);
-    color: #fff;
+    color: var(--text-on-accent);
   }
 
   button.primary:hover {
@@ -1178,15 +1178,15 @@
   }
 
   button.danger {
-    border-color: var(--danger, #e74c3c);
-    color: var(--danger, #e74c3c);
+    border-color: var(--danger, #ef4444);
+    color: var(--danger, #ef4444);
     background: transparent;
   }
 
   button.danger:hover {
-    background: var(--danger, #e74c3c);
-    border-color: var(--danger, #e74c3c);
-    color: #fff;
+    background: var(--danger, #ef4444);
+    border-color: var(--danger, #ef4444);
+    color: var(--text-on-accent);
   }
 
   .add-btn {
@@ -1223,7 +1223,7 @@
   .toggle-btn.active {
     background: var(--accent);
     border-color: var(--accent);
-    color: #fff;
+    color: var(--text-on-accent);
   }
 
   .field-hint {
@@ -1336,7 +1336,7 @@
   .shortcut-capture-btn.capturing {
     background: var(--accent);
     border-color: var(--accent);
-    color: #fff;
+    color: var(--text-on-accent);
   }
 
   /* Connection steps */
@@ -1363,8 +1363,8 @@
   }
 
   .connection-step.failed {
-    border-color: var(--danger, #e74c3c);
-    color: var(--danger, #e74c3c);
+    border-color: var(--danger, #ef4444);
+    color: var(--danger, #ef4444);
   }
 
   .connection-step.checking {

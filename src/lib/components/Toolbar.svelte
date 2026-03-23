@@ -274,7 +274,7 @@
   .toolbar-btn.active {
     background: var(--accent);
     border-color: var(--accent);
-    color: #fff;
+    color: var(--text-on-accent);
   }
 
   .toolbar-btn:disabled {
@@ -311,6 +311,6 @@
 
   .win-btn.close:hover {
     background: var(--danger);
-    color: #fff;
+    color: var(--text-on-accent);
   }
 </style>

@@ -100,7 +100,7 @@
 
   .markdown-preview :global(code) {
     background: var(--bg-secondary, #1e293b);
-    color: #e879f9;
+    color: var(--code-accent);
     padding: 0.15em 0.4em;
     border-radius: 4px;
     font-family: var(--font-mono);
@@ -108,7 +108,7 @@
   }
 
   .markdown-preview :global(pre) {
-    background: #0d1117;
+    background: var(--code-bg);
     border: 1px solid var(--border, #334155);
     border-radius: 8px;
     padding: 16px;

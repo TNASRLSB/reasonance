@@ -77,7 +77,7 @@
   .status-bar {
     height: var(--statusbar-height);
     background: var(--accent);
-    color: #fff;
+    color: var(--text-on-accent);
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -177,11 +177,11 @@
   }
 
   .progress-status.error {
-    color: #fca5a5;
+    color: var(--danger-text);
   }
 
   .progress-status.paused {
-    color: #fef08a;
+    color: var(--warning-text);
   }
 
   .idle-hint {
