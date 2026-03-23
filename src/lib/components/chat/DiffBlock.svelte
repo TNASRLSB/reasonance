@@ -182,13 +182,13 @@
 
   .line.removed {
     background: rgba(220, 38, 38, 0.1);
-    color: var(--danger);
+    color: var(--danger-text);
     border-inline-start: 3px solid var(--danger);
   }
 
   .line.added {
     background: rgba(22, 163, 74, 0.1);
-    color: var(--success);
+    color: var(--success-text);
     border-inline-start: 3px solid var(--success);
   }
 
@@ -229,7 +229,7 @@
   }
 
   .diff-action.reject:hover {
-    color: var(--danger);
+    color: var(--danger-text);
     border-color: var(--danger);
   }
 
@@ -251,7 +251,7 @@
   }
 
   .diff-status.applied {
-    color: var(--success);
+    color: var(--success-text);
   }
 
   .diff-status.rejected {

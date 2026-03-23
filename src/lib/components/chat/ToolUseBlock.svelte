@@ -103,7 +103,7 @@
   }
 
   .tool-status.done {
-    color: var(--success);
+    color: var(--success-text);
   }
 
   .tool-status.pending {

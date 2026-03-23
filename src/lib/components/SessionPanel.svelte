@@ -311,8 +311,8 @@
   }
 
   .status-idle { color: var(--text-muted); }
-  .status-running { color: var(--success); }
-  .status-error { color: var(--danger); }
+  .status-running { color: var(--success-text); }
+  .status-error { color: var(--danger-text); }
 
   .session-actions {
     display: flex;
@@ -344,6 +344,6 @@
   }
 
   .action-btn.danger:hover {
-    color: var(--danger);
+    color: var(--danger-text);
   }
 </style>

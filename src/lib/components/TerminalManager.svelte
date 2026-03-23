@@ -27,12 +27,26 @@
 
   let showLLMDropdown = $state(false);
   let llmMenuEl = $state<HTMLElement | null>(null);
+  let addWrapperEl = $state<HTMLElement | null>(null);
 
   $effect(() => {
     if (showLLMDropdown && llmMenuEl) {
       const first = llmMenuEl.querySelector<HTMLElement>('[role="menuitem"]');
       first?.focus();
     }
+  });
+
+  // Click-outside handler for the dropdown — uses mousedown on document
+  // instead of svelte:window onclick to avoid Svelte 5 event delegation issues
+  $effect(() => {
+    if (!showLLMDropdown) return;
+    function handleOutsideClick(e: MouseEvent) {
+      if (addWrapperEl && !addWrapperEl.contains(e.target as Node)) {
+        showLLMDropdown = false;
+      }
+    }
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
   });
 
   // Derived configs from store (CLI with command + API with provider)
@@ -234,7 +248,7 @@
   });
 </script>
 
-<svelte:window onkeydown={handleGlobalKeydown} onclick={() => { showLLMDropdown = false; }} />
+<svelte:window onkeydown={handleGlobalKeydown} />
 
 <div class="terminal-manager">
   <!-- Flat Tab Bar -->
@@ -271,18 +285,18 @@
             onToggle={() => toggleViewMode(inst.id)}
           />
         {/if}
-        <span class="status-badge" role="status">
+        <span class="status-badge" role="status" aria-label="Session status: {streaming ? 'streaming response' : 'active and ready'}">
           {#if streaming}STREAMING{:else}ACTIVE{/if}
         </span>
       {/if}
     {/each}
 
-    <div class="tab-add-wrapper">
+    <div class="tab-add-wrapper" bind:this={addWrapperEl}>
       <button
         class="flat-tab add-tab"
         aria-haspopup="menu"
         aria-expanded={showLLMDropdown}
-        onclick={(e) => { e.stopPropagation(); showLLMDropdown = !showLLMDropdown; }}
+        onclick={() => { showLLMDropdown = !showLLMDropdown; }}
       >+</button>
       {#if showLLMDropdown}
         <div class="provider-dropdown" role="menu" tabindex="-1"
@@ -434,7 +448,7 @@
   }
 
   .flat-tab.add-tab {
-    font-size: 14px;
+    font-size: var(--font-size-small);
     font-weight: 700;
     padding: 3px 10px;
   }
@@ -473,7 +487,7 @@
 
   .close-btn:hover {
     opacity: 1;
-    color: var(--danger);
+    color: var(--danger-text);
   }
 
   .tab-group.active {
@@ -486,25 +500,28 @@
   }
 
   .flat-tab.error {
-    color: var(--danger);
+    color: var(--danger-text);
     border-color: var(--danger);
   }
 
   .error-indicator {
-    color: var(--danger);
+    color: var(--danger-text);
     font-weight: 800;
     font-size: 10px;
   }
 
   .status-badge {
     font-family: var(--font-ui);
-    font-size: 9px;
+    font-size: var(--font-size-small);
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    padding: 1px 6px;
+    padding: 3px 8px;
+    min-height: 24px;
+    display: inline-flex;
+    align-items: center;
     border: var(--border-width) solid var(--success);
-    color: var(--success);
+    color: var(--success-text);
     white-space: nowrap;
   }
 

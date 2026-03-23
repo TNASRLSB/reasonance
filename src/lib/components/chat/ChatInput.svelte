@@ -58,8 +58,18 @@
     slashActiveIndex = 0;
   });
 
-  function handleSlashSelect(cmd: SlashCommand) {
-    if (['/clear', '/fork', '/compact', '/export'].includes(cmd.command)) {
+  async function handleSlashSelect(cmd: SlashCommand) {
+    if (cmd.command === '/clear') {
+      // WCAG 2.2 AAA 3.3.6 — confirm destructive actions
+      const { ask } = await import('@tauri-apps/plugin-dialog');
+      const ok = await ask('Clear the entire conversation? This cannot be undone.', {
+        title: 'Reasonance',
+        kind: 'warning',
+      });
+      if (!ok) return;
+      onSend(cmd.command);
+      text = '';
+    } else if (['/fork', '/compact', '/export'].includes(cmd.command)) {
       onSend(cmd.command);
       text = '';
     } else {
@@ -164,6 +174,17 @@
 
   <div class="input-footer">
     <div class="footer-left">
+      <button
+        class="yolo-toggle"
+        class:active={$yoloMode}
+        onclick={toggleYolo}
+        title={$tr('toolbar.yoloTitle')}
+        aria-pressed={$yoloMode}
+        aria-describedby="yolo-desc"
+      >
+        {$yoloMode ? '\u26A1 YOLO' : 'YOLO'}
+      </button>
+      <span id="yolo-desc" class="sr-only">Auto-approve all tool executions without confirmation prompts</span>
       {#if turnCount > 0 || streaming}
         <span class="metrics">
           Turn {turnCount}
@@ -175,21 +196,12 @@
           {/if}
         </span>
       {/if}
-      <button
-        class="yolo-toggle"
-        class:active={$yoloMode}
-        onclick={toggleYolo}
-        title={$tr('toolbar.yoloTitle')}
-        aria-pressed={$yoloMode}
-      >
-        {$yoloMode ? '\u26A1 YOLO' : 'YOLO'}
-      </button>
     </div>
     <div class="footer-right">
       {#if contextPercent != null}
-        <span class="stat">
+        <span class="stat" role="meter" aria-label="Context window usage: {contextPercent}%, {100 - contextPercent}% remaining" aria-valuenow={contextPercent} aria-valuemin={0} aria-valuemax={100}>
           Session: {contextPercent}%
-          <span class="progress-bar">{generateBar(contextPercent)}</span>
+          <span class="progress-bar" aria-hidden="true">{generateBar(contextPercent)}</span>
         </span>
       {/if}
       {#if resetTimer}
@@ -334,5 +346,17 @@
     font-size: 9px;
     letter-spacing: -0.5px;
     opacity: 0.7;
+  }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
   }
 </style>
