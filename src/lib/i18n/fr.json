@@ -263,6 +263,7 @@
   "terminal.addInstance": "Ajouter une nouvelle instance de terminal",
   "terminal.closeTab": "Fermer l'onglet {label}",
   "terminal.terminateConfirm": "Terminer la session ?\n\n{llmName} — {label}\n\nCela tuera le processus en cours. Tout travail non enregistré dans le terminal sera perdu.",
+  "terminal.yoloRestartConfirm": "Mode YOLO modifié. Cela redémarrera {names} session(s). L'historique de conversation dans le terminal sera perdu. Continuer ?",
   "terminal.comingSoon": "Bientôt",
   "termToolbar.addFile": "Ajouter un fichier",
   "termToolbar.addFileTitle": "Ajouter un fichier au contexte",

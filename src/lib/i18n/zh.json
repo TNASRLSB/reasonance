@@ -263,6 +263,7 @@
   "terminal.addInstance": "添加新终端实例",
   "terminal.closeTab": "关闭 {label} 标签页",
   "terminal.terminateConfirm": "终止会话？\n\n{llmName} — {label}\n\n这将终止运行中的进程。终端中未保存的工作将丢失。",
+  "terminal.yoloRestartConfirm": "YOLO 模式已更改。这将重新启动 {names} 个会话。终端中的对话历史将丢失。是否继续？",
   "terminal.comingSoon": "即将推出",
   "termToolbar.addFile": "添加文件",
   "termToolbar.addFileTitle": "将文件添加到上下文",

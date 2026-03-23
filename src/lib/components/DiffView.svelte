@@ -193,7 +193,7 @@
   .diff-container :global(.cm-editor) {
     height: 100%;
     font-family: var(--font-mono);
-    font-size: 13px;
+    font-size: var(--font-size-sm);
   }
 
   .diff-container :global(.cm-scroller) {

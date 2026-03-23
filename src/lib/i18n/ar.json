@@ -263,6 +263,7 @@
   "terminal.addInstance": "إضافة نسخة طرفية جديدة",
   "terminal.closeTab": "إغلاق تبويب {label}",
   "terminal.terminateConfirm": "إنهاء الجلسة؟\n\n{llmName} — {label}\n\nسيتم إنهاء العملية الجارية. أي عمل غير محفوظ في الطرفية سيُفقد.",
+  "terminal.yoloRestartConfirm": "تم تغيير وضع YOLO. سيؤدي هذا إلى إعادة تشغيل {names} جلسة. سيُفقد سجل المحادثة في الطرفية. هل تريد المتابعة؟",
   "terminal.comingSoon": "قريباً",
   "termToolbar.addFile": "إضافة ملف",
   "termToolbar.addFileTitle": "إضافة ملف إلى السياق",

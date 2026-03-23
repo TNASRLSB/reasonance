@@ -263,6 +263,7 @@
   "terminal.addInstance": "नया टर्मिनल इंस्टेंस जोड़ें",
   "terminal.closeTab": "{label} टैब बंद करें",
   "terminal.terminateConfirm": "सत्र समाप्त करें?\n\n{llmName} — {label}\n\nयह चल रही प्रक्रिया को समाप्त कर देगा। टर्मिनल में कोई भी असहेजा कार्य खो जाएगा।",
+  "terminal.yoloRestartConfirm": "YOLO मोड बदल गया। इससे {names} सत्र पुनः प्रारंभ होंगे। टर्मिनल में बातचीत का इतिहास खो जाएगा। जारी रखें?",
   "terminal.comingSoon": "जल्द आ रहा है",
   "termToolbar.addFile": "फ़ाइल जोड़ें",
   "termToolbar.addFileTitle": "संदर्भ में फ़ाइल जोड़ें",

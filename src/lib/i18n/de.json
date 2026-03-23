@@ -263,6 +263,7 @@
   "terminal.addInstance": "Neue Terminalinstanz hinzufügen",
   "terminal.closeTab": "Tab {label} schließen",
   "terminal.terminateConfirm": "Sitzung beenden?\n\n{llmName} — {label}\n\nDies beendet den laufenden Prozess. Nicht gespeicherte Arbeit im Terminal geht verloren.",
+  "terminal.yoloRestartConfirm": "YOLO-Modus geändert. Dadurch werden {names} Sitzung(en) neu gestartet. Der gesamte Konversationsverlauf im Terminal geht verloren. Fortfahren?",
   "terminal.comingSoon": "Demnächst",
   "termToolbar.addFile": "Datei hinzufügen",
   "termToolbar.addFileTitle": "Datei zum Kontext hinzufügen",
