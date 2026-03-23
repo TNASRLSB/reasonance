@@ -279,5 +279,6 @@
   "sessions.search": "सत्र फ़िल्टर करें...",
   "welcome.noLlmTitle": "कोई AI एजेंट कॉन्फ़िगर नहीं",
   "welcome.noLlmBody": "Reasonance को काम करने के लिए AI CLI (जैसे Claude, Aider या Codex) की आवश्यकता है। कॉन्फ़िगर करने के लिए सेटिंग खोलें।",
-  "welcome.configureLlm": "AI एजेंट कॉन्फ़िगर करें"
+  "welcome.configureLlm": "AI एजेंट कॉन्फ़िगर करें",
+  "chat.placeholder": "जवाब दें..."
 }

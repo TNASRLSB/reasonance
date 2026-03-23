@@ -279,5 +279,6 @@
   "sessions.search": "تصفية الجلسات...",
   "welcome.noLlmTitle": "لم يتم تكوين أي وكيل ذكاء اصطناعي",
   "welcome.noLlmBody": "يحتاج Reasonance إلى CLI للذكاء الاصطناعي (مثل Claude أو Aider أو Codex) للعمل. افتح الإعدادات لتكوين واحد.",
-  "welcome.configureLlm": "تكوين وكيل الذكاء الاصطناعي"
+  "welcome.configureLlm": "تكوين وكيل الذكاء الاصطناعي",
+  "chat.placeholder": "رد..."
 }

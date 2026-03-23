@@ -6,6 +6,7 @@ resume_args = ["--resume", "{session_id}", "-p", "{prompt}", "--output-format", 
 version_command = ["claude", "--version"]
 update_command = ["claude", "update"]
 api_key_env = "ANTHROPIC_API_KEY"
+permission_args = ["--dangerously-skip-permissions"]
 
 [capabilities]
 streaming = true

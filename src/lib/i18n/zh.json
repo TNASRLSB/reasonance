@@ -279,5 +279,6 @@
   "sessions.search": "筛选会话...",
   "welcome.noLlmTitle": "未配置 AI 代理",
   "welcome.noLlmBody": "Reasonance 需要 AI CLI（如 Claude、Aider 或 Codex）才能工作。请打开设置进行配置。",
-  "welcome.configureLlm": "配置 AI 代理"
+  "welcome.configureLlm": "配置 AI 代理",
+  "chat.placeholder": "回复..."
 }

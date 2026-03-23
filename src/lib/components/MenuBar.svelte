@@ -111,7 +111,7 @@
         { divider: true },
         { label: $tr('menu.terminal.yolo'), action: () => {
             if (!get(yoloMode)) {
-              if (!confirm('Enable YOLO mode?\n\nThis disables all permission prompts for new terminal instances. The LLM will be able to run commands without asking for approval.\n\nProceed?')) return;
+              if (!confirm($tr('toolbar.yoloConfirm'))) return;
             }
             yoloMode.update(v => !v);
           }

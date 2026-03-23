@@ -279,5 +279,6 @@
   "sessions.search": "Sitzungen filtern...",
   "welcome.noLlmTitle": "Kein KI-Agent konfiguriert",
   "welcome.noLlmBody": "Reasonance benötigt eine KI-CLI (wie Claude, Aider oder Codex). Öffnen Sie die Einstellungen, um eine zu konfigurieren.",
-  "welcome.configureLlm": "KI-Agent konfigurieren"
+  "welcome.configureLlm": "KI-Agent konfigurieren",
+  "chat.placeholder": "Antworten..."
 }

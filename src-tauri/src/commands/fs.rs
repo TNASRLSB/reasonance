@@ -40,6 +40,25 @@ fn reasonance_config_dir() -> Option<PathBuf> {
     dirs::config_dir().map(|d| d.join("reasonance"))
 }
 
+/// Returns well-known CLI local directories that the app should be allowed to read.
+/// These are where CLI tools store their local state (memory, sessions, config).
+fn cli_local_dirs() -> Vec<PathBuf> {
+    let mut dirs_list = Vec::new();
+    if let Some(home) = dirs::home_dir() {
+        // Claude Code: ~/.claude/ (memory, projects, sessions)
+        dirs_list.push(home.join(".claude"));
+        // Gemini CLI: ~/.gemini/
+        dirs_list.push(home.join(".gemini"));
+        // Codex: ~/.codex/
+        dirs_list.push(home.join(".codex"));
+        // Kimi: ~/.kimi/
+        dirs_list.push(home.join(".kimi"));
+        // Qwen: ~/.qwen-code/
+        dirs_list.push(home.join(".qwen-code"));
+    }
+    dirs_list
+}
+
 /// Validate that `path` is safe for reading:
 /// - Inside the project root, OR
 /// - Inside the user's Reasonance config directory.
@@ -52,6 +71,17 @@ fn validate_read_path(path: &Path, state: &ProjectRootState) -> Result<(), Strin
     if let Some(config_dir) = reasonance_config_dir() {
         if canonical.starts_with(&config_dir) {
             return Ok(());
+        }
+    }
+
+    // Allow reads from CLI local directories (e.g. ~/.claude/ for memory.md)
+    for cli_dir in cli_local_dirs() {
+        if cli_dir.exists() {
+            if let Ok(canon_cli) = std::fs::canonicalize(&cli_dir) {
+                if canonical.starts_with(&canon_cli) {
+                    return Ok(());
+                }
+            }
         }
     }
 
@@ -89,6 +119,17 @@ fn validate_write_path(path: &Path, state: &ProjectRootState) -> Result<(), Stri
             .map_err(|e| format!("Cannot resolve parent '{}': {}", parent.display(), e))?;
         canon_parent.join(path.file_name().unwrap_or_default())
     };
+
+    // Allow writes to CLI local directories (e.g. ~/.claude/ for memory, sessions)
+    for cli_dir in cli_local_dirs() {
+        if cli_dir.exists() {
+            if let Ok(canon_cli) = std::fs::canonicalize(&cli_dir) {
+                if canonical.starts_with(&canon_cli) {
+                    return Ok(());
+                }
+            }
+        }
+    }
 
     let root_lock = state.0.lock().unwrap_or_else(|e| e.into_inner());
     if let Some(root) = root_lock.as_ref() {

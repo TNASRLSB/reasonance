@@ -279,5 +279,6 @@
   "sessions.search": "Filtrar sessões...",
   "welcome.noLlmTitle": "Nenhum agente de IA configurado",
   "welcome.noLlmBody": "Reasonance precisa de uma CLI de IA (como Claude, Aider ou Codex) para funcionar. Abra as Configurações para configurar uma.",
-  "welcome.configureLlm": "Configurar agente de IA"
+  "welcome.configureLlm": "Configurar agente de IA",
+  "chat.placeholder": "Responder..."
 }

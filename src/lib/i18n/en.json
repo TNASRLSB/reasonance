@@ -280,5 +280,6 @@
   "about.license": "MIT License",
   "toast.fileDeleted": "File deleted",
   "sessions.title": "Session History",
-  "sessions.search": "Filter sessions..."
+  "sessions.search": "Filter sessions...",
+  "chat.placeholder": "Reply..."
 }

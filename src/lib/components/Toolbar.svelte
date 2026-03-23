@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { yoloMode, showSettings, analyticsDashboard } from '$lib/stores/ui';
+  import { showSettings, analyticsDashboard } from '$lib/stores/ui';
   import type { Adapter } from '$lib/adapter/index';
   import MenuBar from './MenuBar.svelte';
   import { activeInstanceId } from '$lib/stores/terminals';
@@ -8,15 +8,6 @@
   import { tr } from '$lib/i18n/index';
 
   let { adapter }: { adapter: Adapter } = $props();
-
-  function toggleYolo() {
-    const current = get(yoloMode);
-    if (!current) {
-      const ok = confirm($tr('toolbar.yoloConfirm'));
-      if (!ok) return;
-    }
-    yoloMode.update((v) => !v);
-  }
 
   function openSettings() {
     showSettings.set(true);
@@ -97,14 +88,6 @@
         </div>
       {/if}
     </div>
-    <button
-      class="yolo-btn"
-      class:active={$yoloMode}
-      onclick={toggleYolo}
-      title={$tr('toolbar.yoloTitle')}
-    >
-      {$yoloMode ? '\u26A1 ' + $tr('toolbar.yoloOn') : $tr('toolbar.yoloOff')}
-    </button>
     <button
       class="analytics-btn"
       class:active={$analyticsDashboard.open}
@@ -270,20 +253,6 @@
   .git-label {
     flex: 1;
     text-align: start;
-  }
-
-  .yolo-btn {
-    letter-spacing: 0.05em;
-  }
-
-  .yolo-btn.active {
-    background: var(--danger-dark);
-    border-color: var(--danger);
-    color: var(--text-primary);
-  }
-
-  .yolo-btn.active:hover {
-    background: var(--danger);
   }
 
   .analytics-btn {

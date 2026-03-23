@@ -217,19 +217,7 @@
     );
     if (cliInstances.length === 0) return;
 
-    // Ask user to confirm restart of running conversations
-    const names = [...new Set(cliInstances.map((i) => i.llmName))].join(', ');
-    const ok = confirm(
-      $tr('terminal.yoloRestartConfirm', { names }) ||
-      `YOLO mode changed. This will restart ${cliInstances.length} running session(s) (${names}). Continue?`
-    );
-    if (!ok) {
-      // Revert the toggle
-      prevYolo = current;
-      yoloMode.set(!current);
-      return;
-    }
-
+    // Auto-restart — the user already confirmed via the YOLO toggle button
     // Restart each CLI instance with updated args
     (async () => {
       isRestarting = true;
