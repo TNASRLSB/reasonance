@@ -9,7 +9,7 @@
   import { ImageAddon } from '@xterm/addon-image';
   import '@xterm/xterm/css/xterm.css';
   import type { Adapter } from '$lib/adapter/index';
-  import { terminalTabs } from '$lib/stores/terminals';
+  import { updateInstance } from '$lib/stores/terminals';
   import { enhancedReadability, fontFamily, fontSize } from '$lib/stores/ui';
   import { isDark } from '$lib/stores/theme';
 
@@ -141,20 +141,13 @@
         const msgMatch = clean.match(/(?:messages?\s*left|remaining):\s*(\d+)/i);
         const resetMatch = clean.match(/(?:reset(?:s)?\s*in|resets?\s*in):\s*([\dhm\s]+)/i);
         if (ctxMatch || tokenMatch || modelMatch || msgMatch || resetMatch) {
-          terminalTabs.update(tabs => tabs.map(tab => ({
-            ...tab,
-            instances: tab.instances.map(inst => {
-              if (inst.id !== ptyId) return inst;
-              return {
-                ...inst,
-                ...(ctxMatch ? { contextPercent: parseInt(ctxMatch[1], 10) } : {}),
-                ...(tokenMatch ? { tokenCount: tokenMatch[1] } : {}),
-                ...(modelMatch ? { modelName: modelMatch[1] } : {}),
-                ...(msgMatch ? { messagesLeft: parseInt(msgMatch[1], 10) } : {}),
-                ...(resetMatch ? { resetTimer: resetMatch[1].trim() } : {}),
-              };
-            })
-          })));
+          updateInstance(ptyId, {
+            ...(ctxMatch ? { contextPercent: parseInt(ctxMatch[1], 10) } : {}),
+            ...(tokenMatch ? { tokenCount: tokenMatch[1] } : {}),
+            ...(modelMatch ? { modelName: modelMatch[1] } : {}),
+            ...(msgMatch ? { messagesLeft: parseInt(msgMatch[1], 10) } : {}),
+            ...(resetMatch ? { resetTimer: resetMatch[1].trim() } : {}),
+          });
         }
       }
 
@@ -164,13 +157,7 @@
         if (match) {
           const state = parseInt(match[1], 10);
           const value = parseInt(match[2], 10) || 0;
-          terminalTabs.update(tabs => tabs.map(tab => ({
-            ...tab,
-            instances: tab.instances.map(inst => {
-              if (inst.id !== ptyId) return inst;
-              return { ...inst, progressState: state, progressValue: value };
-            })
-          })));
+          updateInstance(ptyId, { progressState: state, progressValue: value });
         }
       }
 
