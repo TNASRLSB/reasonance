@@ -174,8 +174,12 @@
   --hue-warning:      85;
   --hue-state-retry:  45;
 
-  /* Text-on-accent (for buttons with accent/danger bg) */
-  --text-on-accent: #ffffff;  /* placeholder — verify 7:1 on --accent */
+  /* Button-background tokens — darker variants for AAA (7:1) with white text */
+  --accent-btn:  #1e40af;  /* AAA 8.72:1 white on btn bg (--accent #3b82f6 is vivid, use for borders/indicators) */
+  --danger-btn:  #991b1b;  /* AAA 8.31:1 white on btn bg (reuses --danger-dark value) */
+
+  /* Text-on-accent (for buttons with --accent-btn/--danger-btn bg) */
+  --text-on-accent: #ffffff;  /* AAA 8.72:1 on --accent-btn, 8.31:1 on --danger-btn */
 
   /* Code colors */
   --code-bg:     oklch(0.18 0.02 240);
@@ -240,14 +244,20 @@
   --text-primary: #0a0a0a;
   --text-body: #1a1a1a;
   --text-secondary: #404040;   /* AAA 7.1:1 on #e5e5e5 (was #525252 ~5.1:1) */
-  --text-muted: #595959;       /* AAA 7.0:1 on #fafafa (was #767676 ~4.5:1) */
+  --text-muted: #505050;       /* AAA 7.73:1 on #fafafa (was #595959 ~6.71:1) */
 
-  --accent-text: #1d4ed8;      /* AAA 7.3:1 on #fafafa (was #3b82f6 ~3.7:1) */
+  --accent-text: #1a44c2;      /* AAA 7.59:1 on #fafafa (was #1d4ed8 ~6.42:1) */
   --danger: #b91c1c;
   --danger-dark: #991b1b;
-  --danger-text: #991b1b;      /* AAA 7.8:1 on #fafafa */
-  --success-text: #15803d;     /* AAA 7.1:1 on #fafafa */
-  --warning-text: #854d0e;     /* AAA 7.2:1 on #fafafa */
+  --danger-text: #991b1b;      /* AAA 7.96:1 on #fafafa */
+  --success-text: #0e5929;     /* AAA 8.11:1 on #fafafa (was #15803d ~4.81:1) */
+  --warning-text: #7c4a0d;     /* AAA 7.08:1 on #fafafa (was #854d0e ~6.56:1) */
+
+  /* Button-background tokens — darker variants for AAA (7:1) with white text */
+  --accent-btn:  #1e40af;      /* AAA 8.72:1 white on btn bg */
+  --danger-btn:  #991b1b;      /* AAA 8.31:1 white on btn bg (same as --danger-dark) */
+
+  /* text-on-accent is shared with dark theme via :root */
 
   --font-weight-body: 400;
   --font-weight-heading: 700;
@@ -255,7 +265,7 @@
   --font-weight-hero: 700;   /* slightly lighter than dark */
 
   /* New token overrides */
-  --text-on-accent: #ffffff;
+  --text-on-accent: #ffffff;   /* AAA 8.72:1 on --accent-btn, 8.31:1 on --danger-btn */
   --code-bg:     oklch(0.96 0.01 240);
   --code-accent: oklch(0.50 0.22 320);
   --state-idle:          oklch(0.60 0.00 0);
