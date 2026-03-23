@@ -1,5 +1,4 @@
-use crate::agent_event::AgentEvent;
-use crate::transport::request::{AgentRequest, SessionStatus};
+use crate::transport::request::SessionStatus;
 #[allow(unused_imports)]
 use log::{info, warn, error, debug, trace};
 use serde::{Deserialize, Serialize};

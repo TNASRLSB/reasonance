@@ -148,18 +148,18 @@ pub fn health_status_from_results(results: &[TestCaseResult]) -> HealthStatus {
 }
 
 fn event_type_matches(actual: &AgentEventType, expected: &str) -> bool {
-    match (actual, expected) {
-        (AgentEventType::Text, "text") => true,
-        (AgentEventType::Thinking, "thinking") => true,
-        (AgentEventType::ToolUse, "tool_use") => true,
-        (AgentEventType::ToolResult, "tool_result") => true,
-        (AgentEventType::Error, "error") => true,
-        (AgentEventType::Usage, "usage") => true,
-        (AgentEventType::Done, "done") => true,
-        (AgentEventType::Status, "status") => true,
-        (AgentEventType::Metrics, "metrics") => true,
-        _ => false,
-    }
+    matches!(
+        (actual, expected),
+        (AgentEventType::Text, "text")
+            | (AgentEventType::Thinking, "thinking")
+            | (AgentEventType::ToolUse, "tool_use")
+            | (AgentEventType::ToolResult, "tool_result")
+            | (AgentEventType::Error, "error")
+            | (AgentEventType::Usage, "usage")
+            | (AgentEventType::Done, "done")
+            | (AgentEventType::Status, "status")
+            | (AgentEventType::Metrics, "metrics")
+    )
 }
 
 fn validate_event(event: &AgentEvent, validation: &Validation) -> bool {

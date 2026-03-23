@@ -1,3 +1,18 @@
+#![allow(dead_code)]
+#![allow(
+    clippy::too_many_arguments,
+    clippy::large_enum_variant,
+    clippy::manual_strip,
+    clippy::unnecessary_cast,
+    clippy::derivable_impls,
+    clippy::or_fun_call,
+    clippy::unnecessary_map_or,
+    clippy::unwrap_or_default,
+    clippy::doc_lazy_continuation,
+    clippy::needless_borrow,
+    clippy::needless_borrows_for_generic_args,
+)]
+
 mod agent_event;
 mod normalizer;
 mod transport;
@@ -22,7 +37,7 @@ use fs_watcher::FsWatcherState;
 use pty_manager::PtyManager;
 use shadow_store::ShadowStore;
 use tauri::Manager;
-use log::{info, warn, error, debug};
+use log::info;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {

@@ -1,4 +1,4 @@
-use crate::agent_event::{AgentEvent, AgentEventType, AgentEventMetadata, EventContent, ErrorSeverity, StreamMetrics};
+use crate::agent_event::{AgentEvent, AgentEventType, AgentEventMetadata, EventContent, ErrorSeverity};
 use crate::normalizer::rules_engine::{Rule, find_matching_rule, resolve_path};
 use crate::normalizer::content_parser::parse_content;
 use crate::normalizer::state_machines::StateMachine;

@@ -1,11 +1,10 @@
 use crate::agent_event::AgentEvent;
 use crate::transport::event_bus::SessionHistoryRecorder;
-use crate::transport::session_handle::{ForkInfo, SessionHandle, SessionSource, SessionSummary, ViewMode};
+use crate::transport::session_handle::{ForkInfo, SessionHandle, SessionSummary, ViewMode};
 use crate::transport::session_store::SessionStore;
 use crate::transport::request::SessionStatus;
 #[allow(unused_imports)]
 use log::{info, warn, error, debug, trace};
-use std::collections::HashMap;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 

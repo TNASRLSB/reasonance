@@ -1,6 +1,6 @@
 use log::{info, warn, error, debug};
 use std::process::Command;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::env;
 use std::ffi::OsString;
 

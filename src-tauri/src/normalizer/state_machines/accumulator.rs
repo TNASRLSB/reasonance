@@ -1,5 +1,5 @@
 use std::time::{Duration, Instant};
-use crate::agent_event::{AgentEvent, AgentEventType, EventContent};
+use crate::agent_event::{AgentEvent, EventContent};
 
 // ─── TextAccumulator ─────────────────────────────────────────────────────────
 
