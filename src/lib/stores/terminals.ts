@@ -3,7 +3,7 @@ import { writable, derived } from 'svelte/store';
 export interface TerminalInstance {
   id: string;
   provider: string;       // was llmName
-  label: string;          // display label (computed externally)
+  label?: string;         // legacy — display labels come from computedLabels derived store
   modelName?: string;     // resolved from model_path in first response
   apiOnly?: boolean;
   contextPercent?: number;

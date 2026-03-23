@@ -11,8 +11,8 @@ export interface AgentSessionState {
   title: string;
   totalInputTokens: number;
   totalOutputTokens: number;
-  currentSpeed: number;  // tokens/second during active streaming (Phase 5: ChatHeader uses this)
-  elapsed: number;       // ms since session started (Phase 5: ChatHeader uses this)
+  currentSpeed: number;  // tokens/second during active streaming (shown in footer metrics)
+  elapsed: number;       // ms since session started (shown in footer metrics)
   turnCount: number;
 }
 

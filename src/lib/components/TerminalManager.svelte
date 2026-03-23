@@ -234,7 +234,7 @@
   });
 </script>
 
-<svelte:window onkeydown={handleGlobalKeydown} />
+<svelte:window onkeydown={handleGlobalKeydown} onclick={() => { showLLMDropdown = false; }} />
 
 <div class="terminal-manager">
   <!-- Flat Tab Bar -->
@@ -282,7 +282,7 @@
         class="flat-tab add-tab"
         aria-haspopup="menu"
         aria-expanded={showLLMDropdown}
-        onclick={() => showLLMDropdown = !showLLMDropdown}
+        onclick={(e) => { e.stopPropagation(); showLLMDropdown = !showLLMDropdown; }}
       >+</button>
       {#if showLLMDropdown}
         <div class="provider-dropdown" role="menu" tabindex="-1"
