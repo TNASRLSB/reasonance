@@ -16,22 +16,21 @@
   };
 </script>
 
-<div
+<button
   class="resource-node"
   class:selected
   onclick={() => onselect?.(id)}
-  onkeydown={(e: KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onselect?.(id); } }}
-  role="button"
-  tabindex="0"
+  aria-pressed={selected}
+  aria-label="{label}{path ? ': ' + path : ''}"
 >
   <div class="node-header">
-    <span class="node-icon">{kindIcons[kind] || '\u{1F4C4}'}</span>
+    <span class="node-icon" aria-hidden="true">{kindIcons[kind] || '\u{1F4C4}'}</span>
     <span class="node-label">{label}</span>
   </div>
   {#if path}
     <div class="node-path">{path}</div>
   {/if}
-</div>
+</button>
 
 <style>
   .resource-node {
@@ -42,6 +41,7 @@
     font-family: var(--font-ui, sans-serif);
     cursor: pointer;
     user-select: none;
+    text-align: start;
   }
   .resource-node.selected {
     box-shadow: 0 0 0 2px var(--accent, #1d4ed8);

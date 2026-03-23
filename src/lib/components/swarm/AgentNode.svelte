@@ -21,25 +21,24 @@
   let pulsing = $derived(state === 'running');
 </script>
 
-<div
+<button
   class="agent-node"
   class:selected
   class:pulsing
   style="border-color: {borderColor}"
   onclick={() => onselect?.(id)}
-  onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onselect?.(id); } }}
-  role="button"
-  tabindex="0"
+  aria-pressed={selected}
+  aria-label="{label} — {llm || 'unset'}, state: {state}"
 >
   <div class="node-header">
-    <span class="node-icon">&#9679;</span>
+    <span class="node-icon" aria-hidden="true">&#9679;</span>
     <span class="node-label">{label}</span>
   </div>
   <div class="node-meta">
     <span class="node-llm">{llm || 'unset'}</span>
-    <span class="node-state" style="color: {borderColor}" aria-label="{state}"><span class="state-icon" aria-hidden="true">{stateIcon}</span> {state}</span>
+    <span class="node-state" style="color: {borderColor}" aria-hidden="true"><span class="state-icon" aria-hidden="true">{stateIcon}</span> {state}</span>
   </div>
-</div>
+</button>
 
 <style>
   .agent-node {
@@ -50,6 +49,7 @@
     font-family: var(--font-ui, sans-serif);
     cursor: pointer;
     user-select: none;
+    text-align: start;
   }
   .agent-node.selected {
     box-shadow: 0 0 0 2px var(--accent, #1d4ed8);

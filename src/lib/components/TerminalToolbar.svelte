@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Adapter } from '$lib/adapter/index';
-  import { menuKeyHandler } from '$lib/utils/a11y';
+  import { menuKeyHandler, toolbarKeyHandler } from '$lib/utils/a11y';
   import { tr } from '$lib/i18n/index';
 
   let {
@@ -23,6 +23,7 @@
   let showModeMenu = $state(false);
   let slashMenuEl = $state<HTMLElement | null>(null);
   let modeMenuEl = $state<HTMLElement | null>(null);
+  let toolbarLeftEl = $state<HTMLElement | null>(null);
 
   $effect(() => {
     if (showSlashMenu && slashMenuEl) {
@@ -64,27 +65,36 @@
 <svelte:window onclick={handleClickOutside} />
 
 <div class="term-toolbar">
-  <div class="term-toolbar-left">
+  <div
+    class="term-toolbar-left"
+    role="toolbar"
+    aria-label="Terminal actions"
+    bind:this={toolbarLeftEl}
+    onkeydown={(e) => { if (toolbarLeftEl && (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'Home' || e.key === 'End')) toolbarKeyHandler(e, toolbarLeftEl); }}
+  >
     <button
       class="term-tbtn term-tbtn--labeled"
       title={$tr('termToolbar.addFileTitle')}
+      aria-label={$tr('termToolbar.addFileTitle')}
       onclick={(e) => { e.stopPropagation(); addFileToContext(); }}
-    ><span class="tbtn-icon" aria-hidden="true">+</span><span class="tbtn-label">{$tr('termToolbar.addFile')}</span></button>
+    ><span class="tbtn-icon" aria-hidden="true">+</span><span class="tbtn-label" aria-hidden="true">{$tr('termToolbar.addFile')}</span></button>
 
     <button
       class="term-tbtn term-tbtn--labeled"
       title={$tr('termToolbar.saveOutputTitle')}
+      aria-label={$tr('termToolbar.saveOutputTitle')}
       onclick={(e) => { e.stopPropagation(); window.dispatchEvent(new CustomEvent('reasonance:exportTerminal', { detail: { instanceId } })); }}
-    ><span class="tbtn-icon" aria-hidden="true">&#8615;</span><span class="tbtn-label">{$tr('termToolbar.saveOutput')}</span></button>
+    ><span class="tbtn-icon" aria-hidden="true">&#8615;</span><span class="tbtn-label" aria-hidden="true">{$tr('termToolbar.saveOutput')}</span></button>
 
     <div class="slash-wrapper">
       <button
         class="term-tbtn term-tbtn--labeled"
         title={$tr('termToolbar.commandsTitle')}
+        aria-label={$tr('termToolbar.commandsTitle')}
         onclick={(e) => { e.stopPropagation(); showSlashMenu = !showSlashMenu; showModeMenu = false; }}
         aria-haspopup="true"
         aria-expanded={showSlashMenu}
-      ><span class="tbtn-icon" aria-hidden="true">/</span><span class="tbtn-label">{$tr('termToolbar.commands')}</span></button>
+      ><span class="tbtn-icon" aria-hidden="true">/</span><span class="tbtn-label" aria-hidden="true">{$tr('termToolbar.commands')}</span></button>
 
       {#if showSlashMenu && slashCommands.length > 0}
         <div class="dropdown" role="menu" tabindex="-1" bind:this={slashMenuEl} onclick={(e) => e.stopPropagation()} onkeydown={(e) => { e.stopPropagation(); menuKeyHandler(e, slashMenuEl!, '.dropdown-item'); }}>

@@ -147,16 +147,14 @@
             <div class="fif-file-group">
               <div class="fif-file-header">{filePath}</div>
               {#each fileResults as result}
-                <div
+                <button
                   class="fif-result-row"
-                  role="button"
-                  tabindex="0"
                   onclick={() => openResult(result)}
-                  onkeydown={(e) => e.key === 'Enter' && openResult(result)}
+                  aria-label="Line {result.line_number}: {result.line.trim()}"
                 >
-                  <span class="fif-line-num">{result.line_number}</span>
-                  <span class="fif-line-text">{result.line.trim()}</span>
-                </div>
+                  <span class="fif-line-num" aria-hidden="true">{result.line_number}</span>
+                  <span class="fif-line-text" aria-hidden="true">{result.line.trim()}</span>
+                </button>
               {/each}
             </div>
           {/each}
@@ -319,6 +317,12 @@
     padding: var(--space-1) var(--space-3);
     cursor: pointer;
     transition: background 0.1s;
+    width: 100%;
+    text-align: start;
+    background: none;
+    border: none;
+    color: inherit;
+    font-family: inherit;
   }
 
   .fif-result-row:hover {

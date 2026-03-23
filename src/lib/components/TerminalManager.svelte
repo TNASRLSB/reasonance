@@ -294,6 +294,7 @@
     <div class="tab-add-wrapper" bind:this={addWrapperEl}>
       <button
         class="flat-tab add-tab"
+        aria-label="New session"
         aria-haspopup="menu"
         aria-expanded={showLLMDropdown}
         onclick={() => { showLLMDropdown = !showLLMDropdown; }}

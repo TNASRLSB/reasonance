@@ -167,6 +167,7 @@
       onclick={handleSubmit}
       disabled={disabled || sending || !text.trim()}
       aria-label="Send message"
+      aria-busy={sending}
     >
       SEND
     </button>
@@ -264,9 +265,16 @@
     background: var(--accent);
     border: var(--border-width) solid var(--accent);
     padding: var(--btn-padding);
+    min-height: 2.75rem;
     cursor: pointer;
     align-self: flex-end;
     transition: opacity 0.1s;
+  }
+
+  .send-btn[aria-busy="true"] {
+    cursor: wait;
+    opacity: 0.8;
+    pointer-events: none;
   }
 
   .send-btn:hover:not(:disabled) {
