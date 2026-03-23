@@ -104,7 +104,7 @@
     <Toolbar {adapter} />
   </header>
 
-  <div class="main-content">
+  <div class="main-content" data-main-content>
     <nav id="file-tree" aria-label="File explorer" class="panel file-tree" style="width: {$fileTreeWidth}px">
       <svelte:boundary>
         {#if fileTree}
