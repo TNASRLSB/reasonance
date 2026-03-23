@@ -225,19 +225,21 @@ h1: "REASONANCE" ✅
 
 ## Summary of Live Testing Findings
 
-### Confirmed Issues (from live tests)
+### Confirmed Issues (from live tests — 24 total Playwright tests)
 | # | Source | Severity | Issue |
 |---|--------|----------|-------|
 | 1 | axe-core | Serious | "Open Folder" button contrast 2.79:1 (need 4.5:1) |
 | 2 | axe-core | Serious | Toast "ERROR" label contrast 3.6:1 (need 4.5:1) |
 | 3 | axe-core | Serious | Missing `<title>` element |
 | 4 | Lighthouse | High | No `<main>` landmark |
-| 5 | Lighthouse | High | Console errors on load |
+| 5 | Lighthouse | High | Console errors on load (Tauri API not available in browser) |
 | 6 | Contrast | Serious | Error text white-on-red 4.0:1 (need 4.5:1) |
 | 7 | Targets | Medium | Toast dismiss button 9×16px (need 24×24) |
-| 8 | Keyboard | High | Tab only reaches 6 elements on welcome screen |
+| 8 | Keyboard | High | Tab only reaches 6 elements on welcome screen (cycles) |
 | 9 | Landmarks | Critical | Zero ARIA landmarks in entire app |
 | 10 | Keyboard | Medium | Ctrl+K and Ctrl+/ don't work from welcome screen |
+| 11 | Contrast | Medium | No `prefers-contrast: more` CSS rules |
+| 12 | A11y Tree | High | Error message is first thing screen reader encounters |
 
 ### Validated from Code Analysis
 | Finding | Live Status |
@@ -247,13 +249,69 @@ h1: "REASONANCE" ✅
 | No keyboard traps | ✅ Confirmed — focus wraps correctly |
 | Heading hierarchy correct | ✅ Confirmed — h1→h2, no skips |
 | No critical axe-core violations | ✅ Confirmed — 0 critical |
+| 200% zoom no overflow | ✅ Confirmed — layout reflows correctly |
+| 400% zoom no overflow | ✅ Confirmed — no horizontal scroll |
+| 320px reflow (WCAG 1.4.10) | ✅ Confirmed — passes |
+| Forced-colors no invisible elements | ✅ Confirmed — 6/6 visible |
+| All interactive elements labeled | ✅ Confirmed — 6/6 have labels |
+| No text truncation (English) | ✅ Confirmed |
+
+### Extended Automated Testing (Round 2) ✅ COMPLETED
+
+**8 additional Playwright tests, 8 passed.**
+
+#### Zoom Levels (WCAG 1.4.10 Reflow)
+| Test | Result |
+|------|--------|
+| 200% zoom (640×360 @2x) | ✅ No overflow issues |
+| 400% zoom (320×180 @4x) | ✅ No horizontal overflow |
+| 320px minimum viewport | ✅ No horizontal scroll — passes WCAG 1.4.10 |
+
+Screenshots: `docs/audit/screenshot-zoom-200.png`, `docs/audit/screenshot-zoom-400.png`, `docs/audit/screenshot-320px.png`
+
+#### Forced Colors & High Contrast
+| Test | Result |
+|------|--------|
+| forced-colors: active | ✅ No invisible elements (6 checked) |
+| prefers-contrast: more | ❌ No CSS rules respond to prefers-contrast |
+
+Screenshot: `docs/audit/screenshot-forced-colors.png`
+
+#### RTL Layout
+| Test | Result |
+|------|--------|
+| RTL direction switch | ✅ No layout issues on welcome screen |
+| German locale truncation | ✅ No text truncation detected |
+
+Screenshot: `docs/audit/screenshot-rtl.png`
+
+> **Note:** RTL and German tests ran on the welcome screen which has limited UI. Full RTL testing needs a loaded project with sidebar, editor, tabs, and chat visible.
+
+#### Accessibility Tree (Screen Reader Simulation)
+Screen reader sees:
+```
+- text: [Error message about Tauri API not being available in browser]
+- button "☀"
+- button "−"
+- button "◻"
+- button "✕"
+- heading "REASONANCE" [level=1]
+- paragraph: IDE for Vibecoders
+- button "Open Folder"
+- heading "Recent Projects" [level=2]
+- paragraph: No recent projects
+- alert: [Config parse error]
+  - button "Dismiss notification": ×
+```
+- ✅ All 6 interactive elements have labels
+- Only 1 ARIA role used (`alert` on toast)
+- ⚠️ Unhandled error visible to screen reader as first element — poor first impression
+- ❌ No landmark roles — screen reader users can't navigate by region
 
 ### Still Needs Human Testing
-1. 🔍 Test with project loaded (more components visible, SearchPalette available)
-2. 🔍 Test XSS payloads in ChatInput and SearchPalette
-3. 🔍 Test at 200% and 400% zoom
-4. 🔍 Test with `forced-colors: active` emulation
-5. 🔍 Test with screen reader (Orca on Linux)
-6. 🔍 Test RTL locale (Arabic) layout visually
-7. 🔍 Test German locale for label truncation
-8. 🔍 Walk through full chat/editor/terminal flows visually
+1. 🔍 Test with **project loaded** (more components visible — sidebar, editor, chat, terminal)
+2. 🔍 Test XSS payloads in ChatInput and SearchPalette (need project context)
+3. 🔍 Test RTL with loaded project (sidebar, tabs, file tree mirroring)
+4. 🔍 Test German labels with loaded project (toolbar, tabs, settings)
+5. 🔍 Walk through full chat/editor/terminal flows visually
+6. 🔍 Test with actual screen reader (Orca on Linux) for announcement quality
