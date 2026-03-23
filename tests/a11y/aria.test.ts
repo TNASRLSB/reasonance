@@ -12,7 +12,7 @@ import { toasts } from '$lib/stores/toast';
 import { openFiles, activeFilePath } from '$lib/stores/files';
 import { llmConfigs } from '$lib/stores/config';
 import { yoloMode } from '$lib/stores/ui';
-import { terminalTabs, activeTerminalTab, activeInstanceId } from '$lib/stores/terminals';
+import { terminalInstances, activeInstanceId } from '$lib/stores/terminals';
 
 // Component imports
 import Toast from '$lib/components/Toast.svelte';
@@ -85,8 +85,7 @@ describe('StatusBar accessibility', () => {
     yoloMode.set(false);
     llmConfigs.set([]);
     activeFilePath.set(null);
-    terminalTabs.set([]);
-    activeTerminalTab.set(null);
+    terminalInstances.set([]);
     activeInstanceId.set(null);
   });
 

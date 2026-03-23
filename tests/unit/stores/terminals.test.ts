@@ -1,48 +1,41 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { get } from 'svelte/store';
 import {
-  terminalTabs,
-  activeTerminalTab,
+  terminalInstances,
   activeInstanceId,
+  activeInstance,
+  computedLabels,
+  addInstance,
+  removeInstance,
+  updateInstance,
 } from '$lib/stores/terminals';
-import type { TerminalTab, TerminalInstance } from '$lib/stores/terminals';
+import type { TerminalInstance } from '$lib/stores/terminals';
 
-const makeInstance = (id: string, llmName: string, label: string): TerminalInstance => ({
+const makeInstance = (id: string, provider: string, label: string): TerminalInstance => ({
   id,
-  llmName,
+  provider,
   label,
 });
 
 describe('terminals store', () => {
   beforeEach(() => {
-    terminalTabs.set([]);
-    activeTerminalTab.set(null);
+    terminalInstances.set([]);
     activeInstanceId.set(null);
   });
 
   it('starts empty', () => {
-    expect(get(terminalTabs)).toEqual([]);
-    expect(get(activeTerminalTab)).toBeNull();
+    expect(get(terminalInstances)).toEqual([]);
     expect(get(activeInstanceId)).toBeNull();
   });
 
-  it('can add a terminal tab', () => {
-    const tab: TerminalTab = {
-      llmName: 'claude',
-      instances: [makeInstance('pty-1', 'claude', 'inst. 1')],
-    };
+  it('can add a terminal instance', () => {
+    const inst = makeInstance('pty-1', 'claude', 'inst. 1');
+    addInstance(inst);
 
-    terminalTabs.update((tabs) => [...tabs, tab]);
-
-    const tabs = get(terminalTabs);
-    expect(tabs).toHaveLength(1);
-    expect(tabs[0].llmName).toBe('claude');
-    expect(tabs[0].instances).toHaveLength(1);
-  });
-
-  it('can track active tab', () => {
-    activeTerminalTab.set('claude');
-    expect(get(activeTerminalTab)).toBe('claude');
+    const instances = get(terminalInstances);
+    expect(instances).toHaveLength(1);
+    expect(instances[0].provider).toBe('claude');
+    expect(instances[0].id).toBe('pty-1');
   });
 
   it('can track active instance', () => {
@@ -50,38 +43,48 @@ describe('terminals store', () => {
     expect(get(activeInstanceId)).toBe('pty-1');
   });
 
-  it('can add multiple instances to a tab', () => {
-    const tab: TerminalTab = {
-      llmName: 'claude',
-      instances: [
-        makeInstance('pty-1', 'claude', 'inst. 1'),
-        makeInstance('pty-2', 'claude', 'inst. 2'),
-      ],
-    };
-
-    terminalTabs.set([tab]);
-
-    const tabs = get(terminalTabs);
-    expect(tabs[0].instances).toHaveLength(2);
-    expect(tabs[0].instances[0].id).toBe('pty-1');
-    expect(tabs[0].instances[1].id).toBe('pty-2');
+  it('activeInstance is null when no active id', () => {
+    terminalInstances.set([makeInstance('pty-1', 'claude', 'inst. 1')]);
+    activeInstanceId.set(null);
+    expect(get(activeInstance)).toBeNull();
   });
 
-  it('can add multiple tabs for different LLMs', () => {
-    terminalTabs.set([
-      { llmName: 'claude', instances: [makeInstance('pty-1', 'claude', 'inst. 1')] },
-      { llmName: 'gemini', instances: [makeInstance('pty-2', 'gemini', 'inst. 1')] },
+  it('activeInstance resolves to correct instance', () => {
+    terminalInstances.set([
+      makeInstance('pty-1', 'claude', 'inst. 1'),
+      makeInstance('pty-2', 'gemini', 'inst. 1'),
+    ]);
+    activeInstanceId.set('pty-2');
+    expect(get(activeInstance)?.provider).toBe('gemini');
+  });
+
+  it('can add multiple instances for different providers', () => {
+    terminalInstances.set([
+      makeInstance('pty-1', 'claude', 'inst. 1'),
+      makeInstance('pty-2', 'gemini', 'inst. 1'),
     ]);
 
-    const tabs = get(terminalTabs);
-    expect(tabs).toHaveLength(2);
-    expect(tabs.map((t) => t.llmName)).toEqual(['claude', 'gemini']);
+    const instances = get(terminalInstances);
+    expect(instances).toHaveLength(2);
+    expect(instances.map((i) => i.provider)).toEqual(['claude', 'gemini']);
+  });
+
+  it('can add multiple instances for the same provider', () => {
+    terminalInstances.set([
+      makeInstance('pty-1', 'claude', 'inst. 1'),
+      makeInstance('pty-2', 'claude', 'inst. 2'),
+    ]);
+
+    const instances = get(terminalInstances);
+    expect(instances).toHaveLength(2);
+    expect(instances[0].id).toBe('pty-1');
+    expect(instances[1].id).toBe('pty-2');
   });
 
   it('instance supports optional metadata fields', () => {
     const instance: TerminalInstance = {
       id: 'pty-1',
-      llmName: 'claude',
+      provider: 'claude',
       label: 'inst. 1',
       contextPercent: 42,
       tokenCount: '12k',
@@ -93,9 +96,9 @@ describe('terminals store', () => {
       progressValue: 65,
     };
 
-    terminalTabs.set([{ llmName: 'claude', instances: [instance] }]);
+    terminalInstances.set([instance]);
 
-    const saved = get(terminalTabs)[0].instances[0];
+    const saved = get(terminalInstances)[0];
     expect(saved.contextPercent).toBe(42);
     expect(saved.tokenCount).toBe('12k');
     expect(saved.modelName).toBe('claude-opus-4');
@@ -103,27 +106,59 @@ describe('terminals store', () => {
     expect(saved.progressValue).toBe(65);
   });
 
-  it('can remove a tab', () => {
-    terminalTabs.set([
-      { llmName: 'claude', instances: [] },
-      { llmName: 'gemini', instances: [] },
+  it('can remove an instance by id', () => {
+    terminalInstances.set([
+      makeInstance('pty-1', 'claude', 'inst. 1'),
+      makeInstance('pty-2', 'gemini', 'inst. 1'),
     ]);
 
-    terminalTabs.update((tabs) => tabs.filter((t) => t.llmName !== 'claude'));
+    removeInstance('pty-1');
 
-    const tabs = get(terminalTabs);
-    expect(tabs).toHaveLength(1);
-    expect(tabs[0].llmName).toBe('gemini');
+    const instances = get(terminalInstances);
+    expect(instances).toHaveLength(1);
+    expect(instances[0].id).toBe('pty-2');
   });
 
-  it('clearing active tab and instance resets to null', () => {
-    activeTerminalTab.set('claude');
+  it('can update an instance by id', () => {
+    terminalInstances.set([makeInstance('pty-1', 'claude', 'inst. 1')]);
+
+    updateInstance('pty-1', { contextPercent: 75, tokenCount: '20k' });
+
+    const inst = get(terminalInstances)[0];
+    expect(inst.contextPercent).toBe(75);
+    expect(inst.tokenCount).toBe('20k');
+    expect(inst.provider).toBe('claude'); // unchanged field preserved
+  });
+
+  it('clearing active instance id resets to null', () => {
     activeInstanceId.set('pty-1');
-
-    activeTerminalTab.set(null);
     activeInstanceId.set(null);
-
-    expect(get(activeTerminalTab)).toBeNull();
     expect(get(activeInstanceId)).toBeNull();
+  });
+
+  it('computedLabels uses modelName when resolved', () => {
+    terminalInstances.set([
+      { id: 'pty-1', provider: 'claude', label: '', modelName: 'claude-opus-4' },
+    ]);
+    const labels = get(computedLabels);
+    expect(labels.get('pty-1')).toBe('claude-opus-4');
+  });
+
+  it('computedLabels appends ... suffix when modelName not yet resolved', () => {
+    terminalInstances.set([
+      { id: 'pty-1', provider: 'claude', label: '' },
+    ]);
+    const labels = get(computedLabels);
+    expect(labels.get('pty-1')).toBe('claude ...');
+  });
+
+  it('computedLabels deduplicates by appending index for same model', () => {
+    terminalInstances.set([
+      { id: 'pty-1', provider: 'claude', label: '', modelName: 'claude-opus-4' },
+      { id: 'pty-2', provider: 'claude', label: '', modelName: 'claude-opus-4' },
+    ]);
+    const labels = get(computedLabels);
+    expect(labels.get('pty-1')).toBe('claude-opus-4 1');
+    expect(labels.get('pty-2')).toBe('claude-opus-4 2');
   });
 });

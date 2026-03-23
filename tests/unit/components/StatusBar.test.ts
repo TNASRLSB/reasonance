@@ -4,14 +4,13 @@ import StatusBar from '$lib/components/StatusBar.svelte';
 import { yoloMode } from '$lib/stores/ui';
 import { activeFilePath } from '$lib/stores/files';
 import { llmConfigs } from '$lib/stores/config';
-import { terminalTabs, activeTerminalTab, activeInstanceId } from '$lib/stores/terminals';
+import { terminalInstances, activeInstanceId } from '$lib/stores/terminals';
 
 beforeEach(() => {
   yoloMode.set(false);
   activeFilePath.set(null);
   llmConfigs.set([]);
-  terminalTabs.set([]);
-  activeTerminalTab.set(null);
+  terminalInstances.set([]);
   activeInstanceId.set(null);
 });
 
