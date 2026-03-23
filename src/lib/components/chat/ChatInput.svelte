@@ -6,17 +6,23 @@
   let {
     onSend,
     disabled = false,
-    model = '',
     contextPercent = null,
     resetTimer = null,
     messagesLeft = null,
+    turnCount = 0,
+    currentSpeed = 0,
+    elapsed = 0,
+    streaming = false,
   }: {
     onSend: (text: string) => void;
     disabled?: boolean;
-    model?: string;
     contextPercent?: number | null;
     resetTimer?: string | null;
     messagesLeft?: number | null;
+    turnCount?: number;
+    currentSpeed?: number;
+    elapsed?: number;
+    streaming?: boolean;
   } = $props();
 
   let text = $state('');
@@ -40,10 +46,11 @@
     }
   }
 
-  function toggleYolo() {
+  async function toggleYolo() {
     const current = get(yoloMode);
     if (!current) {
-      const ok = confirm($tr('toolbar.yoloConfirm'));
+      const { ask } = await import('@tauri-apps/plugin-dialog');
+      const ok = await ask($tr('toolbar.yoloConfirm'), { title: 'Reasonance', kind: 'warning' });
       if (!ok) return;
     }
     yoloMode.update((v) => !v);
@@ -55,6 +62,11 @@
     const empty = total - filled;
     return '\u2588'.repeat(filled) + '\u2591'.repeat(empty);
   }
+
+  let elapsedDisplay = $derived.by(() => {
+    if (elapsed < 1000) return `${elapsed}ms`;
+    return `${(elapsed / 1000).toFixed(1)}s`;
+  });
 </script>
 
 <div class="chat-input-wrapper">
@@ -79,7 +91,17 @@
 
   <div class="input-footer">
     <div class="footer-left">
-      <span class="model-label">{model}</span>
+      {#if turnCount > 0 || streaming}
+        <span class="metrics">
+          Turn {turnCount}
+          {#if streaming || currentSpeed > 0}
+            &middot; {currentSpeed.toFixed(0)} tok/s
+          {/if}
+          {#if streaming && elapsed > 0}
+            &middot; {elapsedDisplay}
+          {/if}
+        </span>
+      {/if}
       <button
         class="yolo-toggle"
         class:active={$yoloMode}
@@ -191,11 +213,11 @@
     gap: 14px;
   }
 
-  .model-label {
+  .metrics {
     font-family: var(--font-mono);
     font-size: var(--font-size-tiny);
     color: var(--text-muted);
-    letter-spacing: 0.01em;
+    white-space: nowrap;
   }
 
   .yolo-toggle {

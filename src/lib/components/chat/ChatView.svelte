@@ -1,11 +1,10 @@
 <script lang="ts">
   import type { Adapter } from '$lib/adapter/index';
   import type { AgentEvent } from '$lib/types/agent-event';
-  import ChatHeader from './ChatHeader.svelte';
   import ChatMessages from './ChatMessages.svelte';
   import ChatInput from './ChatInput.svelte';
   import { agentEvents, streamingSessionIds, setSessionEvents, setStreaming } from '$lib/stores/agent-events';
-  import { agentSessions, upsertSession } from '$lib/stores/agent-session';
+  import { agentSessions, upsertSession, incrementTurnCount } from '$lib/stores/agent-session';
   import { projectRoot } from '$lib/stores/files';
   import { yoloMode } from '$lib/stores/ui';
   import { get } from 'svelte/store';
@@ -28,6 +27,7 @@
   let currentSpeed = $derived(session?.currentSpeed ?? 0);
   let elapsed = $derived(session?.elapsed ?? 0);
   let status = $derived(session?.status ?? 'active');
+  let turnCount = $derived(session?.turnCount ?? 0);
 
   // Context window usage: total tokens / model's context window
   let contextPercent = $derived(() => {
@@ -97,6 +97,7 @@
       });
 
       setStreaming(sessionId, true);
+      incrementTurnCount(sessionId);
       const cwd = get(projectRoot) || undefined;
       const isYolo = get(yoloMode);
       await adapter.agentSend(text, provider, model, sessionId, cwd, isYolo);
@@ -118,13 +119,15 @@
 </script>
 
 <div class="chat-view">
-  <ChatHeader {provider} {model} {status} {streaming} {tokenCount} {currentSpeed} {elapsed} />
   <ChatMessages {events} {streaming} {adapter} onFork={handleFork} />
   <ChatInput
     onSend={handleSend}
     disabled={streaming}
-    {model}
     contextPercent={contextPercent()}
+    {turnCount}
+    {currentSpeed}
+    {elapsed}
+    {streaming}
   />
 </div>
 
