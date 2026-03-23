@@ -238,7 +238,7 @@
     border: 2px solid var(--accent);
     border-radius: 0;
     background: transparent;
-    color: var(--accent);
+    color: var(--accent-text);
     cursor: pointer;
     transition: background var(--transition-fast), color var(--transition-fast);
   }
@@ -346,7 +346,7 @@
     letter-spacing: 0.04em;
     border: 2px solid var(--warning);
     background: transparent;
-    color: var(--warning);
+    color: var(--warning-text);
     cursor: pointer;
     flex-shrink: 0;
     white-space: nowrap;

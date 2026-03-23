@@ -99,7 +99,7 @@
   }
 
   .text-block :global(a:hover) {
-    color: var(--accent);
+    color: var(--accent-text);
   }
 
   .text-block :global(blockquote) {

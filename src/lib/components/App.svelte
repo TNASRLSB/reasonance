@@ -353,7 +353,7 @@
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    color: var(--danger);
+    color: var(--danger-text);
     margin: 0;
   }
 

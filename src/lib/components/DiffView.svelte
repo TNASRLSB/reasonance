@@ -166,7 +166,7 @@
 
   .btn-reject {
     background: var(--bg-primary);
-    color: var(--danger);
+    color: var(--danger-text);
     border-color: var(--danger);
   }
 

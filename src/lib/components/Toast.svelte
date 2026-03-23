@@ -187,7 +187,7 @@
   .toast-action-btn {
     background: transparent;
     border: 1px solid var(--accent);
-    color: var(--accent);
+    color: var(--accent-text);
     padding: var(--space-1) var(--space-3);
     cursor: pointer;
     font-family: inherit;

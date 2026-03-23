@@ -93,7 +93,7 @@
   --font-ui: 'Atkinson Hyperlegible Next', 'Noto Sans SC', 'Noto Sans Devanagari', 'Microsoft YaHei', 'PingFang SC', system-ui, -apple-system, sans-serif;
   --font-mono: 'Atkinson Hyperlegible Mono', monospace;
 
-  --font-size-sm:   0.75rem;   /* 12px — minimum */
+  --font-size-sm:   0.875rem;  /* 14px — WCAG AAA minimum for normal text */
   --font-size-base: 1rem;      /* 16px */
   --font-size-md:   1.25rem;   /* 20px */
   --font-size-lg:   1.5rem;    /* 24px */

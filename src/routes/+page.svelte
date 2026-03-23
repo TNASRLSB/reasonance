@@ -433,7 +433,7 @@
 
   .about-version {
     font-size: var(--font-size-small);
-    color: var(--accent);
+    color: var(--accent-text);
     font-weight: 700;
     margin-bottom: var(--space-1);
   }

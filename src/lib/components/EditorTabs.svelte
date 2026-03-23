@@ -184,7 +184,7 @@
   }
 
   .tab-save:hover {
-    color: var(--accent);
+    color: var(--accent-text);
     opacity: 1;
   }
 
@@ -207,6 +207,6 @@
   }
 
   .tab-close:hover {
-    color: var(--danger);
+    color: var(--danger-text);
   }
 </style>

@@ -46,7 +46,7 @@
   .btn-icon {
     font-size: var(--font-size-sm);
   }
-  .catalog-btn.agent .btn-icon { color: var(--accent); }
-  .catalog-btn.resource .btn-icon { color: var(--success); }
-  .catalog-btn.logic .btn-icon { color: var(--warning); }
+  .catalog-btn.agent .btn-icon { color: var(--accent-text); }
+  .catalog-btn.resource .btn-icon { color: var(--success-text); }
+  .catalog-btn.logic .btn-icon { color: var(--warning-text); }
 </style>

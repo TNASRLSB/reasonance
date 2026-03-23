@@ -95,9 +95,9 @@
     cursor: not-allowed;
   }
   .ctrl-btn.play, .ctrl-btn.resume {
-    color: var(--success);
+    color: var(--success-text);
   }
   .ctrl-btn.stop {
-    color: var(--danger);
+    color: var(--danger-text);
   }
 </style>

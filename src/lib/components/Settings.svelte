@@ -954,7 +954,7 @@
     margin: 0 0 var(--space-3);
     font-size: var(--font-size-sm);
     font-weight: var(--font-weight-md);
-    color: var(--accent);
+    color: var(--accent-text);
     text-transform: uppercase;
     letter-spacing: 0.06em;
     line-height: var(--line-height-sm);
@@ -1360,12 +1360,12 @@
 
   .connection-step.ok {
     border-color: var(--success);
-    color: var(--success);
+    color: var(--success-text);
   }
 
   .connection-step.failed {
-    border-color: var(--danger, #ef4444);
-    color: var(--danger, #ef4444);
+    border-color: var(--danger);
+    color: var(--danger-text);
   }
 
   .connection-step.checking {
@@ -1397,7 +1397,7 @@
   .connection-ready {
     font-size: var(--font-size-sm);
     font-weight: 700;
-    color: var(--success);
+    color: var(--success-text);
     text-transform: uppercase;
     letter-spacing: 0.04em;
     padding: var(--space-1) var(--space-1);
@@ -1429,7 +1429,7 @@
   }
 
   .range-value {
-    font-size: var(--font-size-small, 11px);
+    font-size: var(--font-size-sm);
     font-family: var(--font-mono);
     color: var(--text-secondary);
     min-width: 32px;

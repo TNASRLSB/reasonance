@@ -273,7 +273,7 @@
     font-size: var(--font-size-base);
   }
   .close-btn:hover {
-    color: var(--danger);
+    color: var(--danger-text);
     border-color: var(--danger);
   }
   .canvas-content {
@@ -313,7 +313,7 @@
   .json-error {
     padding: var(--space-1) var(--space-3);
     font-size: var(--font-size-sm);
-    color: var(--danger);
+    color: var(--danger-text);
     background: var(--bg-secondary);
     border-top: 2px solid var(--danger);
     font-family: var(--font-mono, monospace);

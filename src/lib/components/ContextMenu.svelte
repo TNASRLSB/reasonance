@@ -177,7 +177,7 @@
 
   .context-menu-item:hover:not(.disabled) {
     background: var(--bg-hover);
-    color: var(--accent);
+    color: var(--accent-text);
   }
 
   .context-menu-item.disabled {

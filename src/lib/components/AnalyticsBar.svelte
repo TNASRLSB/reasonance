@@ -230,7 +230,7 @@
     border-top: var(--border-width, 2px) solid var(--border);
     border-radius: 0;
     font-family: var(--font-mono);
-    font-size: var(--font-size-small, 11px);
+    font-size: var(--font-size-sm);
     color: var(--text-secondary);
     container-type: inline-size;
     container-name: analytics-bar;
@@ -326,7 +326,7 @@
   }
 
   .ctx-label {
-    font-size: var(--font-size-small, 11px);
+    font-size: var(--font-size-sm);
     color: var(--text-secondary);
     white-space: nowrap;
     flex-shrink: 0;
@@ -346,14 +346,14 @@
   }
 
   .metric.velocity {
-    color: var(--warning);
-    font-size: calc(var(--font-size-small, 11px) - 1px);
+    color: var(--warning-text);
+    font-size: var(--font-size-sm);
   }
 
   .metric.projection {
     color: var(--text-secondary);
     opacity: 0.8;
-    font-size: calc(var(--font-size-small, 11px) - 1px);
+    font-size: var(--font-size-sm);
   }
 
   .metric.provider {
@@ -368,7 +368,7 @@
   }
 
   .metric.cache.cache-good {
-    color: var(--success);
+    color: var(--success-text);
   }
 
   .metric.vs-avg {
@@ -378,11 +378,11 @@
   }
 
   .metric.vs-avg.above {
-    color: var(--warning);
+    color: var(--warning-text);
   }
 
   .metric.vs-avg.below {
-    color: var(--success);
+    color: var(--success-text);
   }
 
   /* vs-avg dot */

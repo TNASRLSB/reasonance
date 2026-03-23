@@ -223,7 +223,7 @@
   .menu-shortcut {
     color: var(--text-muted);
     margin-inline-start: var(--space-5);
-    font-size: calc(var(--font-size-small) - 1px);
+    font-size: var(--font-size-sm);
   }
 
   .menu-arrow {

@@ -1126,7 +1126,7 @@
   .provider-expand-btn:hover {
     background: transparent;
     border: none;
-    color: var(--accent);
+    color: var(--accent-text);
   }
 
   .provider-dot {
@@ -1176,7 +1176,7 @@
   }
 
   .cell-danger {
-    color: var(--danger) !important;
+    color: var(--danger-text) !important;
   }
 
   /* Provider detail accordion */
@@ -1245,7 +1245,7 @@
   }
 
   .text-danger {
-    color: var(--danger);
+    color: var(--danger-text);
   }
 
   /* Daily trend */
@@ -1303,7 +1303,7 @@
 
   /* Misc */
   .error-msg {
-    color: var(--danger);
+    color: var(--danger-text);
     font-size: var(--font-size-small);
     font-family: var(--font-mono);
     margin: 0;

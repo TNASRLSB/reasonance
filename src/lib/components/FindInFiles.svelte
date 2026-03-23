@@ -303,7 +303,7 @@
     padding: var(--space-1) var(--space-3);
     font-size: var(--font-size-sm);
     font-weight: 600;
-    color: var(--accent);
+    color: var(--accent-text);
     background: var(--bg-secondary);
     overflow: hidden;
     text-overflow: ellipsis;
