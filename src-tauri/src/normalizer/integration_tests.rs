@@ -4,7 +4,7 @@ mod tests {
     use crate::agent_event::{AgentEventType, EventContent};
 
     /// Simulates a real Claude CLI stream-json session:
-    /// message_start → content_block_start → N deltas → content_block_stop → message_delta (usage) → message_stop
+    /// system events → assistant (response) → result (usage + done)
     #[test]
     fn test_full_claude_stream_session() {
         let mut registry = NormalizerRegistry::load_from_dir(
@@ -13,15 +13,11 @@ mod tests {
 
         assert!(registry.has_provider("claude"));
 
-        // These are real Claude stream-json events (simplified)
+        // Real Claude CLI stream-json events
         let stream_lines = vec![
-            r#"{"type":"message_start","message":{"id":"msg_123","model":"claude-sonnet-4-6","role":"assistant"}}"#,
-            r#"{"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}"#,
-            r#"{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Hello"}}"#,
-            r#"{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":" world"}}"#,
-            r#"{"type":"content_block_stop","index":0}"#,
-            r#"{"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"input_tokens":10,"output_tokens":5}}"#,
-            r#"{"type":"message_stop"}"#,
+            r#"{"type":"system","subtype":"init","session_id":"sess-1","model":"claude-opus-4-6"}"#,
+            r#"{"type":"assistant","message":{"id":"msg_123","model":"claude-opus-4-6","type":"message","role":"assistant","content":[{"type":"text","text":"Hello world"}],"usage":{"input_tokens":10,"output_tokens":5}},"session_id":"sess-1"}"#,
+            r#"{"type":"result","subtype":"success","is_error":false,"duration_ms":2100,"duration_api_ms":2050,"num_turns":1,"result":"Hello world","stop_reason":"end_turn","session_id":"sess-1","total_cost_usd":0.05,"usage":{"input_tokens":10,"output_tokens":5,"cache_creation_input_tokens":100,"cache_read_input_tokens":200}}"#,
         ];
 
         let mut all_events = vec![];
@@ -30,27 +26,27 @@ mod tests {
             all_events.extend(events);
         }
 
-        // Should have: 2 text events, 1 usage event, 1 done event
-        // (message_start, content_block_start, content_block_stop are internal — no rules match)
+        // Should have: 1 text event, 1 usage event
+        // (system/init events are ignored — no rules match)
+        // Note: done events are emitted by stream_reader when stdout closes, not by TOML rules
         let text_events: Vec<_> = all_events.iter().filter(|e| e.event_type == AgentEventType::Text).collect();
         let usage_events: Vec<_> = all_events.iter().filter(|e| e.event_type == AgentEventType::Usage).collect();
-        let done_events: Vec<_> = all_events.iter().filter(|e| e.event_type == AgentEventType::Done).collect();
 
-        assert_eq!(text_events.len(), 2, "Expected 2 text events");
+        assert_eq!(text_events.len(), 1, "Expected 1 text event");
         assert_eq!(usage_events.len(), 1, "Expected 1 usage event");
-        assert_eq!(done_events.len(), 1, "Expected 1 done event");
 
         // Verify text content
         if let EventContent::Text { ref value } = text_events[0].content {
-            assert_eq!(value, "Hello");
-        }
-        if let EventContent::Text { ref value } = text_events[1].content {
-            assert_eq!(value, " world");
+            assert_eq!(value, "Hello world");
         }
 
-        // Verify usage
+        // Verify usage from result event
         assert_eq!(usage_events[0].metadata.input_tokens, Some(10));
         assert_eq!(usage_events[0].metadata.output_tokens, Some(5));
+        assert_eq!(usage_events[0].metadata.cache_creation_tokens, Some(100));
+        assert_eq!(usage_events[0].metadata.cache_read_tokens, Some(200));
+        assert_eq!(usage_events[0].metadata.duration_ms, Some(2100));
+        assert_eq!(usage_events[0].metadata.total_cost_usd, Some(0.05));
 
         // All events have provider set
         for event in &all_events {
@@ -64,31 +60,28 @@ mod tests {
             std::path::Path::new("normalizers")
         ).unwrap();
 
-        let error_line = r#"{"type":"error","error":{"type":"overloaded","message":"Server is overloaded"}}"#;
+        // CLI error format
+        let error_line = r#"{"type":"error","message":"Server is overloaded","code":"overloaded"}"#;
         let events = registry.process("claude", error_line);
 
         assert_eq!(events.len(), 1);
         assert_eq!(events[0].event_type, AgentEventType::Error);
         assert_eq!(events[0].metadata.error_code, Some("overloaded".to_string()));
-        assert_eq!(
-            events[0].metadata.error_severity,
-            Some(crate::agent_event::ErrorSeverity::Recoverable)
-        );
     }
 
     #[test]
-    fn test_claude_thinking_events() {
+    fn test_claude_system_events_ignored() {
         let mut registry = NormalizerRegistry::load_from_dir(
             std::path::Path::new("normalizers")
         ).unwrap();
 
-        let thinking_line = r#"{"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"Let me consider..."}}"#;
-        let events = registry.process("claude", thinking_line);
+        // System/hook events should not match any rules
+        let system_line = r#"{"type":"system","subtype":"init","cwd":"/tmp","session_id":"sess-1"}"#;
+        let events = registry.process("claude", system_line);
+        assert!(events.is_empty(), "System events should be ignored");
 
-        assert_eq!(events.len(), 1);
-        assert_eq!(events[0].event_type, AgentEventType::Thinking);
-        if let EventContent::Text { ref value } = events[0].content {
-            assert_eq!(value, "Let me consider...");
-        }
+        let hook_line = r#"{"type":"system","subtype":"hook_started","hook_id":"h1"}"#;
+        let events = registry.process("claude", hook_line);
+        assert!(events.is_empty(), "Hook events should be ignored");
     }
 }

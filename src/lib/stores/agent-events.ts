@@ -60,18 +60,19 @@ export function processAgentEvent(payload: AgentEventPayload): void {
   const { session_id, event } = payload;
 
   // Append event with pruning to prevent unbounded growth
+  // IMPORTANT: create new Map + new array so Svelte 5 $derived detects the change
   agentEvents.update((map) => {
-    const events = map.get(session_id) ?? [];
-    events.push(event);
+    const existing = map.get(session_id) ?? [];
+    let events = [...existing, event];
 
     // Prune oldest events if over limit
     if (events.length > MAX_EVENTS_PER_SESSION) {
-      const excess = events.length - MAX_EVENTS_PER_SESSION;
-      events.splice(0, excess);
+      events = events.slice(events.length - MAX_EVENTS_PER_SESSION);
     }
 
-    map.set(session_id, events);
-    return map;
+    const next = new Map(map);
+    next.set(session_id, events);
+    return next;
   });
 
   // Handle event-type-specific side effects

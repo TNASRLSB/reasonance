@@ -91,11 +91,6 @@ duration_ms = "duration_ms"
 duration_api_ms = "duration_api_ms"
 num_turns = "num_turns"
 
-[[rules]]
-name = "done"
-when = 'type == "result" && subtype == "success"'
-emit = "done"
-
 [[tests]]
 name = "basic_text"
 prompt = "Reply with exactly: REASONANCE_TEST_OK"

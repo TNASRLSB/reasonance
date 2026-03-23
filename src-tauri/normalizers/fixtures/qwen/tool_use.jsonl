@@ -2,4 +2,3 @@
 {"type":"content_block_delta","delta":{"type":"input_json_delta","partial_json":"{\"path\":\"test.rs\"}"}}
 {"type":"content_block_stop"}
 {"type":"result","subtype":"success","usage":{"input_tokens":15,"output_tokens":8}}
-{"type":"result","subtype":"success"}

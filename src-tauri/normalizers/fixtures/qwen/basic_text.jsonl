@@ -1,3 +1,2 @@
 {"type":"content_block_delta","delta":{"type":"text_delta","text":"Hello from Qwen"}}
 {"type":"result","subtype":"success","usage":{"input_tokens":8,"output_tokens":4}}
-{"type":"result","subtype":"success"}

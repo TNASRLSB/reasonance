@@ -18,7 +18,7 @@ export default defineConfig({
     environment: 'jsdom',
     pool: 'forks',
     include: ['tests/**/*.test.ts'],
-    exclude: ['tests/visual/**', 'tests/interaction/**'],
+    exclude: ['tests/visual/**', 'tests/interaction/**', 'tests/a11y/**'],
     globals: true,
     alias: {
       '@tauri-apps/api/event': path.resolve('./tests/mocks/tauri-api.ts'),

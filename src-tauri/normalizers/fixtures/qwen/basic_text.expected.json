@@ -1,5 +1,4 @@
 [
   {"event_type": "text", "content_contains": "Hello"},
-  {"event_type": "usage", "has_input_tokens": true},
-  {"event_type": "done"}
+  {"event_type": "usage", "has_input_tokens": true}
 ]

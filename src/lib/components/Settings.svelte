@@ -650,7 +650,7 @@
           <div class="provider-list">
             {#each llms as llm, i}
               {@const visual = getProviderVisual(llm.provider ?? llm.name)}
-              {@const models = getModelsForProvider(llm.provider ?? llm.name)}
+              {@const models = getModelsForProvider((llm.provider ?? llm.name).toLowerCase())}
               {@const isExpanded = expandedProvider === llm.name}
               {@const steps = connectionSteps.get(llm.name) ?? []}
               {@const isTesting = testingProvider === llm.name}

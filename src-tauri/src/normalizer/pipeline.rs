@@ -28,12 +28,21 @@ impl NormalizerPipeline {
 
         // Stage 1: Rules Engine — find matching rule
         let rule = match find_matching_rule(&self.rules, &value) {
-            Some(r) => r,
-            None => return vec![],
+            Some(r) => {
+                log::debug!("Pipeline[{}]: matched rule '{}' → emit '{}'", self.provider, r.name, r.emit);
+                r
+            }
+            None => {
+                let json_type = value.get("type").and_then(|t| t.as_str()).unwrap_or("?");
+                log::trace!("Pipeline[{}]: no rule matched for type='{}'", self.provider, json_type);
+                return vec![];
+            }
         };
 
         // Build AgentEvent from rule + JSON
         let event = self.build_event(rule, &value);
+        log::debug!("Pipeline[{}]: built event type={:?} content_len={}", self.provider, event.event_type,
+            match &event.content { crate::agent_event::EventContent::Text { value } => value.len(), _ => 0 });
 
         // Stage 2: State Machine — accumulate/flush
         let events = self.state_machine.process(event);

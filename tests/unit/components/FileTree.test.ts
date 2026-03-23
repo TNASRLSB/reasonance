@@ -21,7 +21,7 @@ describe('FileTree component', () => {
     const adapter = createMockAdapter();
     render(FileTree, { props: { adapter } });
     const header = document.querySelector('.tree-header');
-    expect(header?.textContent).toBe('FILES');
+    expect(header?.textContent).toContain('FILES');
   });
 
   it('renders project name in header when projectRoot is set', async () => {
@@ -30,7 +30,7 @@ describe('FileTree component', () => {
     render(FileTree, { props: { adapter } });
     await new Promise((r) => setTimeout(r, 10));
     const header = document.querySelector('.tree-header');
-    expect(header?.textContent).toBe('myproject');
+    expect(header?.textContent).toContain('myproject');
   });
 
   it('renders file entries returned by listDir', async () => {

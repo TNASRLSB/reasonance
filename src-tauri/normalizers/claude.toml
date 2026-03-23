@@ -35,54 +35,17 @@ interrupt = { method = "stdin", format = "\n{message}\n" }
 session_id_path = "message.id"
 model_path = "message.model"
 
+# --- Claude CLI stream-json format rules ---
+# The CLI outputs: type="assistant" (response), type="result" (final), type="system" (hooks/init)
+
 [[rules]]
-name = "text_chunk"
-when = 'type == "content_block_delta" && delta.type == "text_delta"'
+name = "assistant_text"
+when = 'type == "assistant" && exists(message.content)'
 emit = "text"
 
 [rules.mappings]
-content = "delta.text"
-
-[[rules]]
-name = "thinking"
-when = 'type == "content_block_delta" && delta.type == "thinking_delta"'
-emit = "thinking"
-
-[rules.mappings]
-content = "delta.thinking"
-
-[[rules]]
-name = "tool_start"
-when = 'type == "content_block_start" && content_block.type == "tool_use"'
-emit = "tool_use"
-
-[rules.mappings]
-content = "content_block.input"
-tool_name = "content_block.name"
-parent_id = "content_block.id"
-
-[[rules]]
-name = "tool_input_delta"
-when = 'type == "content_block_delta" && delta.type == "input_json_delta"'
-emit = "tool_use"
-
-[rules.mappings]
-content = "delta.partial_json"
-
-[[rules]]
-name = "block_stop"
-when = 'type == "content_block_stop"'
-emit = "status"
-
-[[rules]]
-name = "error_rate_limit"
-when = 'type == "error" && error.type == "overloaded"'
-emit = "error"
-
-[rules.mappings]
-content = "error.message"
-error_code = "error.type"
-severity = "recoverable"
+content = "message.content[0].text"
+model = "message.model"
 
 [[rules]]
 name = "error_generic"
@@ -90,32 +53,18 @@ when = 'type == "error"'
 emit = "error"
 
 [rules.mappings]
-content = "error.message"
-error_code = "error.type"
+content = "message"
+error_code = "code"
 severity = "fatal"
 
 [[rules]]
 name = "usage"
-when = 'type == "message_delta" && exists(usage)'
+when = 'type == "result" && exists(usage)'
 emit = "usage"
 
 [rules.mappings]
 input_tokens = "usage.input_tokens"
 output_tokens = "usage.output_tokens"
-
-[[rules]]
-name = "done"
-when = 'type == "message_stop"'
-emit = "done"
-
-[[rules]]
-name = "result_metrics"
-when = 'type == "result"'
-emit = "usage"
-# NOTE: Do NOT map input_tokens/output_tokens here — they are already
-# counted from the message_delta usage rule. Mapping them again would double-count.
-
-[rules.mappings]
 cache_creation_tokens = "usage.cache_creation_input_tokens"
 cache_read_tokens = "usage.cache_read_input_tokens"
 duration_ms = "duration_ms"

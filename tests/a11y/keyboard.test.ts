@@ -83,13 +83,14 @@ describe('EditorTabs keyboard navigation', () => {
     expect(labels).toContain('Close b.ts');
   });
 
-  it('tabs have tabindex=0 making them keyboard reachable', async () => {
+  it('active tab has tabindex=0 and inactive tabs have tabindex=-1 (roving tabindex)', async () => {
     const { container } = render(EditorTabs);
     const tabs = container.querySelectorAll('[role="tab"]');
 
-    tabs.forEach(tab => {
-      expect(tab.getAttribute('tabindex')).toBe('0');
-    });
+    // Active tab (a.ts) should be focusable
+    expect(tabs[0].getAttribute('tabindex')).toBe('0');
+    // Inactive tab (b.ts) should be removed from tab order
+    expect(tabs[1].getAttribute('tabindex')).toBe('-1');
   });
 });
 

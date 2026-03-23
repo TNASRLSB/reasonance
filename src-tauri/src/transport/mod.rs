@@ -86,7 +86,12 @@ impl StructuredAgentTransport {
             .ok_or_else(|| format!("No config for provider: {}", provider))?;
 
         let binary = config.cli.binary.clone();
-        let args = Self::build_cli_args(config, &request);
+        // Check if there's an existing CLI session to resume
+        let cli_session_id = request.session_id.as_ref().and_then(|sid| {
+            let sessions = self.sessions.lock().unwrap_or_else(|e| e.into_inner());
+            sessions.get(sid).and_then(|s| s.cli_session_id.clone())
+        });
+        let args = Self::build_cli_args(config, &request, cli_session_id.as_deref());
         let rules = config.to_rules();
         drop(registry);
 
@@ -214,8 +219,11 @@ impl StructuredAgentTransport {
         self.registry.clone()
     }
 
-    fn build_cli_args(config: &crate::normalizer::TomlConfig, request: &AgentRequest) -> Vec<String> {
-        let args_template = if request.session_id.is_some() {
+    /// Build CLI args. `cli_session_id` is the session ID returned by the CLI
+    /// (e.g., from a previous invocation), NOT the internal Reasonance session ID.
+    /// Only when a real CLI session ID is provided do we use `resume_args`.
+    fn build_cli_args(config: &crate::normalizer::TomlConfig, request: &AgentRequest, cli_session_id: Option<&str>) -> Vec<String> {
+        let args_template = if cli_session_id.is_some() {
             &config.cli.resume_args
         } else {
             &config.cli.programmatic_args
@@ -223,7 +231,7 @@ impl StructuredAgentTransport {
 
         args_template.iter().map(|arg| {
             arg.replace("{prompt}", &request.prompt)
-                .replace("{session_id}", request.session_id.as_deref().unwrap_or(""))
+                .replace("{session_id}", cli_session_id.unwrap_or(""))
                 .replace("{model}", request.model.as_deref().unwrap_or(""))
         }).collect()
     }
@@ -234,6 +242,9 @@ mod integration_tests;
 
 #[cfg(test)]
 mod session_integration_tests;
+
+#[cfg(test)]
+mod chat_flow_tests;
 
 #[cfg(test)]
 mod tests {
@@ -280,7 +291,7 @@ mod tests {
             max_tokens: None,
             allowed_tools: None,
         };
-        let args = StructuredAgentTransport::build_cli_args(config, &request);
+        let args = StructuredAgentTransport::build_cli_args(config, &request, None);
         assert!(args.contains(&"test prompt".to_string()));
         assert!(args.contains(&"--output-format".to_string()));
         assert!(args.contains(&"stream-json".to_string()));
@@ -301,7 +312,8 @@ mod tests {
             max_tokens: None,
             allowed_tools: None,
         };
-        let args = StructuredAgentTransport::build_cli_args(config, &request);
+        // Resume only happens when a CLI session ID is provided
+        let args = StructuredAgentTransport::build_cli_args(config, &request, Some("sess-123"));
         assert!(args.contains(&"--resume".to_string()));
         assert!(args.contains(&"sess-123".to_string()));
     }

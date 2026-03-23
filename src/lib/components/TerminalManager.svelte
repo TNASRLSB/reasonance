@@ -81,6 +81,7 @@
       id: handle.id,
       llmName,
       label,
+      modelName: config.model ?? undefined,
     };
 
     terminalTabs.update((current) => {
@@ -382,8 +383,8 @@
       {/if}
     </div>
 
-    <!-- Terminal Toolbar -->
-    {#if $activeInstanceId && activeConfig}
+    <!-- Terminal Toolbar (only in terminal mode) -->
+    {#if $activeInstanceId && activeConfig && getViewMode($activeInstanceId) === 'terminal'}
       <TerminalToolbar
         {adapter}
         instanceId={$activeInstanceId}
@@ -407,14 +408,16 @@
                 {adapter}
                 sessionId={inst.id}
                 provider={inst.llmName}
-                model={inst.llmName}
+                model={inst.modelName ?? inst.llmName}
               />
-            {:else}
+            {:else if getViewMode(inst.id) === 'terminal'}
               <ImageDrop {adapter} instanceId={inst.id} llmName={inst.llmName}>
                 {#snippet children()}
                   <Terminal {adapter} ptyId={inst.id} />
                 {/snippet}
               </ImageDrop>
+            {:else}
+              <div style="padding: 20px; color: red; font-weight: bold;">DEBUG: viewMode = {getViewMode(inst.id)}</div>
             {/if}
           </div>
         {/each}

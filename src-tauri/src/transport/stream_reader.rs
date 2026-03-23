@@ -32,17 +32,31 @@ pub fn spawn_stream_reader(
                         continue;
                     }
 
+                    // Log the raw JSON type for debugging
+                    let json_type = serde_json::from_str::<serde_json::Value>(&line)
+                        .ok()
+                        .and_then(|v| v.get("type").and_then(|t| t.as_str().map(|s| s.to_string())));
+                    log::debug!("StreamReader[{}]: raw line type={:?} len={}", session_id, json_type, line.len());
+
                     let events = {
                         let mut pl = pipeline.lock().unwrap_or_else(|e| e.into_inner());
                         pl.process(&line)
                     };
 
+                    if events.is_empty() {
+                        log::trace!("StreamReader[{}]: no events from line type={:?}", session_id, json_type);
+                    }
                     for event in &events {
                         events_count += 1;
+                        log::debug!("StreamReader[{}]: emitting {:?}", session_id, event.event_type);
                         event_bus.publish(&session_id, event);
                     }
                 }
                 Ok(None) => {
+                    // Emit a synthetic done event when the CLI process closes stdout
+                    let done_event = crate::agent_event::AgentEvent::done(&session_id, "system");
+                    events_count += 1;
+                    event_bus.publish(&session_id, &done_event);
                     break;
                 }
                 Err(e) => {
@@ -69,8 +83,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_stream_reader_with_echo() {
-        let json1 = r#"{"type":"content_block_delta","delta":{"type":"text_delta","text":"Hello"}}"#;
-        let json2 = r#"{"type":"message_stop"}"#;
+        // Use Claude CLI stream-json format
+        let json1 = r#"{"type":"assistant","message":{"id":"msg_1","model":"claude-sonnet-4-6","content":[{"type":"text","text":"Hello"}]}}"#;
+        let json2 = r#"{"type":"result","subtype":"success","duration_ms":100,"usage":{"input_tokens":5,"output_tokens":2}}"#;
 
         let mut child = Command::new("sh")
             .arg("-c")
@@ -111,9 +126,10 @@ mod tests {
         let result = rx.await.unwrap();
 
         assert!(result.error.is_none());
-        assert!(result.events_count >= 2);
+        // text + usage + synthetic done from stream close
+        assert!(result.events_count >= 3);
 
         let events = recorder_ref.get_events("test-session");
-        assert!(events.len() >= 2);
+        assert!(events.len() >= 3);
     }
 }
