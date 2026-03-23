@@ -49,6 +49,10 @@ impl AgentSession {
         self.status = status;
     }
 
+    pub fn set_cli_session_id(&mut self, id: String) {
+        self.cli_session_id = Some(id);
+    }
+
     pub fn event_count(&self) -> usize {
         self.events.len()
     }
@@ -101,6 +105,14 @@ mod tests {
 
         session.set_status(SessionStatus::Terminated);
         assert_eq!(session.status, SessionStatus::Terminated);
+    }
+
+    #[test]
+    fn test_set_cli_session_id() {
+        let mut session = AgentSession::new(sample_request(), CliMode::Structured);
+        assert!(session.cli_session_id.is_none());
+        session.set_cli_session_id("msg_abc123".to_string());
+        assert_eq!(session.cli_session_id, Some("msg_abc123".to_string()));
     }
 
     #[test]
