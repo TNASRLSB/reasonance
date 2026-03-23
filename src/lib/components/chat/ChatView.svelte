@@ -128,6 +128,7 @@
     {currentSpeed}
     {elapsed}
     {streaming}
+    {provider}
   />
 </div>
 

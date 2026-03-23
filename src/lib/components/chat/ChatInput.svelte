@@ -2,6 +2,9 @@
   import { get } from 'svelte/store';
   import { yoloMode } from '$lib/stores/ui';
   import { tr } from '$lib/i18n/index';
+  import SlashMenu from './SlashMenu.svelte';
+  import type { SlashCommand } from '$lib/stores/config';
+  import { defaultSlashCommands } from '$lib/data/slash-commands';
 
   let {
     onSend,
@@ -13,6 +16,7 @@
     currentSpeed = 0,
     elapsed = 0,
     streaming = false,
+    provider = '',
   }: {
     onSend: (text: string) => void;
     disabled?: boolean;
@@ -23,11 +27,45 @@
     currentSpeed?: number;
     elapsed?: number;
     streaming?: boolean;
+    provider?: string;
   } = $props();
 
   let text = $state('');
   let sending = $state(false);
   let sendTimer: ReturnType<typeof setTimeout> | null = null;
+
+  let showSlashMenu = $derived(text.startsWith('/') && text.indexOf(' ') === -1);
+  let slashFilter = $derived(text.startsWith('/') ? text.slice(1) : '');
+
+  let slashCommands = $derived.by(() => {
+    const cmd = provider.toLowerCase();
+    return defaultSlashCommands[cmd] ?? defaultSlashCommands['claude'] ?? [];
+  });
+
+  let slashFiltered = $derived.by(() => {
+    if (!slashFilter) return slashCommands;
+    const lower = slashFilter.toLowerCase();
+    return slashCommands.filter(c =>
+      c.command.toLowerCase().includes(lower) ||
+      c.description.toLowerCase().includes(lower)
+    );
+  });
+
+  let slashActiveIndex = $state(0);
+
+  $effect(() => {
+    slashFilter;
+    slashActiveIndex = 0;
+  });
+
+  function handleSlashSelect(cmd: SlashCommand) {
+    if (['/clear', '/fork', '/compact', '/export'].includes(cmd.command)) {
+      onSend(cmd.command);
+      text = '';
+    } else {
+      text = cmd.command + ' ';
+    }
+  }
 
   function handleSubmit() {
     const trimmed = text.trim();
@@ -40,6 +78,28 @@
   }
 
   function handleKeydown(e: KeyboardEvent) {
+    if (showSlashMenu && slashFiltered.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        slashActiveIndex = Math.min(slashActiveIndex + 1, slashFiltered.length - 1);
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        slashActiveIndex = Math.max(slashActiveIndex - 1, 0);
+        return;
+      }
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleSlashSelect(slashFiltered[slashActiveIndex]);
+        return;
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        text = '';
+        return;
+      }
+    }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit();
@@ -70,6 +130,14 @@
 </script>
 
 <div class="chat-input-wrapper">
+  {#if showSlashMenu}
+    <SlashMenu
+      commands={slashFiltered}
+      activeIndex={slashActiveIndex}
+      onSelect={handleSlashSelect}
+      onClose={() => { text = ''; }}
+    />
+  {/if}
   <div class="input-row">
     <textarea
       bind:value={text}
@@ -77,6 +145,11 @@
       placeholder={$tr('chat.placeholder')}
       rows="1"
       {disabled}
+      role={showSlashMenu ? 'combobox' : undefined}
+      aria-autocomplete={showSlashMenu ? 'list' : undefined}
+      aria-expanded={showSlashMenu}
+      aria-controls={showSlashMenu ? 'slash-menu' : undefined}
+      aria-activedescendant={showSlashMenu && slashFiltered.length > 0 ? `slash-cmd-${slashActiveIndex}` : undefined}
       aria-label="Message input"
     ></textarea>
     <button
