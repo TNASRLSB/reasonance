@@ -1,6 +1,6 @@
 # Maintainer: Reasonance team
 pkgname=reasonance
-pkgver=0.8.0
+pkgver=0.8.1
 pkgrel=1
 pkgdesc='Lightweight IDE for vibecoders who work with LLMs'
 arch=('x86_64')
