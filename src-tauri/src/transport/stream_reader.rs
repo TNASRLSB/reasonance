@@ -77,7 +77,25 @@ pub fn spawn_stream_reader(
                     break;
                 }
                 Err(e) => {
-                    error = Some(format!("{}", e));
+                    let err_msg = format!("Stream read error: {}", e);
+                    log::error!("StreamReader[{}]: {}", session_id, err_msg);
+
+                    // Publish error event so frontend knows something went wrong
+                    let error_event = crate::agent_event::AgentEvent::error(
+                        &err_msg,
+                        "STREAM_IO_ERROR",
+                        crate::agent_event::ErrorSeverity::Fatal,
+                        "system",
+                    );
+                    event_bus.publish(&session_id, &error_event);
+                    events_count += 1;
+
+                    // Publish done event so frontend clears streaming state
+                    let done_event = crate::agent_event::AgentEvent::done(&session_id, "system");
+                    event_bus.publish(&session_id, &done_event);
+                    events_count += 1;
+
+                    error = Some(err_msg);
                     break;
                 }
             }
