@@ -1,5 +1,51 @@
 # Changelog
 
+## [0.7.0] - 2026-03-23
+
+### Features
+
+- feat(ui): move YOLO toggle to chat input, add CLI dir permissions and CSP updates
+- feat(transport): extract CLI session ID from stream for conversation resume
+- feat(normalizer): add session_id_path getter to TomlConfig
+- feat(transport): add set_cli_session_id method to AgentSession
+- feat: API-only LLM support, extended CLI discovery, a11y and UI fixes
+
+### Bug Fixes
+
+- fix(stream): add configurable timeout to prevent hung sessions (default 5min)
+- fix(events): show warning when old messages are pruned from memory
+- fix(transport): reuse existing sessions for conversation continuity with --resume
+- fix(stream): publish error+done events on I/O failure to unblock frontend
+- fix(yolo): gate permission_args on YOLO toggle state, not hardcoded
+
+### Other
+
+- - Add permission_args to CLI normalizer configs for auto-approval flags
+- - Allow read/write access to CLI local dirs (~/.claude, ~/.gemini, ~/.codex)
+- - Update CSP to allow IPC, WebSocket, and wasm-unsafe-eval for Tauri v2
+- - Simplify YOLO restart flow (auto-restart without confirmation)
+- - Add chat.placeholder i18n key across all languages
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- 
+- 
+- 
+- 
+- 
+- 
+- 
+- 
+- discovery with common install dirs, and merge newly found CLIs on every
+- startup instead of skipping when config exists. Fix accessibility across
+- components (tabindex, keyboard handlers, svelte-ignore directives),
+- persist panel widths in localStorage, improve chat auto-scroll logic,
+- and add YOLO restart confirmation with i18n support.
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+
+
+
 ## [0.6.0] - 2026-03-23
 
 ### Features
