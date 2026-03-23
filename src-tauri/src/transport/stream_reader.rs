@@ -4,6 +4,7 @@ use std::sync::{Arc, Mutex};
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::ChildStdout;
 use tokio::sync::oneshot;
+use tokio::time::{timeout, Duration};
 
 pub struct StreamResult {
     pub events_count: u32,
@@ -17,6 +18,7 @@ pub fn spawn_stream_reader(
     session_id: String,
     session_id_path: Option<String>,
     cli_session_id: Arc<Mutex<Option<String>>>,
+    line_timeout: Option<Duration>,
 ) -> oneshot::Receiver<StreamResult> {
     let (tx, rx) = oneshot::channel();
 
@@ -25,10 +27,11 @@ pub fn spawn_stream_reader(
         let mut lines = reader.lines();
         let mut events_count: u32 = 0;
         let mut error: Option<String> = None;
+        let effective_timeout = line_timeout.unwrap_or(Duration::from_secs(300)); // default 5 minutes
 
         loop {
-            match lines.next_line().await {
-                Ok(Some(raw_line)) => {
+            match timeout(effective_timeout, lines.next_line()).await {
+                Ok(Ok(Some(raw_line))) => {
                     let line = raw_line.trim().to_string();
                     if line.is_empty() {
                         continue;
@@ -69,14 +72,14 @@ pub fn spawn_stream_reader(
                         event_bus.publish(&session_id, event);
                     }
                 }
-                Ok(None) => {
+                Ok(Ok(None)) => {
                     // Emit a synthetic done event when the CLI process closes stdout
                     let done_event = crate::agent_event::AgentEvent::done(&session_id, "system");
                     events_count += 1;
                     event_bus.publish(&session_id, &done_event);
                     break;
                 }
-                Err(e) => {
+                Ok(Err(e)) => {
                     let err_msg = format!("Stream read error: {}", e);
                     log::error!("StreamReader[{}]: {}", session_id, err_msg);
 
@@ -91,6 +94,25 @@ pub fn spawn_stream_reader(
                     events_count += 1;
 
                     // Publish done event so frontend clears streaming state
+                    let done_event = crate::agent_event::AgentEvent::done(&session_id, "system");
+                    event_bus.publish(&session_id, &done_event);
+                    events_count += 1;
+
+                    error = Some(err_msg);
+                    break;
+                }
+                Err(_elapsed) => {
+                    // Timeout — CLI is hung
+                    let err_msg = format!("Stream timeout: no output for {} seconds", effective_timeout.as_secs());
+                    log::error!("StreamReader[{}]: {}", session_id, err_msg);
+
+                    let error_event = crate::agent_event::AgentEvent::error(
+                        &err_msg, "STREAM_TIMEOUT",
+                        crate::agent_event::ErrorSeverity::Fatal, "system",
+                    );
+                    event_bus.publish(&session_id, &error_event);
+                    events_count += 1;
+
                     let done_event = crate::agent_event::AgentEvent::done(&session_id, "system");
                     event_bus.publish(&session_id, &done_event);
                     events_count += 1;
@@ -156,7 +178,7 @@ mod tests {
         }
         bus.subscribe(Box::new(RecorderWrapper(recorder.clone())));
 
-        let rx = spawn_stream_reader(stdout, pipeline, bus, "test-session".to_string(), None, Arc::new(Mutex::new(None)));
+        let rx = spawn_stream_reader(stdout, pipeline, bus, "test-session".to_string(), None, Arc::new(Mutex::new(None)), None);
 
         let result = rx.await.unwrap();
 
@@ -198,7 +220,7 @@ mod tests {
 
         let rx = spawn_stream_reader(
             stdout, pipeline, bus, "test-session".to_string(),
-            Some("message.id".to_string()), cli_sid.clone(),
+            Some("message.id".to_string()), cli_sid.clone(), None,
         );
 
         let result = rx.await.unwrap();
@@ -206,5 +228,61 @@ mod tests {
 
         let captured = cli_sid.lock().unwrap().clone();
         assert_eq!(captured, Some("msg_test_123".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_stream_reader_timeout() {
+        // Spawn a process that writes nothing to stdout (hangs)
+        let mut child = Command::new("sh")
+            .arg("-c")
+            .arg("sleep 9999")
+            .stdout(Stdio::piped())
+            .spawn()
+            .expect("Failed to spawn");
+
+        let stdout = child.stdout.take().unwrap();
+
+        let registry = NormalizerRegistry::load_from_dir(
+            std::path::Path::new("normalizers")
+        ).unwrap();
+        let config = registry.get_config("claude").unwrap();
+        let rules = config.to_rules();
+        let state_machine = Box::new(
+            crate::normalizer::state_machines::generic::GenericStateMachine::new()
+        );
+        let pipeline = Arc::new(Mutex::new(
+            crate::normalizer::pipeline::NormalizerPipeline::new(rules, state_machine, "claude".to_string())
+        ));
+
+        let bus = Arc::new(AgentEventBus::new());
+        let recorder = Arc::new(HistoryRecorder::new());
+
+        struct RecorderWrapper(Arc<HistoryRecorder>);
+        impl crate::transport::event_bus::AgentEventSubscriber for RecorderWrapper {
+            fn on_event(&self, session_id: &str, event: &AgentEvent) {
+                self.0.on_event(session_id, event);
+            }
+        }
+        bus.subscribe(Box::new(RecorderWrapper(recorder.clone())));
+
+        // Use a short timeout (2 seconds) to actually test the timeout path
+        let rx = spawn_stream_reader(
+            stdout, pipeline, bus, "test-timeout".to_string(),
+            None, Arc::new(Mutex::new(None)),
+            Some(Duration::from_secs(2)),
+        );
+
+        let result = rx.await.unwrap();
+        assert!(result.error.is_some(), "should have timeout error");
+        assert!(result.error.unwrap().contains("timeout"), "error should mention timeout");
+
+        let events = recorder.get_events("test-timeout");
+        assert!(events.iter().any(|e| e.event_type == crate::agent_event::AgentEventType::Error),
+            "should have error event");
+        assert!(events.iter().any(|e| e.event_type == crate::agent_event::AgentEventType::Done),
+            "should have done event after timeout");
+
+        // Clean up the hanging process
+        let _ = child.kill().await;
     }
 }

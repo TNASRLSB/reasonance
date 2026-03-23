@@ -190,7 +190,7 @@ impl StructuredAgentTransport {
 
         let cli_session_id_ref = Arc::new(Mutex::new(None::<String>));
         let cli_sid_for_reader = cli_session_id_ref.clone();
-        let rx = spawn_stream_reader(stdout, pipeline, event_bus, sid.clone(), session_id_path, cli_sid_for_reader);
+        let rx = spawn_stream_reader(stdout, pipeline, event_bus, sid.clone(), session_id_path, cli_sid_for_reader, None);
 
         let join_handle = tokio::spawn(async move {
             let _ = child.wait().await;
