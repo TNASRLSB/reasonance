@@ -10,8 +10,14 @@
 	</head>
 	<body data-sveltekit-preload-data="hover">
 		<div style="display: contents">%sveltekit.body%</div>
+		<div id="layer-portal"></div>
 		<script>
 			var __DEV__ = window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost';
+			function isViteHmrError(err) {
+				if (!err) return false;
+				var s = (err.stack || '') + (err.message || '') + String(err);
+				return s.indexOf('@vite/client') !== -1 || s.indexOf("ws.send") !== -1;
+			}
 			function showErr(msg) {
 				var d = document.createElement('pre');
 				d.style.cssText = 'position:fixed;top:32px;left:0;right:0;background:#991b1b;color:white;padding:8px 32px 8px 12px;z-index:99999;font-size:13px;white-space:pre-wrap;max-height:40vh;overflow:auto;cursor:pointer;';
@@ -21,6 +27,7 @@
 				document.body.prepend(d);
 			}
 			window.addEventListener('error', function(e) {
+				if (isViteHmrError(e.error) || (e.filename && e.filename.indexOf('@vite/client') !== -1)) return;
 				if (__DEV__) {
 					showErr(e.message + '\n' + (e.filename || '') + ':' + (e.lineno || '') + '\n' + (e.error && e.error.stack || ''));
 				} else {
@@ -28,8 +35,9 @@
 				}
 			});
 			window.addEventListener('unhandledrejection', function(e) {
+				if (isViteHmrError(e.reason)) return;
+				var r = e.reason;
 				if (__DEV__) {
-					var r = e.reason;
 					showErr('Unhandled rejection: ' + r + '\n' + (r && r.stack || '') + '\n' + (r && r.message || ''));
 				} else {
 					showErr('An unexpected error occurred. Please restart the application.');

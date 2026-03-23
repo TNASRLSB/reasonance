@@ -31,14 +31,14 @@
     border: var(--border-width) solid var(--border);
     border-inline-start: 4px solid var(--danger);
     background: var(--bg-secondary);
-    padding: 8px 12px;
+    padding: var(--space-2) var(--space-3);
   }
 
   .error-header {
     display: flex;
-    gap: 8px;
+    gap: var(--space-2);
     align-items: center;
-    margin-bottom: 4px;
+    margin-bottom: var(--stack-tight);
   }
 
   .error-severity {

@@ -70,3 +70,26 @@ export function menuKeyHandler(e: KeyboardEvent, container: HTMLElement, itemSel
     items[nextIndex].focus();
   }
 }
+
+/**
+ * Handles arrow key navigation within a toolbar container.
+ * Uses left/right arrows (horizontal navigation) with roving tabindex.
+ */
+export function toolbarKeyHandler(e: KeyboardEvent, container: HTMLElement, selector = 'button:not([disabled])') {
+  const items = Array.from(container.querySelectorAll<HTMLElement>(selector));
+  const current = items.indexOf(document.activeElement as HTMLElement);
+  if (current === -1) return;
+
+  let next = -1;
+  switch (e.key) {
+    case 'ArrowRight': next = (current + 1) % items.length; break;
+    case 'ArrowLeft': next = (current - 1 + items.length) % items.length; break;
+    case 'Home': next = 0; break;
+    case 'End': next = items.length - 1; break;
+    default: return;
+  }
+
+  e.preventDefault();
+  items.forEach((item, i) => item.tabIndex = i === next ? 0 : -1);
+  items[next].focus();
+}

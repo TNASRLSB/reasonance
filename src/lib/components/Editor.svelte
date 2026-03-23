@@ -15,39 +15,47 @@
   import type { Adapter } from '$lib/adapter';
   import { tr } from '$lib/i18n/index';
 
-  // Dark theme for editor chrome
-  const forgeDarkTheme = EditorView.theme({
-    '&': { backgroundColor: '#0e0e0e', color: '#d4d4d4' },
-    '.cm-content': {
-      fontFamily: "'Atkinson Hyperlegible Mono', monospace",
-      fontSize: '14px',
-      caretColor: '#f0f0f0',
-    },
-    '.cm-cursor': { borderLeftColor: '#f0f0f0' },
-    '.cm-gutters': { backgroundColor: '#121212', color: '#444', borderRight: '2px solid #333' },
-    '.cm-activeLineGutter': { backgroundColor: '#1a1a1a', color: '#888' },
-    '.cm-activeLine': { backgroundColor: 'rgba(255, 255, 255, 0.03)' },
-    '.cm-selectionBackground': { backgroundColor: 'rgba(29, 78, 216, 0.3) !important' },
-    '&.cm-focused .cm-selectionBackground': { backgroundColor: 'rgba(29, 78, 216, 0.4) !important' },
-    '.cm-selectionMatch': { backgroundColor: 'rgba(29, 78, 216, 0.15)' },
-  }, { dark: true });
+  function getToken(name: string): string {
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  }
 
-  // Light theme for editor chrome
-  const forgeLightTheme = EditorView.theme({
-    '&': { backgroundColor: '#fafafa', color: '#1a1a1a' },
-    '.cm-content': {
-      fontFamily: "'Atkinson Hyperlegible Mono', monospace",
-      fontSize: '14px',
-      caretColor: '#0a0a0a',
-    },
-    '.cm-cursor': { borderLeftColor: '#0a0a0a' },
-    '.cm-gutters': { backgroundColor: '#f0f0f0', color: '#999', borderRight: '2px solid #d4d4d4' },
-    '.cm-activeLineGutter': { backgroundColor: '#e5e5e5', color: '#666' },
-    '.cm-activeLine': { backgroundColor: 'rgba(0, 0, 0, 0.03)' },
-    '.cm-selectionBackground': { backgroundColor: 'rgba(29, 78, 216, 0.2) !important' },
-    '&.cm-focused .cm-selectionBackground': { backgroundColor: 'rgba(29, 78, 216, 0.3) !important' },
-    '.cm-selectionMatch': { backgroundColor: 'rgba(29, 78, 216, 0.1)' },
-  }, { dark: false });
+  function buildDarkEditorTheme() {
+    const accent = getToken('--accent');
+    return EditorView.theme({
+      '&': { backgroundColor: getToken('--bg-primary'), color: getToken('--text-body') },
+      '.cm-content': {
+        fontFamily: "'Atkinson Hyperlegible Mono', monospace",
+        fontSize: '14px',
+        caretColor: getToken('--text-primary'),
+      },
+      '.cm-cursor': { borderLeftColor: getToken('--text-primary') },
+      '.cm-gutters': { backgroundColor: getToken('--bg-surface'), color: getToken('--text-muted'), borderRight: `2px solid ${getToken('--border-color')}` },
+      '.cm-activeLineGutter': { backgroundColor: getToken('--bg-secondary'), color: getToken('--text-secondary') },
+      '.cm-activeLine': { backgroundColor: 'rgba(255, 255, 255, 0.03)' },
+      '.cm-selectionBackground': { backgroundColor: `color-mix(in srgb, ${accent} 30%, transparent) !important` },
+      '&.cm-focused .cm-selectionBackground': { backgroundColor: `color-mix(in srgb, ${accent} 40%, transparent) !important` },
+      '.cm-selectionMatch': { backgroundColor: `color-mix(in srgb, ${accent} 15%, transparent)` },
+    }, { dark: true });
+  }
+
+  function buildLightEditorTheme() {
+    const accent = getToken('--accent');
+    return EditorView.theme({
+      '&': { backgroundColor: getToken('--bg-primary'), color: getToken('--text-body') },
+      '.cm-content': {
+        fontFamily: "'Atkinson Hyperlegible Mono', monospace",
+        fontSize: '14px',
+        caretColor: getToken('--text-primary'),
+      },
+      '.cm-cursor': { borderLeftColor: getToken('--text-primary') },
+      '.cm-gutters': { backgroundColor: getToken('--bg-secondary'), color: getToken('--text-muted'), borderRight: `2px solid ${getToken('--border-color')}` },
+      '.cm-activeLineGutter': { backgroundColor: getToken('--bg-tertiary'), color: getToken('--text-secondary') },
+      '.cm-activeLine': { backgroundColor: 'rgba(0, 0, 0, 0.03)' },
+      '.cm-selectionBackground': { backgroundColor: `color-mix(in srgb, ${accent} 20%, transparent) !important` },
+      '&.cm-focused .cm-selectionBackground': { backgroundColor: `color-mix(in srgb, ${accent} 30%, transparent) !important` },
+      '.cm-selectionMatch': { backgroundColor: `color-mix(in srgb, ${accent} 10%, transparent)` },
+    }, { dark: false });
+  }
 
   let { adapter, readOnly = true, showMarkdownPreview = false }: {
     adapter: Adapter;
@@ -125,11 +133,11 @@
     if (selectedTheme && selectedTheme.extensions.length > 0) {
       themeExt = selectedTheme.extensions;
     } else if ($editorTheme === 'one-dark' || ($editorTheme === 'forge-dark' && $isDark)) {
-      themeExt = [oneDark, forgeDarkTheme];
+      themeExt = [oneDark, buildDarkEditorTheme()];
     } else if ($editorTheme === 'forge-light' || !$isDark) {
-      themeExt = [forgeLightTheme];
+      themeExt = [buildLightEditorTheme()];
     } else {
-      themeExt = [oneDark, forgeDarkTheme];
+      themeExt = [oneDark, buildDarkEditorTheme()];
     }
     return EditorState.create({
       doc: content,
@@ -339,9 +347,9 @@
     align-items: center;
     justify-content: center;
     color: var(--text-muted);
-    gap: 10px;
+    gap: var(--space-2);
     font-family: var(--font-ui);
-    font-size: 14px;
+    font-size: var(--font-size-base);
     font-weight: 500;
   }
 
@@ -354,7 +362,7 @@
     color: var(--border);
     font-family: var(--font-mono);
     border: 1px solid var(--border);
-    padding: 4px 12px;
+    padding: var(--space-1) var(--space-3);
   }
 
 </style>

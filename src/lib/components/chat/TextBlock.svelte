@@ -60,7 +60,7 @@
   }
 
   .text-block :global(p) {
-    margin: 0 0 8px 0;
+    margin: 0 0 var(--stack-normal) 0;
   }
 
   .text-block :global(p + p) {
@@ -75,16 +75,16 @@
     font-family: var(--font-mono);
     font-size: var(--font-size-code);
     background: var(--bg-tertiary);
-    padding: 1px 4px;
+    padding: var(--stack-tight) var(--space-1);
     border: var(--border-width) solid var(--border);
   }
 
   .text-block :global(pre) {
     background: var(--bg-primary);
     border: var(--border-width) solid var(--border);
-    padding: 12px;
+    padding: var(--inset-component);
     overflow-x: auto;
-    margin: 8px 0;
+    margin: var(--stack-normal) 0;
   }
 
   .text-block :global(pre code) {
@@ -104,27 +104,27 @@
 
   .text-block :global(blockquote) {
     border-inline-start: 4px solid var(--border);
-    margin: 8px 0;
-    padding: 4px 12px;
+    margin: var(--stack-normal) 0;
+    padding: var(--space-1) var(--space-3);
     color: var(--text-secondary);
   }
 
   .text-block :global(ul),
   .text-block :global(ol) {
-    margin: 4px 0;
-    padding-inline-start: 24px;
+    margin: var(--stack-tight) 0;
+    padding-inline-start: var(--space-5);
   }
 
   .text-block :global(table) {
     border-collapse: collapse;
     width: 100%;
-    margin: 8px 0;
+    margin: var(--stack-normal) 0;
   }
 
   .text-block :global(th),
   .text-block :global(td) {
     border: var(--border-width) solid var(--border);
-    padding: 4px 8px;
+    padding: var(--space-1) var(--space-2);
     text-align: start;
   }
 
@@ -141,18 +141,18 @@
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    margin: 12px 0 4px 0;
+    margin: var(--space-3) 0 var(--space-1) 0;
     color: var(--text-primary);
   }
 
-  .text-block :global(h1) { font-size: 18px; }
-  .text-block :global(h2) { font-size: 16px; }
-  .text-block :global(h3) { font-size: 14px; }
-  .text-block :global(h4) { font-size: 12px; }
+  .text-block :global(h1) { font-size: var(--font-size-md); line-height: var(--line-height-md); font-weight: var(--font-weight-lg); }
+  .text-block :global(h2) { font-size: var(--font-size-base); line-height: var(--line-height-base); font-weight: var(--font-weight-md); }
+  .text-block :global(h3) { font-size: var(--font-size-base); line-height: var(--line-height-base); font-weight: var(--font-weight-md); }
+  .text-block :global(h4) { font-size: var(--font-size-sm); line-height: var(--line-height-sm); font-weight: var(--font-weight-sm); }
 
   .text-block :global(hr) {
     border: none;
     border-top: var(--border-width) solid var(--border);
-    margin: 12px 0;
+    margin: var(--space-3) 0;
   }
 </style>

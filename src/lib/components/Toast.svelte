@@ -81,7 +81,7 @@
     inset-inline-end: 1.25rem;
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: var(--space-2);
     z-index: 9999;
     pointer-events: none;
   }
@@ -89,7 +89,7 @@
   .toast {
     display: flex;
     flex-direction: column;
-    padding: 0.75rem 1rem;
+    padding: var(--space-3) var(--space-4);
     min-width: 280px;
     max-width: 420px;
     background: var(--bg-secondary);
@@ -104,14 +104,14 @@
   .toast-row {
     display: flex;
     align-items: flex-start;
-    gap: 0.625rem;
+    gap: var(--space-2);
   }
 
   .toast-icon {
     display: flex;
     align-items: center;
-    gap: 6px;
-    font-size: 0.875rem;
+    gap: var(--interactive-gap);
+    font-size: var(--font-size-sm);
     font-weight: bold;
     flex-shrink: 0;
     margin-top: 1px;
@@ -139,7 +139,7 @@
   .toast-body {
     font-size: var(--font-size-small);
     color: var(--text-secondary);
-    margin-top: 0.25rem;
+    margin-top: var(--space-1);
     line-height: 1.4;
     word-break: break-word;
   }
@@ -150,12 +150,12 @@
     border: none;
     cursor: pointer;
     color: var(--text-secondary);
-    font-size: 1rem;
+    font-size: var(--font-size-base);
     line-height: 1;
-    padding: 4px;
+    padding: var(--space-1);
     margin-top: -1px;
     opacity: 0.6;
-    transition: opacity 0.15s;
+    transition: opacity var(--transition-fast);
     min-width: 32px;
     min-height: 32px;
     display: flex;
@@ -172,26 +172,26 @@
     width: 100%;
     height: 3px;
     background: var(--bg-secondary, #333);
-    margin-top: 0.5rem;
+    margin-top: var(--space-2);
   }
   .toast-progress-bar {
     height: 100%;
     background: var(--accent);
-    transition: width 0.3s ease;
+    transition: width var(--transition-normal);
   }
   .toast-actions {
     display: flex;
-    gap: 0.5rem;
-    margin-top: 0.5rem;
+    gap: var(--space-2);
+    margin-top: var(--space-2);
   }
   .toast-action-btn {
     background: transparent;
     border: 1px solid var(--accent);
     color: var(--accent);
-    padding: 0.25rem 0.75rem;
+    padding: var(--space-1) var(--space-3);
     cursor: pointer;
     font-family: inherit;
-    font-size: 0.85rem;
+    font-size: var(--font-size-sm);
   }
   .toast-action-btn:hover {
     background: var(--accent);
@@ -206,6 +206,12 @@
     to {
       transform: translateX(0);
       opacity: 1;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .toast-progress-bar {
+      transition: none;
     }
   }
 </style>

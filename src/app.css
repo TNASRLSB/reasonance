@@ -89,26 +89,142 @@
   --warning: #ca8a04;
   --warning-text: #fbbf24;      /* AAA 8.2:1 on #121212 — use for warning as text color */
 
+  /* ── Typography ── */
   --font-ui: 'Atkinson Hyperlegible Next', 'Noto Sans SC', 'Noto Sans Devanagari', 'Microsoft YaHei', 'PingFang SC', system-ui, -apple-system, sans-serif;
   --font-mono: 'Atkinson Hyperlegible Mono', monospace;
-  --font-size-base: 14px;
-  --font-size-small: 12px;
-  --font-size-tiny: 11px;
-  --font-size-code: 14px;
-  --font-size-terminal: 14px;
+
+  --font-size-sm:   0.75rem;   /* 12px — minimum */
+  --font-size-base: 1rem;      /* 16px */
+  --font-size-md:   1.25rem;   /* 20px */
+  --font-size-lg:   1.5rem;    /* 24px */
+  --font-size-hero: 2rem;      /* 32px */
+
+  /* Backward compatibility — remove after Phase 5 (Typography migration) */
+  --font-size-small: var(--font-size-sm);
+  --font-size-tiny:  var(--font-size-sm);
+
+  /* Semantic aliases */
+  --font-size-code:     var(--font-size-base);
+  --font-size-terminal: var(--font-size-base);
+
+  /* Line-height per tier */
+  --line-height-sm:   1.6;
+  --line-height-base: 1.5;
+  --line-height-md:   1.4;
+  --line-height-lg:   1.3;
+  --line-height-hero: 1.2;
+
+  /* Text measure */
+  --measure: 72ch;
+
+  /* Font-weight per tier (dark theme) */
+  --font-weight-sm:   500;   /* small text needs more weight for legibility */
+  --font-weight-base: 500;   /* body text: medium on dark */
+  --font-weight-ui:   400;   /* UI labels: regular sufficient at 16px */
+  --font-weight-md:   700;   /* section headings */
+  --font-weight-lg:   700;   /* main headings */
+  --font-weight-hero: 800;   /* hero titles, maximum impact */
+
   --font-weight-body: 500;
   --font-weight-heading: 800;
 
-  --line-height: 1.5;
+  --line-height: var(--line-height-base);
   --letter-spacing: normal;
   --word-spacing: normal;
 
+  /* ── Spacing ── */
+  --space-1: 0.25rem;   /* 4px */
+  --space-2: 0.5rem;    /* 8px */
+  --space-3: 0.75rem;   /* 12px */
+  --space-4: 1rem;      /* 16px */
+  --space-5: 1.5rem;    /* 24px */
+  --space-6: 2rem;      /* 32px */
+
+  /* Semantic */
+  --inset-component:    var(--space-3);
+  --inset-section:      var(--space-4);
+  --stack-tight:        var(--space-1);
+  --stack-normal:       var(--space-2);
+  --stack-loose:        var(--space-4);
+  --interactive-gap:    var(--space-2);
+  --paragraph-spacing:  calc(1.5 * 1.5em);
+
+  /* Button/input aliases */
+  --btn-padding:    var(--space-2) var(--space-3);
+  --btn-padding-sm: var(--space-1) var(--space-2);
+  --panel-padding:  var(--space-4);
+  --input-padding:  var(--space-2) var(--space-3);
+
+  /* ── Layout ── */
   --toolbar-height: 44px;
   --statusbar-height: 28px;
-  --btn-padding: 5px 12px;
-  --panel-padding: 14px;
 
+  /* ── Layers ── */
+  --layer-base:      0;
+  --layer-dropdown:  1;
+  --layer-sticky:    2;
+  --layer-overlay:   3;
+  --layer-modal:     4;
+  --layer-toast:     5;
+
+  /* ── Colors (OKLCH base hues + semantic states) ── */
+  --hue-accent:       220;
+  --hue-danger:       25;
+  --hue-success:      145;
+  --hue-warning:      85;
+  --hue-state-retry:  45;
+
+  /* Button-background tokens — darker variants for AAA (7:1) with white text */
+  --accent-btn:  #1e40af;  /* AAA 8.72:1 white on btn bg (--accent #3b82f6 is vivid, use for borders/indicators) */
+  --danger-btn:  #991b1b;  /* AAA 8.31:1 white on btn bg (reuses --danger-dark value) */
+
+  /* Text-on-accent (for buttons with --accent-btn/--danger-btn bg) */
+  --text-on-accent: #ffffff;  /* AAA 8.72:1 on --accent-btn, 8.31:1 on --danger-btn */
+
+  /* Code colors */
+  --code-bg:     oklch(0.18 0.02 240);
+  --code-accent: oklch(0.78 0.18 320);
+
+  /* State colors */
+  --state-idle:          oklch(0.55 0.00 0);
+  --state-idle-text:     oklch(0.72 0.00 0);
+  --state-queued:        var(--warning);
+  --state-queued-text:   var(--warning-text);
+  --state-running:       var(--accent);
+  --state-running-text:  var(--accent-text);
+  --state-success:       var(--success);
+  --state-success-text:  var(--success-text);
+  --state-failed:        var(--danger);
+  --state-failed-text:   var(--danger-text);
+  --state-retrying:      oklch(0.65 0.18 var(--hue-state-retry));
+  --state-retrying-text: oklch(0.78 0.15 var(--hue-state-retry));
+
+  /* UI state */
+  --text-disabled:     oklch(0.55 0.00 0);
+  --bg-disabled:       oklch(0.25 0.00 0);
+  --border-disabled:   oklch(0.35 0.00 0);
+  --bg-selected:       oklch(0.30 0.08 var(--hue-accent));
+  --text-selected:     var(--text-primary);
+  --text-placeholder:  oklch(0.55 0.00 0);
+  --focus-ring-color:  oklch(0.70 0.20 var(--hue-accent));
+
+  /* ── Transitions ── */
+  --transition-fast:   0.1s ease;
+  --transition-normal: 0.2s ease;
+  --toast-duration:    5s;
+
+  /* ── Borders ── */
+  --border-style: solid;
+  --border-color: var(--border);
+  --border-container:   var(--border-width) var(--border-style) var(--border-color);
+  --border-separator:   1px solid var(--border-color);
+  --border-interactive: var(--border-width) var(--border-style) var(--border-color);
+  --border-focus:       var(--border-width) solid var(--focus-ring-color);
+  --border-error:       var(--border-width) solid var(--danger);
+  --border-selected:    calc(var(--border-width) * 2) solid var(--accent);
   --radius: 0;
+  --radius-full: 50%;
+
   --focus-ring: 2px solid var(--accent);
   --focus-offset: 2px;
 
@@ -128,17 +244,40 @@
   --text-primary: #0a0a0a;
   --text-body: #1a1a1a;
   --text-secondary: #404040;   /* AAA 7.1:1 on #e5e5e5 (was #525252 ~5.1:1) */
-  --text-muted: #595959;       /* AAA 7.0:1 on #fafafa (was #767676 ~4.5:1) */
+  --text-muted: #505050;       /* AAA 7.73:1 on #fafafa (was #595959 ~6.71:1) */
 
-  --accent-text: #1d4ed8;      /* AAA 7.3:1 on #fafafa (was #3b82f6 ~3.7:1) */
+  --accent-text: #1a44c2;      /* AAA 7.59:1 on #fafafa (was #1d4ed8 ~6.42:1) */
   --danger: #b91c1c;
   --danger-dark: #991b1b;
-  --danger-text: #991b1b;      /* AAA 7.8:1 on #fafafa */
-  --success-text: #15803d;     /* AAA 7.1:1 on #fafafa */
-  --warning-text: #854d0e;     /* AAA 7.2:1 on #fafafa */
+  --danger-text: #991b1b;      /* AAA 7.96:1 on #fafafa */
+  --success-text: #0e5929;     /* AAA 8.11:1 on #fafafa (was #15803d ~4.81:1) */
+  --warning-text: #7c4a0d;     /* AAA 7.08:1 on #fafafa (was #854d0e ~6.56:1) */
+
+  /* Button-background tokens — darker variants for AAA (7:1) with white text */
+  --accent-btn:  #1e40af;      /* AAA 8.72:1 white on btn bg */
+  --danger-btn:  #991b1b;      /* AAA 8.31:1 white on btn bg (same as --danger-dark) */
+
+  /* text-on-accent is shared with dark theme via :root */
 
   --font-weight-body: 400;
   --font-weight-heading: 700;
+  --font-weight-base: 400;   /* lighter on light backgrounds */
+  --font-weight-hero: 700;   /* slightly lighter than dark */
+
+  /* New token overrides */
+  --text-on-accent: #ffffff;   /* AAA 8.72:1 on --accent-btn, 8.31:1 on --danger-btn */
+  --code-bg:     oklch(0.96 0.01 240);
+  --code-accent: oklch(0.50 0.22 320);
+  --state-idle:          oklch(0.60 0.00 0);
+  --state-idle-text:     oklch(0.40 0.00 0);
+  --state-retrying:      oklch(0.55 0.18 var(--hue-state-retry));
+  --state-retrying-text: oklch(0.42 0.15 var(--hue-state-retry));
+  --text-disabled:     oklch(0.60 0.00 0);
+  --bg-disabled:       oklch(0.90 0.00 0);
+  --border-disabled:   oklch(0.80 0.00 0);
+  --bg-selected:       oklch(0.90 0.06 var(--hue-accent));
+  --text-placeholder:  oklch(0.60 0.00 0);
+  --focus-ring-color:  oklch(0.50 0.22 var(--hue-accent));
 
   color-scheme: light;
 }
@@ -146,16 +285,32 @@
 /* ── Enhanced Readability Mode ──────────────────────────── */
 
 :root.enhanced-readability {
-  --font-size-base: 18px;
-  --font-size-small: 14px;
-  --font-size-tiny: 12px;
-  --font-size-code: 16px;
-  --font-size-terminal: 15px;
-  --line-height: 1.8;
+  /* Typography */
+  --font-size-sm:   0.875rem;
+  --font-size-base: 1.125rem;
+  --font-size-md:   1.375rem;
+  --font-size-lg:   1.75rem;
+  --font-size-hero: 2.5rem;
+  --line-height-base: 1.8;
   --letter-spacing: 0.05em;
   --word-spacing: 0.1em;
   --font-weight-body: 500;
   --font-weight-heading: 600;
+
+  /* Spacing */
+  --space-1: 0.375rem;
+  --space-2: 0.625rem;
+  --space-3: 1rem;
+  --space-4: 1.25rem;
+  --space-5: 1.75rem;
+  --space-6: 2.5rem;
+
+  /* Borders */
+  --border-width: 3px;
+
+  /* Transitions */
+  --transition-fast:   0.15s ease;
+  --transition-normal: 0.3s ease;
 }
 
 :root.light.enhanced-readability {
@@ -231,6 +386,13 @@ body {
   color: #fff;
 }
 
+/* ── Modal Scroll Lock ─────────────────────────────────── */
+
+body.layer-modal-open {
+  overflow: hidden;
+  scrollbar-gutter: stable;
+}
+
 /* ── CSS Containment (rendering performance) ──────────── */
 
 .panel.file-tree,
@@ -250,6 +412,24 @@ body {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+/* ── High Contrast ────────────────────────────────────── */
+
+@media (prefers-contrast: more) {
+  :root {
+    --text-body:      #ffffff;
+    --text-secondary: #e0e0e0;
+    --bg-primary:     #000000;
+    --border-color:   #ffffff;
+    --border-width:   3px;
+  }
+  :root.light {
+    --text-body:      #000000;
+    --text-secondary: #1a1a1a;
+    --bg-primary:     #ffffff;
+    --border-color:   #000000;
   }
 }
 
@@ -280,5 +460,33 @@ body {
   ::selection {
     background: Highlight;
     color: HighlightText;
+  }
+
+  /* Layer borders */
+  [data-layer="modal"],
+  [data-layer="overlay"] {
+    border: 2px solid CanvasText;
+  }
+  [data-layer="dropdown"] {
+    border: 1px solid CanvasText;
+  }
+
+  /* Input states via border style */
+  input:focus, textarea:focus {
+    border-width: 3px;
+  }
+  [aria-invalid="true"] {
+    border-style: dashed;
+  }
+  [aria-selected="true"],
+  [aria-pressed="true"] {
+    border-width: 4px;
+  }
+
+  /* Disabled */
+  button:disabled,
+  button[aria-disabled="true"] {
+    border-color: GrayText;
+    color: GrayText;
   }
 }

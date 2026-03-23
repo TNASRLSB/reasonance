@@ -249,14 +249,14 @@
   .palette-input-row {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 10px 14px;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
     border-bottom: var(--border-width) solid var(--border);
     flex-shrink: 0;
   }
 
   .palette-icon {
-    font-size: 14px;
+    font-size: var(--font-size-base);
     opacity: 0.6;
   }
 
@@ -266,7 +266,7 @@
     border: none;
     outline: none;
     color: var(--text-primary);
-    font-size: 14px;
+    font-size: var(--font-size-base);
     font-family: var(--font-ui);
   }
 
@@ -275,7 +275,7 @@
   }
 
   .palette-hint {
-    font-size: 11px;
+    font-size: var(--font-size-sm);
     color: var(--text-secondary);
     flex-shrink: 0;
   }
@@ -283,7 +283,7 @@
   .palette-list {
     list-style: none;
     margin: 0;
-    padding: 4px 0;
+    padding: var(--space-1) 0;
     overflow-y: auto;
     flex: 1;
   }
@@ -291,25 +291,25 @@
   .palette-item {
     display: flex;
     align-items: baseline;
-    gap: 8px;
-    padding: 6px 14px;
+    gap: var(--space-2);
+    padding: var(--space-1) var(--space-3);
     cursor: pointer;
-    transition: background 0.1s;
+    transition: background var(--transition-fast);
   }
 
   .palette-item:hover,
   .palette-item.selected {
     background: var(--accent);
-    color: #fff;
+    color: var(--text-on-accent);
   }
 
   .palette-item.selected .item-dir,
   .palette-item:hover .item-dir {
-    color: rgba(255, 255, 255, 0.7);
+    color: color-mix(in srgb, var(--text-on-accent) 70%, transparent);
   }
 
   .item-name {
-    font-size: 13px;
+    font-size: var(--font-size-sm);
     font-weight: 500;
     color: var(--text-primary);
     flex-shrink: 0;
@@ -317,7 +317,7 @@
   }
 
   .item-dir {
-    font-size: 11px;
+    font-size: var(--font-size-sm);
     color: var(--text-secondary);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -325,8 +325,8 @@
   }
 
   .palette-empty {
-    padding: 20px 14px;
-    font-size: 12px;
+    padding: var(--space-5) var(--space-3);
+    font-size: var(--font-size-sm);
     color: var(--text-secondary);
     margin: 0;
     text-align: center;
@@ -337,8 +337,8 @@
     background: transparent;
     border: none;
     color: var(--text-secondary);
-    font-size: 12px;
-    padding: 4px 6px;
+    font-size: var(--font-size-sm);
+    padding: var(--space-1) var(--space-1);
     cursor: pointer;
     line-height: 1;
     min-width: 32px;

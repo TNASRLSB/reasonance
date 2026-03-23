@@ -36,12 +36,12 @@
   .file-ref-badge {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
+    gap: var(--stack-tight);
     font-family: var(--font-mono);
     font-size: var(--font-size-small);
     background: var(--bg-tertiary);
     border: var(--border-width) solid var(--border);
-    padding: 2px 8px;
+    padding: var(--stack-tight) var(--space-2);
     cursor: default;
   }
 

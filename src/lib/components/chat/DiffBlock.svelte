@@ -103,9 +103,9 @@
   .diff-header {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--space-2);
     width: 100%;
-    padding: 6px 12px;
+    padding: var(--space-1) var(--space-3);
     background: var(--bg-tertiary);
     border: none;
     border-bottom: var(--border-width) solid var(--border);
@@ -158,7 +158,7 @@
     font-size: var(--font-size-tiny);
     color: var(--text-muted);
     background: var(--bg-tertiary);
-    padding: 2px 12px;
+    padding: var(--stack-tight) var(--space-3);
     border-bottom: 1px solid var(--border);
   }
 
@@ -169,15 +169,15 @@
   }
 
   .line {
-    padding: 0 12px;
+    padding: 0 var(--space-3);
     white-space: pre-wrap;
     word-break: break-all;
   }
 
   .diff-prefix {
     font-weight: 700;
-    font-size: 1.1em;
-    margin-inline-end: 2px;
+    font-size: var(--font-size-md);
+    margin-inline-end: var(--stack-tight);
   }
 
   .line.removed {
@@ -195,8 +195,8 @@
   .diff-actions {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 6px 12px;
+    gap: var(--interactive-gap);
+    padding: var(--space-1) var(--space-3);
     border-top: var(--border-width) solid var(--border);
     background: var(--bg-tertiary);
   }
@@ -205,7 +205,7 @@
     font-family: var(--font-ui);
     font-size: var(--font-size-small);
     font-weight: 700;
-    padding: 4px 14px;
+    padding: var(--space-1) var(--space-3);
     border: var(--border-width) solid var(--border);
     cursor: pointer;
     min-height: 28px;
@@ -215,7 +215,7 @@
 
   .diff-action.apply {
     background: var(--success);
-    color: #fff;
+    color: var(--text-on-accent);
     border-color: var(--success);
   }
 
@@ -237,7 +237,7 @@
     background: transparent;
     color: var(--text-secondary);
     font-size: var(--font-size-tiny);
-    padding: 2px 8px;
+    padding: var(--stack-tight) var(--space-2);
     min-height: 24px;
   }
 

@@ -109,7 +109,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 8px 14px;
+    padding: var(--space-2) var(--space-3);
     border-bottom: var(--border-width) solid var(--border);
     flex-shrink: 0;
     background: var(--bg-primary);
@@ -128,11 +128,11 @@
     border: none;
     color: var(--text-secondary, #94a3b8);
     cursor: pointer;
-    font-size: 14px;
-    padding: 2px 6px;
-    border-radius: 4px;
+    font-size: var(--font-size-base);
+    padding: var(--space-1) var(--space-1);
+    border-radius: 0;
     line-height: 1;
-    transition: color 0.15s, background 0.15s;
+    transition: color var(--transition-fast), background var(--transition-fast);
   }
 
   .close-btn:hover {
@@ -147,11 +147,12 @@
   }
 
   .markdown-preview {
-    padding: 20px 24px;
+    padding: var(--space-5) var(--space-5);
     color: var(--text-primary, #e2e8f0);
     font-family: var(--font-ui);
-    font-size: 14px;
-    line-height: 1.7;
+    font-size: var(--font-size-base);
+    line-height: var(--line-height-base);
+    max-width: var(--measure);
   }
 
   .markdown-preview :global(h1),
@@ -169,27 +170,28 @@
 
   .markdown-preview :global(h1) { font-size: 1.6em; border-bottom: 1px solid var(--border, #334155); padding-bottom: 0.25em; }
   .markdown-preview :global(h2) { font-size: 1.3em; border-bottom: 1px solid var(--border, #334155); padding-bottom: 0.2em; }
-  .markdown-preview :global(h3) { font-size: 1.1em; }
+  .markdown-preview :global(h3) { font-size: var(--font-size-md); line-height: var(--line-height-md); }
 
   .markdown-preview :global(p) { margin: 0.65em 0; }
+  .markdown-preview :global(p + p) { margin-top: var(--paragraph-spacing); }
 
   .markdown-preview :global(a) { color: var(--accent, #6366f1); text-decoration: none; }
   .markdown-preview :global(a:hover) { text-decoration: underline; }
 
   .markdown-preview :global(code) {
     background: var(--bg-primary, #0f172a);
-    color: #e879f9;
+    color: var(--code-accent);
     padding: 0.15em 0.4em;
-    border-radius: 4px;
+    border-radius: 0;
     font-family: var(--font-mono);
-    font-size: 0.875em;
+    font-size: var(--font-size-sm);
   }
 
   .markdown-preview :global(pre) {
-    background: #0d1117;
+    background: var(--code-bg);
     border: 1px solid var(--border, #334155);
-    border-radius: 6px;
-    padding: 14px;
+    border-radius: 0;
+    padding: var(--space-3);
     overflow: auto;
     margin: 0.75em 0;
   }
@@ -199,7 +201,7 @@
     color: inherit;
     padding: 0;
     border-radius: 0;
-    font-size: 0.875em;
+    font-size: var(--font-size-sm);
   }
 
   .markdown-preview :global(blockquote) {
@@ -222,13 +224,13 @@
     width: 100%;
     border-collapse: collapse;
     margin: 0.75em 0;
-    font-size: 0.875em;
+    font-size: var(--font-size-sm);
   }
 
   .markdown-preview :global(th),
   .markdown-preview :global(td) {
     border: 1px solid var(--border, #334155);
-    padding: 6px 10px;
+    padding: var(--space-1) var(--space-2);
     text-align: start;
   }
 

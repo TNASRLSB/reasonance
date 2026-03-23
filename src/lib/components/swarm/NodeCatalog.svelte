@@ -26,17 +26,17 @@
 <style>
   .node-catalog {
     display: flex;
-    gap: 4px;
+    gap: var(--stack-tight);
   }
   .catalog-btn {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: var(--stack-tight);
     background: var(--bg-tertiary);
     color: var(--text-primary);
     border: var(--border-width) solid var(--border);
-    padding: 4px 10px;
-    font-size: 12px;
+    padding: var(--space-1) var(--space-2);
+    font-size: var(--font-size-sm);
     font-family: var(--font-ui);
     cursor: pointer;
   }
@@ -44,7 +44,7 @@
     background: var(--bg-hover);
   }
   .btn-icon {
-    font-size: 10px;
+    font-size: var(--font-size-sm);
   }
   .catalog-btn.agent .btn-icon { color: var(--accent); }
   .catalog-btn.resource .btn-icon { color: var(--success); }

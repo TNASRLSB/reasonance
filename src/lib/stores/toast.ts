@@ -29,7 +29,8 @@ export function showToast(
   options?: { actions?: ToastAction[]; persistent?: boolean }
 ) {
   const id = nextId++;
-  const persistent = options?.persistent ?? false;
+  // Error and warning toasts never auto-dismiss — require explicit user action
+  const persistent = options?.persistent ?? (type === 'error' || type === 'warning');
   toasts.update((t) => [
     ...t,
     { id, type, title, body, actions: options?.actions, persistent },

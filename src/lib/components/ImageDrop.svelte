@@ -109,8 +109,8 @@
     justify-content: center;
     background: rgba(124, 106, 247, 0.15);
     border: 2px dashed var(--accent, #7c6af7);
-    border-radius: 4px;
-    font-size: 14px;
+    border-radius: 0;
+    font-size: var(--font-size-base);
     font-weight: 600;
     color: var(--accent, #7c6af7);
     pointer-events: none;

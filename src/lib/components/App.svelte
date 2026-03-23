@@ -104,7 +104,7 @@
     <Toolbar {adapter} />
   </header>
 
-  <div class="main-content">
+  <div class="main-content" data-main-content>
     <nav id="file-tree" aria-label="File explorer" class="panel file-tree" style="width: {$fileTreeWidth}px">
       <svelte:boundary>
         {#if fileTree}
@@ -209,7 +209,7 @@
     left: 4px;
     width: auto;
     height: auto;
-    padding: 8px 16px;
+    padding: var(--space-2) var(--space-4);
     margin: 0;
     overflow: visible;
     clip: auto;
@@ -284,7 +284,7 @@
     background: var(--bg-tertiary);
     cursor: col-resize;
     flex-shrink: 0;
-    transition: background 0.15s;
+    transition: background var(--transition-fast);
     position: relative;
     z-index: 10;
     display: flex;
@@ -312,7 +312,7 @@
 
   .divider-handle {
     writing-mode: vertical-lr;
-    font-size: 10px;
+    font-size: var(--font-size-sm);
     color: var(--text-muted);
     pointer-events: none;
     user-select: none;
@@ -342,9 +342,9 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 8px;
+    gap: var(--stack-normal);
     flex: 1;
-    padding: 24px;
+    padding: var(--space-5);
     font-family: var(--font-ui);
   }
 
@@ -378,13 +378,13 @@
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    padding: 4px 16px;
+    padding: var(--space-1) var(--space-4);
     cursor: pointer;
   }
 
   .error-retry:hover {
     background: var(--accent);
     border-color: var(--accent);
-    color: #fff;
+    color: var(--text-on-accent);
   }
 </style>

@@ -41,7 +41,7 @@
   .slash-menu {
     background: var(--bg-surface);
     border: 2px solid var(--border);
-    padding: 4px 0;
+    padding: var(--space-1) 0;
     max-height: 200px;
     overflow-y: auto;
   }
@@ -50,9 +50,9 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 6px 12px;
+    padding: var(--space-1) var(--space-3);
     cursor: pointer;
-    gap: 12px;
+    gap: var(--space-3);
   }
 
   .slash-item:hover,

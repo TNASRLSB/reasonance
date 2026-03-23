@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Adapter } from '$lib/adapter/index';
-  import { menuKeyHandler } from '$lib/utils/a11y';
+  import { menuKeyHandler, toolbarKeyHandler } from '$lib/utils/a11y';
   import { tr } from '$lib/i18n/index';
 
   let {
@@ -23,6 +23,7 @@
   let showModeMenu = $state(false);
   let slashMenuEl = $state<HTMLElement | null>(null);
   let modeMenuEl = $state<HTMLElement | null>(null);
+  let toolbarLeftEl = $state<HTMLElement | null>(null);
 
   $effect(() => {
     if (showSlashMenu && slashMenuEl) {
@@ -64,27 +65,36 @@
 <svelte:window onclick={handleClickOutside} />
 
 <div class="term-toolbar">
-  <div class="term-toolbar-left">
+  <div
+    class="term-toolbar-left"
+    role="toolbar"
+    aria-label="Terminal actions"
+    bind:this={toolbarLeftEl}
+    onkeydown={(e) => { if (toolbarLeftEl && (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'Home' || e.key === 'End')) toolbarKeyHandler(e, toolbarLeftEl); }}
+  >
     <button
       class="term-tbtn term-tbtn--labeled"
       title={$tr('termToolbar.addFileTitle')}
+      aria-label={$tr('termToolbar.addFileTitle')}
       onclick={(e) => { e.stopPropagation(); addFileToContext(); }}
-    ><span class="tbtn-icon" aria-hidden="true">+</span><span class="tbtn-label">{$tr('termToolbar.addFile')}</span></button>
+    ><span class="tbtn-icon" aria-hidden="true">+</span><span class="tbtn-label" aria-hidden="true">{$tr('termToolbar.addFile')}</span></button>
 
     <button
       class="term-tbtn term-tbtn--labeled"
       title={$tr('termToolbar.saveOutputTitle')}
+      aria-label={$tr('termToolbar.saveOutputTitle')}
       onclick={(e) => { e.stopPropagation(); window.dispatchEvent(new CustomEvent('reasonance:exportTerminal', { detail: { instanceId } })); }}
-    ><span class="tbtn-icon" aria-hidden="true">&#8615;</span><span class="tbtn-label">{$tr('termToolbar.saveOutput')}</span></button>
+    ><span class="tbtn-icon" aria-hidden="true">&#8615;</span><span class="tbtn-label" aria-hidden="true">{$tr('termToolbar.saveOutput')}</span></button>
 
     <div class="slash-wrapper">
       <button
         class="term-tbtn term-tbtn--labeled"
         title={$tr('termToolbar.commandsTitle')}
+        aria-label={$tr('termToolbar.commandsTitle')}
         onclick={(e) => { e.stopPropagation(); showSlashMenu = !showSlashMenu; showModeMenu = false; }}
         aria-haspopup="true"
         aria-expanded={showSlashMenu}
-      ><span class="tbtn-icon" aria-hidden="true">/</span><span class="tbtn-label">{$tr('termToolbar.commands')}</span></button>
+      ><span class="tbtn-icon" aria-hidden="true">/</span><span class="tbtn-label" aria-hidden="true">{$tr('termToolbar.commands')}</span></button>
 
       {#if showSlashMenu && slashCommands.length > 0}
         <div class="dropdown" role="menu" tabindex="-1" bind:this={slashMenuEl} onclick={(e) => e.stopPropagation()} onkeydown={(e) => { e.stopPropagation(); menuKeyHandler(e, slashMenuEl!, '.dropdown-item'); }}>
@@ -136,19 +146,19 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 4px 8px;
+    padding: var(--space-1) var(--space-2);
     background: var(--bg-primary);
     border-bottom: var(--border-width) solid var(--border);
     flex-shrink: 0;
     font-family: var(--font-ui);
-    gap: 4px;
+    gap: var(--stack-tight);
   }
 
   .term-toolbar-left,
   .term-toolbar-right {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: var(--stack-tight);
   }
 
   .term-tbtn {
@@ -163,26 +173,26 @@
     border-radius: 0;
     color: var(--text-primary);
     font-family: var(--font-ui);
-    font-size: 14px;
+    font-size: var(--font-size-base);
     font-weight: 800;
     cursor: pointer;
-    transition: background 0.1s, color 0.1s;
+    transition: background var(--transition-fast), color var(--transition-fast);
   }
 
   .term-tbtn--labeled {
     width: auto;
-    padding: 0 8px;
-    gap: 5px;
+    padding: 0 var(--space-2);
+    gap: var(--stack-tight);
   }
 
   .tbtn-icon {
-    font-size: 14px;
+    font-size: var(--font-size-base);
     font-weight: 800;
     line-height: 1;
   }
 
   .tbtn-label {
-    font-size: 11px;
+    font-size: var(--font-size-sm);
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.04em;
@@ -202,19 +212,19 @@
   .term-mode {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 4px 10px;
+    gap: var(--interactive-gap);
+    padding: var(--space-1) var(--space-2);
     background: var(--bg-tertiary);
     border: 2px solid var(--border);
     border-radius: 0;
     color: var(--text-secondary);
     font-family: var(--font-ui);
-    font-size: 10px;
+    font-size: var(--font-size-sm);
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.04em;
     cursor: pointer;
-    transition: background 0.1s, color 0.1s;
+    transition: background var(--transition-fast), color var(--transition-fast);
     white-space: nowrap;
   }
 
@@ -255,8 +265,8 @@
   .dropdown-item {
     display: flex;
     flex-direction: column;
-    gap: 2px;
-    padding: 6px 10px;
+    gap: var(--stack-tight);
+    padding: var(--space-1) var(--space-2);
     background: none;
     border: none;
     border-bottom: 1px solid var(--border);
@@ -265,7 +275,7 @@
     font-size: var(--font-size-small);
     text-align: start;
     cursor: pointer;
-    transition: background 0.1s;
+    transition: background var(--transition-fast);
   }
 
   .dropdown-item:last-child {

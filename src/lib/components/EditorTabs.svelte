@@ -114,8 +114,8 @@
   .tab-actions {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 0 10px;
+    gap: var(--interactive-gap);
+    padding: 0 var(--space-2);
     flex-shrink: 0;
     border-inline-start: 1px solid var(--border);
   }
@@ -123,17 +123,17 @@
   .tab {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 0 12px;
+    gap: var(--interactive-gap);
+    padding: 0 var(--space-3);
     min-width: 100px;
     max-width: 200px;
     cursor: pointer;
     border-inline-end: 2px solid var(--border);
-    font-size: 12px;
+    font-size: var(--font-size-sm);
     font-weight: 500;
     color: var(--text-muted);
     user-select: none;
-    transition: background 0.1s, color 0.1s;
+    transition: background var(--transition-fast), color var(--transition-fast);
     white-space: nowrap;
     flex-shrink: 0;
     border-bottom: 2px solid transparent;
@@ -169,14 +169,14 @@
     border: none;
     color: var(--text-secondary);
     cursor: pointer;
-    font-size: 12px;
+    font-size: var(--font-size-sm);
     line-height: 1;
-    padding: 3px 4px;
+    padding: var(--space-1) var(--space-1);
     min-width: 22px;
     min-height: 22px;
     border-radius: var(--radius);
     flex-shrink: 0;
-    transition: color 0.1s;
+    transition: color var(--transition-fast);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -193,14 +193,14 @@
     border: none;
     color: var(--text-secondary);
     cursor: pointer;
-    font-size: 14px;
+    font-size: var(--font-size-base);
     line-height: 1;
-    padding: 5px 6px;
+    padding: var(--space-1) var(--space-1);
     min-width: 24px;
     min-height: 24px;
     border-radius: var(--radius);
     flex-shrink: 0;
-    transition: color 0.1s;
+    transition: color var(--transition-fast);
     display: flex;
     align-items: center;
     justify-content: center;

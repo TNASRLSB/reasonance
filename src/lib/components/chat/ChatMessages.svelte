@@ -144,16 +144,16 @@
     flex: 1;
     min-height: 0;
     overflow-y: auto;
-    padding: 16px;
+    padding: var(--inset-section);
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: var(--stack-loose);
   }
 
   .message-group {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: var(--stack-normal);
   }
 
   .message-role {
@@ -168,7 +168,7 @@
   .message-content {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: var(--stack-normal);
   }
 
   .message-group.agent .message-content {
@@ -177,7 +177,7 @@
 
   .load-more {
     align-self: center;
-    padding: 6px 16px;
+    padding: var(--space-1) var(--space-4);
     font-family: var(--font-ui);
     font-size: var(--font-size-small);
     font-weight: 700;
@@ -198,7 +198,7 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 8px;
+    gap: var(--stack-normal);
     color: var(--text-muted);
     text-align: center;
   }

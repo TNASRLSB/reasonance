@@ -21,6 +21,8 @@ export const fontSize = writable(14);
 export const enhancedReadability = writable(false);
 export const editorTheme = writable<string>('forge-dark');
 
+export const cursorBlink = writable(false);
+
 // Swarm canvas state
 export const showSwarmCanvas = writable<boolean>(false);
 export const swarmViewMode = writable<'visual' | 'code' | 'split'>('visual');

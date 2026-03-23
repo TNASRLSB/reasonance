@@ -10,7 +10,8 @@
 <button
   class="view-mode-toggle"
   onclick={() => onToggle(mode === 'chat' ? 'terminal' : 'chat')}
-  aria-label="Toggle between chat and terminal view"
+  aria-label={mode === 'chat' ? 'Switch to terminal view' : 'Switch to chat view'}
+  aria-pressed={mode === 'terminal'}
   aria-describedby="viewmode-desc"
   title={mode === 'chat' ? 'Switch to terminal' : 'Switch to chat'}
 >
@@ -28,12 +29,13 @@
     color: var(--text-secondary);
     background: transparent;
     border: var(--border-width) solid var(--border);
-    padding: 3px 8px;
-    min-height: 24px;
+    padding: var(--btn-padding-sm);
+    min-height: 2rem;
     display: inline-flex;
     align-items: center;
     cursor: pointer;
     white-space: nowrap;
+    transition: color var(--transition-fast), border-color var(--transition-fast);
   }
 
   .view-mode-toggle:hover {

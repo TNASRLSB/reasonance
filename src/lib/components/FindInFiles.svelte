@@ -147,16 +147,14 @@
             <div class="fif-file-group">
               <div class="fif-file-header">{filePath}</div>
               {#each fileResults as result}
-                <div
+                <button
                   class="fif-result-row"
-                  role="button"
-                  tabindex="0"
                   onclick={() => openResult(result)}
-                  onkeydown={(e) => e.key === 'Enter' && openResult(result)}
+                  aria-label="Line {result.line_number}: {result.line.trim()}"
                 >
-                  <span class="fif-line-num">{result.line_number}</span>
-                  <span class="fif-line-text">{result.line.trim()}</span>
-                </div>
+                  <span class="fif-line-num" aria-hidden="true">{result.line_number}</span>
+                  <span class="fif-line-text" aria-hidden="true">{result.line.trim()}</span>
+                </button>
               {/each}
             </div>
           {/each}
@@ -195,7 +193,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 8px 14px;
+    padding: var(--space-2) var(--space-3);
     border-bottom: var(--border-width) solid var(--border);
     flex-shrink: 0;
   }
@@ -212,9 +210,9 @@
     background: none;
     border: none;
     color: var(--text-secondary);
-    font-size: 14px;
+    font-size: var(--font-size-base);
     cursor: pointer;
-    padding: 2px 6px;
+    padding: var(--stack-tight) var(--space-1);
     border-radius: var(--radius);
   }
 
@@ -225,8 +223,8 @@
 
   .fif-input-row {
     display: flex;
-    gap: 8px;
-    padding: 10px 14px;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
     border-bottom: var(--border-width) solid var(--border);
     flex-shrink: 0;
   }
@@ -237,9 +235,9 @@
     border: var(--border-width) solid var(--border);
     border-radius: var(--radius);
     color: var(--text-primary);
-    font-size: 13px;
+    font-size: var(--font-size-sm);
     font-family: inherit;
-    padding: 6px 10px;
+    padding: var(--space-1) var(--space-2);
     outline: none;
   }
 
@@ -249,14 +247,14 @@
 
   .search-btn {
     background: var(--accent);
-    color: #fff;
+    color: var(--text-on-accent);
     border: var(--border-width) solid var(--accent);
     border-radius: var(--radius);
-    padding: 6px 14px;
-    font-size: 12px;
+    padding: var(--space-1) var(--space-3);
+    font-size: var(--font-size-sm);
     cursor: pointer;
     flex-shrink: 0;
-    transition: opacity 0.15s;
+    transition: opacity var(--transition-fast);
   }
 
   .search-btn:disabled {
@@ -269,24 +267,24 @@
   }
 
   .fif-error {
-    padding: 8px 14px;
-    font-size: 12px;
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--font-size-sm);
     color: var(--danger, #e74c3c);
     margin: 0;
     flex-shrink: 0;
   }
 
   .fif-empty {
-    padding: 20px 14px;
-    font-size: 12px;
+    padding: var(--space-5) var(--space-3);
+    font-size: var(--font-size-sm);
     color: var(--text-secondary);
     margin: 0;
     text-align: center;
   }
 
   .fif-summary {
-    padding: 6px 14px;
-    font-size: 11px;
+    padding: var(--space-1) var(--space-3);
+    font-size: var(--font-size-sm);
     color: var(--text-secondary);
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
@@ -302,8 +300,8 @@
   }
 
   .fif-file-header {
-    padding: 6px 14px;
-    font-size: 11px;
+    padding: var(--space-1) var(--space-3);
+    font-size: var(--font-size-sm);
     font-weight: 600;
     color: var(--accent);
     background: var(--bg-secondary);
@@ -315,10 +313,16 @@
   .fif-result-row {
     display: flex;
     align-items: baseline;
-    gap: 10px;
-    padding: 4px 14px;
+    gap: var(--space-2);
+    padding: var(--space-1) var(--space-3);
     cursor: pointer;
-    transition: background 0.1s;
+    transition: background var(--transition-fast);
+    width: 100%;
+    text-align: start;
+    background: none;
+    border: none;
+    color: inherit;
+    font-family: inherit;
   }
 
   .fif-result-row:hover {
@@ -327,11 +331,11 @@
 
   .fif-result-row:hover .fif-line-num,
   .fif-result-row:hover .fif-line-text {
-    color: #fff;
+    color: var(--text-on-accent);
   }
 
   .fif-line-num {
-    font-size: 11px;
+    font-size: var(--font-size-sm);
     color: var(--text-secondary);
     font-variant-numeric: tabular-nums;
     min-width: 28px;
@@ -340,7 +344,7 @@
   }
 
   .fif-line-text {
-    font-size: 12px;
+    font-size: var(--font-size-sm);
     color: var(--text-primary);
     font-family: var(--font-mono);
     overflow: hidden;

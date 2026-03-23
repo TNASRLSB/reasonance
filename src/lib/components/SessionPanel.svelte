@@ -175,7 +175,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 8px 14px;
+    padding: var(--space-2) var(--space-3);
     border-bottom: var(--border-width) solid var(--border);
     flex-shrink: 0;
   }
@@ -193,7 +193,7 @@
     background: transparent;
     border: none;
     color: var(--text-secondary);
-    font-size: 12px;
+    font-size: var(--font-size-sm);
     cursor: pointer;
     min-width: 32px;
     min-height: 32px;
@@ -207,7 +207,7 @@
   }
 
   .panel-search {
-    padding: 8px 16px;
+    padding: var(--space-2) var(--space-4);
     border-bottom: var(--border-width) solid var(--border);
     flex-shrink: 0;
   }
@@ -217,7 +217,7 @@
     background: var(--bg-secondary);
     border: var(--border-width) solid var(--border);
     color: var(--text-primary);
-    padding: 6px 10px;
+    padding: var(--space-1) var(--space-2);
     font-family: var(--font-ui);
     font-size: var(--font-size-small);
   }
@@ -228,7 +228,7 @@
 
   .panel-loading,
   .panel-empty {
-    padding: 24px 16px;
+    padding: var(--space-5) var(--space-4);
     text-align: center;
     color: var(--text-muted);
     font-size: var(--font-size-small);
@@ -237,7 +237,7 @@
   .session-list {
     list-style: none;
     margin: 0;
-    padding: 4px 0;
+    padding: var(--space-1) 0;
     overflow-y: auto;
     flex: 1;
   }
@@ -245,8 +245,8 @@
   .session-item {
     display: flex;
     align-items: center;
-    padding: 8px 16px;
-    gap: 8px;
+    padding: var(--space-2) var(--space-4);
+    gap: var(--space-2);
     border-bottom: 1px solid var(--bg-tertiary);
   }
 
@@ -266,7 +266,7 @@
     border: none;
     text-align: start;
     font-family: var(--font-ui);
-    font-size: 13px;
+    font-size: var(--font-size-sm);
     font-weight: 700;
     color: var(--text-primary);
     cursor: pointer;
@@ -285,15 +285,15 @@
     background: var(--bg-secondary);
     border: var(--border-width) solid var(--accent);
     color: var(--text-primary);
-    padding: 2px 6px;
+    padding: var(--stack-tight) var(--space-1);
     font-family: var(--font-ui);
-    font-size: 13px;
+    font-size: var(--font-size-sm);
   }
 
   .session-meta {
     display: flex;
-    gap: 8px;
-    margin-top: 2px;
+    gap: var(--space-2);
+    margin-top: var(--stack-tight);
     font-size: var(--font-size-tiny);
     color: var(--text-muted);
   }
@@ -316,7 +316,7 @@
 
   .session-actions {
     display: flex;
-    gap: 4px;
+    gap: var(--stack-tight);
     flex-shrink: 0;
     opacity: 0;
   }
@@ -329,7 +329,7 @@
     background: transparent;
     border: none;
     color: var(--text-muted);
-    font-size: 12px;
+    font-size: var(--font-size-sm);
     cursor: pointer;
     min-width: 28px;
     min-height: 28px;

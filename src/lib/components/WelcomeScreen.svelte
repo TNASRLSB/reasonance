@@ -126,7 +126,7 @@
     font-family: var(--font-ui);
     position: relative;
     -webkit-app-region: drag;
-    transition: outline 0.15s;
+    transition: outline var(--transition-fast);
   }
 
   .welcome.drag-over {
@@ -152,12 +152,12 @@
     background: none;
     border: none;
     color: var(--text-secondary);
-    font-size: 16px;
+    font-size: var(--font-size-base);
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: background 0.1s, color 0.1s;
+    transition: background var(--transition-fast), color var(--transition-fast);
   }
 
   .theme-toggle:hover {
@@ -175,12 +175,12 @@
     background: none;
     border: none;
     color: var(--text-secondary);
-    font-size: 14px;
+    font-size: var(--font-size-base);
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: background 0.1s, color 0.1s;
+    transition: background var(--transition-fast), color var(--transition-fast);
   }
 
   .win-btn:hover {
@@ -190,17 +190,17 @@
 
   .win-btn.close:hover {
     background: var(--danger);
-    color: #fff;
+    color: var(--text-on-accent);
   }
 
   .welcome-content {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 16px;
+    gap: var(--stack-loose);
     max-width: 480px;
     width: 100%;
-    padding: 32px;
+    padding: var(--space-6);
     -webkit-app-region: no-drag;
   }
 
@@ -208,29 +208,30 @@
     width: 80px;
     height: 80px;
     color: var(--text-primary);
-    margin-bottom: 8px;
+    margin-bottom: var(--stack-normal);
   }
 
   .welcome-logo {
-    font-weight: 800;
-    font-size: 32px;
+    font-weight: var(--font-weight-hero);
+    font-size: var(--font-size-hero);
     color: var(--text-primary);
     letter-spacing: -0.02em;
     margin: 0;
     font-family: var(--font-ui);
+    line-height: var(--line-height-hero);
   }
 
   .welcome-subtitle {
     color: var(--text-muted);
-    font-size: 14px;
-    margin: 0 0 24px;
+    font-size: var(--font-size-base);
+    margin: 0 0 var(--space-5);
     font-family: var(--font-ui);
   }
 
   .welcome-btn.primary {
-    padding: 12px 32px;
+    padding: var(--space-3) var(--space-6);
     font-family: var(--font-ui);
-    font-size: 14px;
+    font-size: var(--font-size-base);
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.04em;
@@ -239,7 +240,7 @@
     background: transparent;
     color: var(--accent);
     cursor: pointer;
-    transition: background 0.15s, color 0.15s;
+    transition: background var(--transition-fast), color var(--transition-fast);
   }
 
   .welcome-btn.primary:hover {
@@ -249,22 +250,22 @@
 
   .recent-section {
     width: 100%;
-    margin-top: 32px;
+    margin-top: var(--space-6);
   }
 
   .recent-title {
-    font-size: 12px;
+    font-size: var(--font-size-sm);
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0.12em;
     color: var(--text-muted);
-    margin: 0 0 12px;
+    margin: 0 0 var(--space-3);
     font-family: var(--font-ui);
   }
 
   .no-recent {
     color: var(--text-muted);
-    font-size: 13px;
+    font-size: var(--font-size-sm);
     margin: 0;
     font-family: var(--font-ui);
   }
@@ -275,22 +276,22 @@
     padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: var(--stack-tight);
   }
 
   .recent-item {
     display: block;
     width: 100%;
-    padding: 8px 12px;
+    padding: var(--space-2) var(--space-3);
     font-family: var(--font-ui);
-    font-size: 13px;
+    font-size: var(--font-size-sm);
     text-align: start;
     color: var(--text-body);
     background: none;
     border: none;
     border-radius: 0;
     cursor: pointer;
-    transition: background 0.1s, color 0.1s;
+    transition: background var(--transition-fast), color var(--transition-fast);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -304,16 +305,16 @@
   .onboarding-banner {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 14px 18px;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
     border: 2px solid var(--warning);
     background: rgba(202, 138, 4, 0.08);
     width: 100%;
-    margin-bottom: 8px;
+    margin-bottom: var(--space-2);
   }
 
   .onboarding-icon {
-    font-size: 22px;
+    font-size: var(--font-size-lg);
     flex-shrink: 0;
   }
 
@@ -323,23 +324,23 @@
 
   .onboarding-text strong {
     display: block;
-    font-size: 13px;
+    font-size: var(--font-size-sm);
     font-weight: 800;
     color: var(--text-primary);
-    margin-bottom: 2px;
+    margin-bottom: var(--stack-tight);
   }
 
   .onboarding-text p {
-    font-size: 12px;
+    font-size: var(--font-size-sm);
     color: var(--text-secondary);
     margin: 0;
     line-height: 1.4;
   }
 
   .welcome-btn.secondary {
-    padding: 8px 16px;
+    padding: var(--space-2) var(--space-4);
     font-family: var(--font-ui);
-    font-size: 12px;
+    font-size: var(--font-size-sm);
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.04em;

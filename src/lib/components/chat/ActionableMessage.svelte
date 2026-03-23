@@ -66,8 +66,8 @@
 
   .action-bar {
     display: flex;
-    gap: 4px;
-    padding-top: 4px;
+    gap: var(--interactive-gap);
+    padding-top: var(--space-1);
   }
 
   .action-btn {
@@ -79,7 +79,7 @@
     color: var(--text-muted);
     background: transparent;
     border: var(--border-width) solid var(--border);
-    padding: 1px 6px;
+    padding: var(--stack-tight) var(--space-1);
     cursor: pointer;
   }
 

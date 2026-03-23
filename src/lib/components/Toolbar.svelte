@@ -119,7 +119,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 0 0 12px;
+    padding: 0 0 0 var(--space-3);
     flex-shrink: 0;
     user-select: none;
     -webkit-app-region: drag;
@@ -129,7 +129,7 @@
   .toolbar-right {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--space-2);
     -webkit-app-region: no-drag;
     flex-shrink: 0;
     white-space: nowrap;
@@ -145,7 +145,7 @@
   }
 
   .toolbar-right {
-    gap: 4px;
+    gap: var(--stack-tight);
   }
 
   .logo-icon {
@@ -156,11 +156,11 @@
 
   .logo {
     font-weight: 800;
-    font-size: 14px;
+    font-size: var(--font-size-base);
     color: var(--text-primary);
     text-transform: uppercase;
     letter-spacing: -0.02em;
-    margin-inline-end: 8px;
+    margin-inline-end: var(--space-2);
     overflow: hidden;
     text-overflow: ellipsis;
     flex-shrink: 1;
@@ -171,14 +171,14 @@
     color: var(--text-body);
     border: var(--border-width) solid var(--border);
     border-radius: 0;
-    padding: 3px 10px;
+    padding: var(--space-1) var(--space-2);
     font-family: var(--font-ui);
     font-size: var(--font-size-small);
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.04em;
     cursor: pointer;
-    transition: background 0.1s, color 0.1s, border-color 0.1s;
+    transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
     min-height: 26px;
   }
 
@@ -190,11 +190,11 @@
 
   .git-dropdown-wrapper {
     position: relative;
-    margin-inline-end: 4px;
+    margin-inline-end: var(--stack-tight);
   }
 
   .git-trigger {
-    padding: 3px 10px;
+    padding: var(--space-1) var(--space-2);
     font-size: var(--font-size-tiny);
     min-height: 26px;
     border: 2px solid var(--border);
@@ -220,15 +220,15 @@
     min-width: 160px;
     background: var(--bg-secondary);
     border: 2px solid var(--border);
-    padding: 4px 0;
+    padding: var(--space-1) 0;
   }
 
   .git-dropdown-item {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--space-2);
     width: 100%;
-    padding: 6px 12px;
+    padding: var(--space-1) var(--space-3);
     background: transparent;
     border: none;
     border-radius: 0;
@@ -267,14 +267,14 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    padding: 3px 10px;
+    padding: var(--space-1) var(--space-2);
     min-height: 26px;
   }
 
   .toolbar-btn.active {
     background: var(--accent);
     border-color: var(--accent);
-    color: #fff;
+    color: var(--text-on-accent);
   }
 
   .toolbar-btn:disabled {
@@ -285,7 +285,7 @@
   .window-controls {
     display: flex;
     align-items: stretch;
-    margin-inline-start: 4px;
+    margin-inline-start: var(--stack-tight);
     height: var(--toolbar-height);
   }
 
@@ -293,12 +293,12 @@
     background: transparent;
     border: none;
     color: var(--text-secondary);
-    font-size: 12px;
-    padding: 0 14px;
+    font-size: var(--font-size-sm);
+    padding: 0 var(--space-3);
     min-height: unset;
     height: 100%;
     cursor: pointer;
-    transition: background 0.1s, color 0.1s;
+    transition: background var(--transition-fast), color var(--transition-fast);
     display: flex;
     align-items: center;
   }
@@ -311,6 +311,6 @@
 
   .win-btn.close:hover {
     background: var(--danger);
-    color: #fff;
+    color: var(--text-on-accent);
   }
 </style>

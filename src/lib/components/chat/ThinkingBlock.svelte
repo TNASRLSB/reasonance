@@ -33,7 +33,7 @@
     justify-content: space-between;
     align-items: center;
     width: 100%;
-    padding: 6px 12px;
+    padding: var(--space-1) var(--space-3);
     background: var(--bg-tertiary);
     border: none;
     border-bottom: var(--border-width) solid var(--border);
@@ -58,7 +58,7 @@
   }
 
   .thinking-preview {
-    padding: 8px 12px;
+    padding: var(--space-2) var(--space-3);
     font-family: var(--font-ui);
     font-size: var(--font-size-small);
     color: var(--text-muted);
@@ -66,6 +66,6 @@
   }
 
   .thinking-content {
-    padding: 12px;
+    padding: var(--inset-component);
   }
 </style>

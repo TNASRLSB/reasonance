@@ -6,6 +6,7 @@
   import { showSwarmCanvas } from '$lib/stores/ui';
   import type { NodeRunState } from '$lib/adapter/index';
   import { onDestroy } from 'svelte';
+  import { getStateColor } from '$lib/utils/state-color';
 
   let { adapter, cwd = '.' }: { adapter: Adapter; cwd?: string } = $props();
 
@@ -16,17 +17,6 @@
   const unsubStatus = runStatus.subscribe((val) => { status = val; });
   const unsubSummary = statusSummary.subscribe((val) => { summary = val; });
   const unsubNodes = nodeStates.subscribe((val) => { nodes = val; });
-
-  const stateColors: Record<string, string> = {
-    idle: '#666666',
-    queued: '#ca8a04',
-    running: '#1d4ed8',
-    success: '#16a34a',
-    failed: '#dc2626',
-    retrying: '#ea580c',
-    fallback: '#ea580c',
-    error: '#dc2626',
-  };
 
   function openCanvas() {
     showSwarmCanvas.set(true);
@@ -46,7 +36,7 @@
     {#each nodes as ns}
       <span
         class="node-dot"
-        style="background: {stateColors[ns.state] || '#666'}"
+        style="background: {getStateColor(ns.state)}"
         title="{ns.node_id}: {ns.state}"
       ></span>
     {/each}
@@ -64,11 +54,11 @@
 
 <style>
   .swarm-panel {
-    padding: 10px;
+    padding: var(--space-2);
     height: 100%;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: var(--stack-normal);
     font-family: var(--font-ui, sans-serif);
     background: var(--bg-secondary);
   }
@@ -88,9 +78,9 @@
     background: none;
     border: 1px solid var(--border);
     color: var(--text-secondary);
-    padding: 2px 6px;
+    padding: var(--stack-tight) var(--space-1);
     cursor: pointer;
-    font-size: 14px;
+    font-size: var(--font-size-base);
   }
   .expand-btn:hover {
     background: var(--bg-hover);
@@ -99,8 +89,8 @@
   .mini-map {
     display: flex;
     flex-wrap: wrap;
-    gap: 4px;
-    padding: 6px;
+    gap: var(--stack-tight);
+    padding: var(--space-1);
     background: var(--bg-primary);
     border: 1px solid var(--border);
     min-height: 30px;
@@ -112,11 +102,11 @@
     display: inline-block;
   }
   .no-nodes {
-    font-size: 11px;
+    font-size: var(--font-size-sm);
     color: var(--text-muted);
   }
   .status-line {
-    font-size: 12px;
+    font-size: var(--font-size-sm);
     color: var(--text-secondary);
   }
 </style>

@@ -72,9 +72,9 @@
   .tool-header {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--space-2);
     width: 100%;
-    padding: 6px 12px;
+    padding: var(--space-1) var(--space-3);
     background: var(--bg-tertiary);
     border: none;
     border-bottom: var(--border-width) solid var(--border);
@@ -115,10 +115,10 @@
   }
 
   .tool-content {
-    padding: 8px 12px;
+    padding: var(--space-2) var(--space-3);
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: var(--stack-normal);
   }
 
   .tool-section-label {
@@ -128,7 +128,7 @@
     text-transform: uppercase;
     letter-spacing: 0.08em;
     color: var(--text-muted);
-    margin-bottom: 4px;
+    margin-bottom: var(--stack-tight);
   }
 
   .tool-json {
@@ -137,7 +137,7 @@
     color: var(--text-body);
     background: var(--bg-primary);
     border: var(--border-width) solid var(--border);
-    padding: 8px;
+    padding: var(--space-2);
     margin: 0;
     overflow-x: auto;
     white-space: pre-wrap;
@@ -145,6 +145,6 @@
   }
 
   .tool-result {
-    padding: 4px 0;
+    padding: var(--space-1) 0;
   }
 </style>
