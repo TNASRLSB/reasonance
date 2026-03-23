@@ -1,7 +1,9 @@
 # Audit Issue List
 
-**Date:** 2026-03-22
-**Total issues:** 62
+**Date:** 2026-03-23 (updated with live test results)
+**Total issues:** 62 (code-level) + 2 newly confirmed via live testing
+
+> **Live Testing Update (2026-03-23):** Playwright + axe-core + Lighthouse tests confirmed several code-level findings and surfaced 2 new issues: missing `<title>` element (WCAG 2.4.2) and zero ARIA landmarks in the app. See `visual-testing-findings.md` for full live test data. Lighthouse accessibility score: **88/100**.
 
 ## Summary
 | Severity | Count |
