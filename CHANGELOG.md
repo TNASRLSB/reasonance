@@ -1,5 +1,176 @@
 # Changelog
 
+## [0.8.0] - 2026-03-23
+
+### Features
+
+- feat(normalizer): content_blocks pipeline + transport resilience
+- feat(design-system): final WCAG AAA audit — all checks passed
+- feat(design-system): tokenize transitions + semantic borders
+- feat(design-system): unify buttons — 44px minimum, ARIA complete
+- feat(design-system): migrate spacing to 4px grid — semantic tokens
+- feat(design-system): migrate typography to rem scale — 12px minimum
+- feat(design-system): contrast audit — WCAG 2.x + APCA verified
+- feat(design-system): replace all hardcoded colors with tokens
+- feat(design-system): add layer manager store and focus trap utility
+- feat(design-system): add all new CSS tokens — typography, spacing, layers, colors, borders, transitions
+- feat(chat): add slash command menu with combobox ARIA pattern
+- feat(chat): delete ChatHeader, add streaming metrics to footer
+- feat(Toolbar): replace emoji buttons with accessible text buttons, add SWARM
+- feat(TerminalManager): flat tab bar with model names and [+] provider dropdown
+- feat(store): add turnCount to AgentSessionState
+
+### Bug Fixes
+
+- fix(a11y): WCAG 2.2 AAA improvements + tab bar bug fixes
+- fix(review): address code review findings — outside-click, stale comments, dead field
+
+### Other
+
+- assistant message to emit multiple typed events (thinking, text,
+- tool_use, tool_result) by iterating over content block arrays.
+- 
+- Also: force-stop stale active sessions on follow-up messages instead
+- of rejecting them, set stdin to null for child processes, and make
+- log level configurable in dev builds via RUST_LOG.
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- - Zero hardcoded style values in components
+- - Full contrast matrix (WCAG 2.x + APCA) verified
+- - 44px minimum target size on all interactive elements
+- - Layer system with focus trap, inert, Escape LIFO
+- - Forced-colors, reduced-motion, prefers-contrast all tested
+- - Enhanced readability mode verified
+- - Fixed missing i18n keys in 7 locales
+- 
+- Spec: docs/superpowers/specs/2026-03-23-design-system-consolidation-design.md
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- Functional animations have static fallbacks in reduced-motion.
+- Toast auto-dismiss: never for errors/warnings. Zero flash.
+- All border-radius enforced to 0 (brutalist). Borders use semantic
+- tokens (--border-container, --border-separator, --border-interactive).
+- 
+- Spec: docs/superpowers/specs/2026-03-23-design-system-consolidation-design.md
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- (normal 44px / compact 32px). Icon-only buttons have aria-label.
+- Toggle buttons have aria-pressed. Button groups use role=toolbar
+- with arrow key navigation. Loading state with aria-busy.
+- Cursor blink default off.
+- 
+- Spec: docs/superpowers/specs/2026-03-23-design-system-consolidation-design.md
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- between targets. Paragraph spacing on prose blocks. No fixed height on
+- text containers.
+- 
+- Spec: docs/superpowers/specs/2026-03-23-design-system-consolidation-design.md
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- md(20px), lg(24px), hero(32px). Line-height per tier. Font-weight per
+- tier with dark/light variants. Text measure 72ch on prose containers.
+- 
+- Spec: docs/superpowers/specs/2026-03-23-design-system-consolidation-design.md
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- 4.5:1 large). Fixed light theme tokens: --text-muted, --accent-text,
+- --success-text, --warning-text. Added --accent-btn/--danger-btn for
+- button backgrounds (vivid hues cannot hit 7:1). APCA Lc values
+- documented. Colorblind simulation: state colors use redundant
+- indicators (icons + text labels).
+- 
+- Spec: docs/superpowers/specs/2026-03-23-design-system-consolidation-design.md
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- Agent state colors tokenized with shared utility (state-color.ts).
+- Redundant visual indicators (icons) for WCAG 1.4.1.
+- SVG icons migrated to currentColor. CodeMirror/xterm themes use
+- factory functions reading CSS tokens via getComputedStyle.
+- 
+- Spec: docs/superpowers/specs/2026-03-23-design-system-consolidation-design.md
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- inert management, Escape LIFO, focus fallback chain, scroll lock.
+- Portal div added to app.html. Duplicate-id guard on pushLayer.
+- 
+- Spec: docs/superpowers/specs/2026-03-23-design-system-consolidation-design.md
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- consumed by components. No visual changes.
+- 
+- Spec: docs/superpowers/specs/2026-03-23-design-system-consolidation-design.md
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- docs: add design system consolidation implementation plan
+- audit), typography, spacing, buttons, transitions, borders, enhanced
+- readability, and final WCAG AAA audit.
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- docs: add design system consolidation spec — WCAG AAA
+- a tokenized, WCAG AAA compliant design system. Covers typography
+- (4px grid rem scale), spacing (semantic layers), layer management,
+- OKLCH color architecture, buttons, transitions, and borders.
+- 10-phase implementation plan with verification checkpoints.
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- - Fix "+" button dropdown using click-outside handler instead of
+-   svelte:window onclick (Svelte 5 event delegation issue)
+- - Fix YOLO button position: always first in footer-left, never shifts
+- - Uniform tab bar element sizing: all elements 24px min-height with
+-   matching font-size and padding (tab, TERM toggle, status badge, +)
+- 
+- Part B — WCAG 2.2 AAA improvements:
+- - Contrast: add AAA-compliant text tokens (--accent-text, --danger-text,
+-   --success-text, --warning-text) for both dark and light themes
+- - Light theme: fix --text-muted (#767676→#595959) and --text-secondary
+-   (#525252→#404040) for 7:1 ratio on all backgrounds
+- - Visual Presentation (1.4.8): max-width 70ch on chat text blocks,
+-   paragraph spacing ≥ 1.5em
+- - Help (3.3.5): aria-describedby on YOLO toggle, ViewModeToggle;
+-   role="meter" on context bar with descriptive aria-label
+- - Error Prevention (3.3.6): /clear slash command requires confirmation
+- - Link Purpose (2.4.9): post-process generic link text ("here", "click")
+-   with aria-label containing domain name
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- - Update stale ChatHeader comments in agent-session.ts to reference footer metrics
+- - Make label field optional on TerminalInstance (display uses computedLabels)
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- test: update tests for flat terminal store
+- TerminalTab) with the new flat model (terminalInstances, activeInstanceId,
+- TerminalInstance with provider field). Rewrite terminals.test.ts to cover
+- addInstance, removeInstance, updateInstance, computedLabels, and activeInstance.
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- 
+- 
+- 
+- refactor(Terminal): use flat store updateInstance helper
+- 
+- refactor(session): update save/restore for flat terminal store
+- 
+- refactor(StatusBar): use flat store activeInstance derived
+- refactor(store): flatten terminalTabs → terminalInstances with computed labels
+
+
+
 ## [0.7.0] - 2026-03-23
 
 ### Features
