@@ -294,7 +294,7 @@
     gap: var(--space-2);
     padding: var(--space-1) var(--space-3);
     cursor: pointer;
-    transition: background 0.1s;
+    transition: background var(--transition-fast);
   }
 
   .palette-item:hover,

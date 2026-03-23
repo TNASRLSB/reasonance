@@ -151,7 +151,7 @@
     border: 1px solid transparent;
     font-size: var(--font-size-sm);
     cursor: pointer;
-    transition: background 0.15s, color 0.15s;
+    transition: background var(--transition-fast), color var(--transition-fast);
   }
 
   .btn-accept {

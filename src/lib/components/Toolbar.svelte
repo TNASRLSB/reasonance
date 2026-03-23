@@ -178,7 +178,7 @@
     text-transform: uppercase;
     letter-spacing: 0.04em;
     cursor: pointer;
-    transition: background 0.1s, color 0.1s, border-color 0.1s;
+    transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
     min-height: 26px;
   }
 
@@ -298,7 +298,7 @@
     min-height: unset;
     height: 100%;
     cursor: pointer;
-    transition: background 0.1s, color 0.1s;
+    transition: background var(--transition-fast), color var(--transition-fast);
     display: flex;
     align-items: center;
   }

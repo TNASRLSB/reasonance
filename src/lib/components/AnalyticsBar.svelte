@@ -423,7 +423,7 @@
     color: var(--text-secondary);
     margin-inline-start: auto;
     flex-shrink: 0;
-    transition: opacity 0.15s;
+    transition: opacity var(--transition-fast);
   }
 
   .dashboard-link:hover {

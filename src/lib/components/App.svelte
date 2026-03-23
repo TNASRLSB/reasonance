@@ -284,7 +284,7 @@
     background: var(--bg-tertiary);
     cursor: col-resize;
     flex-shrink: 0;
-    transition: background 0.15s;
+    transition: background var(--transition-fast);
     position: relative;
     z-index: 10;
     display: flex;

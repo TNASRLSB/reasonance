@@ -254,7 +254,7 @@
     font-size: var(--font-size-sm);
     cursor: pointer;
     flex-shrink: 0;
-    transition: opacity 0.15s;
+    transition: opacity var(--transition-fast);
   }
 
   .search-btn:disabled {
@@ -316,7 +316,7 @@
     gap: var(--space-2);
     padding: var(--space-1) var(--space-3);
     cursor: pointer;
-    transition: background 0.1s;
+    transition: background var(--transition-fast);
     width: 100%;
     text-align: start;
     background: none;

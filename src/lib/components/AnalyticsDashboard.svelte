@@ -740,7 +740,7 @@
     cursor: pointer;
     border-radius: 0;
     min-height: 24px;
-    transition: background 0.1s, color 0.1s, border-color 0.1s;
+    transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
   }
 
   .period-btn:hover {
@@ -778,7 +778,7 @@
     border-radius: 0;
     min-height: 24px;
     text-transform: uppercase;
-    transition: background 0.1s, color 0.1s;
+    transition: background var(--transition-fast), color var(--transition-fast);
   }
 
   .header-btn:hover {
@@ -1092,7 +1092,7 @@
 
   .provider-row {
     border-bottom: 1px solid var(--border);
-    transition: background 0.1s;
+    transition: background var(--transition-fast);
   }
 
   .provider-row:hover {
@@ -1280,7 +1280,7 @@
   .trend-bar-fill {
     width: 100%;
     background: var(--accent);
-    transition: height 0.2s ease;
+    transition: height var(--transition-normal);
     min-height: 2px;
   }
 

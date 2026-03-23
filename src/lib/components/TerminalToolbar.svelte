@@ -176,7 +176,7 @@
     font-size: var(--font-size-base);
     font-weight: 800;
     cursor: pointer;
-    transition: background 0.1s, color 0.1s;
+    transition: background var(--transition-fast), color var(--transition-fast);
   }
 
   .term-tbtn--labeled {
@@ -224,7 +224,7 @@
     text-transform: uppercase;
     letter-spacing: 0.04em;
     cursor: pointer;
-    transition: background 0.1s, color 0.1s;
+    transition: background var(--transition-fast), color var(--transition-fast);
     white-space: nowrap;
   }
 
@@ -275,7 +275,7 @@
     font-size: var(--font-size-small);
     text-align: start;
     cursor: pointer;
-    transition: background 0.1s;
+    transition: background var(--transition-fast);
   }
 
   .dropdown-item:last-child {

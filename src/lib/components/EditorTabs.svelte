@@ -133,7 +133,7 @@
     font-weight: 500;
     color: var(--text-muted);
     user-select: none;
-    transition: background 0.1s, color 0.1s;
+    transition: background var(--transition-fast), color var(--transition-fast);
     white-space: nowrap;
     flex-shrink: 0;
     border-bottom: 2px solid transparent;
@@ -176,7 +176,7 @@
     min-height: 22px;
     border-radius: var(--radius);
     flex-shrink: 0;
-    transition: color 0.1s;
+    transition: color var(--transition-fast);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -200,7 +200,7 @@
     min-height: 24px;
     border-radius: var(--radius);
     flex-shrink: 0;
-    transition: color 0.1s;
+    transition: color var(--transition-fast);
     display: flex;
     align-items: center;
     justify-content: center;

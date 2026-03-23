@@ -478,7 +478,7 @@
     letter-spacing: 0.02em;
     padding: var(--space-1) var(--space-2);
     cursor: pointer;
-    transition: background 0.1s, color 0.1s;
+    transition: background var(--transition-fast), color var(--transition-fast);
     white-space: nowrap;
   }
 

@@ -61,6 +61,16 @@
     0%, 100% { opacity: 1; }
     50% { opacity: 0.7; }
   }
+
+  @media (prefers-reduced-motion: reduce) {
+    /* Static active-state indicator: accent border instead of pulse */
+    .agent-node.pulsing {
+      animation: none;
+      border-color: var(--accent, #1d4ed8);
+      box-shadow: 0 0 0 2px var(--accent, #1d4ed8);
+    }
+  }
+
   .node-header {
     display: flex;
     align-items: center;

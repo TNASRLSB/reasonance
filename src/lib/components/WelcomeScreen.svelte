@@ -126,7 +126,7 @@
     font-family: var(--font-ui);
     position: relative;
     -webkit-app-region: drag;
-    transition: outline 0.15s;
+    transition: outline var(--transition-fast);
   }
 
   .welcome.drag-over {
@@ -157,7 +157,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: background 0.1s, color 0.1s;
+    transition: background var(--transition-fast), color var(--transition-fast);
   }
 
   .theme-toggle:hover {
@@ -180,7 +180,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: background 0.1s, color 0.1s;
+    transition: background var(--transition-fast), color var(--transition-fast);
   }
 
   .win-btn:hover {
@@ -240,7 +240,7 @@
     background: transparent;
     color: var(--accent);
     cursor: pointer;
-    transition: background 0.15s, color 0.15s;
+    transition: background var(--transition-fast), color var(--transition-fast);
   }
 
   .welcome-btn.primary:hover {
@@ -291,7 +291,7 @@
     border: none;
     border-radius: 0;
     cursor: pointer;
-    transition: background 0.1s, color 0.1s;
+    transition: background var(--transition-fast), color var(--transition-fast);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

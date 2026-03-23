@@ -25,4 +25,14 @@
     0%, 80%, 100% { opacity: 0.3; }
     40% { opacity: 1; }
   }
+
+  @media (prefers-reduced-motion: reduce) {
+    /* Static indicator: all dots visible at medium opacity */
+    .dot {
+      animation: none;
+      opacity: 0.6;
+    }
+    .dot:nth-child(2) { opacity: 0.8; }
+    .dot:nth-child(3) { opacity: 1; }
+  }
 </style>

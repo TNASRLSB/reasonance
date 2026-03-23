@@ -155,7 +155,7 @@
     padding: var(--space-1);
     margin-top: -1px;
     opacity: 0.6;
-    transition: opacity 0.15s;
+    transition: opacity var(--transition-fast);
     min-width: 32px;
     min-height: 32px;
     display: flex;
@@ -177,7 +177,7 @@
   .toast-progress-bar {
     height: 100%;
     background: var(--accent);
-    transition: width 0.3s ease;
+    transition: width var(--transition-normal);
   }
   .toast-actions {
     display: flex;
@@ -206,6 +206,12 @@
     to {
       transform: translateX(0);
       opacity: 1;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .toast-progress-bar {
+      transition: none;
     }
   }
 </style>

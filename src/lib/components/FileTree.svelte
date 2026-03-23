@@ -352,7 +352,7 @@
     cursor: pointer;
     white-space: nowrap;
     overflow: hidden;
-    transition: background 0.1s, color 0.1s, border-color 0.1s;
+    transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
   }
 
   .tree-item:hover {

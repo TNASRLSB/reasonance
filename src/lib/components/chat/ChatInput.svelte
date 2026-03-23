@@ -268,7 +268,7 @@
     min-height: 2.75rem;
     cursor: pointer;
     align-self: flex-end;
-    transition: opacity 0.1s;
+    transition: opacity var(--transition-fast);
   }
 
   .send-btn[aria-busy="true"] {
@@ -325,7 +325,7 @@
     background: transparent;
     color: var(--text-muted);
     cursor: pointer;
-    transition: background 0.1s, color 0.1s, border-color 0.1s;
+    transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
   }
 
   .yolo-toggle:hover {

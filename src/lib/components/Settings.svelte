@@ -1016,7 +1016,7 @@
     border: var(--border-width) solid var(--border);
     border-radius: 0;
     padding: var(--space-2) var(--space-2);
-    transition: background 0.15s, border-color 0.15s;
+    transition: background var(--transition-fast), border-color var(--transition-fast);
   }
 
   .llm-item.pending-delete {
@@ -1115,7 +1115,7 @@
     background: var(--bg-secondary);
     color: var(--text-primary);
     cursor: pointer;
-    transition: background 0.15s, border-color 0.15s;
+    transition: background var(--transition-fast), border-color var(--transition-fast);
     text-transform: uppercase;
     letter-spacing: 0.04em;
     font-weight: 700;
@@ -1150,7 +1150,7 @@
     text-transform: uppercase;
     letter-spacing: 0.04em;
     cursor: pointer;
-    transition: background 0.15s;
+    transition: background var(--transition-fast);
   }
 
   button:hover {
@@ -1218,7 +1218,7 @@
     color: var(--text-secondary);
     cursor: pointer;
     min-width: 50px;
-    transition: background 0.1s, color 0.1s;
+    transition: background var(--transition-fast), color var(--transition-fast);
   }
 
   .toggle-btn.active {

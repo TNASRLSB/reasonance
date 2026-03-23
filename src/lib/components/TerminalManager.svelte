@@ -433,7 +433,7 @@
     overflow: hidden;
     text-overflow: ellipsis;
     min-height: 24px;
-    transition: background 0.1s, color 0.1s;
+    transition: background var(--transition-fast), color var(--transition-fast);
   }
 
   .flat-tab:hover {
@@ -478,7 +478,7 @@
     background: none;
     border: none;
     color: inherit;
-    transition: opacity 0.1s;
+    transition: opacity var(--transition-fast);
   }
 
   .tab-group:hover .close-btn,
@@ -660,7 +660,7 @@
     font-family: var(--font-ui);
     cursor: pointer;
     text-align: start;
-    transition: background 0.1s, border-color 0.1s;
+    transition: background var(--transition-fast), border-color var(--transition-fast);
   }
 
   .llm-card:hover {
@@ -724,7 +724,7 @@
     background: var(--accent);
     color: var(--text-on-accent);
     cursor: pointer;
-    transition: opacity 0.1s;
+    transition: opacity var(--transition-fast);
   }
 
   .no-llm-btn:hover {

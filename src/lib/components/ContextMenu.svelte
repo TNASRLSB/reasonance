@@ -172,7 +172,7 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     gap: var(--interactive-gap);
-    transition: background 0.1s;
+    transition: background var(--transition-fast);
   }
 
   .context-menu-item:hover:not(.disabled) {
@@ -207,5 +207,13 @@
 
   @keyframes spin {
     to { transform: rotate(360deg); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    /* Static loading indicator: accent-filled border instead of spinning */
+    .spinner {
+      animation: none;
+      border-color: var(--accent);
+    }
   }
 </style>

@@ -130,9 +130,9 @@
     cursor: pointer;
     font-size: var(--font-size-base);
     padding: var(--space-1) var(--space-1);
-    border-radius: 4px;
+    border-radius: 0;
     line-height: 1;
-    transition: color 0.15s, background 0.15s;
+    transition: color var(--transition-fast), background var(--transition-fast);
   }
 
   .close-btn:hover {
@@ -182,7 +182,7 @@
     background: var(--bg-primary, #0f172a);
     color: var(--code-accent);
     padding: 0.15em 0.4em;
-    border-radius: 4px;
+    border-radius: 0;
     font-family: var(--font-mono);
     font-size: var(--font-size-sm);
   }
@@ -190,7 +190,7 @@
   .markdown-preview :global(pre) {
     background: var(--code-bg);
     border: 1px solid var(--border, #334155);
-    border-radius: 6px;
+    border-radius: 0;
     padding: var(--space-3);
     overflow: auto;
     margin: 0.75em 0;

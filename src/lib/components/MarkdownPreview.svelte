@@ -112,7 +112,7 @@
     background: var(--bg-secondary, #1e293b);
     color: var(--code-accent);
     padding: 0.15em 0.4em;
-    border-radius: 4px;
+    border-radius: 0;
     font-family: var(--font-mono);
     font-size: var(--font-size-sm);
   }
@@ -120,7 +120,7 @@
   .markdown-preview :global(pre) {
     background: var(--code-bg);
     border: 1px solid var(--border, #334155);
-    border-radius: 8px;
+    border-radius: 0;
     padding: var(--inset-section);
     overflow: auto;
     margin: 1em 0;
@@ -139,7 +139,7 @@
     margin: 1em 0;
     padding: 0.5em 1em;
     background: var(--bg-secondary, #1e293b);
-    border-radius: 0 6px 6px 0;
+    border-radius: 0;
     color: var(--text-secondary, #94a3b8);
   }
 
@@ -189,6 +189,6 @@
 
   .markdown-preview :global(img) {
     max-width: 100%;
-    border-radius: 6px;
+    border-radius: 0;
   }
 </style>
