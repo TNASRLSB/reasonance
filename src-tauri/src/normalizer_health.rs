@@ -1,3 +1,4 @@
+use log::{debug, info, warn};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Mutex;
@@ -65,21 +66,23 @@ impl NormalizerHealth {
     }
 
     pub fn set_report(&self, provider: &str, report: HealthReport) {
-        self.reports.lock().unwrap().insert(provider.to_string(), report);
+        info!("Health report stored for provider='{}': status={:?}", provider, report.status);
+        self.reports.lock().unwrap_or_else(|e| e.into_inner()).insert(provider.to_string(), report);
     }
 
     pub fn get_report(&self, provider: &str) -> Option<HealthReport> {
-        self.reports.lock().unwrap().get(provider).cloned()
+        self.reports.lock().unwrap_or_else(|e| e.into_inner()).get(provider).cloned()
     }
 
     pub fn all_reports(&self) -> HashMap<String, HealthReport> {
-        self.reports.lock().unwrap().clone()
+        self.reports.lock().unwrap_or_else(|e| e.into_inner()).clone()
     }
 }
 
 use crate::agent_event::{AgentEvent, AgentEventType, EventContent};
 
 pub fn evaluate_test_case(test_case: &TestCase, events: &[AgentEvent]) -> TestCaseResult {
+    debug!("Evaluating health test case '{}' against {} events", test_case.name, events.len());
     for expected in &test_case.expected {
         let matching_events: Vec<&AgentEvent> = events
             .iter()
@@ -129,12 +132,15 @@ pub fn health_status_from_results(results: &[TestCaseResult]) -> HealthStatus {
         .collect();
 
     if failing.is_empty() {
+        debug!("Health check: all {} tests passed", results.len());
         HealthStatus::Healthy
     } else if failing.len() == results.len() {
+        warn!("Health check: all {} tests failed", results.len());
         HealthStatus::Broken {
             error: format!("All {} tests failed", results.len()),
         }
     } else {
+        warn!("Health check: {}/{} tests failing: {:?}", failing.len(), results.len(), failing);
         HealthStatus::Degraded {
             failing_tests: failing,
         }

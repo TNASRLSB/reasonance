@@ -7,7 +7,21 @@
   // Isolated marked instance — avoids global state mutation
   const md = new Marked({ breaks: true, gfm: true, async: false });
 
-  let html = $derived(DOMPurify.sanitize(md.parse(text) as string));
+  const SANITIZE_CONFIG = {
+    ALLOWED_TAGS: [
+      'p', 'br', 'strong', 'em', 'b', 'i', 'u', 'del', 's',
+      'a', 'code', 'pre', 'span',
+      'ul', 'ol', 'li',
+      'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+      'blockquote', 'hr', 'img',
+      'table', 'thead', 'tbody', 'tr', 'th', 'td',
+      'div', 'sub', 'sup', 'mark', 'abbr',
+    ],
+    ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class', 'id', 'target', 'rel', 'colspan', 'rowspan'],
+    ALLOW_DATA_ATTR: false,
+  };
+
+  let html = $derived(DOMPurify.sanitize(md.parse(text) as string, SANITIZE_CONFIG));
 </script>
 
 <div class="text-block markdown-content">
@@ -63,7 +77,7 @@
   }
 
   .text-block :global(blockquote) {
-    border-left: 4px solid var(--border);
+    border-inline-start: 4px solid var(--border);
     margin: 8px 0;
     padding: 4px 12px;
     color: var(--text-secondary);
@@ -72,7 +86,7 @@
   .text-block :global(ul),
   .text-block :global(ol) {
     margin: 4px 0;
-    padding-left: 24px;
+    padding-inline-start: 24px;
   }
 
   .text-block :global(table) {
@@ -85,7 +99,7 @@
   .text-block :global(td) {
     border: var(--border-width) solid var(--border);
     padding: 4px 8px;
-    text-align: left;
+    text-align: start;
   }
 
   .text-block :global(th) {

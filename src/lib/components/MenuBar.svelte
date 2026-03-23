@@ -142,7 +142,7 @@
   ];
 </script>
 
-<div class="menu-bar" bind:this={menuBarEl}>
+<div class="menu-bar" role="menubar" bind:this={menuBarEl}>
   {#each menus as menu, i}
     <MenuItem
       label={$tr(menu.key)}

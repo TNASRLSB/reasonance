@@ -297,7 +297,7 @@
   }
   .code-area.half {
     flex: 0.5;
-    border-left: 2px solid var(--border);
+    border-inline-start: 2px solid var(--border);
   }
   .json-editor {
     width: 100%;
@@ -321,7 +321,7 @@
   .inspector-area {
     width: 240px;
     min-width: 200px;
-    border-left: 2px solid var(--border);
+    border-inline-start: 2px solid var(--border);
     background: var(--bg-secondary);
     overflow-y: auto;
   }

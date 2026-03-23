@@ -1,3 +1,4 @@
+use log::{debug, error, info, warn};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -44,18 +45,22 @@ impl AgentRuntime {
 
     pub fn create_agent(&self, node_id: &str, workflow_path: &str, max_retries: u32, fallback_agent: Option<String>) -> String {
         let id = uuid::Uuid::new_v4().to_string();
+        info!("Agent created: id={}, node_id={}, workflow={}, max_retries={}", id, node_id, workflow_path, max_retries);
         let agent = AgentInstance {
             id: id.clone(), node_id: node_id.to_string(), workflow_path: workflow_path.to_string(),
             state: AgentState::Idle, pty_id: None, retry_count: 0, max_retries,
             fallback_agent, started_at: None, finished_at: None, error_message: None,
         };
-        self.agents.lock().unwrap().insert(id.clone(), agent);
+        self.agents.lock().unwrap_or_else(|e| e.into_inner()).insert(id.clone(), agent);
         id
     }
 
     pub fn transition(&self, agent_id: &str, new_state: AgentState) -> Result<AgentState, String> {
-        let mut agents = self.agents.lock().unwrap();
-        let agent = agents.get_mut(agent_id).ok_or_else(|| format!("Agent {} not found", agent_id))?;
+        let mut agents = self.agents.lock().unwrap_or_else(|e| e.into_inner());
+        let agent = agents.get_mut(agent_id).ok_or_else(|| {
+            error!("Agent state transition failed: agent {} not found", agent_id);
+            format!("Agent {} not found", agent_id)
+        })?;
         let valid = match (&agent.state, &new_state) {
             (AgentState::Idle, AgentState::Queued) => true,
             (AgentState::Queued, AgentState::Running) => true,
@@ -69,8 +74,10 @@ impl AgentRuntime {
             _ => false,
         };
         if !valid {
+            warn!("Invalid state transition: {:?} -> {:?} for agent {}", agent.state, new_state, agent_id);
             return Err(format!("Invalid transition: {:?} -> {:?} for agent {}", agent.state, new_state, agent_id));
         }
+        info!("Agent state transition: id={}, {:?} -> {:?}", agent_id, agent.state, new_state);
         let now = chrono::Utc::now().to_rfc3339();
         match &new_state {
             AgentState::Running => { if agent.started_at.is_none() { agent.started_at = Some(now); } }
@@ -83,46 +90,50 @@ impl AgentRuntime {
     }
 
     pub fn set_pty(&self, agent_id: &str, pty_id: &str) -> Result<(), String> {
-        let mut agents = self.agents.lock().unwrap();
+        let mut agents = self.agents.lock().unwrap_or_else(|e| e.into_inner());
         let agent = agents.get_mut(agent_id).ok_or_else(|| format!("Agent {} not found", agent_id))?;
         agent.pty_id = Some(pty_id.to_string());
         Ok(())
     }
 
     pub fn set_error(&self, agent_id: &str, message: &str) -> Result<(), String> {
-        let mut agents = self.agents.lock().unwrap();
+        error!("Agent error set: id={}, message='{}'", agent_id, message);
+        let mut agents = self.agents.lock().unwrap_or_else(|e| e.into_inner());
         let agent = agents.get_mut(agent_id).ok_or_else(|| format!("Agent {} not found", agent_id))?;
         agent.error_message = Some(message.to_string());
         Ok(())
     }
 
     pub fn get_agent(&self, agent_id: &str) -> Option<AgentInstance> {
-        self.agents.lock().unwrap().get(agent_id).cloned()
+        self.agents.lock().unwrap_or_else(|e| e.into_inner()).get(agent_id).cloned()
     }
 
     pub fn get_workflow_agents(&self, workflow_path: &str) -> Vec<AgentInstance> {
-        self.agents.lock().unwrap().values().filter(|a| a.workflow_path == workflow_path).cloned().collect()
+        self.agents.lock().unwrap_or_else(|e| e.into_inner()).values().filter(|a| a.workflow_path == workflow_path).cloned().collect()
     }
 
     pub fn remove_agent(&self, agent_id: &str) -> Result<(), String> {
-        self.agents.lock().unwrap().remove(agent_id).ok_or_else(|| format!("Agent {} not found", agent_id))?;
+        info!("Agent removed: id={}", agent_id);
+        self.agents.lock().unwrap_or_else(|e| e.into_inner()).remove(agent_id).ok_or_else(|| format!("Agent {} not found", agent_id))?;
         Ok(())
     }
 
     pub fn remove_workflow_agents(&self, workflow_path: &str) {
-        self.agents.lock().unwrap().retain(|_, a| a.workflow_path != workflow_path);
+        debug!("Removing all agents for workflow={}", workflow_path);
+        self.agents.lock().unwrap_or_else(|e| e.into_inner()).retain(|_, a| a.workflow_path != workflow_path);
     }
 
     pub fn send_message(&self, from: &str, to: &str, payload: serde_json::Value) {
+        debug!("Agent message: from={}, to={}", from, to);
         let msg = AgentMessage {
             from: from.to_string(), to: to.to_string(), payload,
             timestamp: chrono::Utc::now().to_rfc3339(),
         };
-        self.messages.lock().unwrap().push(msg);
+        self.messages.lock().unwrap_or_else(|e| e.into_inner()).push(msg);
     }
 
     pub fn get_messages_for(&self, agent_id: &str) -> Vec<AgentMessage> {
-        self.messages.lock().unwrap().iter().filter(|m| m.to == agent_id).cloned().collect()
+        self.messages.lock().unwrap_or_else(|e| e.into_inner()).iter().filter(|m| m.to == agent_id).cloned().collect()
     }
 }
 

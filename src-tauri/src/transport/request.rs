@@ -1,4 +1,6 @@
 use crate::agent_event::{AgentEvent, ErrorSeverity};
+#[allow(unused_imports)]
+use log::{info, warn, error, debug, trace};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -95,7 +95,7 @@
     font-size: var(--font-size-small);
     font-weight: 700;
     flex: 1;
-    text-align: left;
+    text-align: start;
   }
 
   .tool-status {

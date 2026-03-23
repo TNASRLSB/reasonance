@@ -22,6 +22,7 @@ use fs_watcher::FsWatcherState;
 use pty_manager::PtyManager;
 use shadow_store::ShadowStore;
 use tauri::Manager;
+use log::{info, warn, error, debug};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -32,6 +33,21 @@ pub fn run() {
     }
 
     tauri::Builder::default()
+        .plugin(
+            tauri_plugin_log::Builder::new()
+                .level(log::LevelFilter::Debug)
+                .target(tauri_plugin_log::Target::new(
+                    tauri_plugin_log::TargetKind::Stdout,
+                ))
+                .target(tauri_plugin_log::Target::new(
+                    tauri_plugin_log::TargetKind::Webview,
+                ))
+                .target(tauri_plugin_log::Target::new(
+                    tauri_plugin_log::TargetKind::LogDir { file_name: None },
+                ))
+                .timezone_strategy(tauri_plugin_log::TimezoneStrategy::UseLocal)
+                .build(),
+        )
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
@@ -91,13 +107,16 @@ pub fn run() {
             normalizer_version::NormalizerVersionStore::new(&versions_dir)
         })
         .setup(|app| {
+            info!("🚀 Reasonance setup starting");
             let transport: tauri::State<'_, transport::StructuredAgentTransport> = app.state();
 
             // Wire FrontendEmitter (existing)
+            info!("  ✓ Wiring FrontendEmitter to event bus");
             let emitter = transport::event_bus::FrontendEmitter::new(app.handle().clone());
             transport.event_bus().subscribe(Box::new(emitter));
 
             // Wire SessionHistoryRecorder into event bus
+            info!("  ✓ Wiring SessionHistoryRecorder to event bus");
             let session_mgr: tauri::State<'_, transport::session_manager::SessionManager> = app.state();
             let session_recorder = session_mgr.recorder();
             struct SessionRecorderWrapper(std::sync::Arc<transport::event_bus::SessionHistoryRecorder>);
@@ -109,6 +128,7 @@ pub fn run() {
             transport.event_bus().subscribe(Box::new(SessionRecorderWrapper(session_recorder)));
 
             // Wire AnalyticsCollector into event bus
+            info!("  ✓ Wiring AnalyticsCollector to event bus");
             let analytics: tauri::State<'_, std::sync::Arc<analytics::collector::AnalyticsCollector>> = app.state();
             struct AnalyticsWrapper(std::sync::Arc<analytics::collector::AnalyticsCollector>);
             impl transport::event_bus::AgentEventSubscriber for AnalyticsWrapper {
@@ -132,7 +152,7 @@ pub fn run() {
             // Register CLI providers from normalizer configs
             let updater: tauri::State<'_, cli_updater::CliUpdater> = app.state();
             let registry = transport.registry();
-            let registry_guard = registry.lock().unwrap();
+            let registry_guard = registry.lock().unwrap_or_else(|e| e.into_inner());
             let configs: std::collections::HashMap<String, _> = registry_guard.providers()
                 .into_iter()
                 .filter_map(|p| registry_guard.get_config(&p).map(|c| (p, c.clone())))
@@ -164,6 +184,7 @@ pub fn run() {
                 negotiator.set_capabilities(provider, caps);
             }
 
+            info!("🚀 Reasonance setup complete — all systems wired");
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

@@ -1,3 +1,4 @@
+use log::trace;
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
@@ -137,6 +138,7 @@ impl AgentEvent {
     }
 
     pub fn text(content: &str, provider: &str) -> Self {
+        trace!("AgentEvent::text created for provider='{}'", provider);
         Self {
             id: Uuid::new_v4().to_string(),
             parent_id: None,
@@ -159,6 +161,7 @@ impl AgentEvent {
     }
 
     pub fn error(message: &str, code: &str, severity: ErrorSeverity, provider: &str) -> Self {
+        trace!("AgentEvent::error created for provider='{}', code='{}', severity={:?}", provider, code, severity);
         let mut meta = Self::base_metadata(provider);
         meta.error_severity = Some(severity);
         meta.error_code = Some(code.to_string());
@@ -173,6 +176,7 @@ impl AgentEvent {
     }
 
     pub fn tool_use(tool_name: &str, input: &str, provider: &str) -> Self {
+        trace!("AgentEvent::tool_use created: tool='{}', provider='{}'", tool_name, provider);
         let mut meta = Self::base_metadata(provider);
         meta.tool_name = Some(tool_name.to_string());
         Self {
@@ -213,6 +217,7 @@ impl AgentEvent {
     }
 
     pub fn done(session_id: &str, provider: &str) -> Self {
+        trace!("AgentEvent::done created for session='{}', provider='{}'", session_id, provider);
         let mut meta = Self::base_metadata(provider);
         meta.session_id = Some(session_id.to_string());
         Self {

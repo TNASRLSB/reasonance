@@ -1,3 +1,4 @@
+use log::{debug, info};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -153,6 +154,7 @@ impl DiscoveryEngine {
     }
 
     pub fn scan_cli(&self) -> Vec<DiscoveredAgent> {
+        info!("Scanning for CLI agents");
         let candidates = vec![
             ("Claude", "claude"),
             ("Gemini", "gemini"),
@@ -194,24 +196,30 @@ impl DiscoveryEngine {
                 })
             })
             .collect();
-        let mut agents = self.agents.lock().unwrap();
+        info!("CLI scan complete: discovered {} agents", discovered.len());
+        for agent in &discovered {
+            debug!("Discovered CLI agent: name='{}', command={:?}", agent.name, agent.command);
+        }
+        let mut agents = self.agents.lock().unwrap_or_else(|e| e.into_inner());
         agents.retain(|a| a.source != DiscoverySource::Cli);
         agents.extend(discovered.clone());
         discovered
     }
 
     pub async fn probe_apis(&self) -> Vec<DiscoveredAgent> {
+        info!("Probing API endpoints for agents");
         let mut discovered = Vec::new();
         if let Ok(agents) = Self::probe_ollama().await {
             discovered.extend(agents);
         }
-        let mut agents = self.agents.lock().unwrap();
+        let mut agents = self.agents.lock().unwrap_or_else(|e| e.into_inner());
         agents.retain(|a| a.source != DiscoverySource::Api);
         agents.extend(discovered.clone());
         discovered
     }
 
     async fn probe_ollama() -> Result<Vec<DiscoveredAgent>, String> {
+        debug!("Probing Ollama API at localhost:11434");
         let client = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(3))
             .build()
@@ -250,13 +258,16 @@ impl DiscoveryEngine {
     }
 
     pub async fn discover_all(&self) -> Vec<DiscoveredAgent> {
+        info!("Starting full agent discovery (CLI + API)");
         self.scan_cli();
         self.probe_apis().await;
-        self.agents.lock().unwrap().clone()
+        let all = self.agents.lock().unwrap_or_else(|e| e.into_inner()).clone();
+        info!("Full discovery complete: {} total agents", all.len());
+        all
     }
 
     pub fn get_agents(&self) -> Vec<DiscoveredAgent> {
-        self.agents.lock().unwrap().clone()
+        self.agents.lock().unwrap_or_else(|e| e.into_inner()).clone()
     }
 }
 

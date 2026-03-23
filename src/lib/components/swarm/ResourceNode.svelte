@@ -9,10 +9,10 @@
   } = $props();
 
   const kindIcons: Record<string, string> = {
-    folder: '&#128193;',
-    file: '&#128196;',
-    api: '&#127760;',
-    database: '&#128451;',
+    folder: '\u{1F4C1}',
+    file: '\u{1F4C4}',
+    api: '\u{1F310}',
+    database: '\u{1F5C3}',
   };
 </script>
 
@@ -20,11 +20,12 @@
   class="resource-node"
   class:selected
   onclick={() => onselect?.(id)}
+  onkeydown={(e: KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onselect?.(id); } }}
   role="button"
   tabindex="0"
 >
   <div class="node-header">
-    <span class="node-icon">{@html kindIcons[kind] || '&#128196;'}</span>
+    <span class="node-icon">{kindIcons[kind] || '\u{1F4C4}'}</span>
     <span class="node-label">{label}</span>
   </div>
   {#if path}

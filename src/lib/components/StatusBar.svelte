@@ -1,7 +1,7 @@
 <script lang="ts">
   import { tr } from '$lib/i18n/index';
   import { yoloMode } from '$lib/stores/ui';
-  import { activeFilePath } from '$lib/stores/files';
+  import { activeFilePath, cursorLine, cursorCol } from '$lib/stores/files';
   import { llmConfigs } from '$lib/stores/config';
   import { terminalTabs, activeTerminalTab, activeInstanceId } from '$lib/stores/terminals';
 
@@ -68,6 +68,7 @@
 
     <div class="status-right">
       {#if $activeFilePath}
+        <span class="cursor-pos">Ln {$cursorLine}, Col {$cursorCol}</span>
         <span class="file-name">{$activeFilePath.split('/').pop()}</span>
         <span class="file-lang">{getLang($activeFilePath)}</span>
         <span class="file-encoding">UTF-8</span>
@@ -138,6 +139,12 @@
   }
 
   .llm-count {
+    opacity: 0.85;
+  }
+
+  .cursor-pos {
+    font-family: var(--font-mono);
+    font-size: var(--font-size-tiny);
     opacity: 0.85;
   }
 

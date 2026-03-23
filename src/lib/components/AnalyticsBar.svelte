@@ -318,7 +318,7 @@
   .danger-marker {
     position: absolute;
     top: -2px;
-    left: 80%;
+    inset-inline-start: 80%;
     width: 1px;
     height: 8px;
     background: var(--danger);
@@ -421,7 +421,7 @@
     min-height: 44px;
     border-radius: 0;
     color: var(--text-secondary);
-    margin-left: auto;
+    margin-inline-start: auto;
     flex-shrink: 0;
     transition: opacity 0.15s;
   }

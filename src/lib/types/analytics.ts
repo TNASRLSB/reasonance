@@ -67,6 +67,7 @@ export interface DailyStats {
   output_tokens: number;
   errors: number;
   avg_duration_ms: number;
+  total_cost_usd?: number;
 }
 
 export interface TimeRange {

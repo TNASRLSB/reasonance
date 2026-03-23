@@ -20,7 +20,21 @@
     { gfm: true, breaks: true }
   );
 
-  const rendered = $derived(DOMPurify.sanitize(markedInstance.parse(content) as string));
+  const SANITIZE_CONFIG = {
+    ALLOWED_TAGS: [
+      'p', 'br', 'strong', 'em', 'b', 'i', 'u', 'del', 's',
+      'a', 'code', 'pre', 'span',
+      'ul', 'ol', 'li',
+      'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+      'blockquote', 'hr', 'img',
+      'table', 'thead', 'tbody', 'tr', 'th', 'td',
+      'div', 'sub', 'sup', 'mark', 'abbr',
+    ],
+    ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class', 'id', 'target', 'rel', 'colspan', 'rowspan'],
+    ALLOW_DATA_ATTR: false,
+  };
+
+  const rendered = $derived(DOMPurify.sanitize(markedInstance.parse(content) as string, SANITIZE_CONFIG));
 </script>
 
 <div class="markdown-preview">
@@ -111,7 +125,7 @@
   }
 
   .markdown-preview :global(blockquote) {
-    border-left: 4px solid var(--accent, #6366f1);
+    border-inline-start: 4px solid var(--accent, #6366f1);
     margin: 1em 0;
     padding: 0.5em 1em;
     background: var(--bg-secondary, #1e293b);
@@ -134,7 +148,7 @@
   .markdown-preview :global(td) {
     border: 1px solid var(--border, #334155);
     padding: 8px 12px;
-    text-align: left;
+    text-align: start;
   }
 
   .markdown-preview :global(th) {
@@ -149,7 +163,7 @@
 
   .markdown-preview :global(ul),
   .markdown-preview :global(ol) {
-    padding-left: 1.5em;
+    padding-inline-start: 1.5em;
     margin: 0.75em 0;
   }
 

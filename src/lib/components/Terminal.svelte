@@ -208,11 +208,29 @@
       const resizeObserver = new ResizeObserver(rafFit);
       resizeObserver.observe(containerEl);
 
+      // Listen for terminal export requests
+      const handleExport = (e: Event) => {
+        const detail = (e as CustomEvent).detail;
+        if (detail?.instanceId !== ptyId) return;
+        const content = serializeAddon.serialize();
+        // Strip ANSI sequences for plain text output
+        const plainText = content.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '');
+        const blob = new Blob([plainText], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `terminal-output-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.txt`;
+        a.click();
+        URL.revokeObjectURL(url);
+      };
+      window.addEventListener('reasonance:exportTerminal', handleExport);
+
       cleanups.push(() => {
         if (fitRaf !== null) cancelAnimationFrame(fitRaf);
         onDataDispose.dispose();
         onResizeDispose.dispose();
         resizeObserver.disconnect();
+        window.removeEventListener('reasonance:exportTerminal', handleExport);
         term.dispose();
       });
     })(); // end async IIFE
@@ -262,12 +280,13 @@
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="terminal-wrapper">
+<div class="terminal-wrapper" aria-label="Terminal" role="region">
   {#if searchVisible}
     <div class="terminal-search">
       <input
         type="text"
         placeholder="Find in terminal..."
+        aria-label="Find in terminal"
         bind:value={searchQuery}
         oninput={() => searchAddon?.findNext(searchQuery)}
         onkeydown={(e) => {
@@ -283,7 +302,7 @@
       <button onclick={() => { searchVisible = false; term?.focus(); }} aria-label="Close search">&#10005;</button>
     </div>
   {/if}
-  <div class="terminal-container" bind:this={containerEl} onclick={() => term?.focus()}></div>
+  <div class="terminal-container" aria-label="Terminal output" bind:this={containerEl} onclick={() => term?.focus()}></div>
 </div>
 
 <style>

@@ -18,6 +18,9 @@ export interface ToastMessage {
 let nextId = 0;
 export const toasts = writable<ToastMessage[]>([]);
 
+// Track auto-dismiss timers so they can be paused/resumed
+const toastTimers = new Map<number, { timer: ReturnType<typeof setTimeout>; remaining: number; start: number }>();
+
 export function showToast(
   type: ToastMessage['type'],
   title: string,
@@ -32,11 +35,31 @@ export function showToast(
     { id, type, title, body, actions: options?.actions, persistent },
   ]);
   if (duration > 0 && !persistent) {
-    setTimeout(() => {
+    const timer = setTimeout(() => {
+      toastTimers.delete(id);
       toasts.update((t) => t.filter((msg) => msg.id !== id));
     }, duration);
+    toastTimers.set(id, { timer, remaining: duration, start: Date.now() });
   }
   return id;
+}
+
+export function pauseToastTimer(id: number) {
+  const entry = toastTimers.get(id);
+  if (!entry) return;
+  clearTimeout(entry.timer);
+  entry.remaining -= (Date.now() - entry.start);
+  if (entry.remaining <= 0) entry.remaining = 500;
+}
+
+export function resumeToastTimer(id: number) {
+  const entry = toastTimers.get(id);
+  if (!entry) return;
+  entry.start = Date.now();
+  entry.timer = setTimeout(() => {
+    toastTimers.delete(id);
+    toasts.update((t) => t.filter((msg) => msg.id !== id));
+  }, entry.remaining);
 }
 
 export function updateToastProgress(id: number, progress: number) {

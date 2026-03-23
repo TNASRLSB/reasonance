@@ -1,5 +1,7 @@
 use crate::agent_event::AgentEvent;
 use crate::transport::request::{AgentRequest, SessionStatus};
+#[allow(unused_imports)]
+use log::{info, warn, error, debug, trace};
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
@@ -61,8 +63,11 @@ impl SessionHandle {
             .unwrap_or_default()
             .as_millis() as u64;
 
+        let id = Uuid::new_v4().to_string();
+        debug!("SessionHandle: created new handle id={} provider={} model={}", id, provider, model);
+
         Self {
-            id: Uuid::new_v4().to_string(),
+            id,
             provider: provider.to_string(),
             model: model.to_string(),
             cli_session_id: None,

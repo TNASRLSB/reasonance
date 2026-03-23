@@ -1,3 +1,4 @@
+use log::{debug, trace};
 use std::collections::HashMap;
 use std::sync::Mutex;
 
@@ -13,6 +14,7 @@ impl ShadowStore {
     }
 
     pub fn store(&self, path: &str, content: &str) {
+        debug!("Shadow store: storing copy for path='{}'", path);
         self.copies
             .lock()
             .unwrap()
@@ -20,10 +22,12 @@ impl ShadowStore {
     }
 
     pub fn get(&self, path: &str) -> Option<String> {
-        self.copies.lock().unwrap().get(path).cloned()
+        trace!("Shadow store: retrieving path='{}'", path);
+        self.copies.lock().unwrap_or_else(|e| e.into_inner()).get(path).cloned()
     }
 
     pub fn remove(&self, path: &str) {
-        self.copies.lock().unwrap().remove(path);
+        debug!("Shadow store: removing path='{}'", path);
+        self.copies.lock().unwrap_or_else(|e| e.into_inner()).remove(path);
     }
 }

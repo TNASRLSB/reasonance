@@ -21,26 +21,36 @@
     closeFile(path);
   }
 
-  function handleKeyDown(e: KeyboardEvent, path: string) {
+  function handleKeyDown(e: KeyboardEvent, path: string, index: number) {
     if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
       switchTab(path);
+    } else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+      e.preventDefault();
+      const files = get(openFiles);
+      const nextIndex = e.key === 'ArrowRight'
+        ? (index + 1) % files.length
+        : (index - 1 + files.length) % files.length;
+      const tablist = (e.currentTarget as HTMLElement).parentElement;
+      const tabs = tablist?.querySelectorAll<HTMLElement>('[role="tab"]');
+      tabs?.[nextIndex]?.focus();
     }
   }
 </script>
 
 <div class="editor-tabs" role="tablist">
   <div class="tabs-scroll">
-    {#each $openFiles as file (file.path)}
+    {#each $openFiles as file, i (file.path)}
       <div
         class="tab"
         class:active={$activeFilePath === file.path}
         class:deleted={file.isDeleted}
         class:dirty={file.isDirty}
         role="tab"
-        tabindex="0"
+        tabindex={$activeFilePath === file.path ? 0 : -1}
         aria-selected={$activeFilePath === file.path}
         onclick={() => switchTab(file.path)}
-        onkeydown={(e) => handleKeyDown(e, file.path)}
+        onkeydown={(e) => handleKeyDown(e, file.path, i)}
       >
         <span class="tab-name">
           {#if file.isDeleted}
@@ -49,6 +59,14 @@
             {file.name}{file.isDirty ? ' ●' : ''}
           {/if}
         </span>
+        {#if file.isDirty && !file.isDeleted}
+          <button
+            class="tab-save"
+            aria-label="Save {file.name}"
+            onclick={(e) => { e.stopPropagation(); switchTab(file.path); document.dispatchEvent(new CustomEvent('reasonance:save')); }}
+            title="Save"
+          >&#9998;</button>
+        {/if}
         <button
           class="tab-close"
           aria-label="Close {file.name}"
@@ -99,7 +117,7 @@
     gap: 6px;
     padding: 0 10px;
     flex-shrink: 0;
-    border-left: 1px solid var(--border);
+    border-inline-start: 1px solid var(--border);
   }
 
   .tab {
@@ -110,7 +128,7 @@
     min-width: 100px;
     max-width: 200px;
     cursor: pointer;
-    border-right: 2px solid var(--border);
+    border-inline-end: 2px solid var(--border);
     font-size: 12px;
     font-weight: 500;
     color: var(--text-muted);
@@ -144,6 +162,30 @@
     overflow: hidden;
     text-overflow: ellipsis;
     min-width: 0;
+  }
+
+  .tab-save {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 12px;
+    line-height: 1;
+    padding: 3px 4px;
+    min-width: 22px;
+    min-height: 22px;
+    border-radius: var(--radius);
+    flex-shrink: 0;
+    transition: color 0.1s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.7;
+  }
+
+  .tab-save:hover {
+    color: var(--accent);
+    opacity: 1;
   }
 
   .tab-close {

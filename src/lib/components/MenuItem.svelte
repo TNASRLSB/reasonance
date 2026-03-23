@@ -39,9 +39,52 @@
       onClose();
     }
   }
+
+  function handleSubmenuKeydown(e: KeyboardEvent, item: MenuItemDef, index: number) {
+    if (e.key === 'ArrowRight' && item.submenu) {
+      e.preventDefault();
+      e.stopPropagation();
+      openSubmenuIndex = index;
+      // Focus first submenu item after it renders
+      requestAnimationFrame(() => {
+        const row = (e.currentTarget as HTMLElement);
+        const subItem = row.querySelector<HTMLElement>('.submenu-dropdown [role="menuitem"]');
+        subItem?.focus();
+      });
+    } else if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      if (item.submenu) {
+        openSubmenuIndex = index;
+        requestAnimationFrame(() => {
+          const row = (e.currentTarget as HTMLElement);
+          const subItem = row.querySelector<HTMLElement>('.submenu-dropdown [role="menuitem"]');
+          subItem?.focus();
+        });
+      } else {
+        handleItemClick(item);
+      }
+    }
+  }
+
+  function handleSubItemKeydown(e: KeyboardEvent, sub: MenuItemDef) {
+    if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      e.stopPropagation();
+      openSubmenuIndex = null;
+      // Return focus to the parent submenu trigger
+      if (menuDropdownEl) {
+        const items = menuDropdownEl.querySelectorAll<HTMLElement>('[role="menuitem"]');
+        const focused = Array.from(items).find(el => el.classList.contains('has-submenu'));
+        focused?.focus();
+      }
+    } else if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      handleItemClick(sub);
+    }
+  }
 </script>
 
-<div class="menu-item" role="menubar" tabindex="-1" onkeydown={handleKeydown}>
+<div class="menu-item" tabindex="-1" onkeydown={handleKeydown}>
   <button
     class="menu-trigger"
     class:active={open}
@@ -63,8 +106,11 @@
             class="menu-row has-submenu"
             role="menuitem"
             tabindex="-1"
+            aria-haspopup="true"
+            aria-expanded={openSubmenuIndex === i}
             onmouseenter={() => openSubmenuIndex = i}
             onmouseleave={() => openSubmenuIndex = null}
+            onkeydown={(e) => handleSubmenuKeydown(e, item, i)}
           >
             <span class="menu-label">{item.label}</span>
             <span class="menu-arrow">&#9654;</span>
@@ -79,6 +125,7 @@
                       role="menuitem"
                       tabindex="-1"
                       onclick={() => handleItemClick(sub)}
+                      onkeydown={(e) => handleSubItemKeydown(e, sub)}
                     >
                       <span class="menu-label">{sub.label}</span>
                       {#if sub.shortcut}
@@ -134,7 +181,7 @@
   .menu-dropdown {
     position: absolute;
     top: 100%;
-    left: 0;
+    inset-inline-start: 0;
     min-width: 220px;
     background: var(--bg-surface);
     border: var(--border-width) solid var(--border);
@@ -156,7 +203,7 @@
     font-size: var(--font-size-small);
     font-weight: 400;
     cursor: pointer;
-    text-align: left;
+    text-align: start;
     position: relative;
   }
 
@@ -170,14 +217,14 @@
 
   .menu-shortcut {
     color: var(--text-muted);
-    margin-left: 24px;
+    margin-inline-start: 24px;
     font-size: calc(var(--font-size-small) - 1px);
   }
 
   .menu-arrow {
     color: var(--text-muted);
     font-size: 8px;
-    margin-left: 12px;
+    margin-inline-start: 12px;
   }
 
   .menu-divider {
@@ -192,7 +239,7 @@
 
   .submenu-dropdown {
     position: absolute;
-    left: 100%;
+    inset-inline-start: 100%;
     top: 0;
     min-width: 180px;
     background: var(--bg-surface);

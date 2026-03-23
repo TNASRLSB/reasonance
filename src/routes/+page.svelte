@@ -20,10 +20,12 @@
   import { showToast } from '$lib/stores/toast';
   import SwarmCanvas from '$lib/components/swarm/SwarmCanvas.svelte';
   import ShortcutsDialog from '$lib/components/ShortcutsDialog.svelte';
+  import SessionPanel from '$lib/components/SessionPanel.svelte';
   import { saveSession, restoreSession, initShadowTracking } from '$lib/utils/session';
   import { loadInitialConfig, discoverAndApplyLlms } from '$lib/utils/config-bootstrap';
   import { onMount, onDestroy } from 'svelte';
   import { get } from 'svelte/store';
+  import { attachConsole } from '@tauri-apps/plugin-log';
   import '../app.css';
 
   interface DiffState {
@@ -43,6 +45,7 @@
   let showHelp = $state(false);
   let showAbout = $state(false);
   let showShortcuts = $state(false);
+  let showSessions = $state(false);
   let editorReadOnly = $state(true);
   let showMarkdownPreview = $state(false);
   let swarmVisible = $state(false);
@@ -127,6 +130,10 @@
   let unsubFiles: () => void;
 
   onMount(async () => {
+    // Attach console to Tauri log plugin — forwards console.* to Rust backend + log file
+    const detachConsole = await attachConsole();
+    console.info('[Reasonance] Frontend log bridge attached');
+
     initTheme();
 
     // Initialize i18n before restoring session
@@ -156,6 +163,7 @@
     registerKeybinding('ctrl+,', () => showSettings.set(true));
     registerKeybinding('f1', () => { showHelp = !showHelp; });
     registerKeybinding('ctrl+/', () => { showShortcuts = true; });
+    registerKeybinding('ctrl+shift+h', () => { showSessions = true; });
     initKeybindings();
 
     // Listen for openFolder custom event from MenuBar
@@ -341,16 +349,23 @@
   <div class="about-overlay" onclick={() => showAbout = false} onkeydown={(e) => { if (e.key === 'Escape') showAbout = false; }}>
     <div class="about-dialog" role="dialog" aria-modal="true" onclick={(e) => e.stopPropagation()}>
       <div class="about-logo">REASONANCE</div>
-      <div class="about-subtitle">IDE for Vibecoders</div>
+      <div class="about-subtitle">{$tr('about.subtitle')}</div>
       <div class="about-version">v0.1.0</div>
-      <div class="about-stack">Tauri v2 + Svelte 5 + CodeMirror 6</div>
-      <div class="about-license">MIT License</div>
+      <div class="about-stack">{$tr('about.stack')}</div>
+      <div class="about-license">{$tr('about.license')}</div>
       <button class="about-close" onclick={() => showAbout = false}>OK</button>
     </div>
   </div>
 {/if}
 
 <ShortcutsDialog visible={showShortcuts} onClose={() => { showShortcuts = false; }} />
+
+<SessionPanel
+  {adapter}
+  visible={showSessions}
+  onClose={() => { showSessions = false; }}
+  onRestore={(id) => { /* TODO: wire session restore */ }}
+/>
 
 <Toast />
 

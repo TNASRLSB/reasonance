@@ -1,4 +1,5 @@
 use super::SessionMetrics;
+use log::{debug, error, info, warn};
 use std::fs;
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
@@ -12,6 +13,7 @@ pub struct AnalyticsStore {
 impl AnalyticsStore {
     pub fn new(dir: &Path) -> Result<Self, String> {
         fs::create_dir_all(dir).map_err(|e| format!("Failed to create analytics dir: {}", e))?;
+        info!("AnalyticsStore initialized at {}", dir.display());
 
         let path = dir.to_path_buf();
         let mut store = Self {
@@ -24,36 +26,62 @@ impl AnalyticsStore {
 
     pub fn append(&self, metrics: &SessionMetrics) -> Result<(), String> {
         let json = serde_json::to_string(metrics)
-            .map_err(|e| format!("Failed to serialize metrics: {}", e))?;
+            .map_err(|e| {
+                error!("Failed to serialize metrics for session {}: {}", metrics.session_id, e);
+                format!("Failed to serialize metrics: {}", e)
+            })?;
 
         let file_path = self.path.join("metrics.jsonl");
         let mut file = fs::OpenOptions::new()
             .create(true)
             .append(true)
             .open(&file_path)
-            .map_err(|e| format!("Failed to open metrics file: {}", e))?;
+            .map_err(|e| {
+                error!("Failed to open metrics file {}: {}", file_path.display(), e);
+                format!("Failed to open metrics file: {}", e)
+            })?;
 
         writeln!(file, "{}", json)
-            .map_err(|e| format!("Failed to write metrics: {}", e))?;
+            .map_err(|e| {
+                error!("Failed to write metrics to {}: {}", file_path.display(), e);
+                format!("Failed to write metrics: {}", e)
+            })?;
 
-        self.completed.lock().unwrap().push(metrics.clone());
+        debug!("Appended metrics for session {} to {}", metrics.session_id, file_path.display());
+        self.completed.lock().unwrap_or_else(|e| e.into_inner()).push(metrics.clone());
         Ok(())
     }
 
     pub fn all_completed(&self) -> Vec<SessionMetrics> {
-        self.completed.lock().unwrap().clone()
+        self.completed.lock().unwrap_or_else(|e| e.into_inner()).clone()
+    }
+
+    /// Run a closure with a read-only reference to the completed metrics,
+    /// avoiding a full Vec clone for queries that filter/aggregate.
+    pub fn with_completed<F, R>(&self, f: F) -> R
+    where
+        F: FnOnce(&[SessionMetrics]) -> R,
+    {
+        let guard = self.completed.lock().unwrap_or_else(|e| e.into_inner());
+        f(&guard)
     }
 
     fn load(&mut self) -> Result<(), String> {
         let file_path = self.path.join("metrics.jsonl");
         if !file_path.exists() {
+            debug!("No existing metrics file at {}, starting fresh", file_path.display());
             return Ok(());
         }
 
+        debug!("Loading metrics from {}", file_path.display());
         let file = fs::File::open(&file_path)
-            .map_err(|e| format!("Failed to open metrics file: {}", e))?;
+            .map_err(|e| {
+                error!("Failed to open metrics file {}: {}", file_path.display(), e);
+                format!("Failed to open metrics file: {}", e)
+            })?;
         let reader = BufReader::new(file);
         let mut completed = Vec::new();
+        let mut skipped = 0u32;
 
         for line in reader.lines() {
             let line = line.map_err(|e| format!("Failed to read line: {}", e))?;
@@ -62,11 +90,15 @@ impl AnalyticsStore {
             }
             match serde_json::from_str::<SessionMetrics>(&line) {
                 Ok(metrics) => completed.push(metrics),
-                Err(_) => continue, // skip corrupted lines
+                Err(_) => { skipped += 1; continue; } // skip corrupted lines
             }
         }
 
-        *self.completed.lock().unwrap() = completed;
+        if skipped > 0 {
+            warn!("Skipped {} corrupted lines while loading metrics from {}", skipped, file_path.display());
+        }
+        info!("Loaded {} session metrics from {}", completed.len(), file_path.display());
+        *self.completed.lock().unwrap_or_else(|e| e.into_inner()) = completed;
         Ok(())
     }
 }

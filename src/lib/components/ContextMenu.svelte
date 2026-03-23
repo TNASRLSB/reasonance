@@ -166,7 +166,7 @@
     border: none;
     color: var(--text-primary, #e2e8f0);
     cursor: pointer;
-    text-align: left;
+    text-align: start;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

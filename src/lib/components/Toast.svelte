@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { toasts, dismissToast } from '$lib/stores/toast';
+  import { toasts, dismissToast, pauseToastTimer, resumeToastTimer } from '$lib/stores/toast';
 
   const borderColors: Record<string, string> = {
     error: 'var(--danger)',
@@ -30,8 +30,13 @@
   {#each $toasts as toast (toast.id)}
     <div
       class="toast"
-      style="border-left-color: {borderColors[toast.type] ?? borderColors.info}"
+      style="border-inline-start-color: {borderColors[toast.type] ?? borderColors.info}"
       role="alert"
+      tabindex="0"
+      onfocus={() => pauseToastTimer(toast.id)}
+      onblur={() => resumeToastTimer(toast.id)}
+      onmouseenter={() => pauseToastTimer(toast.id)}
+      onmouseleave={() => resumeToastTimer(toast.id)}
     >
       <div class="toast-row">
         <div class="toast-icon" style="color: {borderColors[toast.type] ?? borderColors.info}">
@@ -72,7 +77,7 @@
   .toast-container {
     position: fixed;
     bottom: 1.25rem;
-    right: 1.25rem;
+    inset-inline-end: 1.25rem;
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
@@ -88,7 +93,7 @@
     max-width: 420px;
     background: var(--bg-secondary);
     border: var(--border-width) solid var(--border);
-    border-left: 4px solid transparent;
+    border-inline-start: 4px solid transparent;
     border-radius: var(--radius);
     pointer-events: all;
     font-family: var(--font-ui);
@@ -146,10 +151,15 @@
     color: var(--text-secondary);
     font-size: 1rem;
     line-height: 1;
-    padding: 0;
+    padding: 4px;
     margin-top: -1px;
     opacity: 0.6;
     transition: opacity 0.15s;
+    min-width: 32px;
+    min-height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .toast-dismiss:hover {

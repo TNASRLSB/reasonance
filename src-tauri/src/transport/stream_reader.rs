@@ -33,7 +33,7 @@ pub fn spawn_stream_reader(
                     }
 
                     let events = {
-                        let mut pl = pipeline.lock().unwrap();
+                        let mut pl = pipeline.lock().unwrap_or_else(|e| e.into_inner());
                         pl.process(&line)
                     };
 

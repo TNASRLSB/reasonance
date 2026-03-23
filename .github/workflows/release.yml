@@ -221,6 +221,17 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
+      - name: Run Rust tests
+        working-directory: src-tauri
+        run: cargo test --release
+
+      - name: Run Rust linter
+        working-directory: src-tauri
+        run: cargo clippy -- -D warnings
+
+      - name: Run frontend tests
+        run: npm test
+
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
         env:
@@ -238,7 +249,7 @@ jobs:
           zip -r Reasonance-macos-arm64.zip Reasonance.app
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: reasonance-${{ matrix.name }}
           if-no-files-found: warn
@@ -253,7 +264,7 @@ jobs:
 
     steps:
       - name: Download all artifacts
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v6
         with:
           path: artifacts
 
@@ -323,11 +334,12 @@ jobs:
           cat release/latest.json
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v${{ needs.analyze.outputs.new_version }}
-          name: v${{ needs.analyze.outputs.new_version }}
-          body: ${{ needs.analyze.outputs.changelog_body }}
-          files: release/*
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CHANGELOG_BODY: ${{ needs.analyze.outputs.changelog_body }}
+        run: |
+          gh release create "v${{ needs.analyze.outputs.new_version }}" \
+            --title "v${{ needs.analyze.outputs.new_version }}" \
+            --notes "$CHANGELOG_BODY" \
+            --repo "${{ github.repository }}" \
+            release/*

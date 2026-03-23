@@ -1,5 +1,6 @@
 use crate::analytics::{ProviderAnalytics, ModelAnalytics, DailyStats, SessionMetrics, TimeRange};
 use crate::analytics::collector::AnalyticsCollector;
+use log::{info, debug};
 use std::sync::Arc;
 use tauri::State;
 
@@ -10,6 +11,7 @@ pub fn analytics_provider(
     to: Option<u64>,
     collector: State<'_, Arc<AnalyticsCollector>>,
 ) -> Result<ProviderAnalytics, String> {
+    info!("cmd::analytics_provider(provider={})", provider);
     let range = if from.is_some() || to.is_some() {
         Some(TimeRange { from, to })
     } else {
@@ -24,6 +26,7 @@ pub fn analytics_compare(
     to: Option<u64>,
     collector: State<'_, Arc<AnalyticsCollector>>,
 ) -> Result<Vec<ProviderAnalytics>, String> {
+    info!("cmd::analytics_compare called");
     let range = if from.is_some() || to.is_some() {
         Some(TimeRange { from, to })
     } else {
@@ -39,6 +42,7 @@ pub fn analytics_model_breakdown(
     to: Option<u64>,
     collector: State<'_, Arc<AnalyticsCollector>>,
 ) -> Result<Vec<ModelAnalytics>, String> {
+    info!("cmd::analytics_model_breakdown(provider={})", provider);
     let range = if from.is_some() || to.is_some() {
         Some(TimeRange { from, to })
     } else {
@@ -52,6 +56,7 @@ pub fn analytics_session(
     session_id: String,
     collector: State<'_, Arc<AnalyticsCollector>>,
 ) -> Result<Option<SessionMetrics>, String> {
+    info!("cmd::analytics_session(session_id={})", session_id);
     Ok(collector.get_session_metrics(&session_id))
 }
 
@@ -61,6 +66,7 @@ pub fn analytics_daily(
     days: Option<u32>,
     collector: State<'_, Arc<AnalyticsCollector>>,
 ) -> Result<Vec<DailyStats>, String> {
+    info!("cmd::analytics_daily(provider={:?}, days={:?})", provider, days);
     Ok(collector.get_daily_stats(provider.as_deref(), days.unwrap_or(30)))
 }
 
@@ -68,5 +74,6 @@ pub fn analytics_daily(
 pub fn analytics_active(
     collector: State<'_, Arc<AnalyticsCollector>>,
 ) -> Result<Vec<SessionMetrics>, String> {
+    debug!("cmd::analytics_active called");
     Ok(collector.get_active_sessions())
 }

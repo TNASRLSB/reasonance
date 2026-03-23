@@ -753,7 +753,7 @@
   }
 
   .compare-btn {
-    margin-left: 4px;
+    margin-inline-start: 4px;
   }
 
   .compare-btn.active {
@@ -803,7 +803,7 @@
   .export-menu button {
     display: block;
     width: 100%;
-    text-align: left;
+    text-align: start;
     background: transparent;
     border: none;
     border-radius: 0;
@@ -1079,13 +1079,13 @@
     font-size: var(--font-size-small);
     font-family: var(--font-mono);
     color: var(--text-primary);
-    border-right: 1px solid var(--border);
+    border-inline-end: 1px solid var(--border);
   }
 
   .provider-header-row [role="columnheader"]:last-child,
   .provider-row [role="gridcell"]:last-child,
   .provider-row [role="rowheader"]:last-child {
-    border-right: none;
+    border-inline-end: none;
   }
 
   .provider-row {
@@ -1118,7 +1118,7 @@
     text-transform: none;
     letter-spacing: normal;
     width: 100%;
-    text-align: left;
+    text-align: start;
   }
 
   .provider-expand-btn:hover {
@@ -1227,7 +1227,7 @@
   }
 
   .model-table th {
-    text-align: left;
+    text-align: start;
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0.04em;

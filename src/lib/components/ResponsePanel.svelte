@@ -8,6 +8,7 @@
   import AnalyticsBar from './AnalyticsBar.svelte';
   import { analyticsDashboard } from '$lib/stores/ui';
   import type { Adapter } from '$lib/adapter/index';
+  import { trapFocus } from '$lib/utils/a11y';
 
   interface Props {
     content: string;
@@ -31,11 +32,48 @@
     { gfm: true, breaks: true }
   );
 
-  const rendered = $derived(DOMPurify.sanitize(markedInstance.parse(content) as string));
+  const SANITIZE_CONFIG = {
+    ALLOWED_TAGS: [
+      'p', 'br', 'strong', 'em', 'b', 'i', 'u', 'del', 's',
+      'a', 'code', 'pre', 'span',
+      'ul', 'ol', 'li',
+      'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+      'blockquote', 'hr', 'img',
+      'table', 'thead', 'tbody', 'tr', 'th', 'td',
+      'div', 'sub', 'sup', 'mark', 'abbr',
+    ],
+    ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class', 'id', 'target', 'rel', 'colspan', 'rowspan'],
+    ALLOW_DATA_ATTR: false,
+  };
+
+  const rendered = $derived(DOMPurify.sanitize(markedInstance.parse(content) as string, SANITIZE_CONFIG));
+
+  let panelEl = $state<HTMLElement | null>(null);
+  let destroyTrap: (() => void) | null = null;
+
+  $effect(() => {
+    if (visible && panelEl) {
+      destroyTrap = trapFocus(panelEl);
+    } else {
+      destroyTrap?.();
+      destroyTrap = null;
+    }
+    return () => {
+      destroyTrap?.();
+      destroyTrap = null;
+    };
+  });
+
+  function handlePanelKeydown(e: KeyboardEvent) {
+    if (e.key === 'Escape') {
+      onClose();
+    }
+  }
 </script>
 
 {#if visible}
-  <div class="response-panel">
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div class="response-panel" bind:this={panelEl} role="dialog" aria-modal="true" aria-label={$tr('response.title')} onkeydown={handlePanelKeydown}>
     <div class="response-header">
       <span class="response-title">{$tr('response.title')}</span>
       <button class="close-btn" onclick={onClose} title={$tr('response.close')} aria-label={$tr('response.close')}>✕</button>
@@ -56,11 +94,11 @@
   .response-panel {
     position: absolute;
     top: 0;
-    right: 0;
+    inset-inline-end: 0;
     width: 420px;
     height: 100%;
     background: var(--bg-secondary, #1e293b);
-    border-left: 1px solid var(--border, #334155);
+    border-inline-start: 1px solid var(--border, #334155);
     display: flex;
     flex-direction: column;
     z-index: 50;
@@ -165,7 +203,7 @@
   }
 
   .markdown-preview :global(blockquote) {
-    border-left: 3px solid var(--accent, #6366f1);
+    border-inline-start: 3px solid var(--accent, #6366f1);
     margin: 0.75em 0;
     padding: 0.4em 0.9em;
     background: var(--bg-primary, #0f172a);
@@ -176,7 +214,7 @@
   .markdown-preview :global(blockquote p) { margin: 0; }
 
   .markdown-preview :global(ul),
-  .markdown-preview :global(ol) { padding-left: 1.4em; margin: 0.6em 0; }
+  .markdown-preview :global(ol) { padding-inline-start: 1.4em; margin: 0.6em 0; }
 
   .markdown-preview :global(li) { margin: 0.25em 0; }
 
@@ -191,7 +229,7 @@
   .markdown-preview :global(td) {
     border: 1px solid var(--border, #334155);
     padding: 6px 10px;
-    text-align: left;
+    text-align: start;
   }
 
   .markdown-preview :global(th) {

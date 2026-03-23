@@ -1,3 +1,4 @@
+use log::{info, warn, error, debug};
 use std::process::Command;
 
 #[derive(serde::Serialize)]
@@ -9,6 +10,7 @@ pub struct DiscoveredLlm {
 
 #[tauri::command]
 pub fn discover_llms() -> Vec<DiscoveredLlm> {
+    info!("cmd::discover_llms called");
     let candidates = vec![
         ("Claude", "claude"),
         ("Gemini", "gemini"),
@@ -18,7 +20,7 @@ pub fn discover_llms() -> Vec<DiscoveredLlm> {
         ("Open Interpreter", "interpreter"),
     ];
 
-    candidates
+    let result: Vec<DiscoveredLlm> = candidates
         .into_iter()
         .map(|(name, cmd)| {
             let found = if cfg!(target_os = "windows") {
@@ -35,16 +37,23 @@ pub fn discover_llms() -> Vec<DiscoveredLlm> {
                 found,
             }
         })
-        .collect()
+        .collect();
+    debug!("cmd::discover_llms found {} LLMs", result.iter().filter(|l| l.found).count());
+    result
 }
 
 #[tauri::command]
 pub fn open_external(path: String) -> Result<(), String> {
+    info!("cmd::open_external(path={})", path);
     // SEC-06: only allow http:// and https:// schemes to prevent file:// and app:// abuse
     if !path.starts_with("https://") && !path.starts_with("http://") {
+        error!("cmd::open_external rejected URL with disallowed scheme: {}", path);
         return Err(format!("Rejected URL with disallowed scheme: {}", path));
     }
-    open::that(&path).map_err(|e| e.to_string())
+    open::that(&path).map_err(|e| {
+        error!("cmd::open_external failed to open {}: {}", path, e);
+        e.to_string()
+    })
 }
 
 /// SEC-04: restricted to a hard-coded allowlist of known LLM-related env var names.
@@ -61,7 +70,6 @@ const ENV_VAR_ALLOWLIST: &[&str] = &[
     "OPENROUTER_API_KEY",
     "HF_TOKEN",
     "OLLAMA_HOST",
-    "PATH",
     "HOME",
     "USER",
     "SHELL",
@@ -71,7 +79,9 @@ const ENV_VAR_ALLOWLIST: &[&str] = &[
 
 #[tauri::command]
 pub fn get_env_var(name: String) -> Result<Option<String>, String> {
+    info!("cmd::get_env_var(name={})", name);
     if !ENV_VAR_ALLOWLIST.contains(&name.as_str()) {
+        warn!("cmd::get_env_var rejected non-allowlisted var: {}", name);
         return Err(format!("Environment variable '{}' is not in the allowed list", name));
     }
     Ok(std::env::var(&name).ok())
@@ -79,6 +89,7 @@ pub fn get_env_var(name: String) -> Result<Option<String>, String> {
 
 #[tauri::command]
 pub fn get_system_colors() -> Result<std::collections::HashMap<String, String>, String> {
+    info!("cmd::get_system_colors called");
     let mut colors = std::collections::HashMap::new();
 
     // Try reading KDE globals

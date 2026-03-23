@@ -1,5 +1,6 @@
 use crate::config;
 use crate::pty_manager::PtyManager;
+use log::{info, error, debug};
 use tauri::{AppHandle, State};
 
 /// Shells that are always allowed regardless of LLM config.
@@ -58,13 +59,20 @@ pub fn spawn_process(
     app: AppHandle,
     pty_manager: State<'_, PtyManager>,
 ) -> Result<String, String> {
+    info!("cmd::spawn_process(command={}, cwd={})", command, cwd);
     if !is_allowed_command(&command) {
+        error!("cmd::spawn_process rejected disallowed command: {}", command);
         return Err(format!(
             "Command '{}' is not allowed. Only configured LLM commands and known shells are permitted.",
             command
         ));
     }
-    pty_manager.spawn(&command, &args, &cwd, app)
+    let result = pty_manager.spawn(&command, &args, &cwd, app);
+    match &result {
+        Ok(id) => debug!("cmd::spawn_process spawned pty_id={}", id),
+        Err(e) => error!("cmd::spawn_process failed: {}", e),
+    }
+    result
 }
 
 #[tauri::command]
@@ -73,6 +81,7 @@ pub fn write_pty(
     data: String,
     pty_manager: State<'_, PtyManager>,
 ) -> Result<(), String> {
+    debug!("cmd::write_pty(id={}, len={})", id, data.len());
     pty_manager.write(&id, &data)
 }
 
@@ -83,6 +92,7 @@ pub fn resize_pty(
     rows: u16,
     pty_manager: State<'_, PtyManager>,
 ) -> Result<(), String> {
+    debug!("cmd::resize_pty(id={}, cols={}, rows={})", id, cols, rows);
     pty_manager.resize(&id, cols, rows)
 }
 
@@ -91,7 +101,11 @@ pub fn kill_process(
     id: String,
     pty_manager: State<'_, PtyManager>,
 ) -> Result<(), String> {
-    pty_manager.kill(&id)
+    info!("cmd::kill_process(id={})", id);
+    pty_manager.kill(&id).map_err(|e| {
+        error!("cmd::kill_process failed for id={}: {}", id, e);
+        e
+    })
 }
 
 #[cfg(test)]

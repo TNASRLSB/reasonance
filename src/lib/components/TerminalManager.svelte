@@ -118,7 +118,7 @@
   function closeInstance(llmName: string, id: string) {
     const inst = get(terminalTabs).flatMap((t) => t.instances).find((i) => i.id === id);
     const label = inst ? inst.label : id;
-    const ok = confirm(`Terminate session?\n\n${llmName} — ${label}\n\nThis will kill the running process. Any unsaved work in the terminal will be lost.`);
+    const ok = confirm($tr('terminal.terminateConfirm', { llmName, label }));
     if (!ok) return;
     adapter.killProcess(id).catch((e) => console.warn('Failed to kill process:', e));
     terminalTabs.update((current) => {
@@ -174,6 +174,7 @@
 
   // Restart all running instances when YOLO mode is toggled
   let prevYolo: boolean | null = null;
+  let isRestarting = false;
   $effect(() => {
     const current = $yoloMode;
     if (prevYolo === null) {
@@ -184,12 +185,15 @@
     if (current === prevYolo) return;
     prevYolo = current;
 
+    if (isRestarting) return; // Prevent concurrent restart loops from rapid toggling
+
     const tabs = get(terminalTabs);
     const allInstances = tabs.flatMap((t) => t.instances.map((i) => ({ ...i, llmName: t.llmName })));
     if (allInstances.length === 0) return;
 
     // Restart each instance with updated args
     (async () => {
+      isRestarting = true;
       for (const inst of allInstances) {
         const config = get(llmConfigs).find((c) => c.name === inst.llmName);
         if (!config || !config.command) continue;
@@ -228,6 +232,7 @@
           activeInstanceId.set(handle.id);
         }
       }
+      isRestarting = false;
     })();
   });
 
@@ -267,7 +272,7 @@
 
     <!-- Add LLM dropdown -->
     <div class="llm-add-wrapper">
-      <button class="llm-tab add-btn" onclick={() => showLLMDropdown = !showLLMDropdown} aria-label="Add LLM" aria-haspopup="true" aria-expanded={showLLMDropdown}>+</button>
+      <button class="llm-tab add-btn" onclick={() => showLLMDropdown = !showLLMDropdown} aria-label={$tr('terminal.addLlm')} aria-haspopup="true" aria-expanded={showLLMDropdown}>+</button>
       {#if showLLMDropdown}
         <div class="llm-dropdown" role="menu" bind:this={llmMenuEl} onkeydown={(e) => menuKeyHandler(e, llmMenuEl!, '[role="menuitem"]')}>
           {#each configs as config (config.name)}
@@ -288,13 +293,14 @@
     </div>
 
     <button
-      class="llm-tab"
+      class="llm-tab swarm-tab"
       class:active={showSwarmTab}
       role="tab"
       aria-selected={showSwarmTab}
-      onclick={() => { showSwarmTab = true; activeTerminalTab.set(null); }}
+      disabled
+      title="SWARM — Coming soon"
     >
-      {$tr('terminal.swarm')}
+      {$tr('terminal.swarm')} <span class="coming-soon-badge">{$tr('terminal.comingSoon')}</span>
     </button>
   </div>
 
@@ -307,7 +313,7 @@
     </div>
   {:else if $terminalTabs.length === 0}
     <div class="empty-state">
-      <div class="empty-header">TERMINAL</div>
+      <div class="empty-header">{$tr('terminal.header')}</div>
       <p class="empty-subtitle">{$tr('terminal.startLLM')}</p>
       {#if configs.length === 0}
         <div class="no-llm-banner" role="status">
@@ -340,23 +346,22 @@
     <!-- Instance Tab Bar -->
     <div class="instance-tabs" role="tablist" aria-label="Terminal instances">
       {#each activeTabInstances as inst (inst.id)}
-        <button
+        <div
           class="instance-tab"
           class:active={inst.id === $activeInstanceId}
           role="tab"
+          tabindex="0"
           aria-selected={inst.id === $activeInstanceId}
           onclick={() => selectInstance(inst.id)}
+          onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectInstance(inst.id); } }}
         >
           {inst.label}
-          <span
+          <button
             class="close-btn"
-            role="button"
-            tabindex="0"
-            aria-label="Close tab"
+            aria-label={$tr('terminal.closeTab', { label: inst.label })}
             onclick={(e) => { e.stopPropagation(); closeInstance(inst.llmName, inst.id); }}
-            onkeydown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); closeInstance(inst.llmName, inst.id); } }}
-          >×</span>
-        </button>
+          >×</button>
+        </div>
       {/each}
 
       <!-- View mode toggle -->
@@ -371,6 +376,7 @@
       {#if $activeTerminalTab}
         <button
           class="instance-tab add-instance"
+          aria-label={$tr('terminal.addInstance')}
           onclick={() => addInstance($activeTerminalTab!)}
         >+</button>
       {/if}
@@ -494,7 +500,7 @@
     display: block;
     width: 100%;
     padding: 6px 14px;
-    text-align: left;
+    text-align: start;
     background: transparent;
     border: none;
     color: var(--text-body);
@@ -570,6 +576,9 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    background: none;
+    border: none;
+    color: inherit;
   }
 
   .close-btn:hover {
@@ -632,6 +641,28 @@
     color: var(--text-muted);
   }
 
+  .swarm-tab {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .swarm-tab:disabled {
+    pointer-events: none;
+    opacity: 0.5;
+  }
+
+  .coming-soon-badge {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    background: var(--bg-tertiary);
+    color: var(--text-muted);
+    padding: 1px 5px;
+    border: 1px solid var(--border);
+    margin-inline-start: 4px;
+  }
+
   .llm-selector {
     display: flex;
     flex-direction: column;
@@ -661,7 +692,7 @@
     color: var(--text-body);
     font-family: var(--font-ui);
     cursor: pointer;
-    text-align: left;
+    text-align: start;
     transition: background 0.1s, border-color 0.1s;
   }
 

@@ -176,7 +176,7 @@
   .menu-dropdown {
     position: absolute;
     top: 100%;
-    left: 0;
+    inset-inline-start: 0;
     z-index: 100;
     background: var(--bg-secondary);
     border: 1px solid var(--border);
@@ -196,7 +196,7 @@
     font-size: 12px;
     font-family: var(--font-ui);
     cursor: pointer;
-    text-align: left;
+    text-align: start;
   }
   .menu-item:hover {
     background: var(--bg-hover);
@@ -211,7 +211,7 @@
     margin: 4px 0;
   }
   .template-list {
-    padding-left: 12px;
+    padding-inline-start: 12px;
   }
   .template-item {
     font-size: 11px;

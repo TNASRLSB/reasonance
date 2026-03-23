@@ -31,6 +31,13 @@ export function addOpenFile(file: OpenFile) {
   activeFilePath.set(file.path);
 }
 
+/** Pending line number to scroll to after opening a file */
+export const pendingLine = writable<number | null>(null);
+
+/** Current cursor position in the active editor */
+export const cursorLine = writable<number>(1);
+export const cursorCol = writable<number>(1);
+
 export function closeFile(path: string) {
   openFiles.update((files) => files.filter((f) => f.path !== path));
   activeFilePath.update((active) => (active === path ? null : active));

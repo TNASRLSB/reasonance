@@ -1,3 +1,4 @@
+use log::{debug, info, warn};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -41,6 +42,7 @@ pub fn build_heal_prompt(
     failures: &[crate::normalizer_health::TestCaseResult],
     previous_attempt: Option<&str>,
 ) -> String {
+    info!("Building self-heal prompt: {} failures, previous_attempt={}", failures.len(), previous_attempt.is_some());
     let mut prompt = String::new();
 
     prompt.push_str("You are a REASONANCE normalizer engineer. A normalizer TOML file defines how to parse JSON output from an LLM CLI into structured AgentEvent objects.\n\n");
@@ -67,14 +69,17 @@ pub fn build_heal_prompt(
 
 /// Extract TOML content from an LLM response that wraps it in a code block.
 pub fn extract_toml_from_response(response: &str) -> Option<String> {
+    debug!("Extracting TOML from LLM response ({} chars)", response.len());
     // Look for ```toml ... ``` block
     let toml_start = response.find("```toml")?;
     let content_start = response[toml_start..].find('\n')? + toml_start + 1;
     let content_end = response[content_start..].find("```")? + content_start;
     let toml = response[content_start..content_end].trim().to_string();
     if toml.is_empty() {
+        warn!("Extracted TOML block was empty");
         None
     } else {
+        debug!("Successfully extracted TOML ({} chars)", toml.len());
         Some(toml)
     }
 }

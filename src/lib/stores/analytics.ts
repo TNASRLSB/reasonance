@@ -208,7 +208,9 @@ export async function checkBudget(adapter: Adapter): Promise<void> {
 
   try {
     const daily = await adapter.analyticsDaily(undefined, 1);
-    const todayCost = daily.length > 0 ? (daily[0].input_tokens + daily[0].output_tokens) * 0.00001 : 0; // rough estimate
+    const todayCost = daily.length > 0
+      ? (daily[0].total_cost_usd ?? (daily[0].input_tokens + daily[0].output_tokens) * 0.00001)
+      : 0;
 
     const alerts: BudgetAlert[] = [];
     if (b.daily_limit_usd) {

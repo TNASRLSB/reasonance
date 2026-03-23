@@ -2,6 +2,8 @@
   import { tr } from '$lib/i18n/index';
   import { recentProjects } from '$lib/stores/files';
   import { themeMode, isDark } from '$lib/stores/theme';
+  import { llmConfigs } from '$lib/stores/config';
+  import { showSettings } from '$lib/stores/ui';
   import type { Adapter } from '$lib/adapter/index';
 
   let { adapter, onOpenFolder, onSelectProject }: {
@@ -13,10 +15,40 @@
   function cycleTheme() {
     themeMode.update((m) => m === 'dark' ? 'light' : 'dark');
   }
+
+  function openLlmSettings() {
+    showSettings.set(true);
+  }
+
+  let dragOver = $state(false);
+
+  function handleDragOver(e: DragEvent) {
+    e.preventDefault();
+    dragOver = true;
+  }
+
+  function handleDragLeave() {
+    dragOver = false;
+  }
+
+  async function handleDrop(e: DragEvent) {
+    e.preventDefault();
+    dragOver = false;
+    if (!e.dataTransfer?.files.length) return;
+    const item = e.dataTransfer.files[0];
+    // In Tauri, dropped files/folders expose a path property
+    const path = (item as unknown as { path?: string }).path ?? item.name;
+    if (path) {
+      onSelectProject(path);
+    }
+  }
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="welcome" data-tauri-drag-region>
+<div class="welcome" class:drag-over={dragOver} data-tauri-drag-region
+  ondragover={handleDragOver}
+  ondragleave={handleDragLeave}
+  ondrop={handleDrop}>
   <div class="top-bar">
     <button class="theme-toggle" onclick={cycleTheme} title="Toggle theme">
       {$isDark ? '☀' : '☾'}
@@ -30,6 +62,19 @@
   <div class="welcome-content">
     <h1 class="welcome-logo">REASONANCE</h1>
     <p class="welcome-subtitle">IDE for Vibecoders</p>
+
+    {#if $llmConfigs.length === 0}
+      <div class="onboarding-banner" role="alert">
+        <div class="onboarding-icon">&#9881;</div>
+        <div class="onboarding-text">
+          <strong>{$tr('welcome.noLlmTitle')}</strong>
+          <p>{$tr('welcome.noLlmBody')}</p>
+        </div>
+        <button class="welcome-btn secondary" onclick={openLlmSettings}>
+          {$tr('welcome.configureLlm')}
+        </button>
+      </div>
+    {/if}
 
     <button class="welcome-btn primary" onclick={onOpenFolder}>
       {$tr('welcome.openFolder')}
@@ -65,6 +110,12 @@
     font-family: var(--font-ui);
     position: relative;
     -webkit-app-region: drag;
+    transition: outline 0.15s;
+  }
+
+  .welcome.drag-over {
+    outline: 3px dashed var(--accent);
+    outline-offset: -6px;
   }
 
   .top-bar {
@@ -210,7 +261,7 @@
     padding: 8px 12px;
     font-family: var(--font-ui);
     font-size: 13px;
-    text-align: left;
+    text-align: start;
     color: var(--text-body);
     background: none;
     border: none;
@@ -225,5 +276,60 @@
   .recent-item:hover {
     background: var(--bg-hover);
     color: var(--text-primary);
+  }
+
+  .onboarding-banner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    border: 2px solid var(--warning);
+    background: rgba(202, 138, 4, 0.08);
+    width: 100%;
+    margin-bottom: 8px;
+  }
+
+  .onboarding-icon {
+    font-size: 22px;
+    flex-shrink: 0;
+  }
+
+  .onboarding-text {
+    flex: 1;
+  }
+
+  .onboarding-text strong {
+    display: block;
+    font-size: 13px;
+    font-weight: 800;
+    color: var(--text-primary);
+    margin-bottom: 2px;
+  }
+
+  .onboarding-text p {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin: 0;
+    line-height: 1.4;
+  }
+
+  .welcome-btn.secondary {
+    padding: 8px 16px;
+    font-family: var(--font-ui);
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    border: 2px solid var(--warning);
+    background: transparent;
+    color: var(--warning);
+    cursor: pointer;
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
+  .welcome-btn.secondary:hover {
+    background: var(--warning);
+    color: var(--bg-primary);
   }
 </style>

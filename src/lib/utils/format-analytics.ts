@@ -18,25 +18,33 @@ export function formatCurrency(usd: number | null | undefined): string {
 
 export function formatTokenCount(count: number | null | undefined): string {
   if (count == null || !isFinite(count)) return '—';
-  if (count >= 1_000_000) return `${(count / 1_000_000).toFixed(1)}M`;
-  if (count >= 1_000) return `${(count / 1_000).toFixed(count >= 10_000 ? 0 : 1)}K`;
-  return String(count);
+  const loc = getLocale();
+  if (count >= 1_000_000) {
+    return new Intl.NumberFormat(loc, { maximumFractionDigits: 1 }).format(count / 1_000_000) + 'M';
+  }
+  if (count >= 1_000) {
+    return new Intl.NumberFormat(loc, { maximumFractionDigits: count >= 10_000 ? 0 : 1 }).format(count / 1_000) + 'K';
+  }
+  return new Intl.NumberFormat(loc).format(count);
 }
 
 export function formatDuration(ms: number | null | undefined): string {
   if (ms == null || !isFinite(ms)) return '—';
-  if (ms < 1000) return `${Math.round(ms)}ms`;
-  if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`;
+  const loc = getLocale();
+  if (ms < 1000) return `${new Intl.NumberFormat(loc).format(Math.round(ms))}ms`;
+  if (ms < 60_000) return `${new Intl.NumberFormat(loc, { maximumFractionDigits: 1 }).format(ms / 1000)}s`;
   const minutes = Math.floor(ms / 60_000);
   const seconds = Math.round((ms % 60_000) / 1000);
-  return `${minutes}m ${seconds}s`;
+  return `${new Intl.NumberFormat(loc).format(minutes)}m ${new Intl.NumberFormat(loc).format(seconds)}s`;
 }
 
 export function formatPercent(ratio: number | null | undefined): string {
   if (ratio == null || !isFinite(ratio)) return '—';
-  const pct = ratio * 100;
-  if (pct < 10 && pct > 0) return `${pct.toFixed(1)}%`;
-  return `${Math.round(pct)}%`;
+  return new Intl.NumberFormat(getLocale(), {
+    style: 'percent',
+    minimumFractionDigits: ratio > 0 && ratio < 0.1 ? 1 : 0,
+    maximumFractionDigits: ratio > 0 && ratio < 0.1 ? 1 : 0,
+  }).format(ratio);
 }
 
 export function formatCostVelocity(usdPerMin: number | null | undefined): string {

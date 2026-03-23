@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Adapter } from '$lib/adapter/index';
   import { menuKeyHandler } from '$lib/utils/a11y';
+  import { tr } from '$lib/i18n/index';
 
   let {
     adapter,
@@ -66,18 +67,24 @@
   <div class="term-toolbar-left">
     <button
       class="term-tbtn term-tbtn--labeled"
-      title="Add file to context"
+      title={$tr('termToolbar.addFileTitle')}
       onclick={(e) => { e.stopPropagation(); addFileToContext(); }}
-    ><span class="tbtn-icon" aria-hidden="true">+</span><span class="tbtn-label">Add file</span></button>
+    ><span class="tbtn-icon" aria-hidden="true">+</span><span class="tbtn-label">{$tr('termToolbar.addFile')}</span></button>
+
+    <button
+      class="term-tbtn term-tbtn--labeled"
+      title={$tr('termToolbar.saveOutputTitle')}
+      onclick={(e) => { e.stopPropagation(); window.dispatchEvent(new CustomEvent('reasonance:exportTerminal', { detail: { instanceId } })); }}
+    ><span class="tbtn-icon" aria-hidden="true">&#8615;</span><span class="tbtn-label">{$tr('termToolbar.saveOutput')}</span></button>
 
     <div class="slash-wrapper">
       <button
         class="term-tbtn term-tbtn--labeled"
-        title="Slash commands"
+        title={$tr('termToolbar.commandsTitle')}
         onclick={(e) => { e.stopPropagation(); showSlashMenu = !showSlashMenu; showModeMenu = false; }}
         aria-haspopup="true"
         aria-expanded={showSlashMenu}
-      ><span class="tbtn-icon" aria-hidden="true">/</span><span class="tbtn-label">Commands</span></button>
+      ><span class="tbtn-icon" aria-hidden="true">/</span><span class="tbtn-label">{$tr('termToolbar.commands')}</span></button>
 
       {#if showSlashMenu && slashCommands.length > 0}
         <div class="dropdown" role="menu" bind:this={slashMenuEl} onclick={(e) => e.stopPropagation()} onkeydown={(e) => { e.stopPropagation(); menuKeyHandler(e, slashMenuEl!, '.dropdown-item'); }}>
@@ -92,7 +99,8 @@
     </div>
   </div>
 
-  <div class="term-toolbar-right">
+  <!-- TODO: Mode switching not yet functional — hidden until wired via adapter -->
+  <div class="term-toolbar-right" style="display:none">
     <div class="mode-wrapper">
       <button
         class="term-mode"
@@ -101,7 +109,7 @@
         aria-expanded={showModeMenu}
       >
         <span class="mode-dot" aria-hidden="true"></span>
-        {activeMode ?? 'Default'}
+        {activeMode ?? $tr('termToolbar.defaultMode')}
       </button>
 
       {#if showModeMenu && modes.length > 0}
@@ -255,7 +263,7 @@
     color: var(--text-body);
     font-family: var(--font-ui);
     font-size: var(--font-size-small);
-    text-align: left;
+    text-align: start;
     cursor: pointer;
     transition: background 0.1s;
   }

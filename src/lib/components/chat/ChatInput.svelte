@@ -2,10 +2,16 @@
   let { onSend, disabled = false }: { onSend: (text: string) => void; disabled?: boolean } = $props();
 
   let text = $state('');
+  let sending = $state(false);
+  let sendTimer: ReturnType<typeof setTimeout> | null = null;
 
   function handleSubmit() {
     const trimmed = text.trim();
-    if (!trimmed || disabled) return;
+    if (!trimmed || disabled || sending) return;
+    sending = true;
+    // Debounce: prevent rapid double-sends within 300ms
+    if (sendTimer) clearTimeout(sendTimer);
+    sendTimer = setTimeout(() => { sending = false; }, 300);
     onSend(trimmed);
     text = '';
   }
@@ -30,7 +36,7 @@
   <button
     class="send-btn"
     onclick={handleSubmit}
-    disabled={disabled || !text.trim()}
+    disabled={disabled || sending || !text.trim()}
     aria-label="Send message"
   >
     SEND

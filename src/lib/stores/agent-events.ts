@@ -5,6 +5,9 @@ import { updateTokens, updateSessionStatus, updateMetrics } from './agent-sessio
 // Per-session event lists
 export const agentEvents = writable<Map<string, AgentEvent[]>>(new Map());
 
+// Maximum events per session before pruning oldest
+const MAX_EVENTS_PER_SESSION = 5000;
+
 // Per-session streaming state
 export const streamingSessionIds = writable<Set<string>>(new Set());
 
@@ -56,12 +59,19 @@ export function isStreaming(sessionId: string): boolean {
 export function processAgentEvent(payload: AgentEventPayload): void {
   const { session_id, event } = payload;
 
-  // Append event
+  // Append event with pruning to prevent unbounded growth
   agentEvents.update((map) => {
-    const next = new Map(map);
-    const events = next.get(session_id) ?? [];
-    next.set(session_id, [...events, event]);
-    return next;
+    const events = map.get(session_id) ?? [];
+    events.push(event);
+
+    // Prune oldest events if over limit
+    if (events.length > MAX_EVENTS_PER_SESSION) {
+      const excess = events.length - MAX_EVENTS_PER_SESSION;
+      events.splice(0, excess);
+    }
+
+    map.set(session_id, events);
+    return map;
   });
 
   // Handle event-type-specific side effects

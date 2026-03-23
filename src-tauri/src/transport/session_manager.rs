@@ -3,6 +3,8 @@ use crate::transport::event_bus::SessionHistoryRecorder;
 use crate::transport::session_handle::{ForkInfo, SessionHandle, SessionSource, SessionSummary, ViewMode};
 use crate::transport::session_store::SessionStore;
 use crate::transport::request::SessionStatus;
+#[allow(unused_imports)]
+use log::{info, warn, error, debug, trace};
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
@@ -17,8 +19,10 @@ pub struct SessionManager {
 
 impl SessionManager {
     pub fn new(sessions_dir: &Path) -> Result<Self, String> {
+        info!("SessionManager: initializing with sessions_dir={}", sessions_dir.display());
         let store = Arc::new(SessionStore::new(sessions_dir)?);
         let index = store.read_index().unwrap_or_default();
+        info!("SessionManager: loaded {} existing sessions from index", index.len());
         let recorder = Arc::new(SessionHistoryRecorder::new(store.clone()));
 
         Ok(Self {
@@ -30,6 +34,7 @@ impl SessionManager {
 
     /// Create a new session. Returns the session ID.
     pub fn create_session(&self, provider: &str, model: &str) -> Result<String, String> {
+        info!("SessionManager: creating session provider={} model={}", provider, model);
         let handle = SessionHandle::new(provider, model);
         let session_id = handle.id.clone();
 
@@ -37,16 +42,19 @@ impl SessionManager {
         self.recorder.track_session(handle.clone());
 
         // Update index
-        let mut index = self.index.lock().unwrap();
+        let mut index = self.index.lock().unwrap_or_else(|e| e.into_inner());
         index.push(handle.to_summary());
         self.store.write_index(&index)?;
 
+        info!("SessionManager: session created session_id={}", session_id);
         Ok(session_id)
     }
 
     /// Restore a session from disk. Returns the handle and its events.
     pub fn restore_session(&self, session_id: &str) -> Result<(SessionHandle, Vec<AgentEvent>), String> {
+        info!("SessionManager: restoring session={}", session_id);
         if !self.store.session_exists(session_id) {
+            warn!("SessionManager: session={} not found on disk", session_id);
             return Err(format!("Session {} not found", session_id));
         }
 
@@ -54,21 +62,27 @@ impl SessionManager {
         let events = self.store.read_events(session_id)?;
 
         // Reconcile event_count from JSONL (source of truth) in case metadata was stale
+        if handle.event_count != events.len() as u32 {
+            debug!("SessionManager: reconciled event_count for session={}: metadata={} jsonl={}", session_id, handle.event_count, events.len());
+        }
         handle.event_count = events.len() as u32;
 
         // Track restored session in recorder
         self.recorder.track_session(handle.clone());
 
+        info!("SessionManager: session={} restored with {} events", session_id, events.len());
         Ok((handle, events))
     }
 
     /// Fork a session at a given event index. Returns the new session ID.
     pub fn fork_session(&self, parent_session_id: &str, fork_event_index: u32) -> Result<String, String> {
+        info!("SessionManager: forking session={} at event_index={}", parent_session_id, fork_event_index);
         let parent = self.store.read_metadata(parent_session_id)?;
         let parent_events = self.store.read_events(parent_session_id)?;
 
         let idx = fork_event_index as usize;
         if idx > parent_events.len() {
+            warn!("SessionManager: fork index {} exceeds event count {} for session={}", fork_event_index, parent_events.len(), parent_session_id);
             return Err(format!(
                 "Fork index {} exceeds event count {}",
                 fork_event_index, parent_events.len()
@@ -87,6 +101,7 @@ impl SessionManager {
         self.store.create_session(&forked)?;
 
         // Copy events up to fork point
+        debug!("SessionManager: copying {} events to forked session={}", idx, forked_id);
         for event in &parent_events[..idx] {
             self.store.append_event(&forked_id, event)?;
         }
@@ -96,52 +111,60 @@ impl SessionManager {
         self.recorder.track_session(forked.clone());
 
         // Update index
-        let mut index = self.index.lock().unwrap();
+        let mut index = self.index.lock().unwrap_or_else(|e| e.into_inner());
         index.push(forked.to_summary());
         self.store.write_index(&index)?;
 
+        info!("SessionManager: forked session={} -> new session={} with {} events", parent_session_id, forked_id, idx);
         Ok(forked_id)
     }
 
     /// List all sessions.
     pub fn list_sessions(&self) -> Vec<SessionSummary> {
-        self.index.lock().unwrap().clone()
+        let sessions = self.index.lock().unwrap_or_else(|e| e.into_inner()).clone();
+        debug!("SessionManager: listing {} sessions", sessions.len());
+        sessions
     }
 
     /// Delete a session.
     pub fn delete_session(&self, session_id: &str) -> Result<(), String> {
+        info!("SessionManager: deleting session={}", session_id);
         self.store.delete_session(session_id)?;
 
-        let mut index = self.index.lock().unwrap();
+        let mut index = self.index.lock().unwrap_or_else(|e| e.into_inner());
         index.retain(|s| s.id != session_id);
         self.store.write_index(&index)?;
 
+        info!("SessionManager: session={} deleted", session_id);
         Ok(())
     }
 
     /// Rename a session.
     pub fn rename_session(&self, session_id: &str, title: &str) -> Result<(), String> {
+        info!("SessionManager: renaming session={} to {:?}", session_id, title);
         let mut handle = self.store.read_metadata(session_id)?;
         handle.title = title.to_string();
         self.store.write_metadata(&handle)?;
 
         // Update index
-        let mut index = self.index.lock().unwrap();
+        let mut index = self.index.lock().unwrap_or_else(|e| e.into_inner());
         if let Some(entry) = index.iter_mut().find(|s| s.id == session_id) {
             entry.title = title.to_string();
         }
         self.store.write_index(&index)?;
 
+        info!("SessionManager: session={} renamed", session_id);
         Ok(())
     }
 
     /// Finalize a session — flush metadata with final status and update index.
     /// Called when the transport's CLI process ends.
     pub fn finalize_session(&self, session_id: &str, final_status: SessionStatus) -> Result<(), String> {
+        info!("SessionManager: finalizing session={} with status={:?}", session_id, final_status);
         // Collect data under recorder lock, then release before acquiring index lock
         let event_count = {
             let recorder_handles = self.recorder.handles_ref();
-            let mut handles = recorder_handles.lock().unwrap();
+            let mut handles = recorder_handles.lock().unwrap_or_else(|e| e.into_inner());
             if let Some(handle) = handles.get_mut(session_id) {
                 handle.status = final_status.clone();
                 handle.touch();
@@ -156,7 +179,7 @@ impl SessionManager {
 
         if let Some(count) = event_count {
             // Handle was in recorder cache
-            let mut index = self.index.lock().unwrap();
+            let mut index = self.index.lock().unwrap_or_else(|e| e.into_inner());
             if let Some(entry) = index.iter_mut().find(|s| s.id == session_id) {
                 entry.status = final_status;
                 entry.event_count = count;
@@ -164,23 +187,26 @@ impl SessionManager {
             self.store.write_index(&index)?;
         } else {
             // Session not in recorder cache — read from disk and update
+            debug!("SessionManager: session={} not in recorder cache, reading from disk", session_id);
             let mut handle = self.store.read_metadata(session_id)?;
             handle.status = final_status.clone();
             handle.touch();
             self.store.write_metadata(&handle)?;
 
-            let mut index = self.index.lock().unwrap();
+            let mut index = self.index.lock().unwrap_or_else(|e| e.into_inner());
             if let Some(entry) = index.iter_mut().find(|s| s.id == session_id) {
                 entry.status = final_status;
             }
             self.store.write_index(&index)?;
         }
 
+        info!("SessionManager: session={} finalized", session_id);
         Ok(())
     }
 
     /// Set view mode for a session.
     pub fn set_view_mode(&self, session_id: &str, mode: ViewMode) -> Result<(), String> {
+        debug!("SessionManager: setting view_mode={:?} for session={}", mode, session_id);
         let mut handle = self.store.read_metadata(session_id)?;
         handle.view_mode = mode;
         self.store.write_metadata(&handle)?;
@@ -267,6 +293,7 @@ mod tests {
         // Simulate events via recorder
         let recorder = mgr.recorder();
         recorder.on_event(&id, &crate::agent_event::AgentEvent::text("hello", "claude"));
+        recorder.flush();
 
         // Finalize
         mgr.finalize_session(&id, SessionStatus::Terminated).unwrap();

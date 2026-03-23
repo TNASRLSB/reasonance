@@ -1,6 +1,7 @@
 use crate::agent_runtime::{AgentRuntime, AgentState};
 use crate::pty_manager::PtyManager;
 use crate::workflow_store::{NodeType, Workflow, WorkflowEdge};
+use log::{debug, info, warn};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex};
@@ -82,8 +83,10 @@ impl WorkflowEngine {
             }
         }
         if result.len() != workflow.nodes.len() {
+            warn!("Workflow graph cycle detected: sorted {} of {} nodes", result.len(), workflow.nodes.len());
             return Err("Workflow graph contains a cycle".to_string());
         }
+        debug!("Topological sort completed: {} nodes", result.len());
         Ok(result)
     }
 
@@ -137,6 +140,7 @@ impl WorkflowEngine {
     pub fn create_run(&self, workflow: &Workflow, workflow_path: &str) -> Result<String, String> {
         Self::topological_sort(workflow)?;
         let run_id = uuid::Uuid::new_v4().to_string();
+        info!("Workflow run created: run_id={}, workflow={}, nodes={}", run_id, workflow_path, workflow.nodes.len());
         let mut node_states = HashMap::new();
         for node in &workflow.nodes {
             let state = if node.node_type == NodeType::Resource {
@@ -161,12 +165,13 @@ impl WorkflowEngine {
             started_at: Some(chrono::Utc::now().to_rfc3339()),
             finished_at: None,
         };
-        self.runs.lock().unwrap().insert(run_id.clone(), run);
+        self.runs.lock().unwrap_or_else(|e| e.into_inner()).insert(run_id.clone(), run);
         Ok(run_id)
     }
 
     pub fn stop_run(&self, run_id: &str) -> Result<(), String> {
-        let mut runs = self.runs.lock().unwrap();
+        info!("Workflow run stopped: run_id={}", run_id);
+        let mut runs = self.runs.lock().unwrap_or_else(|e| e.into_inner());
         let run = runs
             .get_mut(run_id)
             .ok_or_else(|| format!("Run {} not found", run_id))?;
@@ -176,11 +181,13 @@ impl WorkflowEngine {
     }
 
     pub fn pause_run(&self, run_id: &str) -> Result<(), String> {
-        let mut runs = self.runs.lock().unwrap();
+        info!("Workflow run paused: run_id={}", run_id);
+        let mut runs = self.runs.lock().unwrap_or_else(|e| e.into_inner());
         let run = runs
             .get_mut(run_id)
             .ok_or_else(|| format!("Run {} not found", run_id))?;
         if run.status != RunStatus::Running {
+            warn!("Cannot pause run {} in {:?} state", run_id, run.status);
             return Err(format!("Cannot pause run in {:?} state", run.status));
         }
         run.status = RunStatus::Paused;
@@ -188,11 +195,13 @@ impl WorkflowEngine {
     }
 
     pub fn resume_run(&self, run_id: &str) -> Result<(), String> {
-        let mut runs = self.runs.lock().unwrap();
+        info!("Workflow run resumed: run_id={}", run_id);
+        let mut runs = self.runs.lock().unwrap_or_else(|e| e.into_inner());
         let run = runs
             .get_mut(run_id)
             .ok_or_else(|| format!("Run {} not found", run_id))?;
         if run.status != RunStatus::Paused {
+            warn!("Cannot resume run {} in {:?} state", run_id, run.status);
             return Err(format!("Cannot resume run in {:?} state", run.status));
         }
         run.status = RunStatus::Running;
@@ -200,7 +209,7 @@ impl WorkflowEngine {
     }
 
     pub fn get_run(&self, run_id: &str) -> Option<WorkflowRun> {
-        self.runs.lock().unwrap().get(run_id).cloned()
+        self.runs.lock().unwrap_or_else(|e| e.into_inner()).get(run_id).cloned()
     }
 
     pub fn update_node_state(
@@ -210,7 +219,7 @@ impl WorkflowEngine {
         new_state: AgentState,
         agent_id: Option<String>,
     ) -> Result<(), String> {
-        let mut runs = self.runs.lock().unwrap();
+        let mut runs = self.runs.lock().unwrap_or_else(|e| e.into_inner());
         let run = runs
             .get_mut(run_id)
             .ok_or_else(|| format!("Run {} not found", run_id))?;
@@ -226,7 +235,7 @@ impl WorkflowEngine {
     }
 
     pub fn check_run_complete(&self, run_id: &str) -> Result<bool, String> {
-        let runs = self.runs.lock().unwrap();
+        let runs = self.runs.lock().unwrap_or_else(|e| e.into_inner());
         let run = runs
             .get(run_id)
             .ok_or_else(|| format!("Run {} not found", run_id))?;
@@ -237,7 +246,7 @@ impl WorkflowEngine {
     }
 
     pub fn finalize_run(&self, run_id: &str) -> Result<RunStatus, String> {
-        let mut runs = self.runs.lock().unwrap();
+        let mut runs = self.runs.lock().unwrap_or_else(|e| e.into_inner());
         let run = runs
             .get_mut(run_id)
             .ok_or_else(|| format!("Run {} not found", run_id))?;
@@ -250,6 +259,7 @@ impl WorkflowEngine {
         } else {
             RunStatus::Completed
         };
+        info!("Workflow run finalized: run_id={}, status={:?}", run_id, final_status);
         run.status = final_status.clone();
         run.finished_at = Some(chrono::Utc::now().to_rfc3339());
         Ok(final_status)
@@ -267,7 +277,7 @@ impl WorkflowEngine {
         cwd: &str,
     ) -> Result<Vec<String>, String> {
         {
-            let runs = self.runs.lock().unwrap();
+            let runs = self.runs.lock().unwrap_or_else(|e| e.into_inner());
             let run = runs
                 .get(run_id)
                 .ok_or_else(|| format!("Run {} not found", run_id))?;
@@ -276,7 +286,7 @@ impl WorkflowEngine {
             }
         }
         let node_states = {
-            let runs = self.runs.lock().unwrap();
+            let runs = self.runs.lock().unwrap_or_else(|e| e.into_inner());
             runs.get(run_id).unwrap().node_states.clone()
         };
         let ready = Self::get_ready_nodes(&workflow.edges, &node_states);
@@ -287,8 +297,11 @@ impl WorkflowEngine {
         let max_concurrent = workflow.settings.max_concurrent_agents;
         let mut started = Vec::new();
 
+        debug!("Advancing run {}: {} ready nodes, {} currently running", run_id, ready.len(), running_count);
+
         for node_id in ready {
             if running_count + started.len() as u32 >= max_concurrent {
+                debug!("Concurrency limit reached ({}) for run {}", max_concurrent, run_id);
                 break;
             }
             let node = workflow
@@ -385,7 +398,7 @@ impl WorkflowEngine {
         cwd: &str,
     ) -> Result<(), String> {
         let agent_id = {
-            let runs = self.runs.lock().unwrap();
+            let runs = self.runs.lock().unwrap_or_else(|e| e.into_inner());
             let run = runs
                 .get(run_id)
                 .ok_or_else(|| format!("Run {} not found", run_id))?;
@@ -395,6 +408,7 @@ impl WorkflowEngine {
         };
 
         if success {
+            info!("Workflow node completed successfully: run_id={}, node_id={}", run_id, node_id);
             if let Some(ref aid) = agent_id {
                 let _ = runtime.transition(aid, AgentState::Success);
             }
@@ -408,6 +422,7 @@ impl WorkflowEngine {
                 }),
             );
         } else {
+            warn!("Workflow node failed: run_id={}, node_id={}", run_id, node_id);
             if let Some(ref aid) = agent_id {
                 let _ = runtime.transition(aid, AgentState::Failed);
             }
@@ -444,7 +459,7 @@ impl WorkflowEngine {
         cwd: &str,
     ) -> Result<bool, String> {
         let agent_id = {
-            let runs = self.runs.lock().unwrap();
+            let runs = self.runs.lock().unwrap_or_else(|e| e.into_inner());
             let run = runs.get(run_id).ok_or("Run not found")?;
             run.node_states
                 .get(node_id)
@@ -455,6 +470,7 @@ impl WorkflowEngine {
 
         // Try retry
         if agent.retry_count < agent.max_retries {
+            info!("Retrying node: run_id={}, node_id={}, attempt={}/{}", run_id, node_id, agent.retry_count + 1, agent.max_retries);
             let _ = runtime.transition(&agent_id, AgentState::Retrying);
             let _ = runtime.transition(&agent_id, AgentState::Running);
             self.update_node_state(run_id, node_id, AgentState::Running, None)?;
@@ -484,6 +500,7 @@ impl WorkflowEngine {
 
         // Try fallback
         if agent.fallback_agent.is_some() {
+            info!("Activating fallback for node: run_id={}, node_id={}, fallback={:?}", run_id, node_id, agent.fallback_agent);
             let _ = runtime.transition(&agent_id, AgentState::Fallback);
             self.update_node_state(run_id, node_id, AgentState::Fallback, None)?;
             let node = workflow
@@ -532,8 +549,9 @@ impl WorkflowEngine {
         app: &AppHandle,
         cwd: &str,
     ) -> Result<Option<String>, String> {
+        debug!("Stepping workflow run: run_id={}", run_id);
         {
-            let mut runs = self.runs.lock().unwrap();
+            let mut runs = self.runs.lock().unwrap_or_else(|e| e.into_inner());
             let run = runs.get_mut(run_id).ok_or("Run not found")?;
             if run.status != RunStatus::Paused && run.status != RunStatus::Running {
                 return Err(format!("Cannot step run in {:?} state", run.status));
@@ -541,13 +559,13 @@ impl WorkflowEngine {
             run.status = RunStatus::Running;
         }
         let node_states = {
-            let runs = self.runs.lock().unwrap();
+            let runs = self.runs.lock().unwrap_or_else(|e| e.into_inner());
             runs.get(run_id).unwrap().node_states.clone()
         };
         let ready = Self::get_ready_nodes(&workflow.edges, &node_states);
 
         if ready.is_empty() {
-            let mut runs = self.runs.lock().unwrap();
+            let mut runs = self.runs.lock().unwrap_or_else(|e| e.into_inner());
             if let Some(run) = runs.get_mut(run_id) {
                 run.status = RunStatus::Paused;
             }
@@ -556,7 +574,7 @@ impl WorkflowEngine {
 
         let started = self.advance_run(run_id, workflow, runtime, pty_manager, app, cwd)?;
         {
-            let mut runs = self.runs.lock().unwrap();
+            let mut runs = self.runs.lock().unwrap_or_else(|e| e.into_inner());
             if let Some(run) = runs.get_mut(run_id) {
                 if run.status == RunStatus::Running {
                     run.status = RunStatus::Paused;

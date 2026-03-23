@@ -16,7 +16,7 @@
   let borderColor = $derived(severityColors[severity] ?? 'var(--danger)');
 </script>
 
-<div class="error-block" style="border-left-color: {borderColor};" role="alert">
+<div class="error-block" style="border-inline-start-color: {borderColor};" role="alert">
   <div class="error-header">
     <span class="error-severity">{severity.toUpperCase()}</span>
     {#if code}
@@ -29,7 +29,7 @@
 <style>
   .error-block {
     border: var(--border-width) solid var(--border);
-    border-left: 4px solid var(--danger);
+    border-inline-start: 4px solid var(--danger);
     background: var(--bg-secondary);
     padding: 8px 12px;
   }

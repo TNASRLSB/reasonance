@@ -1,3 +1,4 @@
+use log::{debug, info, warn};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
@@ -64,22 +65,24 @@ impl CapabilityNegotiator {
     }
 
     pub fn get_capabilities(&self, provider: &str) -> Option<NegotiatedCapabilities> {
-        self.results.lock().unwrap().get(provider).cloned()
+        self.results.lock().unwrap_or_else(|e| e.into_inner()).get(provider).cloned()
     }
 
     pub fn set_capabilities(&self, provider: &str, caps: NegotiatedCapabilities) {
-        self.results.lock().unwrap().insert(provider.to_string(), caps);
+        info!("Capabilities negotiated for provider='{}', mode={:?}, features={}", provider, caps.cli_mode, caps.features.len());
+        self.results.lock().unwrap_or_else(|e| e.into_inner()).insert(provider.to_string(), caps);
     }
 
     pub fn all_capabilities(&self) -> HashMap<String, NegotiatedCapabilities> {
-        self.results.lock().unwrap().clone()
+        self.results.lock().unwrap_or_else(|e| e.into_inner()).clone()
     }
 
     pub fn is_cache_valid(&self, provider: &str, current_cli_version: &str) -> bool {
-        let results = self.results.lock().unwrap();
+        let results = self.results.lock().unwrap_or_else(|e| e.into_inner());
         match results.get(provider) {
             Some(caps) => {
                 if caps.cli_version != current_cli_version {
+                    debug!("Capability cache invalid for '{}': version mismatch ({} != {})", provider, caps.cli_version, current_cli_version);
                     return false;
                 }
                 // Also check age — 30 days max
@@ -96,7 +99,8 @@ impl CapabilityNegotiator {
 
     pub fn save_cache(&self, cache_dir: &Path) -> Result<(), String> {
         std::fs::create_dir_all(cache_dir).map_err(|e| e.to_string())?;
-        let results = self.results.lock().unwrap();
+        let results = self.results.lock().unwrap_or_else(|e| e.into_inner());
+        debug!("Saving capability cache to {}: {} providers", cache_dir.display(), results.len());
         for (provider, caps) in results.iter() {
             let path = cache_dir.join(format!("{}.json", provider));
             let json = serde_json::to_string_pretty(caps).map_err(|e| e.to_string())?;
@@ -107,9 +111,12 @@ impl CapabilityNegotiator {
 
     pub fn load_cache(&self, cache_dir: &Path) -> Result<(), String> {
         if !cache_dir.exists() {
+            debug!("Capability cache dir {} does not exist, skipping load", cache_dir.display());
             return Ok(());
         }
-        let mut results = self.results.lock().unwrap();
+        debug!("Loading capability cache from {}", cache_dir.display());
+        let mut results = self.results.lock().unwrap_or_else(|e| e.into_inner());
+        let mut loaded = 0u32;
         for entry in std::fs::read_dir(cache_dir).map_err(|e| e.to_string())? {
             let entry = entry.map_err(|e| e.to_string())?;
             let path = entry.path();
@@ -117,10 +124,14 @@ impl CapabilityNegotiator {
                 if let Ok(content) = std::fs::read_to_string(&path) {
                     if let Ok(caps) = serde_json::from_str::<NegotiatedCapabilities>(&content) {
                         results.insert(caps.provider.clone(), caps);
+                        loaded += 1;
+                    } else {
+                        warn!("Failed to parse capability cache file: {}", path.display());
                     }
                 }
             }
         }
+        info!("Loaded {} capability cache entries from {}", loaded, cache_dir.display());
         Ok(())
     }
 }

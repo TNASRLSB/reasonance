@@ -257,17 +257,20 @@
     flex-shrink: 0;
     background: var(--bg-surface);
     border-right: none;
+    contain: layout style;
   }
 
   .panel.editor {
     flex: 1;
     min-width: 0;
+    contain: layout style;
   }
 
   .panel.terminal {
     flex-shrink: 0;
     background: var(--bg-surface);
     border-left: none;
+    contain: layout style;
   }
 
   .divider {
@@ -281,8 +284,8 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    border-left: 1px solid var(--border);
-    border-right: 1px solid var(--border);
+    border-inline-start: 1px solid var(--border);
+    border-inline-end: 1px solid var(--border);
   }
 
   .divider::before {

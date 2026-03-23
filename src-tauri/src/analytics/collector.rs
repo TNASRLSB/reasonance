@@ -2,6 +2,7 @@ use super::{SessionMetrics, ErrorRecord, ProviderAnalytics, ModelAnalytics, Dail
 use super::store::AnalyticsStore;
 use crate::agent_event::{AgentEvent, AgentEventType, ErrorSeverity};
 use crate::transport::event_bus::{AgentEventSubscriber, EventFilter};
+use log::{debug, error, trace, warn};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
@@ -12,6 +13,7 @@ pub struct AnalyticsCollector {
 
 impl AnalyticsCollector {
     pub fn new(store: Arc<AnalyticsStore>) -> Self {
+        debug!("AnalyticsCollector initialized");
         Self {
             active: Mutex::new(HashMap::new()),
             store,
@@ -19,84 +21,94 @@ impl AnalyticsCollector {
     }
 
     pub fn get_active_sessions(&self) -> Vec<SessionMetrics> {
-        self.active.lock().unwrap().values().cloned().collect()
+        self.active.lock().unwrap_or_else(|e| e.into_inner()).values().cloned().collect()
     }
 
     pub fn get_session_metrics(&self, session_id: &str) -> Option<SessionMetrics> {
         // Check active first
-        if let Some(m) = self.active.lock().unwrap().get(session_id) {
+        if let Some(m) = self.active.lock().unwrap_or_else(|e| e.into_inner()).get(session_id) {
             return Some(m.clone());
         }
-        // Then check completed
-        self.store.all_completed().into_iter()
-            .find(|m| m.session_id == session_id)
+        // Then check completed (avoid cloning the entire Vec)
+        self.store.with_completed(|completed| {
+            completed.iter().find(|m| m.session_id == session_id).cloned()
+        })
     }
 
     pub fn get_provider_analytics(&self, provider: &str, range: Option<TimeRange>) -> ProviderAnalytics {
-        let sessions: Vec<SessionMetrics> = self.store.all_completed()
-            .into_iter()
-            .filter(|m| m.provider == provider)
-            .filter(|m| Self::in_range(m, &range))
-            .collect();
-
-        Self::aggregate_provider(provider, &sessions)
+        debug!("Computing provider analytics for provider={}", provider);
+        self.store.with_completed(|completed| {
+            let sessions: Vec<&SessionMetrics> = completed.iter()
+                .filter(|m| m.provider == provider)
+                .filter(|m| Self::in_range(m, &range))
+                .collect();
+            Self::aggregate_provider(provider, &sessions.into_iter().cloned().collect::<Vec<_>>())
+        })
     }
 
     pub fn compare_providers(&self, range: Option<TimeRange>) -> Vec<ProviderAnalytics> {
-        let all = self.store.all_completed();
-        let mut by_provider: HashMap<String, Vec<SessionMetrics>> = HashMap::new();
-        for m in all {
-            if Self::in_range(&m, &range) {
-                by_provider.entry(m.provider.clone()).or_default().push(m);
+        debug!("Comparing providers across all completed sessions");
+        self.store.with_completed(|completed| {
+            let mut by_provider: HashMap<String, Vec<&SessionMetrics>> = HashMap::new();
+            for m in completed {
+                if Self::in_range(m, &range) {
+                    by_provider.entry(m.provider.clone()).or_default().push(m);
+                }
             }
-        }
-        by_provider.into_iter()
-            .map(|(provider, sessions)| Self::aggregate_provider(&provider, &sessions))
-            .collect()
+            by_provider.into_iter()
+                .map(|(provider, sessions)| {
+                    let owned: Vec<SessionMetrics> = sessions.into_iter().cloned().collect();
+                    Self::aggregate_provider(&provider, &owned)
+                })
+                .collect()
+        })
     }
 
     pub fn get_model_breakdown(&self, provider: &str, range: Option<TimeRange>) -> Vec<ModelAnalytics> {
-        let sessions: Vec<SessionMetrics> = self.store.all_completed()
-            .into_iter()
-            .filter(|m| m.provider == provider)
-            .filter(|m| Self::in_range(m, &range))
-            .collect();
+        debug!("Computing model breakdown for provider={}", provider);
+        self.store.with_completed(|completed| {
+            let sessions: Vec<&SessionMetrics> = completed.iter()
+                .filter(|m| m.provider == provider)
+                .filter(|m| Self::in_range(m, &range))
+                .collect();
 
-        let mut by_model: HashMap<String, Vec<&SessionMetrics>> = HashMap::new();
-        for m in &sessions {
-            by_model.entry(m.model.clone()).or_default().push(m);
-        }
-
-        by_model.into_iter().map(|(model, sessions)| {
-            let count = sessions.len() as u64;
-            let total_input: u64 = sessions.iter().map(|s| s.input_tokens).sum();
-            let total_output: u64 = sessions.iter().map(|s| s.output_tokens).sum();
-            let durations: Vec<u64> = sessions.iter().filter_map(|s| s.duration_ms).collect();
-            let avg_dur = if durations.is_empty() { 0.0 } else { durations.iter().sum::<u64>() as f64 / durations.len() as f64 };
-            let total_errors: u64 = sessions.iter().map(|s| s.errors.len() as u64).sum();
-
-            let tps = if avg_dur > 0.0 {
-                (total_output as f64 / count as f64) / (avg_dur / 1000.0)
-            } else { 0.0 };
-
-            ModelAnalytics {
-                model,
-                provider: provider.to_string(),
-                session_count: count,
-                avg_input_tokens: total_input as f64 / count as f64,
-                avg_output_tokens: total_output as f64 / count as f64,
-                avg_duration_ms: avg_dur,
-                avg_tokens_per_second: tps as f32,
-                error_rate: if count > 0 { total_errors as f32 / count as f32 } else { 0.0 },
+            let mut by_model: HashMap<String, Vec<&&SessionMetrics>> = HashMap::new();
+            for m in &sessions {
+                by_model.entry(m.model.clone()).or_default().push(m);
             }
-        }).collect()
+
+            by_model.into_iter().map(|(model, sessions)| {
+                let count = sessions.len() as u64;
+                let total_input: u64 = sessions.iter().map(|s| s.input_tokens).sum();
+                let total_output: u64 = sessions.iter().map(|s| s.output_tokens).sum();
+                let durations: Vec<u64> = sessions.iter().filter_map(|s| s.duration_ms).collect();
+                let avg_dur = if durations.is_empty() { 0.0 } else { durations.iter().sum::<u64>() as f64 / durations.len() as f64 };
+                let total_errors: u64 = sessions.iter().map(|s| s.errors.len() as u64).sum();
+
+                let tps = if avg_dur > 0.0 {
+                    (total_output as f64 / count as f64) / (avg_dur / 1000.0)
+                } else { 0.0 };
+
+                ModelAnalytics {
+                    model,
+                    provider: provider.to_string(),
+                    session_count: count,
+                    avg_input_tokens: total_input as f64 / count as f64,
+                    avg_output_tokens: total_output as f64 / count as f64,
+                    avg_duration_ms: avg_dur,
+                    avg_tokens_per_second: tps as f32,
+                    error_rate: if count > 0 { total_errors as f32 / count as f32 } else { 0.0 },
+                }
+            }).collect()
+        })
     }
 
     pub fn get_daily_stats(&self, provider: Option<&str>, days: u32) -> Vec<DailyStats> {
-        let all = self.store.all_completed();
+        debug!("Computing daily stats for provider={:?}, days={}", provider, days);
+        self.store.with_completed(|completed| {
         let mut by_date: HashMap<String, Vec<&SessionMetrics>> = HashMap::new();
 
-        for m in &all {
+        for m in completed {
             if let Some(p) = provider {
                 if m.provider != p { continue; }
             }
@@ -131,6 +143,7 @@ impl AnalyticsCollector {
             stats = stats.split_off(stats.len() - days as usize);
         }
         stats
+        }) // end with_completed
     }
 
     fn in_range(m: &SessionMetrics, range: &Option<TimeRange>) -> bool {
@@ -250,16 +263,17 @@ fn days_to_ymd(days: i64) -> (i64, u32, u32) {
 
 impl AgentEventSubscriber for AnalyticsCollector {
     fn on_event(&self, session_id: &str, event: &AgentEvent) {
-        let mut active = self.active.lock().unwrap();
+        let mut active = self.active.lock().unwrap_or_else(|e| e.into_inner());
 
         // Handle Done separately to avoid borrow conflict:
         // entry() borrows `active` mutably, and remove() would need another mutable borrow.
         if event.event_type == AgentEventType::Done {
             if let Some(mut m) = active.remove(session_id) {
+                debug!("Session ended: session_id={}, input_tokens={}, output_tokens={}", session_id, m.input_tokens, m.output_tokens);
                 m.ended_at = Some(event.timestamp);
                 drop(active); // release lock before I/O
                 if let Err(e) = self.store.append(&m) {
-                    eprintln!("AnalyticsCollector: failed to flush session {}: {}", session_id, e);
+                    error!("Failed to flush session {} to store: {}", session_id, e);
                 }
             }
             return;
@@ -267,6 +281,7 @@ impl AgentEventSubscriber for AnalyticsCollector {
 
         // Bootstrap new session on first event
         let metrics = active.entry(session_id.to_string()).or_insert_with(|| {
+            debug!("Session tracking started: session_id={}, provider={}", session_id, event.metadata.provider);
             SessionMetrics::new(
                 session_id,
                 &event.metadata.provider,
@@ -283,6 +298,8 @@ impl AgentEventSubscriber for AnalyticsCollector {
                 }
             }
         }
+
+        trace!("Processing event: session_id={}, type={:?}", session_id, event.event_type);
 
         match event.event_type {
             AgentEventType::Usage => {
@@ -332,6 +349,11 @@ impl AgentEventSubscriber for AnalyticsCollector {
                 }
             }
             AgentEventType::Error => {
+                warn!("Error recorded for session_id={}, code={:?}, severity={:?}",
+                    session_id,
+                    event.metadata.error_code,
+                    event.metadata.error_severity
+                );
                 metrics.errors.push(ErrorRecord {
                     timestamp: event.timestamp,
                     code: event.metadata.error_code.clone().unwrap_or_else(|| "unknown".to_string()),
@@ -375,7 +397,7 @@ mod tests {
         let event = AgentEvent::usage(100, 50, "claude");
         collector.on_event("s1", &event);
 
-        let active = collector.active.lock().unwrap();
+        let active = collector.active.lock().unwrap_or_else(|e| e.into_inner());
         let m = active.get("s1").unwrap();
         assert_eq!(m.input_tokens, 100);
         assert_eq!(m.output_tokens, 50);
@@ -389,7 +411,7 @@ mod tests {
         collector.on_event("s1", &AgentEvent::usage(100, 50, "claude"));
         collector.on_event("s1", &AgentEvent::usage(200, 100, "claude"));
 
-        let active = collector.active.lock().unwrap();
+        let active = collector.active.lock().unwrap_or_else(|e| e.into_inner());
         let m = active.get("s1").unwrap();
         assert_eq!(m.input_tokens, 300);
         assert_eq!(m.output_tokens, 150);
@@ -404,7 +426,7 @@ mod tests {
         collector.on_event("s1", &event);
         collector.on_event("s1", &event);
 
-        let active = collector.active.lock().unwrap();
+        let active = collector.active.lock().unwrap_or_else(|e| e.into_inner());
         let m = active.get("s1").unwrap();
         assert_eq!(m.tools_used.get("read_file"), Some(&2));
     }
@@ -420,7 +442,7 @@ mod tests {
         // Another event arrives — previous error is recovered
         collector.on_event("s1", &AgentEvent::usage(100, 50, "claude"));
 
-        let active = collector.active.lock().unwrap();
+        let active = collector.active.lock().unwrap_or_else(|e| e.into_inner());
         let m = active.get("s1").unwrap();
         assert_eq!(m.errors.len(), 1);
         assert!(m.errors[0].recovered);
@@ -435,7 +457,7 @@ mod tests {
         collector.on_event("s1", &AgentEvent::done("s1", "claude"));
 
         // Active should be empty now
-        assert!(collector.active.lock().unwrap().is_empty());
+        assert!(collector.active.lock().unwrap_or_else(|e| e.into_inner()).is_empty());
 
         // Store should have 1 completed session
         assert_eq!(store.all_completed().len(), 1);

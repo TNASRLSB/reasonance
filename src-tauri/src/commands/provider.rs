@@ -1,4 +1,5 @@
 use crate::transport::StructuredAgentTransport;
+use log::{info, error, debug};
 use std::path::Path;
 use tauri::{AppHandle, Emitter, State};
 
@@ -15,9 +16,10 @@ pub async fn test_provider_connection(
     transport: State<'_, StructuredAgentTransport>,
     app: AppHandle,
 ) -> Result<(), String> {
+    info!("cmd::test_provider_connection(provider={})", provider);
     let (binary, api_key_env, version_cmd) = {
         let registry = transport.registry();
-        let reg = registry.lock().unwrap();
+        let reg = registry.lock().unwrap_or_else(|e| e.into_inner());
         let config = reg.get_config(&provider)
             .ok_or_else(|| format!("Unknown provider: {}", provider))?;
         (
@@ -42,6 +44,7 @@ pub async fn test_provider_connection(
     });
 
     if binary_path.is_none() {
+        debug!("cmd::test_provider_connection binary not found for provider={}", provider);
         return Ok(());
     }
 
@@ -63,6 +66,7 @@ pub async fn test_provider_connection(
     });
 
     if !api_key_set {
+        debug!("cmd::test_provider_connection API key not set for provider={}", provider);
         return Ok(());
     }
 
@@ -119,9 +123,13 @@ pub async fn test_provider_connection(
 pub fn reload_normalizers(
     transport: State<'_, StructuredAgentTransport>,
 ) -> Result<(), String> {
+    info!("cmd::reload_normalizers called");
     let normalizers_dir = Path::new("normalizers");
-    let new_registry = crate::normalizer::NormalizerRegistry::load_from_dir(normalizers_dir)?;
+    let new_registry = crate::normalizer::NormalizerRegistry::load_from_dir(normalizers_dir).map_err(|e| {
+        error!("cmd::reload_normalizers failed to load from dir: {}", e);
+        e
+    })?;
     let registry = transport.registry();
-    *registry.lock().unwrap() = new_registry;
+    *registry.lock().unwrap_or_else(|e| e.into_inner()) = new_registry;
     Ok(())
 }

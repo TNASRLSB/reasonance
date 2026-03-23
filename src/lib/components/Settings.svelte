@@ -6,7 +6,7 @@
   import { llmConfigs, appSettings } from '$lib/stores/config';
   import { fontFamily, fontSize, enhancedReadability } from '$lib/stores/ui';
   import { themeMode, type ThemeMode } from '$lib/stores/theme';
-  import { tr, locale, loadLocale, type Locale } from '$lib/i18n/index';
+  import { tr, t, locale, loadLocale, type Locale } from '$lib/i18n/index';
   import { get } from 'svelte/store';
   import { getUpdateSettings, saveUpdateSettings, checkForUpdate, type UpdateMode } from '$lib/updater';
   import { trapFocus } from '$lib/utils/a11y';
@@ -128,7 +128,7 @@
       }
     } catch (e) {
       console.error('Settings loadConfig error:', e);
-      error = 'Could not load configuration. Your settings have been preserved in memory.';
+      error = t('settings.configError');
       llms = get(llmConfigs);
       settings = get(appSettings);
     }
@@ -175,12 +175,50 @@
     editingIndex = null;
   }
 
+  // Validation helpers
+  let commandError = $state('');
+  let endpointError = $state('');
+
+  function validateCommand(cmd: string): string {
+    if (!cmd.trim()) return '';
+    // Must look like a valid command name or path (alphanumeric, hyphens, underscores, slashes, dots)
+    if (!/^[a-zA-Z0-9_.\/\\~-][a-zA-Z0-9_.\/\\ -]*$/.test(cmd.trim())) {
+      return 'Invalid command path. Use letters, numbers, hyphens, dots, or slashes.';
+    }
+    return '';
+  }
+
+  function validateEndpoint(url: string): string {
+    if (!url.trim()) return '';
+    try {
+      const u = new URL(url.trim());
+      if (!['http:', 'https:'].includes(u.protocol)) {
+        return 'URL must start with http:// or https://';
+      }
+    } catch {
+      return 'Invalid URL format (e.g. https://api.example.com/v1)';
+    }
+    return '';
+  }
+
   function submitLlm() {
     if (!newLlm.name.trim()) {
-      error = 'LLM name is required.';
+      error = t('settings.llm.nameRequired');
       return;
     }
+
+    // Validate command/endpoint fields
+    if (newLlm.type === 'cli') {
+      const cmdErr = validateCommand(newLlm.command ?? '');
+      if (cmdErr) { commandError = cmdErr; return; }
+    } else if (newLlm.provider === 'openai-compatible') {
+      const urlErr = validateEndpoint(newLlm.endpoint ?? '');
+      if (urlErr) { endpointError = urlErr; return; }
+    }
+
     error = '';
+    commandError = '';
+    endpointError = '';
 
     const entry: LlmConfig = {
       name: newLlm.name.trim(),
@@ -274,7 +312,7 @@
       llmConfigs.set(effectiveLlms);
       appSettings.set(settings);
       budget.set({ ...localBudget });
-      fontFamily.set("'Atkinson Hyperlegible Mono', monospace");
+      fontFamily.set(localFontFamily);
       fontSize.set(localFontSize);
       enhancedReadability.set(localEnhancedReadability);
       themeMode.set(localTheme);
@@ -285,7 +323,7 @@
       }
     } catch (e) {
       console.error('Settings save error:', e);
-      error = 'Could not save settings. Check file permissions and try again.';
+      error = t('settings.saveError');
     } finally {
       saving = false;
     }
@@ -439,7 +477,9 @@
               {#if newLlm.type === 'cli'}
                 <div class="field-row">
                   <label for="llm-command">{$tr('settings.llm.command')}</label>
-                  <input id="llm-command" type="text" bind:value={newLlm.command} placeholder="e.g. claude" />
+                  <input id="llm-command" type="text" bind:value={newLlm.command} placeholder="e.g. claude"
+                    oninput={() => { commandError = validateCommand(newLlm.command ?? ''); }} />
+                  {#if commandError}<span class="field-error">{commandError}</span>{/if}
                 </div>
                 <div class="field-row">
                   <label for="llm-args">{$tr('settings.llm.args')}</label>
@@ -477,7 +517,9 @@
                 {#if newLlm.provider === 'openai-compatible'}
                   <div class="field-row">
                     <label for="llm-endpoint">{$tr('settings.llm.endpoint')}</label>
-                    <input id="llm-endpoint" type="text" bind:value={newLlm.endpoint} placeholder="https://api.example.com/v1" />
+                    <input id="llm-endpoint" type="text" bind:value={newLlm.endpoint} placeholder="https://api.example.com/v1"
+                      oninput={() => { endpointError = validateEndpoint(newLlm.endpoint ?? ''); }} />
+                    {#if endpointError}<span class="field-error">{endpointError}</span>{/if}
                   </div>
                 {/if}
               {/if}
@@ -553,10 +595,10 @@
 
         <!-- Updates -->
         <section>
-          <h3>{$tr('settings.updates') ?? 'Updates'}</h3>
+          <h3>{$tr('settings.updates')}</h3>
 
           <div class="field-row">
-            <label for="auto-update">{$tr('settings.autoUpdate') ?? 'Automatic updates'}</label>
+            <label for="auto-update">{$tr('settings.autoUpdate')}</label>
             <input
               id="auto-update"
               type="checkbox"
@@ -565,10 +607,10 @@
           </div>
 
           <div class="field-row">
-            <label for="update-mode">{$tr('settings.updateMode') ?? 'Update mode'}</label>
+            <label for="update-mode">{$tr('settings.updateMode')}</label>
             <select id="update-mode" bind:value={localUpdateMode} disabled={!localAutoUpdate}>
-              <option value="notify">{$tr('settings.updateNotify') ?? 'Notify when available'}</option>
-              <option value="silent">{$tr('settings.updateSilent') ?? 'Download and install silently'}</option>
+              <option value="notify">{$tr('settings.updateNotify')}</option>
+              <option value="silent">{$tr('settings.updateSilent')}</option>
             </select>
           </div>
 
@@ -583,8 +625,8 @@
               disabled={checkingUpdate}
             >
               {checkingUpdate
-                ? ($tr('settings.checking') ?? 'Checking...')
-                : ($tr('settings.checkNow') ?? 'Check now')}
+                ? $tr('settings.checking')
+                : $tr('settings.checkNow')}
             </button>
           </div>
 
@@ -596,12 +638,12 @@
         <!-- Provider Settings -->
         <section>
           <div class="provider-section-header">
-            <h3>{$tr('settings.provider.title') ?? 'PROVIDER'}</h3>
+            <h3>{$tr('settings.provider.title')}</h3>
             <button
               class="scan-cli-btn"
               onclick={async () => { await adapter.discoverLlms(); providerConfigVersion.update(v => v + 1); }}
             >
-              {$tr('settings.provider.scanCli') ?? 'Scan CLI'}
+              {$tr('settings.provider.scanCli')}
             </button>
           </div>
 
@@ -622,13 +664,13 @@
                   ></span>
                   <span class="provider-name">{llm.name}</span>
                   <span class="provider-model-hint">
-                    {llm.model ? llm.model : ($tr('settings.provider.notConfigured') ?? 'Not configured')}
+                    {llm.model ? llm.model : $tr('settings.provider.notConfigured')}
                   </span>
                   <button
                     class="provider-expand-btn"
                     onclick={() => expandedProvider = isExpanded ? null : llm.name}
                     aria-expanded={isExpanded}
-                    aria-label={$tr('settings.provider.expand') ?? 'Expand'}
+                    aria-label={$tr('settings.provider.expand')}
                   >
                     {isExpanded ? '▲' : '▼'}
                   </button>
@@ -638,7 +680,7 @@
                   <div class="provider-detail">
                     {#if models.length > 0}
                       <div class="field-row">
-                        <label for="provider-model-{i}">{$tr('settings.provider.defaultModel') ?? 'Default model'}</label>
+                        <label for="provider-model-{i}">{$tr('settings.provider.defaultModel')}</label>
                         <select
                           id="provider-model-{i}"
                           bind:value={llm.model}
@@ -653,7 +695,7 @@
                       </div>
                     {:else}
                       <div class="field-row">
-                        <label for="provider-model-text-{i}">{$tr('settings.provider.defaultModel') ?? 'Default model'}</label>
+                        <label for="provider-model-text-{i}">{$tr('settings.provider.defaultModel')}</label>
                         <input
                           id="provider-model-text-{i}"
                           type="text"
@@ -665,7 +707,7 @@
 
                     {#if llm.type === 'cli'}
                       <div class="field-row">
-                        <label for="provider-binary-{i}">{$tr('settings.provider.binary') ?? 'Binary'}</label>
+                        <label for="provider-binary-{i}">{$tr('settings.provider.binary')}</label>
                         <input
                           id="provider-binary-{i}"
                           type="text"
@@ -676,7 +718,7 @@
                     {/if}
 
                     <div class="field-row">
-                      <label for="provider-max-tokens-{i}">{$tr('settings.provider.maxTokens') ?? 'Max tokens'}</label>
+                      <label for="provider-max-tokens-{i}">{$tr('settings.provider.maxTokens')}</label>
                       <input
                         id="provider-max-tokens-{i}"
                         type="number"
@@ -693,7 +735,7 @@
                     </div>
 
                     <div class="field-row">
-                      <label for="provider-api-key-{i}">{$tr('settings.provider.apiKeyEnv') ?? 'API Key env'}</label>
+                      <label for="provider-api-key-{i}">{$tr('settings.provider.apiKeyEnv')}</label>
                       <input
                         id="provider-api-key-{i}"
                         type="text"
@@ -704,7 +746,7 @@
                     </div>
 
                     <div class="field-row">
-                      <label>{$tr('settings.provider.shortcut') ?? 'Shortcut'}</label>
+                      <label>{$tr('settings.provider.shortcut')}</label>
                       <button
                         class="shortcut-capture-btn"
                         class:capturing={capturingShortcut === llm.name}
@@ -712,7 +754,7 @@
                         onclick={() => capturingShortcut = capturingShortcut === llm.name ? null : llm.name}
                         onkeydown={handleShortcutCapture}
                       >
-                        {capturingShortcut === llm.name ? 'Press keys…' : llm.shortcut || '—'}
+                        {capturingShortcut === llm.name ? $tr('settings.provider.pressKeys') : llm.shortcut || '—'}
                       </button>
                     </div>
 
@@ -723,8 +765,8 @@
                         disabled={isTesting}
                       >
                         {isTesting
-                          ? ($tr('settings.provider.test.testing') ?? 'Testing…')
-                          : ($tr('settings.provider.test.button') ?? 'Test connection')}
+                          ? $tr('settings.provider.test.testing')
+                          : $tr('settings.provider.test.button')}
                       </button>
                     </div>
 
@@ -741,16 +783,16 @@
                             <span class="step-label">
                               {#if step.step === 'binary'}
                                 {isOk
-                                  ? ($tr('settings.provider.test.binaryFound') ?? 'Binary found')
-                                  : ($tr('settings.provider.test.binaryNotFound') ?? 'Binary not found')}
+                                  ? $tr('settings.provider.test.binaryFound')
+                                  : $tr('settings.provider.test.binaryNotFound')}
                               {:else if step.step === 'api_key'}
                                 {isOk
-                                  ? ($tr('settings.provider.test.apiKeyOk') ?? 'API key configured')
-                                  : ($tr('settings.provider.test.apiKeyMissing') ?? 'API key not set')}
+                                  ? $tr('settings.provider.test.apiKeyOk')
+                                  : $tr('settings.provider.test.apiKeyMissing')}
                               {:else if step.step === 'connection'}
                                 {isOk
-                                  ? ($tr('settings.provider.test.connectionOk') ?? 'Connection OK')
-                                  : ($tr('settings.provider.test.connectionFailed') ?? 'Connection failed')}
+                                  ? $tr('settings.provider.test.connectionOk')
+                                  : $tr('settings.provider.test.connectionFailed')}
                               {/if}
                             </span>
                             {#if step.detail}
@@ -760,7 +802,7 @@
                         {/each}
                         {#if steps.length === 3 && steps.every(s => s.status === 'ok')}
                           <div class="connection-ready">
-                            {($tr('settings.provider.test.ready') ?? '{provider} ready').replace('{provider}', llm.name)}
+                            {$tr('settings.provider.test.ready', { provider: llm.name })}
                           </div>
                         {/if}
                       </div>
@@ -773,9 +815,9 @@
 
           <!-- Budget sub-section -->
           <div class="budget-section">
-            <h4 class="budget-title">{$tr('settings.provider.budget') ?? 'Budget'}</h4>
+            <h4 class="budget-title">{$tr('settings.provider.budget')}</h4>
             <div class="field-row">
-              <label for="budget-daily">{$tr('analytics.budget.daily') ?? 'Daily limit (USD)'}</label>
+              <label for="budget-daily">{$tr('analytics.budget.daily')}</label>
               <input
                 id="budget-daily"
                 type="number"
@@ -790,7 +832,7 @@
               />
             </div>
             <div class="field-row">
-              <label for="budget-weekly">{$tr('analytics.budget.weekly') ?? 'Weekly limit (USD)'}</label>
+              <label for="budget-weekly">{$tr('analytics.budget.weekly')}</label>
               <input
                 id="budget-weekly"
                 type="number"
@@ -805,7 +847,7 @@
               />
             </div>
             <div class="field-row">
-              <label for="budget-notify">{$tr('analytics.budget.notifyAt') ?? 'Notify at'}</label>
+              <label for="budget-notify">{$tr('analytics.budget.notifyAt')}</label>
               <input
                 id="budget-notify"
                 type="range"
@@ -877,8 +919,13 @@
     color: var(--text-secondary);
     font-size: 16px;
     cursor: pointer;
-    padding: 2px 6px;
+    padding: 4px 6px;
     border-radius: 0;
+    min-width: 32px;
+    min-height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .close-btn:hover {
@@ -1184,6 +1231,13 @@
     margin: 4px 0 0;
   }
 
+  .field-error {
+    display: block;
+    font-size: var(--font-size-tiny);
+    color: var(--danger, #dc2626);
+    margin: 2px 0 0;
+  }
+
   /* Provider section */
   .provider-section-header {
     display: flex;
@@ -1377,7 +1431,7 @@
     font-family: var(--font-mono);
     color: var(--text-secondary);
     min-width: 32px;
-    text-align: right;
+    text-align: end;
     flex-shrink: 0;
   }
 </style>

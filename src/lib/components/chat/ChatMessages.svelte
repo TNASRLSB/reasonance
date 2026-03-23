@@ -48,7 +48,10 @@
     lastEventIndex: number;
   }
 
-  let messageGroups = $derived.by(() => {
+  const VISIBLE_GROUPS = 50;
+  let showAll = $state(false);
+
+  let allMessageGroups = $derived.by(() => {
     const groups: MessageGroup[] = [];
 
     for (let i = 0; i < events.length; i++) {
@@ -73,9 +76,29 @@
 
     return groups;
   });
+
+  // Show only the last N groups unless user requests all
+  let messageGroups = $derived(
+    showAll || allMessageGroups.length <= VISIBLE_GROUPS
+      ? allMessageGroups
+      : allMessageGroups.slice(allMessageGroups.length - VISIBLE_GROUPS)
+  );
+
+  let hiddenCount = $derived(allMessageGroups.length - messageGroups.length);
 </script>
 
 <div class="chat-messages" role="log" aria-live="polite" bind:this={messagesEl}>
+  {#if messageGroups.length === 0 && !streaming}
+    <div class="empty-state">
+      <p class="empty-title">Start a conversation</p>
+      <p class="empty-hint">Send a message below to begin working with the AI agent.</p>
+    </div>
+  {/if}
+  {#if hiddenCount > 0}
+    <button class="load-more" onclick={() => showAll = true}>
+      Show {hiddenCount} earlier message{hiddenCount !== 1 ? 's' : ''}
+    </button>
+  {/if}
   {#each messageGroups as group, gi (gi)}
     <ActionableMessage events={group.events} role={group.role} forkIndex={group.lastEventIndex} {onFork}>
       {#snippet children()}
@@ -140,6 +163,23 @@
   }
 
   .message-group.agent .message-content {
-    padding-left: 0;
+    padding-inline-start: 0;
+  }
+
+  .load-more {
+    align-self: center;
+    padding: 6px 16px;
+    font-family: var(--font-ui);
+    font-size: var(--font-size-small);
+    font-weight: 700;
+    color: var(--accent-text);
+    background: transparent;
+    border: var(--border-width) solid var(--border);
+    cursor: pointer;
+  }
+
+  .load-more:hover {
+    background: var(--bg-hover);
+    border-color: var(--accent);
   }
 </style>

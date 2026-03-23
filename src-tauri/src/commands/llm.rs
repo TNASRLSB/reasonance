@@ -1,3 +1,4 @@
+use log::{info, error, debug};
 use serde::Serialize;
 
 #[derive(Serialize)]
@@ -24,6 +25,7 @@ pub async fn call_llm_api(
     api_key_env: String,
     endpoint: String,
 ) -> Result<String, String> {
+    info!("cmd::call_llm_api(provider={}, model={})", provider, model);
     // Read the API key from environment — it never leaves the backend
     let api_key = if api_key_env.is_empty() {
         String::new()
@@ -39,6 +41,14 @@ pub async fn call_llm_api(
         _ => call_openai(&client, &model, &prompt, &api_key, &endpoint).await,
     };
 
+    match result {
+        Ok(ref content) => {
+            debug!("cmd::call_llm_api success for provider={}, response_len={}", provider, content.len());
+        }
+        Err(ref e) => {
+            error!("cmd::call_llm_api error for provider={}: {}", provider, e);
+        }
+    }
     match result {
         Ok(content) => Ok(ok_result(content)),
         Err(e) => Ok(err_result(e)),
@@ -125,8 +135,8 @@ async fn call_google(
 ) -> Result<String, String> {
     let m = if model.is_empty() { "gemini-pro" } else { model };
     let url = format!(
-        "https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent?key={}",
-        m, api_key
+        "https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent",
+        m
     );
 
     let body = serde_json::json!({
@@ -136,6 +146,7 @@ async fn call_google(
     let res = client
         .post(&url)
         .header("Content-Type", "application/json")
+        .header("x-goog-api-key", api_key)
         .json(&body)
         .send()
         .await

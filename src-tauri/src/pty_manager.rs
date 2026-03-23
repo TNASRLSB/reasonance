@@ -1,3 +1,4 @@
+use log::{debug, error, info, trace, warn};
 use portable_pty::{native_pty_system, CommandBuilder, MasterPty, PtySize};
 use std::collections::HashMap;
 use std::io::{Read, Write};
@@ -45,10 +46,14 @@ impl PtyManager {
         }
         cmd.cwd(cwd);
 
-        let _child = pair.slave.spawn_command(cmd).map_err(|e| e.to_string())?;
+        let _child = pair.slave.spawn_command(cmd).map_err(|e| {
+            error!("Failed to spawn PTY command '{}' in cwd '{}': {}", command, cwd, e);
+            e.to_string()
+        })?;
         drop(pair.slave);
 
         let id = Uuid::new_v4().to_string();
+        info!("PTY spawned: id={}, command='{}', cwd='{}'", id, command, cwd);
         let writer = pair.master.take_writer().map_err(|e| e.to_string())?;
         let mut reader = pair.master.try_clone_reader().map_err(|e| e.to_string())?;
 
@@ -58,14 +63,17 @@ impl PtyManager {
             loop {
                 match reader.read(&mut buf) {
                     Ok(0) => {
+                        debug!("PTY reader EOF: id={}", read_id);
                         let _ = app.emit(&format!("pty-exit-{}", read_id), 0);
                         break;
                     }
                     Ok(n) => {
+                        trace!("PTY data: id={}, bytes={}", read_id, n);
                         let data = String::from_utf8_lossy(&buf[..n]).to_string();
                         let _ = app.emit(&format!("pty-data-{}", read_id), data);
                     }
-                    Err(_) => {
+                    Err(e) => {
+                        warn!("PTY read error: id={}, error={}", read_id, e);
                         let _ = app.emit(&format!("pty-exit-{}", read_id), 1);
                         break;
                     }
@@ -77,29 +85,38 @@ impl PtyManager {
             master: pair.master,
             writer,
         };
-        self.instances.lock().unwrap().insert(id.clone(), instance);
+        self.instances.lock().unwrap_or_else(|e| e.into_inner()).insert(id.clone(), instance);
         Ok(id)
     }
 
     pub fn write(&self, id: &str, data: &str) -> Result<(), String> {
         const MAX_PAYLOAD: usize = 65_536; // 64 KB
         if data.len() > MAX_PAYLOAD {
+            warn!("PTY write payload too large: id={}, size={} bytes (max {})", id, data.len(), MAX_PAYLOAD);
             return Err(format!(
                 "PTY write payload too large: {} bytes (max {})",
                 data.len(),
                 MAX_PAYLOAD
             ));
         }
-        let mut instances = self.instances.lock().unwrap();
-        let instance = instances.get_mut(id).ok_or("PTY not found")?;
+        trace!("PTY write: id={}, bytes={}", id, data.len());
+        let mut instances = self.instances.lock().unwrap_or_else(|e| e.into_inner());
+        let instance = instances.get_mut(id).ok_or_else(|| {
+            error!("PTY write failed: id={} not found", id);
+            "PTY not found".to_string()
+        })?;
         instance
             .writer
             .write_all(data.as_bytes())
-            .map_err(|e| e.to_string())
+            .map_err(|e| {
+                error!("PTY write I/O error: id={}, error={}", id, e);
+                e.to_string()
+            })
     }
 
     pub fn resize(&self, id: &str, cols: u16, rows: u16) -> Result<(), String> {
-        let instances = self.instances.lock().unwrap();
+        debug!("PTY resize: id={}, cols={}, rows={}", id, cols, rows);
+        let instances = self.instances.lock().unwrap_or_else(|e| e.into_inner());
         let instance = instances.get(id).ok_or("PTY not found")?;
         instance
             .master
@@ -113,10 +130,14 @@ impl PtyManager {
     }
 
     pub fn kill(&self, id: &str) -> Result<(), String> {
-        let mut instances = self.instances.lock().unwrap();
+        info!("PTY kill: id={}", id);
+        let mut instances = self.instances.lock().unwrap_or_else(|e| e.into_inner());
         instances
             .remove(id)
-            .ok_or("PTY not found".to_string())?;
+            .ok_or_else(|| {
+                error!("PTY kill failed: id={} not found", id);
+                "PTY not found".to_string()
+            })?;
         Ok(())
     }
 }

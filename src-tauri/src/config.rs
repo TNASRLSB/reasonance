@@ -1,3 +1,4 @@
+use log::debug;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -42,7 +43,9 @@ pub struct AppConfig {
 
 pub fn config_path() -> PathBuf {
     let config_dir = dirs::config_dir().unwrap_or_else(|| PathBuf::from("."));
-    config_dir.join("reasonance").join("llms.toml")
+    let path = config_dir.join("reasonance").join("llms.toml");
+    debug!("Config path resolved to {}", path.display());
+    path
 }
 
 // SEC-07: The config file (llms.toml) is stored as plain-text TOML on disk.

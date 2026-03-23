@@ -1,11 +1,11 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { EditorView, basicSetup } from 'codemirror';
-  import { EditorState, type Extension } from '@codemirror/state';
+  import { EditorState, EditorSelection, type Extension } from '@codemirror/state';
   import { foldGutter } from '@codemirror/language';
   import { oneDark } from '@codemirror/theme-one-dark';
   import { getLangAsync } from '$lib/editor/languages';
-  import { openFiles, activeFilePath } from '$lib/stores/files';
+  import { openFiles, activeFilePath, pendingLine, cursorLine, cursorCol } from '$lib/stores/files';
   import { isDark } from '$lib/stores/theme';
   import { editorTheme, fontFamily, fontSize } from '$lib/stores/ui';
   import { editorThemes } from '$lib/editor/themes';
@@ -100,6 +100,18 @@
     $activeFilePath ? ($activeFilePath.split('.').pop()?.toLowerCase() === 'md') : false
   );
 
+  // Extension that tracks cursor position changes
+  function buildCursorTracker(): Extension {
+    return EditorView.updateListener.of((update) => {
+      if (update.selectionSet || update.docChanged) {
+        const pos = update.state.selection.main.head;
+        const line = update.state.doc.lineAt(pos);
+        cursorLine.set(line.number);
+        cursorCol.set(pos - line.from + 1);
+      }
+    });
+  }
+
   function buildFontExt(): Extension {
     return EditorView.theme({
       '.cm-content': { fontFamily: $fontFamily, fontSize: `${$fontSize}px` },
@@ -128,6 +140,7 @@
         ...themeExt,
         buildFontExt(),
         ...langExts,
+        buildCursorTracker(),
         EditorView.editable.of(!ro),
         EditorState.readOnly.of(ro),
       ],
@@ -156,18 +169,27 @@
     view.setState(state);
   }
 
-  // Watch for active file changes
+  // Watch for active file changes — debounced to prevent rapid teardown/recreation
+  let editorSwitchTimer: ReturnType<typeof setTimeout> | null = null;
   $effect(() => {
     const path = $activeFilePath;
     const content = currentContent;
+
+    if (editorSwitchTimer) {
+      clearTimeout(editorSwitchTimer);
+      editorSwitchTimer = null;
+    }
 
     if (!path || !container) {
       destroyView();
       return;
     }
 
-    let fileName = path.split('/').pop() ?? path;
-    initEditor(content, fileName);
+    const fileName = path.split('/').pop() ?? path;
+    editorSwitchTimer = setTimeout(() => {
+      editorSwitchTimer = null;
+      initEditor(content, fileName);
+    }, 75);
   });
 
   // Watch for readOnly toggle — rebuild with same content and cached language extensions
@@ -197,6 +219,23 @@
     const doc = view.state.doc.toString();
     const state = buildState(doc, currentLangExts, readOnly);
     view.setState(state);
+  });
+
+  // Watch for pendingLine — scroll editor to the requested line
+  $effect(() => {
+    const line = $pendingLine;
+    if (line == null || !view) return;
+    // Clear immediately so we don't re-trigger
+    pendingLine.set(null);
+    try {
+      const lineInfo = view.state.doc.line(Math.min(line, view.state.doc.lines));
+      view.dispatch({
+        selection: EditorSelection.cursor(lineInfo.from),
+        scrollIntoView: true,
+      });
+    } catch {
+      // Line out of range — ignore
+    }
   });
 
   onMount(() => {

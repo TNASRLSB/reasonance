@@ -31,14 +31,21 @@
     }
   });
 
-  // Build flat file list by recursively listing directories
-  async function buildFileList(dirPath: string): Promise<string[]> {
+  // Build flat file list by recursively listing directories (with cycle detection)
+  async function buildFileList(dirPath: string, visited: Set<string> = new Set(), depth: number = 0): Promise<string[]> {
+    // Prevent infinite recursion from symlink loops or extreme depth
+    const MAX_DEPTH = 50;
+    if (depth > MAX_DEPTH || visited.has(dirPath)) {
+      return [];
+    }
+    visited.add(dirPath);
+
     let result: string[] = [];
     try {
       const entries: FileEntry[] = await adapter.listDir(dirPath, true);
       for (const entry of entries) {
         if (entry.isDir) {
-          const children = await buildFileList(entry.path);
+          const children = await buildFileList(entry.path, visited, depth + 1);
           result = result.concat(children);
         } else {
           result.push(entry.path);
@@ -334,6 +341,11 @@
     padding: 4px 6px;
     cursor: pointer;
     line-height: 1;
+    min-width: 32px;
+    min-height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .palette-close:hover {

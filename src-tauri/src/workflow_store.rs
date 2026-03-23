@@ -194,12 +194,12 @@ impl WorkflowStore {
             std::fs::remove_file(file_path)
                 .map_err(|e| format!("Failed to delete: {}", e))?;
         }
-        self.workflows.lock().unwrap().remove(file_path);
+        self.workflows.lock().unwrap_or_else(|e| e.into_inner()).remove(file_path);
         Ok(())
     }
 
     pub fn get(&self, file_path: &str) -> Option<Workflow> {
-        self.workflows.lock().unwrap().get(file_path).cloned()
+        self.workflows.lock().unwrap_or_else(|e| e.into_inner()).get(file_path).cloned()
     }
 
     pub fn create_empty(name: &str) -> Workflow {

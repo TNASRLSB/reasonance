@@ -127,9 +127,14 @@
     color: var(--text-secondary);
     font-size: 14px;
     cursor: pointer;
-    padding: 2px 6px;
+    padding: 4px 6px;
     border-radius: 0;
     font-family: var(--font-ui);
+    min-width: 32px;
+    min-height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .close-btn:hover {

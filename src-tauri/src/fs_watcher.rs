@@ -1,3 +1,4 @@
+use log::{debug, info, trace};
 use notify::{RecommendedWatcher, RecursiveMode, Watcher, EventHandler};
 use notify::event::Event;
 use std::path::Path;
@@ -18,6 +19,7 @@ impl EventHandler for AppEventHandler {
                 _ => return,
             };
             for path in &event.paths {
+                trace!("FS event: type={}, path={}", kind, path.display());
                 let payload = serde_json::json!({
                     "type": kind,
                     "path": path.to_string_lossy(),
@@ -45,6 +47,7 @@ pub fn start_watching(
     app: AppHandle,
     state: &FsWatcherState,
 ) -> Result<(), String> {
+    info!("Starting filesystem watcher on path='{}'", path);
     let handler = AppEventHandler { app };
     let mut watcher =
         RecommendedWatcher::new(handler, notify::Config::default()).map_err(|e| e.to_string())?;
@@ -52,6 +55,7 @@ pub fn start_watching(
         .watch(Path::new(path), RecursiveMode::Recursive)
         .map_err(|e| e.to_string())?;
 
-    *state.watcher.lock().unwrap() = Some(watcher);
+    debug!("Filesystem watcher active on path='{}'", path);
+    *state.watcher.lock().unwrap_or_else(|e| e.into_inner()) = Some(watcher);
     Ok(())
 }

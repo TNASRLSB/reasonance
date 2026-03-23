@@ -23,6 +23,9 @@ mod tests {
         recorder.on_event(&id, &event1);
         recorder.on_event(&id, &event2);
 
+        // Flush background writer before asserting
+        recorder.flush();
+
         // Restore and verify
         let (handle, events) = mgr.restore_session(&id).unwrap();
         assert_eq!(events.len(), 2);
@@ -61,12 +64,16 @@ mod tests {
                 self.0.on_event(session_id, event);
             }
         }
+        let recorder_ref = recorder.clone();
         bus.subscribe(Box::new(Wrapper(recorder)));
 
         // Publish events through the bus
         bus.publish(&session_id, &AgentEvent::text("hello", "claude"));
         bus.publish(&session_id, &AgentEvent::usage(100, 200, "claude"));
         bus.publish(&session_id, &AgentEvent::done("sess", "claude"));
+
+        // Flush background writer before asserting
+        recorder_ref.flush();
 
         // Verify events persisted to disk
         let events = store.read_events(&session_id).unwrap();
@@ -86,6 +93,8 @@ mod tests {
 
             let recorder = mgr.recorder();
             recorder.on_event(&session_id, &AgentEvent::text("persisted", "claude"));
+            // Flush before dropping to ensure write completes
+            recorder.flush();
         }
 
         // Second "app launch" — restore from disk

@@ -12,9 +12,7 @@
   function toggleYolo() {
     const current = get(yoloMode);
     if (!current) {
-      const ok = confirm(
-        'Enable YOLO mode?\n\nThis disables all permission prompts. All running terminal instances will be restarted with YOLO enabled.\n\nProceed?'
-      );
+      const ok = confirm($tr('toolbar.yoloConfirm'));
       if (!ok) return;
     }
     yoloMode.update((v) => !v);
@@ -36,7 +34,7 @@
 
   function gitCmd(cmd: string) {
     if (cmd === 'git push\n') {
-      const ok = confirm('Push to remote?\n\nThis will run: git push\n\nProceed?');
+      const ok = confirm($tr('toolbar.pushConfirm'));
       if (!ok) { showGitMenu = false; return; }
     }
     const id = get(activeInstanceId);
@@ -44,18 +42,18 @@
     showGitMenu = false;
   }
 
-  const gitCommands = [
-    { label: 'Status', cmd: 'git status\n', icon: '?' },
-    { label: 'Diff', cmd: 'git diff\n', icon: '~' },
-    { label: 'Add All', cmd: 'git add -A\n', icon: '+' },
-    { label: 'Commit', cmd: 'git commit -m ""', icon: 'C' },
-    { label: 'Push', cmd: 'git push\n', icon: '\u2191' },
-    { label: 'Pull', cmd: 'git pull\n', icon: '\u2193' },
-    { label: 'Log', cmd: 'git log --oneline -20\n', icon: 'L' },
-    { label: 'Branch', cmd: 'git branch\n', icon: 'B' },
-    { label: 'Stash', cmd: 'git stash\n', icon: 'S' },
-    { label: 'Stash Pop', cmd: 'git stash pop\n', icon: 'P' },
-  ];
+  const gitCommands = $derived([
+    { label: $tr('toolbar.git.status'), cmd: 'git status\n', icon: '?' },
+    { label: $tr('toolbar.git.diff'), cmd: 'git diff\n', icon: '~' },
+    { label: $tr('toolbar.git.addAll'), cmd: 'git add -A\n', icon: '+' },
+    { label: $tr('toolbar.git.commit'), cmd: 'git commit -m ""', icon: 'C' },
+    { label: $tr('toolbar.git.push'), cmd: 'git push\n', icon: '\u2191' },
+    { label: $tr('toolbar.git.pull'), cmd: 'git pull\n', icon: '\u2193' },
+    { label: $tr('toolbar.git.log'), cmd: 'git log --oneline -20\n', icon: 'L' },
+    { label: $tr('toolbar.git.branch'), cmd: 'git branch\n', icon: 'B' },
+    { label: $tr('toolbar.git.stash'), cmd: 'git stash\n', icon: 'S' },
+    { label: $tr('toolbar.git.stashPop'), cmd: 'git stash pop\n', icon: 'P' },
+  ]);
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -74,7 +72,7 @@
 
   <div class="toolbar-right">
     <div class="git-dropdown-wrapper">
-      <button class="git-trigger" onclick={(e) => { e.stopPropagation(); showGitMenu = !showGitMenu; }} title="Git commands" aria-haspopup="true" aria-expanded={showGitMenu}>
+      <button class="git-trigger" onclick={(e) => { e.stopPropagation(); showGitMenu = !showGitMenu; }} title={$tr('toolbar.gitCommands')} aria-haspopup="true" aria-expanded={showGitMenu}>
         GIT &#9662;
       </button>
       {#if showGitMenu}
@@ -92,9 +90,9 @@
       class="yolo-btn"
       class:active={$yoloMode}
       onclick={toggleYolo}
-      title="YOLO mode — auto-approve permissions (restarts all instances)"
+      title={$tr('toolbar.yoloTitle')}
     >
-      {$yoloMode ? '\u26A1 YOLO ON' : 'YOLO'}
+      {$yoloMode ? '\u26A1 ' + $tr('toolbar.yoloOn') : $tr('toolbar.yoloOff')}
     </button>
     <button
       class="analytics-btn"
@@ -104,11 +102,11 @@
       onclick={() => analyticsDashboard.update(v => ({ ...v, open: !v.open, focus: null }))}
       title={$tr('toolbar.analytics')}
     >📊</button>
-    <button class="settings-btn" onclick={openSettings} title="Settings" aria-label="Settings">&#9881;</button>
+    <button class="settings-btn" onclick={openSettings} title={$tr('toolbar.settings')} aria-label={$tr('toolbar.settings')}>&#9881;</button>
     <div class="window-controls">
-      <button class="win-btn" onclick={() => adapter.minimizeWindow()} title="Minimize" aria-label="Minimize">&#8722;</button>
-      <button class="win-btn" onclick={() => adapter.maximizeWindow()} title="Maximize" aria-label="Maximize">&#9723;</button>
-      <button class="win-btn close" onclick={() => adapter.closeWindow()} title="Close" aria-label="Close">&#10005;</button>
+      <button class="win-btn" onclick={() => adapter.minimizeWindow()} title={$tr('toolbar.minimize')} aria-label={$tr('toolbar.minimize')}>&#8722;</button>
+      <button class="win-btn" onclick={() => adapter.maximizeWindow()} title={$tr('toolbar.maximize')} aria-label={$tr('toolbar.maximize')}>&#9723;</button>
+      <button class="win-btn close" onclick={() => adapter.closeWindow()} title={$tr('toolbar.close')} aria-label={$tr('toolbar.close')}>&#10005;</button>
     </div>
   </div>
 </div>
@@ -155,7 +153,7 @@
     color: var(--text-primary);
     text-transform: uppercase;
     letter-spacing: -0.02em;
-    margin-right: 8px;
+    margin-inline-end: 8px;
     overflow: hidden;
     text-overflow: ellipsis;
     flex-shrink: 1;
@@ -185,7 +183,7 @@
 
   .git-dropdown-wrapper {
     position: relative;
-    margin-right: 4px;
+    margin-inline-end: 4px;
   }
 
   .git-trigger {
@@ -253,7 +251,7 @@
 
   .git-label {
     flex: 1;
-    text-align: left;
+    text-align: start;
   }
 
   .yolo-btn {
@@ -289,7 +287,7 @@
   .window-controls {
     display: flex;
     align-items: stretch;
-    margin-left: 4px;
+    margin-inline-start: 4px;
     height: var(--toolbar-height);
   }
 

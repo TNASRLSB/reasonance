@@ -1,3 +1,4 @@
+use log::{debug, info};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Mutex;
@@ -24,19 +25,21 @@ impl CliUpdater {
     }
 
     pub fn register(&self, name: &str, info: CliVersionInfo) {
-        self.providers.lock().unwrap().insert(name.to_string(), info);
+        info!("CLI updater: registered provider '{}'", name);
+        self.providers.lock().unwrap_or_else(|e| e.into_inner()).insert(name.to_string(), info);
     }
 
     pub fn providers(&self) -> Vec<String> {
-        self.providers.lock().unwrap().keys().cloned().collect()
+        self.providers.lock().unwrap_or_else(|e| e.into_inner()).keys().cloned().collect()
     }
 
     pub fn get_info(&self, provider: &str) -> Option<CliVersionInfo> {
-        self.providers.lock().unwrap().get(provider).cloned()
+        self.providers.lock().unwrap_or_else(|e| e.into_inner()).get(provider).cloned()
     }
 
     pub fn set_version(&self, provider: &str, version: &str) {
-        let mut providers = self.providers.lock().unwrap();
+        debug!("CLI updater: setting version for provider='{}' to '{}'", provider, version);
+        let mut providers = self.providers.lock().unwrap_or_else(|e| e.into_inner());
         if let Some(info) = providers.get_mut(provider) {
             info.current_version = Some(version.to_string());
             info.last_checked = Some(
@@ -49,14 +52,18 @@ impl CliUpdater {
     }
 
     pub fn version_changed(&self, provider: &str, new_version: &str) -> bool {
-        let providers = self.providers.lock().unwrap();
-        match providers.get(provider) {
+        let providers = self.providers.lock().unwrap_or_else(|e| e.into_inner());
+        let changed = match providers.get(provider) {
             Some(info) => match &info.current_version {
                 Some(current) => current != new_version,
                 None => true,
             },
             None => false,
+        };
+        if changed {
+            info!("CLI version change detected for '{}': new version '{}'", provider, new_version);
         }
+        changed
     }
 
     pub fn auto_update_providers(&self) -> Vec<String> {

@@ -1,5 +1,8 @@
 use crate::agent_event::{AgentEvent, AgentEventType};
+#[allow(unused_imports)]
+use log::{info, warn, error, debug, trace};
 use std::sync::{Arc, Mutex};
+use std::sync::mpsc;
 
 #[derive(Debug, Clone)]
 pub struct EventFilter {
@@ -11,11 +14,13 @@ impl EventFilter {
     pub fn matches(&self, event: &AgentEvent) -> bool {
         if let Some(ref types) = self.event_types {
             if !types.contains(&event.event_type) {
+                debug!("EventFilter: rejected event type {:?} (allowed: {:?})", event.event_type, types);
                 return false;
             }
         }
         if let Some(ref providers) = self.providers {
             if !providers.contains(&event.metadata.provider) {
+                debug!("EventFilter: rejected provider {:?} (allowed: {:?})", event.metadata.provider, providers);
                 return false;
             }
         }
@@ -42,11 +47,21 @@ impl AgentEventBus {
     }
 
     pub fn subscribe(&self, subscriber: Box<dyn AgentEventSubscriber>) {
-        self.subscribers.lock().unwrap().push(subscriber);
+        info!("EventBus: new subscriber registered");
+        self.subscribers.lock().unwrap_or_else(|e| {
+            warn!("EventBus: subscribers lock was poisoned, recovering");
+            e.into_inner()
+        }).push(subscriber);
     }
 
     pub fn publish(&self, session_id: &str, event: &AgentEvent) {
-        let subscribers = self.subscribers.lock().unwrap();
+        debug!("EventBus: publishing event type={:?} to session={}", event.event_type, session_id);
+        let subscribers = self.subscribers.lock().unwrap_or_else(|e| {
+            warn!("EventBus: subscribers lock was poisoned during publish, recovering");
+            e.into_inner()
+        });
+        let sub_count = subscribers.len();
+        let mut delivered = 0u32;
         for sub in subscribers.iter() {
             let should_send = match sub.filter() {
                 Some(filter) => filter.matches(event),
@@ -54,11 +69,14 @@ impl AgentEventBus {
             };
             if should_send {
                 sub.on_event(session_id, event);
+                delivered += 1;
             }
         }
+        trace!("EventBus: event delivered to {}/{} subscribers", delivered, sub_count);
     }
 
     pub fn publish_batch(&self, session_id: &str, events: &[AgentEvent]) {
+        info!("EventBus: publishing batch of {} events to session={}", events.len(), session_id);
         for event in events {
             self.publish(session_id, event);
         }
@@ -92,6 +110,7 @@ impl HistoryRecorder {
 
 impl AgentEventSubscriber for HistoryRecorder {
     fn on_event(&self, session_id: &str, event: &AgentEvent) {
+        trace!("HistoryRecorder: recording event type={:?} for session={}", event.event_type, session_id);
         self.history
             .lock()
             .unwrap()
@@ -126,6 +145,7 @@ impl AgentEventSubscriber for FrontendEmitter {
             event: event.clone(),
         };
 
+        trace!("FrontendEmitter: emitting event type={:?} to frontend for session={}", event.event_type, session_id);
         let _ = self.app_handle.emit("agent-event", payload);
     }
 }
@@ -133,24 +153,86 @@ impl AgentEventSubscriber for FrontendEmitter {
 use crate::transport::session_store::SessionStore;
 use crate::transport::session_handle::SessionHandle;
 
-/// Event bus subscriber that appends events to disk (JSONL) as they arrive.
-/// Also updates session metadata (event_count, last_active_at).
+/// Message sent from the event bus subscriber to the background writer thread.
+enum WriteCommand {
+    Event { session_id: String, event: AgentEvent },
+    Flush { ack: mpsc::Sender<()> },
+}
+
+/// Event bus subscriber that buffers events via a channel and writes them to
+/// disk (JSONL) asynchronously in a background thread. This avoids performing
+/// synchronous file I/O while the event bus lock is held.
 pub struct SessionHistoryRecorder {
-    store: Arc<SessionStore>,
+    sender: mpsc::Sender<WriteCommand>,
     handles: Arc<Mutex<std::collections::HashMap<String, SessionHandle>>>,
 }
 
 impl SessionHistoryRecorder {
     pub fn new(store: Arc<SessionStore>) -> Self {
+        let (tx, rx) = mpsc::channel::<WriteCommand>();
+        let handles: Arc<Mutex<std::collections::HashMap<String, SessionHandle>>> =
+            Arc::new(Mutex::new(std::collections::HashMap::new()));
+        let writer_handles = handles.clone();
+
+        info!("SessionHistoryRecorder: spawning background writer thread");
+
+        // Background writer thread — drains the channel and performs all file I/O
+        // outside of any event bus lock.
+        std::thread::Builder::new()
+            .name("session-history-writer".into())
+            .spawn(move || {
+                debug!("SessionHistoryRecorder: writer thread started");
+                while let Ok(cmd) = rx.recv() {
+                    match cmd {
+                        WriteCommand::Event { session_id, event } => {
+                            trace!("SessionHistoryRecorder: writing event type={:?} for session={}", event.event_type, session_id);
+                            // Append event to JSONL
+                            if let Err(e) = store.append_event(&session_id, &event) {
+                                error!("SessionHistoryRecorder: failed to append event for session={}: {}", session_id, e);
+                            }
+
+                            // Update metadata
+                            let mut handles_lock = writer_handles.lock().unwrap_or_else(|e| {
+                                warn!("SessionHistoryRecorder: handles lock poisoned, recovering");
+                                e.into_inner()
+                            });
+                            if let Some(handle) = handles_lock.get_mut(&session_id) {
+                                handle.event_count += 1;
+                                handle.touch();
+                                // Persist metadata periodically (every 10 events) to reduce I/O
+                                if handle.event_count % 10 == 0 {
+                                    debug!("SessionHistoryRecorder: persisting metadata for session={} (event_count={})", session_id, handle.event_count);
+                                    if let Err(e) = store.write_metadata(handle) {
+                                        error!("SessionHistoryRecorder: failed to write metadata for session={}: {}", session_id, e);
+                                    }
+                                }
+                            } else {
+                                warn!("SessionHistoryRecorder: received event for untracked session={}", session_id);
+                            }
+                        }
+                        WriteCommand::Flush { ack } => {
+                            debug!("SessionHistoryRecorder: flush requested");
+                            let _ = ack.send(());
+                        }
+                    }
+                }
+                debug!("SessionHistoryRecorder: writer thread exiting");
+            })
+            .expect("Failed to spawn session-history-writer thread");
+
         Self {
-            store,
-            handles: Arc::new(Mutex::new(std::collections::HashMap::new())),
+            sender: tx,
+            handles,
         }
     }
 
     /// Register a session to be tracked by this recorder.
     pub fn track_session(&self, handle: SessionHandle) {
-        self.handles.lock().unwrap().insert(handle.id.clone(), handle);
+        info!("SessionHistoryRecorder: tracking session={} provider={} model={}", handle.id, handle.provider, handle.model);
+        self.handles.lock().unwrap_or_else(|e| {
+            warn!("SessionHistoryRecorder: handles lock poisoned during track_session, recovering");
+            e.into_inner()
+        }).insert(handle.id.clone(), handle);
     }
 
     /// Get a reference to the handles map for the SessionManager.
@@ -159,24 +241,28 @@ impl SessionHistoryRecorder {
     }
 }
 
+impl SessionHistoryRecorder {
+    /// Block until all queued events have been written to disk.
+    #[allow(dead_code)]
+    pub fn flush(&self) {
+        debug!("SessionHistoryRecorder: flush called, waiting for writer thread");
+        let (tx, rx) = mpsc::channel();
+        let _ = self.sender.send(WriteCommand::Flush { ack: tx });
+        let _ = rx.recv();
+        debug!("SessionHistoryRecorder: flush complete");
+    }
+}
+
 impl AgentEventSubscriber for SessionHistoryRecorder {
     fn on_event(&self, session_id: &str, event: &AgentEvent) {
-        // Append event to JSONL (fire and forget — log errors but don't panic)
-        if let Err(e) = self.store.append_event(session_id, event) {
-            eprintln!("SessionHistoryRecorder: failed to append event: {}", e);
-        }
-
-        // Update metadata
-        let mut handles = self.handles.lock().unwrap();
-        if let Some(handle) = handles.get_mut(session_id) {
-            handle.event_count += 1;
-            handle.touch();
-            // Persist metadata periodically (every 10 events) to reduce I/O
-            if handle.event_count % 10 == 0 {
-                if let Err(e) = self.store.write_metadata(handle) {
-                    eprintln!("SessionHistoryRecorder: failed to write metadata: {}", e);
-                }
-            }
+        // Send to background writer — no file I/O under the event bus lock.
+        trace!("SessionHistoryRecorder: enqueuing event type={:?} for session={}", event.event_type, session_id);
+        let cmd = WriteCommand::Event {
+            session_id: session_id.to_string(),
+            event: event.clone(),
+        };
+        if let Err(e) = self.sender.send(cmd) {
+            error!("SessionHistoryRecorder: failed to enqueue event for session={}: {}", session_id, e);
         }
     }
 }
@@ -356,13 +442,16 @@ mod tests {
         let event = AgentEvent::text("hello", "claude");
         recorder.on_event(&session_id, &event);
 
+        // The writer runs in a background thread; give it a moment to flush.
+        std::thread::sleep(std::time::Duration::from_millis(100));
+
         // Verify event was written to disk
         let events = store.read_events(&session_id).unwrap();
         assert_eq!(events.len(), 1);
 
         // Verify handle was updated
         let handles = recorder.handles_ref();
-        let handles = handles.lock().unwrap();
+        let handles = handles.lock().unwrap_or_else(|e| e.into_inner());
         assert_eq!(handles.get(&session_id).unwrap().event_count, 1u32);
     }
 }

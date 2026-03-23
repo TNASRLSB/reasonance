@@ -1,3 +1,4 @@
+use log::{debug, error, info};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -20,6 +21,7 @@ impl NormalizerVersionStore {
     pub fn new(base_dir: &Path) -> Self {
         let _ = std::fs::create_dir_all(base_dir);
         let index = Self::load_index(base_dir);
+        info!("NormalizerVersionStore initialized at {}, {} providers tracked", base_dir.display(), index.len());
         Self {
             base_dir: base_dir.to_path_buf(),
             index: Mutex::new(index),
@@ -38,7 +40,11 @@ impl NormalizerVersionStore {
         std::fs::create_dir_all(&provider_dir).map_err(|e| e.to_string())?;
 
         let file_path = provider_dir.join(format!("{}.toml", id));
-        std::fs::write(&file_path, toml_content).map_err(|e| e.to_string())?;
+        std::fs::write(&file_path, toml_content).map_err(|e| {
+            error!("Failed to write version backup for provider='{}': {}", provider, e);
+            e.to_string()
+        })?;
+        info!("Version backup created: provider='{}', id={}", provider, id);
 
         let entry = VersionEntry {
             id: id.clone(),
@@ -47,7 +53,7 @@ impl NormalizerVersionStore {
             checksum,
         };
 
-        let mut index = self.index.lock().unwrap();
+        let mut index = self.index.lock().unwrap_or_else(|e| e.into_inner());
         index.entry(provider.to_string()).or_default().push(entry);
         self.save_index(&index)?;
 
@@ -55,18 +61,23 @@ impl NormalizerVersionStore {
     }
 
     pub fn restore(&self, provider: &str, version_id: &str) -> Result<String, String> {
+        debug!("Restoring version: provider='{}', version_id={}", provider, version_id);
         let file_path = self.base_dir.join(provider).join(format!("{}.toml", version_id));
         std::fs::read_to_string(&file_path)
-            .map_err(|_| format!("Version {} not found for {}", version_id, provider))
+            .map_err(|_| {
+                let msg = format!("Version {} not found for {}", version_id, provider);
+                error!("{}", msg);
+                msg
+            })
     }
 
     pub fn list_versions(&self, provider: &str) -> Vec<VersionEntry> {
-        let index = self.index.lock().unwrap();
+        let index = self.index.lock().unwrap_or_else(|e| e.into_inner());
         index.get(provider).cloned().unwrap_or_default()
     }
 
     pub fn current(&self, provider: &str) -> Option<VersionEntry> {
-        let index = self.index.lock().unwrap();
+        let index = self.index.lock().unwrap_or_else(|e| e.into_inner());
         index.get(provider).and_then(|v| v.last().cloned())
     }
 

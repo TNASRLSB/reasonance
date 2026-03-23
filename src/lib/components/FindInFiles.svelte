@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Adapter, GrepResult } from '$lib/adapter/index';
-  import { addOpenFile, activeFilePath } from '$lib/stores/files';
+  import { addOpenFile, activeFilePath, pendingLine } from '$lib/stores/files';
   import { tr } from '$lib/i18n/index';
   import { trapFocus } from '$lib/utils/a11y';
 
@@ -68,7 +68,7 @@
       const content = await adapter.readFile(result.path);
       const name = result.path.split('/').pop() ?? result.path;
       addOpenFile({ path: result.path, name, content, isDirty: false, isDeleted: false });
-      // Note: jumping to line would require editor line API; for now just open the file
+      pendingLine.set(result.line_number);
     } catch {
       // Non-fatal
     }
@@ -333,7 +333,7 @@
     color: var(--text-secondary);
     font-variant-numeric: tabular-nums;
     min-width: 28px;
-    text-align: right;
+    text-align: end;
     flex-shrink: 0;
   }
 
