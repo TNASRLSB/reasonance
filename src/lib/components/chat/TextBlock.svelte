@@ -17,11 +17,32 @@
       'table', 'thead', 'tbody', 'tr', 'th', 'td',
       'div', 'sub', 'sup', 'mark', 'abbr',
     ],
-    ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class', 'id', 'target', 'rel', 'colspan', 'rowspan'],
+    ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class', 'id', 'target', 'rel', 'colspan', 'rowspan', 'aria-label'],
     ALLOW_DATA_ATTR: false,
   };
 
-  let html = $derived(DOMPurify.sanitize(md.parse(text) as string, SANITIZE_CONFIG));
+  // WCAG 2.2 AAA 2.4.9 — enhance generic link text with domain info
+  const GENERIC_LINK_TEXTS = ['here', 'this', 'link', 'click', 'click here', 'read more', 'more'];
+
+  function enhanceLinks(sanitized: string): string {
+    const doc = new DOMParser().parseFromString(sanitized, 'text/html');
+    doc.querySelectorAll('a[href]').forEach((a) => {
+      const linkText = a.textContent?.trim().toLowerCase() ?? '';
+      const href = a.getAttribute('href') ?? '';
+      if (GENERIC_LINK_TEXTS.includes(linkText)) {
+        try {
+          const domain = new URL(href).hostname;
+          a.setAttribute('aria-label', `${a.textContent} (${domain})`);
+        } catch { /* relative URL or invalid — skip */ }
+      }
+      if (!a.getAttribute('title') && href) {
+        a.setAttribute('title', href);
+      }
+    });
+    return doc.body.innerHTML;
+  }
+
+  let html = $derived(enhanceLinks(DOMPurify.sanitize(md.parse(text) as string, SANITIZE_CONFIG)));
 </script>
 
 <div class="text-block markdown-content">
@@ -35,10 +56,15 @@
     color: var(--text-body);
     line-height: 1.6;
     word-break: break-word;
+    max-width: 70ch; /* WCAG 2.2 AAA 1.4.8 — max line length */
   }
 
   .text-block :global(p) {
     margin: 0 0 8px 0;
+  }
+
+  .text-block :global(p + p) {
+    margin-top: 1.5em; /* WCAG 2.2 AAA 1.4.8 — paragraph spacing ≥ 1.5× line-height */
   }
 
   .text-block :global(p:last-child) {

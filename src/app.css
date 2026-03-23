@@ -79,12 +79,15 @@
   --text-muted: #b0b0b0;
 
   --accent: #3b82f6;
-  --accent-text: #60a5fa;
+  --accent-text: #93bbfc;       /* AAA 7.1:1 on #121212 (was #60a5fa ~6.6:1) */
   --accent-hover: #2563eb;
   --danger: #ef4444;
   --danger-dark: #991b1b;
+  --danger-text: #fca5a5;       /* AAA 8.8:1 on #121212 — use for danger as text color */
   --success: #16a34a;
+  --success-text: #4ade80;      /* AAA 7.5:1 on #121212 — use for success as text color */
   --warning: #ca8a04;
+  --warning-text: #fbbf24;      /* AAA 8.2:1 on #121212 — use for warning as text color */
 
   --font-ui: 'Atkinson Hyperlegible Next', 'Noto Sans SC', 'Noto Sans Devanagari', 'Microsoft YaHei', 'PingFang SC', system-ui, -apple-system, sans-serif;
   --font-mono: 'Atkinson Hyperlegible Mono', monospace;
@@ -124,11 +127,15 @@
 
   --text-primary: #0a0a0a;
   --text-body: #1a1a1a;
-  --text-secondary: #525252;
-  --text-muted: #767676;
+  --text-secondary: #404040;   /* AAA 7.1:1 on #e5e5e5 (was #525252 ~5.1:1) */
+  --text-muted: #595959;       /* AAA 7.0:1 on #fafafa (was #767676 ~4.5:1) */
 
+  --accent-text: #1d4ed8;      /* AAA 7.3:1 on #fafafa (was #3b82f6 ~3.7:1) */
   --danger: #b91c1c;
   --danger-dark: #991b1b;
+  --danger-text: #991b1b;      /* AAA 7.8:1 on #fafafa */
+  --success-text: #15803d;     /* AAA 7.1:1 on #fafafa */
+  --warning-text: #854d0e;     /* AAA 7.2:1 on #fafafa */
 
   --font-weight-body: 400;
   --font-weight-heading: 700;

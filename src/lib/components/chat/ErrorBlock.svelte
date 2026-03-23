@@ -47,7 +47,7 @@
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    color: var(--danger);
+    color: var(--danger-text);
   }
 
   .error-code {
