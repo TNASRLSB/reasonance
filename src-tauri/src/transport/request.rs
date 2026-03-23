@@ -15,6 +15,12 @@ pub struct AgentRequest {
     pub max_tokens: Option<u64>,
     #[serde(default)]
     pub allowed_tools: Option<Vec<String>>,
+    /// Working directory for the CLI process (typically the project root).
+    #[serde(default)]
+    pub cwd: Option<String>,
+    /// When true, append permission_args (e.g. --dangerously-skip-permissions).
+    #[serde(default)]
+    pub yolo: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -85,6 +91,8 @@ mod tests {
             system_prompt: None,
             max_tokens: None,
             allowed_tools: None,
+            cwd: None,
+            yolo: false,
         };
         let json = serde_json::to_string(&req).unwrap();
         let deserialized: AgentRequest = serde_json::from_str(&json).unwrap();

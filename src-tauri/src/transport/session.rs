@@ -68,6 +68,8 @@ mod tests {
             system_prompt: None,
             max_tokens: None,
             allowed_tools: None,
+            cwd: None,
+            yolo: false,
         }
     }
 

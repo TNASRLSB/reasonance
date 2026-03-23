@@ -96,7 +96,7 @@ export interface Adapter {
   notifyNodeCompleted(runId: string, nodeId: string, success: boolean, workflowPath: string, cwd: string): Promise<void>;
 
   // Structured Transport
-  agentSend(prompt: string, provider: string, model?: string, sessionId?: string): Promise<string>;
+  agentSend(prompt: string, provider: string, model?: string, sessionId?: string, cwd?: string, yolo?: boolean): Promise<string>;
   agentStop(sessionId: string): Promise<void>;
   agentGetEvents(sessionId: string): Promise<AgentEvent[]>;
   onAgentEvent(callback: (payload: AgentEventPayload) => void): Promise<() => void>;

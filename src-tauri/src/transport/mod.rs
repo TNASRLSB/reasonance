@@ -92,6 +92,7 @@ impl StructuredAgentTransport {
             sessions.get(sid).and_then(|s| s.cli_session_id.clone())
         });
         let args = Self::build_cli_args(config, &request, cli_session_id.as_deref());
+        let permission_args = Self::build_permission_args(config, request.cwd.as_deref(), request.yolo);
         let rules = config.to_rules();
         drop(registry);
 
@@ -114,8 +115,18 @@ impl StructuredAgentTransport {
 
         let mut cmd = Command::new(&binary);
         cmd.args(&args);
+        // Append permission args from normalizer config (e.g. --dangerously-skip-permissions)
+        cmd.args(&permission_args);
         cmd.stdout(Stdio::piped());
         cmd.stderr(Stdio::piped());
+
+        // Set working directory to project root if provided
+        if let Some(ref cwd) = request.cwd {
+            if !cwd.is_empty() {
+                cmd.current_dir(cwd);
+                debug!("Transport: set cwd={}", cwd);
+            }
+        }
 
         debug!("Transport: spawning CLI binary={} with {} args", binary, args.len());
         let mut child = cmd.spawn().map_err(|e| {
@@ -219,6 +230,18 @@ impl StructuredAgentTransport {
         self.registry.clone()
     }
 
+    /// Build permission args from the normalizer config, substituting `{project_root}` with the actual path.
+    /// Only returns args when `yolo` is true; otherwise returns an empty vec.
+    fn build_permission_args(config: &crate::normalizer::TomlConfig, cwd: Option<&str>, yolo: bool) -> Vec<String> {
+        if !yolo {
+            return vec![];
+        }
+        let project_root = cwd.unwrap_or(".");
+        config.cli.permission_args.iter().map(|arg| {
+            arg.replace("{project_root}", project_root)
+        }).collect()
+    }
+
     /// Build CLI args. `cli_session_id` is the session ID returned by the CLI
     /// (e.g., from a previous invocation), NOT the internal Reasonance session ID.
     /// Only when a real CLI session ID is provided do we use `resume_args`.
@@ -270,6 +293,8 @@ mod tests {
             system_prompt: None,
             max_tokens: None,
             allowed_tools: None,
+            cwd: None,
+            yolo: false,
         };
         let result = transport.send(request);
         assert!(result.is_err());
@@ -290,6 +315,8 @@ mod tests {
             system_prompt: None,
             max_tokens: None,
             allowed_tools: None,
+            cwd: None,
+            yolo: false,
         };
         let args = StructuredAgentTransport::build_cli_args(config, &request, None);
         assert!(args.contains(&"test prompt".to_string()));
@@ -311,11 +338,27 @@ mod tests {
             system_prompt: None,
             max_tokens: None,
             allowed_tools: None,
+            cwd: None,
+            yolo: false,
         };
         // Resume only happens when a CLI session ID is provided
         let args = StructuredAgentTransport::build_cli_args(config, &request, Some("sess-123"));
         assert!(args.contains(&"--resume".to_string()));
         assert!(args.contains(&"sess-123".to_string()));
+    }
+
+    #[test]
+    fn test_permission_args_only_when_yolo() {
+        let transport = StructuredAgentTransport::new(Path::new("normalizers")).unwrap();
+        let registry = transport.registry.lock().unwrap_or_else(|e| e.into_inner());
+        let config = registry.get_config("claude").unwrap();
+
+        let args_off = StructuredAgentTransport::build_permission_args(config, Some("/project"), false);
+        assert!(args_off.is_empty());
+
+        let args_on = StructuredAgentTransport::build_permission_args(config, Some("/project"), true);
+        assert!(!args_on.is_empty());
+        assert!(args_on.iter().any(|a| a.contains("dangerously-skip-permissions")));
     }
 
     #[test]

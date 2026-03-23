@@ -6,6 +6,9 @@
   import ChatInput from './ChatInput.svelte';
   import { agentEvents, streamingSessionIds, setSessionEvents, setStreaming } from '$lib/stores/agent-events';
   import { agentSessions } from '$lib/stores/agent-session';
+  import { projectRoot } from '$lib/stores/files';
+  import { yoloMode } from '$lib/stores/ui';
+  import { get } from 'svelte/store';
 
   let { adapter, sessionId, provider, model }: {
     adapter: Adapter;
@@ -63,7 +66,9 @@
       });
 
       setStreaming(sessionId, true);
-      await adapter.agentSend(text, provider, model, sessionId);
+      const cwd = get(projectRoot) || undefined;
+      const isYolo = get(yoloMode);
+      await adapter.agentSend(text, provider, model, sessionId, cwd, isYolo);
     } catch (e) {
       console.error('Failed to send message:', e);
       setStreaming(sessionId, false);
@@ -84,7 +89,11 @@
 <div class="chat-view">
   <ChatHeader {provider} {model} {status} {streaming} {tokenCount} {currentSpeed} {elapsed} />
   <ChatMessages {events} {streaming} {adapter} onFork={handleFork} />
-  <ChatInput onSend={handleSend} disabled={streaming} />
+  <ChatInput
+    onSend={handleSend}
+    disabled={streaming}
+    {model}
+  />
 </div>
 
 <style>

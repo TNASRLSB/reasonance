@@ -72,14 +72,28 @@ export class TauriAdapter implements Adapter {
   }
   async openFileDialog(filters?: Array<{ name: string; extensions: string[] }>): Promise<string | null> {
     const { open } = await import('@tauri-apps/plugin-dialog');
-    const selected = await open({ multiple: false, filters });
+    // Default to project root so the dialog doesn't open in Downloads or other unrelated folders
+    let defaultPath: string | undefined;
+    const { get } = await import('svelte/store');
+    const { projectRoot } = await import('$lib/stores/files');
+    const root = get(projectRoot);
+    if (root) defaultPath = root;
+    const selected = await open({ multiple: false, filters, defaultPath });
     if (!selected) return null;
     const path = typeof selected === 'string' ? selected : (selected as { path: string }).path ?? null;
     return path;
   }
   async saveFileDialog(defaultPath?: string, filters?: Array<{ name: string; extensions: string[] }>): Promise<string | null> {
     const { save } = await import('@tauri-apps/plugin-dialog');
-    const selected = await save({ defaultPath, filters });
+    // Default to project root so the dialog doesn't open in Downloads or other unrelated folders
+    let effectivePath = defaultPath;
+    if (!effectivePath) {
+      const { get } = await import('svelte/store');
+      const { projectRoot } = await import('$lib/stores/files');
+      const root = get(projectRoot);
+      if (root) effectivePath = root;
+    }
+    const selected = await save({ defaultPath: effectivePath, filters });
     return selected ?? null;
   }
   async spawnProcess(command: string, args: string[], cwd: string): Promise<PtyHandle> {
@@ -211,9 +225,9 @@ export class TauriAdapter implements Adapter {
   }
 
   // Structured Transport
-  async agentSend(prompt: string, provider: string, model?: string, sessionId?: string): Promise<string> {
+  async agentSend(prompt: string, provider: string, model?: string, sessionId?: string, cwd?: string, yolo?: boolean): Promise<string> {
     return invoke<string>('agent_send', {
-      request: { prompt, provider, model: model ?? null, context: [], session_id: sessionId ?? null, system_prompt: null, max_tokens: null, allowed_tools: null }
+      request: { prompt, provider, model: model ?? null, context: [], session_id: sessionId ?? null, system_prompt: null, max_tokens: null, allowed_tools: null, cwd: cwd ?? null, yolo: yolo ?? false }
     });
   }
   async agentStop(sessionId: string): Promise<void> {
