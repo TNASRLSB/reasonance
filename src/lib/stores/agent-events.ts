@@ -65,9 +65,31 @@ export function processAgentEvent(payload: AgentEventPayload): void {
     const existing = map.get(session_id) ?? [];
     let events = [...existing, event];
 
-    // Prune oldest events if over limit
+    // Prune oldest events if over limit, leaving room for the warning
     if (events.length > MAX_EVENTS_PER_SESSION) {
-      events = events.slice(events.length - MAX_EVENTS_PER_SESSION);
+      const pruned = events.length - MAX_EVENTS_PER_SESSION + 1; // +1 to make room for warning
+      events = events.slice(pruned);
+
+      // Insert a synthetic warning at the start
+      const warningEvent: AgentEvent = {
+        id: crypto.randomUUID(),
+        parent_id: null,
+        event_type: 'error',
+        content: { type: 'text', value: `${pruned} older messages were removed to free memory. Conversation history is preserved on disk.` },
+        timestamp: Date.now(),
+        metadata: {
+          session_id: session_id,
+          input_tokens: null,
+          output_tokens: null,
+          tool_name: null,
+          model: null,
+          provider: 'system',
+          error_severity: 'recoverable',
+          error_code: 'EVENT_PRUNING',
+          stream_metrics: null,
+        },
+      };
+      events = [warningEvent, ...events];
     }
 
     const next = new Map(map);
