@@ -1,5 +1,698 @@
 # Changelog
 
+## [0.6.0] - 2026-03-23
+
+### Features
+
+- feat: new logo + fix window drag from top border
+- feat: major app update — backend, frontend, i18n, analytics, and config overhaul
+- feat(analytics): add global keyboard shortcuts for analytics
+- feat(settings): add Provider section with connection testing and budget controls
+- feat(analytics): add AnalyticsDashboard with KPI, insights, provider comparison, and trend
+- feat: add AnalyticsDashboard component with full integration
+- feat(analytics): add AnalyticsBar component with live metrics display
+- feat: add AnalyticsBar component with live session metrics display
+- feat(i18n): add analytics and provider settings keys for all 9 locales
+- feat(analytics): add analytics store with live tracking, cache, and budget
+- feat(analytics): add adapter methods, provider backend commands, and api_key_env config
+- feat: add utility modules for tooltip, tween, bar-scale, grid-nav, provider-patterns
+- feat(a11y): add motion, announcer, labels, and focus utilities
+- feat(analytics): add locale-aware formatters with tests
+- feat(analytics): add TypeScript types and model info data
+- feat: add JSON fixtures and integration tests for all 4 providers
+- feat: wire TOML capabilities to CapabilityNegotiator at app startup
+- feat: add kimi, qwen, codex to discovery scan and builtin profiles
+- feat: route new providers to dedicated state machines
+- feat: add Codex state machine and TOML normalizer
+- feat: add Qwen state machine and TOML normalizer
+- feat: add Kimi state machine and TOML normalizer
+- feat: add Gemini state machine and TOML normalizer
+- feat: add tool_input_delta and block_stop rules to claude.toml
+- feat: add shared accumulator module (TextAccumulator, ToolInputAccumulator, TimedFlush)
+- feat: add incomplete field to AgentEventMetadata for timeout flush
+- feat: add array index support to resolve_path for [N] syntax
+- feat: frontend types, adapter methods, and capabilities store for Phase 6
+- feat: wire Phase 6 modules — Tauri commands, managed state, setup hooks
+- feat: add CapabilityNegotiator — feature detection with cache and workarounds
+- feat: add self-heal flow — prompt generation and TOML extraction for LLM-driven normalizer repair
+- feat: add NormalizerHealth — test case evaluator and health status derivation
+- feat: add get_toml_source and reload_provider to NormalizerRegistry
+- feat: add NormalizerVersionStore — backup, restore, rollback for TOML normalizers
+- feat: add CliUpdater — version tracking and auto-update config per provider
+- feat: add ActionableMessage with copy/retry/fork actions on hover
+- feat: add ChatHeader with live metrics, integrate into ChatView
+- feat: ContentRenderer handles all content types, ChatMessages routes by event_type
+- feat: add DiffBlock (unified diff view) and FileRefBadge (inline file reference)
+- feat: add ToolUseBlock — collapsible tool call display with input/result
+- feat: add ThinkingBlock (collapsible) and ErrorBlock (severity badges)
+- feat: upgrade TextBlock to render markdown via marked + dompurify
+- feat: handle metrics events — update currentSpeed and elapsed in session store
+- feat: add ViewModeToggle and integrate ChatView into TerminalManager
+- feat: add ChatInput and ChatView — complete chat interface
+- feat: add ContentRenderer and ChatMessages — event-to-message rendering
+- feat: add TextBlock, CodeBlock, StreamingIndicator chat components
+- feat: add agent events store — event stream with streaming state
+- feat: add agent session store — session state management
+- feat: add session and transport methods to Adapter interface
+- feat: add AgentEvent TypeScript type definitions
+- feat: add session persistence integration tests
+- feat: add Tauri session commands — create, restore, list, delete, rename, fork
+- feat: add SessionManager — session lifecycle with create, restore, fork, delete, finalize
+- feat: add SessionHistoryRecorder — appends events to JSONL via event bus
+- feat: add SessionStore — JSONL event persistence and metadata I/O
+- feat: add SessionHandle types — persistent session record with fork support
+- feat: add transport integration tests
+- feat: add FrontendEmitter — bridges AgentEvents to Tauri event system
+- feat: add Tauri transport commands — agent_send, agent_stop, agent_get_events, agent_get_session_status
+- feat: add StructuredAgentTransport — core orchestrator with CLI spawning
+- feat: add stream reader — tokio task for CLI stdout normalization
+- feat: add AgentSession with lifecycle management
+- feat: add AgentEventBus with subscriber pattern, filter, and history recorder
+- feat: add RetryPolicy with exponential/fixed backoff
+- feat: add transport types — AgentRequest, CliMode, SessionStatus, AgentCommand
+- feat: add end-to-end integration tests for Claude normalizer pipeline
+- feat: add NormalizerRegistry with TOML loader and Claude normalizer config
+- feat: add NormalizerPipeline orchestrating Rules → State → Content stages
+- feat: add Claude state machine for content block accumulation
+- feat: add StateMachine trait and generic pass-through implementation
+- feat: add Content Parser for code fences, diffs, and text detection
+- feat: add Rules Engine with expression evaluator for normalizer DSL
+- feat: add AgentEvent type system with constructors and serialization
+- feat(analytics): add Tauri commands and wire AnalyticsCollector
+- feat(analytics): add aggregation queries to AnalyticsCollector
+- feat(analytics): implement AnalyticsCollector with event accumulation
+- feat(analytics): add SessionMetrics types and AnalyticsStore persistence
+- feat(analytics): add cache, duration, cost mappings to normalizer TOMLs
+- feat(analytics): extract new metadata fields in normalizer pipeline
+- feat(analytics): extend AgentEventMetadata with cache, duration, cost fields
+- feat: add JSON fixtures and integration tests for all 4 providers
+- feat: wire TOML capabilities to CapabilityNegotiator at app startup
+- feat: add kimi, qwen, codex to discovery scan and builtin profiles
+- feat: route new providers to dedicated state machines
+- feat: add Codex state machine and TOML normalizer
+- feat: add Qwen state machine and TOML normalizer
+- feat: add Kimi state machine and TOML normalizer
+- feat: add Gemini state machine and TOML normalizer
+- feat: add tool_input_delta and block_stop rules to claude.toml
+- feat: add shared accumulator module (TextAccumulator, ToolInputAccumulator, TimedFlush)
+- feat: add incomplete field to AgentEventMetadata for timeout flush
+- feat: add array index support to resolve_path for [N] syntax
+- feat: frontend types, adapter methods, and capabilities store for Phase 6
+- feat: wire Phase 6 modules — Tauri commands, managed state, setup hooks
+- feat: add CapabilityNegotiator — feature detection with cache and workarounds
+- feat: add self-heal flow — prompt generation and TOML extraction for LLM-driven normalizer repair
+- feat: add NormalizerHealth — test case evaluator and health status derivation
+- feat: add get_toml_source and reload_provider to NormalizerRegistry
+- feat: add NormalizerVersionStore — backup, restore, rollback for TOML normalizers
+- feat: add CliUpdater — version tracking and auto-update config per provider
+- feat: add ActionableMessage with copy/retry/fork actions on hover
+- feat: add ChatHeader with live metrics, integrate into ChatView
+- feat: ContentRenderer handles all content types, ChatMessages routes by event_type
+- feat: add DiffBlock (unified diff view) and FileRefBadge (inline file reference)
+- feat: add ToolUseBlock — collapsible tool call display with input/result
+- feat: add ThinkingBlock (collapsible) and ErrorBlock (severity badges)
+- feat: upgrade TextBlock to render markdown via marked + dompurify
+- feat: handle metrics events — update currentSpeed and elapsed in session store
+- feat: add ViewModeToggle and integrate ChatView into TerminalManager
+- feat: add ChatInput and ChatView — complete chat interface
+- feat: add ContentRenderer and ChatMessages — event-to-message rendering
+- feat: add TextBlock, CodeBlock, StreamingIndicator chat components
+- feat: add agent events store — event stream with streaming state
+- feat: add agent session store — session state management
+- feat: add session and transport methods to Adapter interface
+- feat: add AgentEvent TypeScript type definitions
+- feat: add session persistence integration tests
+- feat: add Tauri session commands — create, restore, list, delete, rename, fork
+- feat: add SessionManager — session lifecycle with create, restore, fork, delete, finalize
+- feat: add SessionHistoryRecorder — appends events to JSONL via event bus
+- feat: add SessionStore — JSONL event persistence and metadata I/O
+- feat: add SessionHandle types — persistent session record with fork support
+- feat: add transport integration tests
+- feat: add FrontendEmitter — bridges AgentEvents to Tauri event system
+- feat: add Tauri transport commands — agent_send, agent_stop, agent_get_events, agent_get_session_status
+- feat: add StructuredAgentTransport — core orchestrator with CLI spawning
+- feat: add stream reader — tokio task for CLI stdout normalization
+- feat: add AgentSession with lifecycle management
+- feat: add AgentEventBus with subscriber pattern, filter, and history recorder
+- feat: add RetryPolicy with exponential/fixed backoff
+- feat: add transport types — AgentRequest, CliMode, SessionStatus, AgentCommand
+- feat: add end-to-end integration tests for Claude normalizer pipeline
+- feat: add NormalizerRegistry with TOML loader and Claude normalizer config
+- feat: add NormalizerPipeline orchestrating Rules → State → Content stages
+- feat: add Claude state machine for content block accumulation
+- feat: add StateMachine trait and generic pass-through implementation
+- feat: add Content Parser for code fences, diffs, and text detection
+- feat: add Rules Engine with expression evaluator for normalizer DSL
+- feat: add AgentEvent type system with constructors and serialization
+
+### Bug Fixes
+
+- fix: Svelte 5 reactivity bug in chat + full provider test coverage
+- fix: chat functionality, UI consistency, and startup errors
+- fix(settings): code quality fixes for provider settings
+- fix(settings): spec compliance fixes for provider settings UI
+- fix(analytics): fix $derived.by for insights, add reduced-motion CSS
+- fix(analytics): address code quality issues in AnalyticsBar
+- fix: use unicode ellipsis in i18n testing key
+- fix(analytics): align TypeScript types with actual Rust backend structs
+- fix(plan): address reviewer findings in Phase 7B plan
+- fix: remove dead onRetry prop and add clipboard error handling
+- fix: address code review — CliMode variants, event listener race, unused import
+- fix: eliminate dual-lock in finalize_session and add event count reconciliation
+- fix: stop() now kills child process via abort handle
+- fix(plan): address reviewer findings in Phase 7B plan
+- fix: remove dead onRetry prop and add clipboard error handling
+- fix: address code review — CliMode variants, event listener race, unused import
+- fix: eliminate dual-lock in finalize_session and add event count reconciliation
+- fix: stop() now kills child process via abort handle
+
+### Other
+
+- locations (toolbar, welcome screen, about dialog, favicon, all Tauri
+- bundle icons at high resolution).
+- 
+- Fix window drag not working from top border: use programmatic
+- startDragging() API instead of relying solely on data-tauri-drag-region,
+- and fix top-bar in WelcomeScreen intercepting mousedown events.
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- uses reference equality and couldn't detect changes, so chat messages
+- never appeared. Fixed by creating new Map + new array on every update.
+- 
+- Also: ChatView CSS flex fix, toolbar hidden in chat mode, improved
+- stream reader logging, normalizer cleanup. Added 25 Rust end-to-end
+- tests (Claude, Gemini, Kimi, Codex, Qwen) and 12 Vitest frontend tests
+- covering reactivity, pruning, and session isolation.
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+-   with stream-json in print mode)
+- - Fix session ID mismatch: reuse frontend session_id instead of
+-   generating a new one in transport
+- - Fix provider not found: normalize provider name to lowercase
+- - Fix session store: auto-create session directory on first event append
+- - Fix startup error: skip file watcher when no project root is set
+- - Fix error banner blocking window drag: move below titlebar, make
+-   dismissible on click
+- - Fix menu dropdown hidden by overflow:hidden on toolbar-left
+- - Normalize all panel headers: consistent padding (8px 14px), border
+-   (var(--border-width)), font-size (var(--font-size-tiny)), weight (800)
+- - Set chat as default view instead of terminal
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- workflows, discovery, config), Svelte frontend (all components, chat, swarm),
+- internationalization (9 languages), build config, and CI/CD pipeline.
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- docs(audit): add Phase 3 extended automated tests (30 total)
+- RTL layout, German truncation, accessibility tree snapshot, and
+- full-UI mock tests. 30 total Playwright tests, all passing.
+- 
+- Key findings:
+- - WCAG 1.4.10 Reflow: passes at 320px
+- - Zero ARIA landmarks confirmed across all tests
+- - No prefers-contrast CSS rules
+- - RTL/German pass on welcome screen (Tauri backend needed for full UI)
+- - Tab reaches only 6 elements (titlebar + welcome + toast)
+- - Screen reader sees error as first element
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- docs(audit): add extended Phase 3 automated testing
+- 320px reflow, forced-colors, prefers-contrast, RTL layout,
+- German locale truncation, accessibility tree snapshot.
+- 
+- Key findings:
+- - Layout reflow passes at all zoom levels (WCAG 1.4.10)
+- - No prefers-contrast CSS rules exist
+- - Accessibility tree shows error as first element
+- - RTL and German pass on welcome screen (need project-loaded testing)
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- docs(audit): add Phase 3 live testing results
+- targets, heading hierarchy, ARIA landmarks, reduced motion, adversarial).
+- All 16 passed. Added Lighthouse audit (88/100 a11y) and bundle viz.
+- 
+- Key live findings:
+- - 2 axe-core serious violations (contrast, missing title)
+- - Zero ARIA landmarks in app
+- - Tab only reaches 6 elements on welcome screen
+- - Toast dismiss button undersized (9x16px)
+- - Reduced motion confirmed working (174 elements)
+- - Focus visibility confirmed on all elements
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- docs(audit): add unified report, issue list, and priority roadmap
+- consolidated issue list (62 issues deduplicated across 7 personas),
+- and 4-sprint priority roadmap with dependency analysis.
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- docs(audit): add Nielsen scorecard and WCAG compliance matrix
+- cognitive load ratings. WCAG 2.1 matrix (24 components × 22 criteria).
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- docs(audit): add Phase 3 visual testing and adversarial findings
+- testing. Items requiring live app verification are marked with 🔍.
+- Includes axe-core Playwright test scaffolding.
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- docs(audit): add all 7 Phase 1 persona audit reports
+- Stress/Edge Cases, and Performance audit reports.
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- docs(audit): add competitive intelligence matrix
+- 
+- chore: add audit tooling prerequisites (@axe-core/playwright)
+- 
+- docs: fix step numbering in audit plan (review round 2)
+- for CSP audit, dynamic locale switching, Lighthouse, forced-colors,
+- and adversarial network testing.
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- docs: add comprehensive audit implementation plan
+- cross-analysis with Nielsen/WCAG scoring, visual live testing, adversarial
+- testing, and 13+ deliverable synthesis with priority roadmap.
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- docs: update audit spec with review fixes (10 issues resolved)
+- missing components, WCAG matrix ownership, unified report structure,
+- stress report deliverable, and scoping caveats.
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- docs: add comprehensive multi-persona audit design spec
+- security, i18n/RTL, stress testing, and performance perspectives.
+- Includes competitive analysis, adversarial testing, and 12 deliverables.
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- chore: remove dead code and add reduced-motion to skeleton
+- - Remove unused motionTransition no-op from a11y-motion.ts
+- - Add @media prefers-reduced-motion to AnalyticsBar skeleton animation
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- active LLM provider by index from the configured llmConfigs list.
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- - Bind max tokens input to llm.maxTokens with proper parsing
+- - Remove unused imports (tooltip, getModelInfo, getCheapestModel)
+- - Replace any[] with unknown[] in debounce function
+- - Remove (llm as any).shortcut cast, use typed property
+- - Fix budget section title to use own translation key
+- - Add aria-label to shortcut capture button
+- - Add role="listitem" to connection step elements
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- - Fix handleShortcutCapture to store captured combo in llms array
+- - Change notify threshold to range input (50-95%, step 5) with aria-valuetext
+- - Replace hardcoded #16a34a with var(--success) for design system consistency
+- - Add role="list" and aria-live="polite" to connection test steps
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- expand/collapse, model selector with pricing info, connection test
+- with step-by-step feedback, shortcut capture, and budget limits.
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- - Remove unused prefersReducedMotion import
+- - Add @media (prefers-reduced-motion: reduce) for skeleton/trend animations
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- deterministic insights, provider comparison with patterned bars and
+- drill-down, daily trend with comparison overlay, and CSV/JSON export.
+- Integrated into App.svelte and Toolbar.svelte.
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- insights panel, provider comparison grid with drill-down accordion,
+- and daily trend chart. Integrates into App.svelte with conditional
+- rendering and live tracking, adds analytics toggle button to Toolbar.
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- - Use untrack() for prevErrors/prevRecovered to avoid effect re-entry
+- - Replace hardcoded #22c55e with var(--success) design token
+- - Type adapter prop as Adapter 
+- - Remove redundant type annotations on budget alert callbacks
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- vs-avg indicator, error/recovery flash, budget alerts. Collapses to 1-row
+- compact view on narrow widths. Integrated into ResponsePanel.
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- chat input showing cost, context progress, cache efficiency, token
+- count, turns, duration, and vs-average with budget alert states and
+- narrow-width CSS container query collapse.
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- 
+- 
+- and TauriAdapter, creates Rust provider.rs commands for connection testing and
+- normalizer reload, adds api_key_env field to CliConfig with values in all 5 normalizer
+- TOMLs, and adds the which crate dependency.
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- bar-scale normalization and easeOutCubic tween easing function (9/9 tests pass).
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- 
+- test(analytics): add missing formatDate/formatDateFull tests
+- 
+- 
+- docs: add Phase 7C frontend implementation plan
+- adapter methods, analytics store, i18n keys, AnalyticsBar, AnalyticsDashboard,
+- Provider Settings, and keyboard shortcuts.
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- docs: fix spec review findings — file count and projection formula
+- Clarify cost projection formula: linear extrapolation based on
+- avg turns per provider, with fallback.
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- docs: add Phase 7C frontend design spec
+- metrics), Analytics Dashboard (full tab with KPI, insights, drill-down),
+- responsive base layout, WCAG AA+ accessibility, locale-aware formatting.
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- - Extend fixture framework to support new metadata field assertions
+- - Fix TempDir leak in make_store() test helper
+- - Rename chrono_date_from_secs to unix_secs_to_date_string
+- - Make mod analytics a distinct step in Task 4
+- - Add TOML comment about double-counting prevention
+- - Add context_tokens comment in Metrics handler
+- - Create fixtures/claude directory step
+- 
+- docs: fix spec review feedback (double-count tokens, field count)
+- prevent double-counting. Fix field count from 9 to 10.
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- docs: add Phase 7B Analytics Collector design spec
+- Extends AgentEventMetadata with cache tokens, duration, context
+- usage, and cost. Verified against real Claude CLI output.
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- 
+- 
+- 
+- 
+- 
+- 
+- 
+- 
+- 
+- docs: add Phase 7A implementation plan (13 tasks, 50 tests)
+- (Gemini/Kimi/Qwen/Codex), TOML normalizers, Claude TOML updates, provider
+- routing, discovery extension, capability wiring, JSON fixtures, and
+- integration tests.
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- docs: address final spec review feedback (I-1, I-2, S-1)
+- - Use @FIXME placeholder for Gemini update_command package name
+- - Document why Gemini resume_args uses "latest" instead of {session_id}
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- docs: revise Phase 7A spec with all 15 review fixes
+- - Add Section 0 prerequisite for array index support in resolve_path
+- - Fix error rule ordering (specific before generic) in all TOMLs
+- - Add tool_input_delta and block_stop rules for Kimi, Qwen, Claude
+- - Add normalizer/mod.rs and agent_event.rs to component map
+- - Change ToolInputAccumulator::start API to auto-flush pending tool
+- - Add error fixtures for Kimi and Qwen
+- - Document TimedFlush async limitation
+- - Add discovery builtin capability profiles
+- - Increase test count from 40 to 50
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- docs: Phase 7A CLI-based providers design spec
+- 
+- 
+- 
+- 
+- 
+- 
+- 
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- docs: Phase 6 Intelligence implementation plan
+- extensions, NormalizerHealth, CliUpdater, CapabilityNegotiator,
+- Self-Heal flow, Tauri commands + wiring, and frontend types/adapter/store.
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- ActionableMessage, and adds .catch() to navigator.clipboard.writeText
+- to handle non-secure context failures gracefully.
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- 
+- 
+- 
+- - Agent event listener uses cancelled flag pattern to prevent listener leaks on cleanup
+- - Remove unused processAgentEvent import from ChatView
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- 
+- 
+- 
+- - Add event_count reconciliation in restore_session (JSONL is source of truth)
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- 
+- SessionManager state and SessionHistoryRecorder into the event bus in lib.rs.
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- 
+- 
+- 
+- 
+- which drops the child process handle and kills the subprocess. Also
+- remove unused serde import from retry.rs.
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- 
+- 
+- 
+- 
+- 
+- 
+- 
+- 
+- docs: add Phase 1 known issues from code review
+- 
+- 
+- 
+- 
+- 
+- 
+- 
+- 
+- chore: add .worktrees/ to .gitignore
+- test(analytics): extend fixture framework and add Claude result_metrics test
+- duration_ms, duration_api_ms, num_turns, stop_reason, total_cost_usd
+- assertions. Add Claude result_metrics fixture validating full field extraction.
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- analytics_model_breakdown, analytics_session, analytics_daily,
+- analytics_active. Collector registered as Arc<> managed state
+- and subscribed to EventBus.
+- 
+- get_daily_stats with TimeRange filtering. Pure functions that aggregate
+- from session records on-demand.
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- Done events into per-session SessionMetrics. Flushes completed sessions
+- to AnalyticsStore on Done. Supports active session and completed
+- session queries.
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- errors, context pressure, and cost. AnalyticsStore persists completed
+- sessions as JSONL and loads them at startup.
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- Gemini: cache_read_tokens, duration_ms in usage rule
+- Kimi: context_metrics rule (speculative, needs runtime validation)
+- Qwen: duration_ms, duration_api_ms, num_turns in usage rule
+- Codex: cache_read_tokens in usage rule
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- duration_ms, duration_api_ms, num_turns, stop_reason, context_usage,
+- context_tokens, max_context_tokens, total_cost_usd from TOML mappings.
+- 
+- duration_ms, duration_api_ms, num_turns, stop_reason, context_usage,
+- context_tokens, max_context_tokens, total_cost_usd.
+- 
+- All fields are Option<T> with #[serde(default)] for backward compat.
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- - Extend fixture framework to support new metadata field assertions
+- - Fix TempDir leak in make_store() test helper
+- - Rename chrono_date_from_secs to unix_secs_to_date_string
+- - Make mod analytics a distinct step in Task 4
+- - Add TOML comment about double-counting prevention
+- - Add context_tokens comment in Metrics handler
+- - Create fixtures/claude directory step
+- 
+- docs: fix spec review feedback (double-count tokens, field count)
+- prevent double-counting. Fix field count from 9 to 10.
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- docs: add Phase 7B Analytics Collector design spec
+- Extends AgentEventMetadata with cache tokens, duration, context
+- usage, and cost. Verified against real Claude CLI output.
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- 
+- 
+- 
+- 
+- 
+- 
+- 
+- 
+- 
+- docs: add Phase 7A implementation plan (13 tasks, 50 tests)
+- (Gemini/Kimi/Qwen/Codex), TOML normalizers, Claude TOML updates, provider
+- routing, discovery extension, capability wiring, JSON fixtures, and
+- integration tests.
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- docs: address final spec review feedback (I-1, I-2, S-1)
+- - Use @FIXME placeholder for Gemini update_command package name
+- - Document why Gemini resume_args uses "latest" instead of {session_id}
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- docs: revise Phase 7A spec with all 15 review fixes
+- - Add Section 0 prerequisite for array index support in resolve_path
+- - Fix error rule ordering (specific before generic) in all TOMLs
+- - Add tool_input_delta and block_stop rules for Kimi, Qwen, Claude
+- - Add normalizer/mod.rs and agent_event.rs to component map
+- - Change ToolInputAccumulator::start API to auto-flush pending tool
+- - Add error fixtures for Kimi and Qwen
+- - Document TimedFlush async limitation
+- - Add discovery builtin capability profiles
+- - Increase test count from 40 to 50
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- docs: Phase 7A CLI-based providers design spec
+- 
+- 
+- 
+- 
+- 
+- 
+- 
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- docs: Phase 6 Intelligence implementation plan
+- extensions, NormalizerHealth, CliUpdater, CapabilityNegotiator,
+- Self-Heal flow, Tauri commands + wiring, and frontend types/adapter/store.
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- ActionableMessage, and adds .catch() to navigator.clipboard.writeText
+- to handle non-secure context failures gracefully.
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- 
+- 
+- 
+- - Agent event listener uses cancelled flag pattern to prevent listener leaks on cleanup
+- - Remove unused processAgentEvent import from ChatView
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- 
+- 
+- 
+- - Add event_count reconciliation in restore_session (JSONL is source of truth)
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- 
+- SessionManager state and SessionHistoryRecorder into the event bus in lib.rs.
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- 
+- 
+- 
+- 
+- which drops the child process handle and kills the subprocess. Also
+- remove unused serde import from retry.rs.
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- 
+- 
+- 
+- 
+- 
+- 
+- 
+- 
+- docs: add Phase 1 known issues from code review
+- 
+- 
+- 
+- 
+- 
+- 
+- 
+- 
+- chore: add .worktrees/ to .gitignore
+
+
+
 ## [0.5.0] - 2026-03-22
 
 ### Features
