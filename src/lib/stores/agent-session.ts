@@ -11,8 +11,9 @@ export interface AgentSessionState {
   title: string;
   totalInputTokens: number;
   totalOutputTokens: number;
-  currentSpeed: number;  // tokens/second during active streaming (Phase 5: ChatHeader uses this)
-  elapsed: number;       // ms since session started (Phase 5: ChatHeader uses this)
+  currentSpeed: number;  // tokens/second during active streaming (shown in footer metrics)
+  elapsed: number;       // ms since session started (shown in footer metrics)
+  turnCount: number;
 }
 
 // All known sessions (both active and restored)
@@ -93,6 +94,17 @@ export function updateMetrics(sessionId: string, currentSpeed: number, elapsed: 
   });
 }
 
+// Helper: increment turn count
+export function incrementTurnCount(sessionId: string): void {
+  agentSessions.update((map) => {
+    const session = map.get(sessionId);
+    if (!session) return map;
+    const next = new Map(map);
+    next.set(sessionId, { ...session, turnCount: session.turnCount + 1 });
+    return next;
+  });
+}
+
 // Helper: create session state from summary
 export function sessionFromSummary(summary: SessionSummary): AgentSessionState {
   return {
@@ -107,5 +119,6 @@ export function sessionFromSummary(summary: SessionSummary): AgentSessionState {
     totalOutputTokens: 0,
     currentSpeed: 0,
     elapsed: 0,
+    turnCount: 0,
   };
 }

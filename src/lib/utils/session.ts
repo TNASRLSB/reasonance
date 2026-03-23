@@ -11,7 +11,7 @@ import { load } from '@tauri-apps/plugin-store';
 import { openFiles, activeFilePath, projectRoot, recentProjects, addOpenFile } from '$lib/stores/files';
 import { themeMode } from '$lib/stores/theme';
 import { fontFamily, fontSize, enhancedReadability } from '$lib/stores/ui';
-import { terminalTabs } from '$lib/stores/terminals';
+import { terminalInstances } from '$lib/stores/terminals';
 import { locale, loadLocale } from '$lib/i18n/index';
 import type { Adapter } from '$lib/adapter/index';
 
@@ -36,11 +36,11 @@ export async function saveSession(): Promise<void> {
     const currentLocale = get(locale);
     await store.set('locale', currentLocale);
 
-    // Terminal tabs: only metadata (llmName, instance count) — PTY sessions can't survive restart
-    const tabs = get(terminalTabs);
+    // Terminal instances: only metadata (provider, instance count) — PTY sessions can't survive restart
+    const instances = get(terminalInstances);
     await store.set(
-      'terminalTabs',
-      tabs.map((t) => ({ llmName: t.llmName, instanceCount: t.instances.length }))
+      'terminalInstances',
+      instances.map((i) => ({ provider: i.provider, instanceCount: 1 }))
     );
 
     await store.save();

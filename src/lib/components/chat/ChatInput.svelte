@@ -2,26 +2,70 @@
   import { get } from 'svelte/store';
   import { yoloMode } from '$lib/stores/ui';
   import { tr } from '$lib/i18n/index';
+  import SlashMenu from './SlashMenu.svelte';
+  import type { SlashCommand } from '$lib/stores/config';
+  import { defaultSlashCommands } from '$lib/data/slash-commands';
 
   let {
     onSend,
     disabled = false,
-    model = '',
     contextPercent = null,
     resetTimer = null,
     messagesLeft = null,
+    turnCount = 0,
+    currentSpeed = 0,
+    elapsed = 0,
+    streaming = false,
+    provider = '',
   }: {
     onSend: (text: string) => void;
     disabled?: boolean;
-    model?: string;
     contextPercent?: number | null;
     resetTimer?: string | null;
     messagesLeft?: number | null;
+    turnCount?: number;
+    currentSpeed?: number;
+    elapsed?: number;
+    streaming?: boolean;
+    provider?: string;
   } = $props();
 
   let text = $state('');
   let sending = $state(false);
   let sendTimer: ReturnType<typeof setTimeout> | null = null;
+
+  let showSlashMenu = $derived(text.startsWith('/') && text.indexOf(' ') === -1);
+  let slashFilter = $derived(text.startsWith('/') ? text.slice(1) : '');
+
+  let slashCommands = $derived.by(() => {
+    const cmd = provider.toLowerCase();
+    return defaultSlashCommands[cmd] ?? defaultSlashCommands['claude'] ?? [];
+  });
+
+  let slashFiltered = $derived.by(() => {
+    if (!slashFilter) return slashCommands;
+    const lower = slashFilter.toLowerCase();
+    return slashCommands.filter(c =>
+      c.command.toLowerCase().includes(lower) ||
+      c.description.toLowerCase().includes(lower)
+    );
+  });
+
+  let slashActiveIndex = $state(0);
+
+  $effect(() => {
+    slashFilter;
+    slashActiveIndex = 0;
+  });
+
+  function handleSlashSelect(cmd: SlashCommand) {
+    if (['/clear', '/fork', '/compact', '/export'].includes(cmd.command)) {
+      onSend(cmd.command);
+      text = '';
+    } else {
+      text = cmd.command + ' ';
+    }
+  }
 
   function handleSubmit() {
     const trimmed = text.trim();
@@ -34,16 +78,39 @@
   }
 
   function handleKeydown(e: KeyboardEvent) {
+    if (showSlashMenu && slashFiltered.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        slashActiveIndex = Math.min(slashActiveIndex + 1, slashFiltered.length - 1);
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        slashActiveIndex = Math.max(slashActiveIndex - 1, 0);
+        return;
+      }
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleSlashSelect(slashFiltered[slashActiveIndex]);
+        return;
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        text = '';
+        return;
+      }
+    }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit();
     }
   }
 
-  function toggleYolo() {
+  async function toggleYolo() {
     const current = get(yoloMode);
     if (!current) {
-      const ok = confirm($tr('toolbar.yoloConfirm'));
+      const { ask } = await import('@tauri-apps/plugin-dialog');
+      const ok = await ask($tr('toolbar.yoloConfirm'), { title: 'Reasonance', kind: 'warning' });
       if (!ok) return;
     }
     yoloMode.update((v) => !v);
@@ -55,9 +122,22 @@
     const empty = total - filled;
     return '\u2588'.repeat(filled) + '\u2591'.repeat(empty);
   }
+
+  let elapsedDisplay = $derived.by(() => {
+    if (elapsed < 1000) return `${elapsed}ms`;
+    return `${(elapsed / 1000).toFixed(1)}s`;
+  });
 </script>
 
 <div class="chat-input-wrapper">
+  {#if showSlashMenu}
+    <SlashMenu
+      commands={slashFiltered}
+      activeIndex={slashActiveIndex}
+      onSelect={handleSlashSelect}
+      onClose={() => { text = ''; }}
+    />
+  {/if}
   <div class="input-row">
     <textarea
       bind:value={text}
@@ -65,6 +145,11 @@
       placeholder={$tr('chat.placeholder')}
       rows="1"
       {disabled}
+      role={showSlashMenu ? 'combobox' : undefined}
+      aria-autocomplete={showSlashMenu ? 'list' : undefined}
+      aria-expanded={showSlashMenu}
+      aria-controls={showSlashMenu ? 'slash-menu' : undefined}
+      aria-activedescendant={showSlashMenu && slashFiltered.length > 0 ? `slash-cmd-${slashActiveIndex}` : undefined}
       aria-label="Message input"
     ></textarea>
     <button
@@ -79,7 +164,17 @@
 
   <div class="input-footer">
     <div class="footer-left">
-      <span class="model-label">{model}</span>
+      {#if turnCount > 0 || streaming}
+        <span class="metrics">
+          Turn {turnCount}
+          {#if streaming || currentSpeed > 0}
+            &middot; {currentSpeed.toFixed(0)} tok/s
+          {/if}
+          {#if streaming && elapsed > 0}
+            &middot; {elapsedDisplay}
+          {/if}
+        </span>
+      {/if}
       <button
         class="yolo-toggle"
         class:active={$yoloMode}
@@ -191,11 +286,11 @@
     gap: 14px;
   }
 
-  .model-label {
+  .metrics {
     font-family: var(--font-mono);
     font-size: var(--font-size-tiny);
     color: var(--text-muted);
-    letter-spacing: 0.01em;
+    white-space: nowrap;
   }
 
   .yolo-toggle {

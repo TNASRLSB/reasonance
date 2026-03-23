@@ -89,14 +89,20 @@
       {/if}
     </div>
     <button
-      class="analytics-btn"
+      class="toolbar-btn"
       class:active={$analyticsDashboard.open}
       aria-label={$tr('toolbar.analytics')}
       aria-pressed={$analyticsDashboard.open}
       onclick={() => analyticsDashboard.update(v => ({ ...v, open: !v.open, focus: null }))}
       title={$tr('toolbar.analytics')}
-    >📊</button>
-    <button class="settings-btn" onclick={openSettings} title={$tr('toolbar.settings')} aria-label={$tr('toolbar.settings')}>&#9881;</button>
+    >ANALYTICS</button>
+    <button
+      class="toolbar-btn"
+      disabled
+      title="SWARM — Coming soon"
+      aria-label="SWARM — Coming soon"
+    >SWARM</button>
+    <button class="toolbar-btn" onclick={openSettings} title={$tr('toolbar.settings')} aria-label={$tr('toolbar.settings')}>SETTINGS</button>
     <div class="window-controls">
       <button class="win-btn" onclick={() => adapter.minimizeWindow()} title={$tr('toolbar.minimize')} aria-label={$tr('toolbar.minimize')}>&#8722;</button>
       <button class="win-btn" onclick={() => adapter.maximizeWindow()} title={$tr('toolbar.maximize')} aria-label={$tr('toolbar.maximize')}>&#9723;</button>
@@ -255,20 +261,25 @@
     text-align: start;
   }
 
-  .analytics-btn {
-    font-size: 14px;
-    padding: 3px 8px;
+  .toolbar-btn {
+    font-family: var(--font-ui);
+    font-size: var(--font-size-tiny);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 3px 10px;
+    min-height: 26px;
   }
 
-  .analytics-btn.active {
+  .toolbar-btn.active {
     background: var(--accent);
     border-color: var(--accent);
     color: #fff;
   }
 
-  .settings-btn {
-    font-size: 14px;
-    padding: 3px 8px;
+  .toolbar-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
   }
 
   .window-controls {

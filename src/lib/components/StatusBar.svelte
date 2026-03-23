@@ -3,13 +3,9 @@
   import { yoloMode } from '$lib/stores/ui';
   import { activeFilePath, cursorLine, cursorCol } from '$lib/stores/files';
   import { llmConfigs } from '$lib/stores/config';
-  import { terminalTabs, activeTerminalTab, activeInstanceId } from '$lib/stores/terminals';
+  import { activeInstance } from '$lib/stores/terminals';
 
-  let activeInstanceData = $derived.by(() => {
-    if (!$activeTerminalTab || !$activeInstanceId) return null;
-    const tab = $terminalTabs.find(t => t.llmName === $activeTerminalTab);
-    return tab?.instances.find(i => i.id === $activeInstanceId) ?? null;
-  });
+  let activeInstanceData = $derived($activeInstance);
 
   function generateBar(percent: number): string {
     const filled = Math.round(percent / 12.5);
