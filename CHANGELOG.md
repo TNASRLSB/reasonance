@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.8.2] - 2026-03-23
+
+### Bug Fixes
+
+- fix(a11y): WCAG AAA regressions — font-size minimum 14px, contrast 7:1
+
+### Other
+
+- 
+- Font sizes:
+- - Raise --font-size-sm from 0.75rem (12px) to 0.875rem (14px)
+- - Remove all calc(--font-size-small - 1px) patterns (was 11px)
+- - Remove hardcoded 11px fallbacks in AnalyticsBar and Settings
+- - Fix app.html hardcoded 13px → 14px
+- 
+- Contrast (27 fixes across 16 files):
+- - Replace color: var(--success/danger/warning/accent) with
+-   --*-text AAA variants (7:1 ratio) for all text color uses
+- - Remove hardcoded #ef4444 fallback in Settings
+- - border-color/background uses left on base tokens (3:1 OK)
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+
+
+
 ## [0.8.1] - 2026-03-23
 
 ### Bug Fixes
