@@ -1,0 +1,463 @@
+{
+  "config": {
+    "configFile": "/home/uh1/VIBEPROJECTS/REASONANCE/playwright.config.ts",
+    "rootDir": "/home/uh1/VIBEPROJECTS/REASONANCE/tests",
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/home/uh1/VIBEPROJECTS/REASONANCE/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "chromium",
+        "name": "chromium",
+        "testDir": "/home/uh1/VIBEPROJECTS/REASONANCE/tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.visual.ts",
+          "**/interaction/**/*.test.ts"
+        ],
+        "timeout": 30000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "json"
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "runAgents": "none",
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.58.2",
+    "workers": 6,
+    "webServer": {
+      "command": "npm run dev",
+      "port": 1420,
+      "reuseExistingServer": true,
+      "timeout": 60000
+    }
+  },
+  "suites": [
+    {
+      "title": "interaction/audit/full-ui-mock.test.ts",
+      "file": "interaction/audit/full-ui-mock.test.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Phase 3 — Full UI with Mock State",
+          "file": "interaction/audit/full-ui-mock.test.ts",
+          "line": 81,
+          "column": 6,
+          "specs": [
+            {
+              "title": "1. Full UI — axe-core scan with project loaded",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 3223,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "\n=== AXE-CORE FULL UI SCAN ===\n"
+                        },
+                        {
+                          "text": "Violations: 2\n"
+                        },
+                        {
+                          "text": "Passes: 16\n"
+                        },
+                        {
+                          "text": "Incomplete: 1\n"
+                        },
+                        {
+                          "text": "\n[SERIOUS] color-contrast: Elements must meet minimum color contrast ratio thresholds\n"
+                        },
+                        {
+                          "text": "  WCAG: wcag2aa, wcag143\n"
+                        },
+                        {
+                          "text": "  Nodes: 2\n"
+                        },
+                        {
+                          "text": "  Target: .welcome-btn\n"
+                        },
+                        {
+                          "text": "  HTML: <button class=\"welcome-btn primary svelte-vrf9as\">Open Folder</button>\n"
+                        },
+                        {
+                          "text": "  Target: span\n"
+                        },
+                        {
+                          "text": "  HTML: <span class=\"toast-label svelte-1cpok13\">ERROR</span>\n"
+                        },
+                        {
+                          "text": "\n[SERIOUS] document-title: Documents must have <title> element to aid in navigation\n"
+                        },
+                        {
+                          "text": "  WCAG: wcag2a, wcag242\n"
+                        },
+                        {
+                          "text": "  Nodes: 1\n"
+                        },
+                        {
+                          "text": "  Target: html\n"
+                        },
+                        {
+                          "text": "  HTML: <html lang=\"en\" dir=\"ltr\">\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-23T09:52:35.837Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "5076591ca11aca5c2993-b735a5ce361181f1d11e",
+              "file": "interaction/audit/full-ui-mock.test.ts",
+              "line": 137,
+              "column": 3
+            },
+            {
+              "title": "2. RTL with full UI — layout check",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 2449,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "\n=== RTL FULL UI CHECK ===\n"
+                        },
+                        {
+                          "text": "✅ No RTL layout issues\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-23T09:52:39.134Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "5076591ca11aca5c2993-8367b563c35ce71aef91",
+              "file": "interaction/audit/full-ui-mock.test.ts",
+              "line": 161,
+              "column": 3
+            },
+            {
+              "title": "3. German labels — truncation with full UI",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1993,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "\n=== GERMAN LABEL EXPANSION CHECK ===\n"
+                        },
+                        {
+                          "text": "✅ No truncation issues detected\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-23T09:52:41.597Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "5076591ca11aca5c2993-d89c3d8c869426e97350",
+              "file": "interaction/audit/full-ui-mock.test.ts",
+              "line": 233,
+              "column": 3
+            },
+            {
+              "title": "4. XSS payloads in all inputs",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 2506,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "\n=== XSS INPUT TESTING (Full UI) ===\n"
+                        },
+                        {
+                          "text": "Found 0 visible inputs\n"
+                        },
+                        {
+                          "text": "  SearchPalette not available\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-23T09:52:43.608Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "5076591ca11aca5c2993-659858fe3168a8f4e0c6",
+              "file": "interaction/audit/full-ui-mock.test.ts",
+              "line": 288,
+              "column": 3
+            },
+            {
+              "title": "5. Full UI keyboard navigation — all regions",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 2188,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "\n=== FULL UI KEYBOARD NAVIGATION ===\n"
+                        },
+                        {
+                          "text": "Tab stops: 69\n"
+                        },
+                        {
+                          "text": "Unique regions reached: 3\n"
+                        },
+                        {
+                          "text": "  welcome: 23 stops\n"
+                        },
+                        {
+                          "text": "  titlebar: 35 stops\n"
+                        },
+                        {
+                          "text": "  toast: 11 stops\n"
+                        },
+                        {
+                          "text": "\n❌ Unreachable regions: sidebar, editor, chat, terminal, toolbar, statusbar\n"
+                        },
+                        {
+                          "text": "\nUnique interactive elements (6):\n"
+                        },
+                        {
+                          "text": "  [welcome] button: \"☀\"\n"
+                        },
+                        {
+                          "text": "  [titlebar] button: \"−\"\n"
+                        },
+                        {
+                          "text": "  [titlebar] button: \"◻\"\n"
+                        },
+                        {
+                          "text": "  [titlebar] button: \"✕\"\n"
+                        },
+                        {
+                          "text": "  [welcome] button: \"OPEN FOLDER\"\n"
+                        },
+                        {
+                          "text": "  [toast] button: \"Dismiss notification\"\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-23T09:52:46.129Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "5076591ca11aca5c2993-999c765ab0d408dec6e3",
+              "file": "interaction/audit/full-ui-mock.test.ts",
+              "line": 366,
+              "column": 3
+            },
+            {
+              "title": "6. Accessibility tree — full UI screen reader view",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1989,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "\n=== ACCESSIBILITY TREE (Full UI) ===\n"
+                        },
+                        {
+                          "text": "- text: \"Unhandled rejection: TypeError: Cannot read properties of undefined (reading 'currentWindow') TypeError: Cannot read properties of undefined (reading 'currentWindow') at getCurrentWindow (http://127.0.0.1:1420/node_modules/.vite/deps/@tauri-apps_api_window.js?v=e94a073a:385:56) at TauriAdapter.onWindowClose (http://127.0.0.1:1420/src/lib/adapter/tauri.ts:61:3) at async Module.track_reactivity_loss (http://127.0.0.1:1420/node_modules/.vite/deps/runtime-96lNJhyN.js?v=e94a073a:2896:14) at async http://127.0.0.1:1420/src/routes/+page.svelte:212:4 Cannot read properties of undefined (reading 'currentWindow')\"\n- button \"☀\"\n- button \"−\"\n- button \"◻\"\n- button \"✕\"\n- heading \"REASONANCE\" [level=1]\n- paragraph: IDE for Vibecoders\n- button \"Open Folder\"\n- heading \"Recent Projects\" [level=2]\n- paragraph: No recent projects\n- alert:\n  - text: \"✕ ERROR Config parse error TypeError: raw.trim is not a function\"\n  - button \"Dismiss notification\": ×\n"
+                        },
+                        {
+                          "text": "\n--- Detailed Analysis ---\n"
+                        },
+                        {
+                          "text": "ARIA roles: {\"alert\":1}\n"
+                        },
+                        {
+                          "text": "\nLandmarks:\n"
+                        },
+                        {
+                          "text": "  main: 0 ❌\n"
+                        },
+                        {
+                          "text": "  navigation: 0 ❌\n"
+                        },
+                        {
+                          "text": "  banner: 0 ❌\n"
+                        },
+                        {
+                          "text": "  complementary: 0 ❌\n"
+                        },
+                        {
+                          "text": "  contentinfo: 0 ❌\n"
+                        },
+                        {
+                          "text": "  search: 0 ❌\n"
+                        },
+                        {
+                          "text": "  region: 0 ❌\n"
+                        },
+                        {
+                          "text": "\nHeadings: 2\n"
+                        },
+                        {
+                          "text": "  h1: \"REASONANCE\"\n"
+                        },
+                        {
+                          "text": "  h2: \"Recent Projects\"\n"
+                        },
+                        {
+                          "text": "\nImages without alt: 0\n"
+                        },
+                        {
+                          "text": "Total interactive elements: 6\n"
+                        },
+                        {
+                          "text": "Unlabeled interactive: 0\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-23T09:52:48.329Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "5076591ca11aca5c2993-c6500a7c3e9f0893d7fa",
+              "file": "interaction/audit/full-ui-mock.test.ts",
+              "line": 442,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-03-23T09:52:34.835Z",
+    "duration": 15552.652999999998,
+    "expected": 6,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}
