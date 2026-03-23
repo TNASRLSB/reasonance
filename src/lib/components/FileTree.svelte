@@ -315,12 +315,13 @@
   .tree-header {
     font-size: var(--font-size-tiny);
     font-weight: 800;
-    letter-spacing: 0.12em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: var(--text-muted);
-    padding: 12px 14px 8px;
+    color: var(--text-primary);
+    padding: 0 14px;
+    height: 38px;
     flex-shrink: 0;
-    border-bottom: 1px solid var(--border);
+    border-bottom: var(--border-width) solid var(--border);
     display: flex;
     align-items: center;
     justify-content: space-between;

@@ -195,15 +195,17 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 10px 14px 8px;
+    padding: 8px 14px;
     border-bottom: var(--border-width) solid var(--border);
     flex-shrink: 0;
   }
 
   .fif-title {
-    font-size: 13px;
-    font-weight: 600;
+    font-size: var(--font-size-tiny);
+    font-weight: 800;
     color: var(--text-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
   }
 
   .close-btn {

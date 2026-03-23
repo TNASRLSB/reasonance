@@ -696,17 +696,17 @@
     justify-content: space-between;
     flex-wrap: wrap;
     gap: 8px;
-    padding: 10px 16px;
-    border-bottom: var(--border-width, 2px) solid var(--border);
+    padding: 8px 14px;
+    border-bottom: var(--border-width) solid var(--border);
     background: var(--bg-surface);
     flex-shrink: 0;
   }
 
   .dashboard-title {
-    font-size: 13px;
+    font-size: var(--font-size-tiny);
     font-weight: 800;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.08em;
     margin: 0;
     color: var(--text-primary);
   }

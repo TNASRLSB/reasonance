@@ -49,7 +49,7 @@
   let instanceViewModes: Record<string, ViewMode> = $state({});
 
   function getViewMode(instanceId: string): ViewMode {
-    return instanceViewModes[instanceId] ?? 'terminal';
+    return instanceViewModes[instanceId] ?? 'chat';
   }
 
   function toggleViewMode(instanceId: string) {

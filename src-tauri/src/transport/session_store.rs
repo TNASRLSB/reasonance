@@ -56,7 +56,14 @@ impl SessionStore {
 
     /// Append a single event to the session's JSONL file.
     pub fn append_event(&self, session_id: &str, event: &AgentEvent) -> Result<(), String> {
-        let events_path = self.session_dir(session_id).join("events.jsonl");
+        let session_dir = self.session_dir(session_id);
+        if !session_dir.exists() {
+            fs::create_dir_all(&session_dir).map_err(|e| {
+                error!("SessionStore: failed to create session dir {}: {}", session_dir.display(), e);
+                format!("Failed to create session dir: {}", e)
+            })?;
+        }
+        let events_path = session_dir.join("events.jsonl");
         let mut file = fs::OpenOptions::new()
             .create(true)
             .append(true)

@@ -138,7 +138,7 @@
     justify-content: space-between;
     padding: 4px 8px;
     background: var(--bg-primary);
-    border-bottom: 2px solid var(--border);
+    border-bottom: var(--border-width) solid var(--border);
     flex-shrink: 0;
     font-family: var(--font-ui);
     gap: 4px;

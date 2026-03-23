@@ -133,7 +133,7 @@
     -webkit-app-region: no-drag;
     flex-shrink: 0;
     white-space: nowrap;
-    overflow: hidden;
+    overflow: visible;
     min-width: 0;
   }
 

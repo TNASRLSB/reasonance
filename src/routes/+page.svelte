@@ -187,7 +187,8 @@
     cleanups.push(() => document.removeEventListener('reasonance:shortcuts', handleShortcuts));
 
     // Start watching the project directory for external changes
-    const root = get(projectRoot) || '.';
+    const root = get(projectRoot);
+    if (root) {
     unwatchFiles = await adapter.watchFiles(root, async (event) => {
       const currentFiles = get(openFiles);
       const openFile = currentFiles.find((f) => f.path === event.path);
@@ -230,6 +231,7 @@
         }
       }
     });
+    } // end if (root)
   });
 
   onDestroy(() => {

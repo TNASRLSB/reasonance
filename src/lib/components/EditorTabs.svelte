@@ -88,7 +88,7 @@
     flex-direction: row;
     align-items: stretch;
     background: var(--bg-primary);
-    border-bottom: 2px solid var(--border);
+    border-bottom: var(--border-width) solid var(--border);
     height: 38px;
     flex-shrink: 0;
     font-family: var(--font-ui);

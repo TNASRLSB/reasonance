@@ -24,7 +24,7 @@ impl AgentSession {
             .as_millis() as u64;
 
         Self {
-            id: Uuid::new_v4().to_string(),
+            id: request.session_id.clone().unwrap_or_else(|| Uuid::new_v4().to_string()),
             provider: request.provider.clone(),
             model: request.model.clone().unwrap_or_default(),
             status: SessionStatus::Active,

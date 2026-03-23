@@ -109,18 +109,18 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 8px 12px;
-    border-bottom: 1px solid var(--border, #334155);
+    padding: 8px 14px;
+    border-bottom: var(--border-width) solid var(--border);
     flex-shrink: 0;
-    background: var(--bg-primary, #0f172a);
+    background: var(--bg-primary);
   }
 
   .response-title {
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--text-secondary, #94a3b8);
+    font-size: var(--font-size-tiny);
+    font-weight: 800;
+    color: var(--text-primary);
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.08em;
   }
 
   .close-btn {

@@ -1,8 +1,8 @@
 [cli]
 name = "claude"
 binary = "claude"
-programmatic_args = ["-p", "{prompt}", "--output-format", "stream-json"]
-resume_args = ["--resume", "{session_id}", "-p", "{prompt}", "--output-format", "stream-json"]
+programmatic_args = ["-p", "{prompt}", "--output-format", "stream-json", "--verbose"]
+resume_args = ["--resume", "{session_id}", "-p", "{prompt}", "--output-format", "stream-json", "--verbose"]
 version_command = ["claude", "--version"]
 update_command = ["claude", "update"]
 api_key_env = "ANTHROPIC_API_KEY"

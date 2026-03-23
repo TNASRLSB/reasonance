@@ -69,7 +69,7 @@ impl StructuredAgentTransport {
     }
 
     pub fn send(&self, request: AgentRequest) -> Result<String, String> {
-        let provider = request.provider.clone();
+        let provider = request.provider.to_lowercase();
         info!("Transport: send request provider={} model={:?} session_id={:?}", provider, request.model, request.session_id);
 
         let registry = self.registry.lock().unwrap_or_else(|e| {

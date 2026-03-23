@@ -78,11 +78,11 @@
     align-items: center;
   }
   .panel-title {
-    font-weight: 700;
-    font-size: 13px;
+    font-weight: 800;
+    font-size: var(--font-size-tiny);
     color: var(--text-primary);
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.08em;
   }
   .expand-btn {
     background: none;

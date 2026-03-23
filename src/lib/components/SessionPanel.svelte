@@ -173,13 +173,13 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 12px 16px;
+    padding: 8px 14px;
     border-bottom: var(--border-width) solid var(--border);
     flex-shrink: 0;
   }
 
   .panel-title {
-    font-size: 13px;
+    font-size: var(--font-size-tiny);
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0.08em;
