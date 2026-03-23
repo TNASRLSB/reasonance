@@ -32,7 +32,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 4px 12px;
+    padding: var(--space-1) var(--space-3);
     background: var(--bg-tertiary);
     border-bottom: var(--border-width) solid var(--border);
   }
@@ -55,7 +55,7 @@
     color: var(--text-secondary);
     background: transparent;
     border: var(--border-width) solid var(--border);
-    padding: 2px 8px;
+    padding: var(--stack-tight) var(--space-2);
     cursor: pointer;
   }
 
@@ -66,7 +66,7 @@
 
   .code-content {
     margin: 0;
-    padding: 12px;
+    padding: var(--inset-component);
     overflow-x: auto;
     font-family: var(--font-mono);
     font-size: var(--font-size-code);

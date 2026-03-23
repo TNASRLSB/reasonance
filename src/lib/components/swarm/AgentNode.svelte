@@ -45,7 +45,7 @@
   .agent-node {
     background: var(--bg-secondary, #1a1a1a);
     border: 2px solid var(--state-idle);
-    padding: 10px 14px;
+    padding: var(--space-2) var(--space-3);
     min-width: 140px;
     font-family: var(--font-ui, sans-serif);
     cursor: pointer;
@@ -64,8 +64,8 @@
   .node-header {
     display: flex;
     align-items: center;
-    gap: 6px;
-    margin-bottom: 4px;
+    gap: var(--interactive-gap);
+    margin-bottom: var(--stack-tight);
   }
   .node-icon {
     font-size: var(--font-size-sm);

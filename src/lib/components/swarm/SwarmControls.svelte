@@ -75,14 +75,14 @@
 <style>
   .swarm-controls {
     display: flex;
-    gap: 4px;
+    gap: var(--interactive-gap);
     align-items: center;
   }
   .ctrl-btn {
     background: var(--bg-tertiary);
     color: var(--text-primary);
     border: var(--border-width) solid var(--border);
-    padding: 4px 10px;
+    padding: var(--space-1) var(--space-2);
     font-size: var(--font-size-base);
     cursor: pointer;
     font-family: var(--font-ui);

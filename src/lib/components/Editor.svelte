@@ -347,7 +347,7 @@
     align-items: center;
     justify-content: center;
     color: var(--text-muted);
-    gap: 10px;
+    gap: var(--space-2);
     font-family: var(--font-ui);
     font-size: var(--font-size-base);
     font-weight: 500;
@@ -362,7 +362,7 @@
     color: var(--border);
     font-family: var(--font-mono);
     border: 1px solid var(--border);
-    padding: 4px 12px;
+    padding: var(--space-1) var(--space-3);
   }
 
 </style>

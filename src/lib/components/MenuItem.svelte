@@ -172,7 +172,7 @@
     font-family: var(--font-ui);
     font-size: var(--font-size-small);
     font-weight: 400;
-    padding: 4px 8px;
+    padding: var(--space-1) var(--space-2);
     cursor: pointer;
     border-radius: 0;
     line-height: 1;
@@ -191,7 +191,7 @@
     background: var(--bg-surface);
     border: var(--border-width) solid var(--border);
     z-index: 1000;
-    padding: 4px 0;
+    padding: var(--space-1) 0;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   }
 
@@ -200,7 +200,7 @@
     align-items: center;
     justify-content: space-between;
     width: 100%;
-    padding: 6px 12px;
+    padding: var(--space-1) var(--space-3);
     background: transparent;
     border: none;
     color: var(--text-body);
@@ -222,20 +222,20 @@
 
   .menu-shortcut {
     color: var(--text-muted);
-    margin-inline-start: 24px;
+    margin-inline-start: var(--space-5);
     font-size: calc(var(--font-size-small) - 1px);
   }
 
   .menu-arrow {
     color: var(--text-muted);
     font-size: var(--font-size-sm);
-    margin-inline-start: 12px;
+    margin-inline-start: var(--space-3);
   }
 
   .menu-divider {
     height: 1px;
     background: var(--border);
-    margin: 4px 0;
+    margin: var(--space-1) 0;
   }
 
   .has-submenu {
@@ -250,7 +250,7 @@
     background: var(--bg-surface);
     border: var(--border-width) solid var(--border);
     z-index: 1001;
-    padding: 4px 0;
+    padding: var(--space-1) 0;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   }
 </style>

@@ -195,7 +195,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 8px 14px;
+    padding: var(--space-2) var(--space-3);
     border-bottom: var(--border-width) solid var(--border);
     flex-shrink: 0;
   }
@@ -214,7 +214,7 @@
     color: var(--text-secondary);
     font-size: var(--font-size-base);
     cursor: pointer;
-    padding: 2px 6px;
+    padding: var(--stack-tight) var(--space-1);
     border-radius: var(--radius);
   }
 
@@ -225,8 +225,8 @@
 
   .fif-input-row {
     display: flex;
-    gap: 8px;
-    padding: 10px 14px;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
     border-bottom: var(--border-width) solid var(--border);
     flex-shrink: 0;
   }
@@ -239,7 +239,7 @@
     color: var(--text-primary);
     font-size: var(--font-size-sm);
     font-family: inherit;
-    padding: 6px 10px;
+    padding: var(--space-1) var(--space-2);
     outline: none;
   }
 
@@ -252,7 +252,7 @@
     color: var(--text-on-accent);
     border: var(--border-width) solid var(--accent);
     border-radius: var(--radius);
-    padding: 6px 14px;
+    padding: var(--space-1) var(--space-3);
     font-size: var(--font-size-sm);
     cursor: pointer;
     flex-shrink: 0;
@@ -269,7 +269,7 @@
   }
 
   .fif-error {
-    padding: 8px 14px;
+    padding: var(--space-2) var(--space-3);
     font-size: var(--font-size-sm);
     color: var(--danger, #e74c3c);
     margin: 0;
@@ -277,7 +277,7 @@
   }
 
   .fif-empty {
-    padding: 20px 14px;
+    padding: var(--space-5) var(--space-3);
     font-size: var(--font-size-sm);
     color: var(--text-secondary);
     margin: 0;
@@ -285,7 +285,7 @@
   }
 
   .fif-summary {
-    padding: 6px 14px;
+    padding: var(--space-1) var(--space-3);
     font-size: var(--font-size-sm);
     color: var(--text-secondary);
     border-bottom: 1px solid var(--border);
@@ -302,7 +302,7 @@
   }
 
   .fif-file-header {
-    padding: 6px 14px;
+    padding: var(--space-1) var(--space-3);
     font-size: var(--font-size-sm);
     font-weight: 600;
     color: var(--accent);
@@ -315,8 +315,8 @@
   .fif-result-row {
     display: flex;
     align-items: baseline;
-    gap: 10px;
-    padding: 4px 14px;
+    gap: var(--space-2);
+    padding: var(--space-1) var(--space-3);
     cursor: pointer;
     transition: background 0.1s;
   }

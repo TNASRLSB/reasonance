@@ -249,8 +249,8 @@
   .palette-input-row {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 10px 14px;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
     border-bottom: var(--border-width) solid var(--border);
     flex-shrink: 0;
   }
@@ -283,7 +283,7 @@
   .palette-list {
     list-style: none;
     margin: 0;
-    padding: 4px 0;
+    padding: var(--space-1) 0;
     overflow-y: auto;
     flex: 1;
   }
@@ -291,8 +291,8 @@
   .palette-item {
     display: flex;
     align-items: baseline;
-    gap: 8px;
-    padding: 6px 14px;
+    gap: var(--space-2);
+    padding: var(--space-1) var(--space-3);
     cursor: pointer;
     transition: background 0.1s;
   }
@@ -325,7 +325,7 @@
   }
 
   .palette-empty {
-    padding: 20px 14px;
+    padding: var(--space-5) var(--space-3);
     font-size: var(--font-size-sm);
     color: var(--text-secondary);
     margin: 0;
@@ -338,7 +338,7 @@
     border: none;
     color: var(--text-secondary);
     font-size: var(--font-size-sm);
-    padding: 4px 6px;
+    padding: var(--space-1) var(--space-1);
     cursor: pointer;
     line-height: 1;
     min-width: 32px;

@@ -136,19 +136,19 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 4px 8px;
+    padding: var(--space-1) var(--space-2);
     background: var(--bg-primary);
     border-bottom: var(--border-width) solid var(--border);
     flex-shrink: 0;
     font-family: var(--font-ui);
-    gap: 4px;
+    gap: var(--stack-tight);
   }
 
   .term-toolbar-left,
   .term-toolbar-right {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: var(--stack-tight);
   }
 
   .term-tbtn {
@@ -171,8 +171,8 @@
 
   .term-tbtn--labeled {
     width: auto;
-    padding: 0 8px;
-    gap: 5px;
+    padding: 0 var(--space-2);
+    gap: var(--stack-tight);
   }
 
   .tbtn-icon {
@@ -202,8 +202,8 @@
   .term-mode {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 4px 10px;
+    gap: var(--interactive-gap);
+    padding: var(--space-1) var(--space-2);
     background: var(--bg-tertiary);
     border: 2px solid var(--border);
     border-radius: 0;
@@ -255,8 +255,8 @@
   .dropdown-item {
     display: flex;
     flex-direction: column;
-    gap: 2px;
-    padding: 6px 10px;
+    gap: var(--stack-tight);
+    padding: var(--space-1) var(--space-2);
     background: none;
     border: none;
     border-bottom: 1px solid var(--border);

@@ -697,8 +697,8 @@
     align-items: center;
     justify-content: space-between;
     flex-wrap: wrap;
-    gap: 8px;
-    padding: 8px 14px;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
     border-bottom: var(--border-width) solid var(--border);
     background: var(--bg-surface);
     flex-shrink: 0;
@@ -716,14 +716,14 @@
   .header-actions {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--interactive-gap);
     flex-wrap: wrap;
   }
 
   /* Period selector */
   .period-selector {
     display: flex;
-    gap: 2px;
+    gap: var(--stack-tight);
     align-items: center;
   }
 
@@ -736,7 +736,7 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    padding: 3px 8px;
+    padding: var(--space-1) var(--space-2);
     cursor: pointer;
     border-radius: 0;
     min-height: 24px;
@@ -755,7 +755,7 @@
   }
 
   .compare-btn {
-    margin-inline-start: 4px;
+    margin-inline-start: var(--stack-tight);
   }
 
   .compare-btn.active {
@@ -773,7 +773,7 @@
     font-size: var(--font-size-tiny);
     font-weight: 700;
     letter-spacing: 0.04em;
-    padding: 3px 10px;
+    padding: var(--space-1) var(--space-2);
     cursor: pointer;
     border-radius: 0;
     min-height: 24px;
@@ -809,7 +809,7 @@
     background: transparent;
     border: none;
     border-radius: 0;
-    padding: 6px 12px;
+    padding: var(--space-1) var(--space-3);
     font-family: var(--font-ui);
     font-size: var(--font-size-small);
     font-weight: 600;
@@ -830,17 +830,17 @@
   .dashboard-body {
     flex: 1;
     overflow-y: auto;
-    padding: 16px;
+    padding: var(--inset-section);
     display: flex;
     flex-direction: column;
-    gap: 24px;
+    gap: var(--space-5);
   }
 
   /* Sections */
   .section {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: var(--space-3);
   }
 
   .section-title {
@@ -850,7 +850,7 @@
     letter-spacing: 0.06em;
     color: var(--text-secondary);
     margin: 0;
-    padding-bottom: 8px;
+    padding-bottom: var(--space-2);
     border-bottom: var(--border-width, 2px) solid var(--border);
   }
 
@@ -858,7 +858,7 @@
   .kpi-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 8px;
+    gap: var(--stack-normal);
   }
 
   @media (max-width: 900px) {
@@ -876,10 +876,10 @@
   .kpi-card {
     background: var(--bg-surface);
     border: var(--border-width, 2px) solid var(--border);
-    padding: 12px;
+    padding: var(--inset-component);
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: var(--stack-tight);
     min-width: 0;
   }
 
@@ -933,13 +933,13 @@
   .skel-title {
     height: 10px;
     width: 60%;
-    margin-bottom: 8px;
+    margin-bottom: var(--stack-normal);
   }
 
   .skel-value {
     height: 20px;
     width: 80%;
-    margin-bottom: 6px;
+    margin-bottom: var(--interactive-gap);
   }
 
   .skel-sub {
@@ -962,15 +962,15 @@
   .skel-provider {
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    padding: 8px 0;
+    gap: var(--interactive-gap);
+    padding: var(--space-2) 0;
     border-bottom: 1px solid var(--border);
   }
 
   .trend-skeleton {
     display: flex;
     align-items: flex-end;
-    gap: 4px;
+    gap: var(--stack-tight);
     height: 80px;
   }
 
@@ -997,15 +997,15 @@
   .insights-list {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: var(--interactive-gap);
   }
 
   .insight-card {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
-    padding: 8px 12px;
+    gap: var(--space-3);
+    padding: var(--space-2) var(--space-3);
     border: var(--border-width, 2px) solid var(--border);
     background: var(--bg-surface);
     font-size: var(--font-size-small);
@@ -1035,7 +1035,7 @@
     color: var(--text-muted);
     cursor: pointer;
     font-size: var(--font-size-sm);
-    padding: 2px 6px;
+    padding: var(--stack-tight) var(--space-1);
     min-height: unset;
     flex-shrink: 0;
     font-family: var(--font-ui);
@@ -1077,7 +1077,7 @@
   .provider-header-row [role="columnheader"],
   .provider-row [role="gridcell"],
   .provider-row [role="rowheader"] {
-    padding: 8px 10px;
+    padding: var(--space-2) var(--space-2);
     font-size: var(--font-size-small);
     font-family: var(--font-mono);
     color: var(--text-primary);
@@ -1106,7 +1106,7 @@
   .provider-expand-btn {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--interactive-gap);
     background: transparent;
     border: none;
     border-radius: 0;
@@ -1165,13 +1165,13 @@
     display: block;
     font-size: var(--font-size-tiny);
     color: var(--text-secondary);
-    margin-top: 2px;
+    margin-top: var(--stack-tight);
   }
 
   .provider-col-bar {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: var(--stack-tight);
     justify-content: center;
   }
 
@@ -1183,20 +1183,20 @@
   .provider-detail {
     background: var(--bg-secondary);
     border-bottom: 1px solid var(--border);
-    padding: 12px 16px;
+    padding: var(--inset-component) var(--inset-section);
   }
 
   .provider-detail-stats {
     display: flex;
     flex-wrap: wrap;
-    gap: 16px;
-    margin-bottom: 12px;
+    gap: var(--space-4);
+    margin-bottom: var(--space-3);
   }
 
   .detail-stat {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: var(--stack-tight);
     min-width: 80px;
   }
 
@@ -1234,12 +1234,12 @@
     text-transform: uppercase;
     letter-spacing: 0.04em;
     color: var(--text-secondary);
-    padding: 4px 8px;
+    padding: var(--space-1) var(--space-2);
     border-bottom: var(--border-width, 2px) solid var(--border);
   }
 
   .model-table td {
-    padding: 4px 8px;
+    padding: var(--space-1) var(--space-2);
     border-bottom: 1px solid var(--border);
     color: var(--text-primary);
   }
@@ -1252,17 +1252,17 @@
   .trend-chart {
     display: flex;
     align-items: flex-end;
-    gap: 4px;
+    gap: var(--stack-tight);
     height: 100px;
     overflow-x: auto;
-    padding-bottom: 4px;
+    padding-bottom: var(--stack-tight);
   }
 
   .trend-bar-col {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 4px;
+    gap: var(--stack-tight);
     flex: 1;
     min-width: 28px;
     height: 100%;
@@ -1317,7 +1317,7 @@
 
   .providers-skeleton {
     border: var(--border-width, 2px) solid var(--border);
-    padding: 8px 12px;
+    padding: var(--space-2) var(--space-3);
     display: flex;
     flex-direction: column;
     gap: 0;

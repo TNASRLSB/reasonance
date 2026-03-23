@@ -319,7 +319,7 @@
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--text-primary);
-    padding: 0 14px;
+    padding: 0 var(--space-3);
     height: 38px;
     flex-shrink: 0;
     border-bottom: var(--border-width) solid var(--border);
@@ -338,7 +338,7 @@
     display: flex;
     flex-direction: row;
     align-items: center;
-    gap: 8px;
+    gap: var(--space-2);
     width: 100%;
     background: none;
     border: none;
@@ -347,7 +347,7 @@
     font-family: var(--font-ui);
     font-size: var(--font-size-base);
     font-weight: 500;
-    padding: 6px 14px;
+    padding: var(--space-1) var(--space-3);
     text-align: start;
     cursor: pointer;
     white-space: nowrap;
@@ -390,7 +390,7 @@
 
   .tree-header-actions {
     display: flex;
-    gap: 2px;
+    gap: var(--stack-tight);
   }
 
   .tree-action-btn {
@@ -399,7 +399,7 @@
     color: var(--text-muted);
     font-size: var(--font-size-sm);
     cursor: pointer;
-    padding: 0 4px;
+    padding: 0 var(--space-1);
     line-height: 1;
   }
 
@@ -410,8 +410,8 @@
   .inline-input-row {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 2px 14px;
+    gap: var(--space-2);
+    padding: var(--stack-tight) var(--space-3);
   }
 
   .inline-input {
@@ -421,7 +421,7 @@
     color: var(--text-primary);
     font-family: var(--font-ui);
     font-size: var(--font-size-small);
-    padding: 2px 6px;
+    padding: var(--stack-tight) var(--space-1);
     outline: none;
     min-width: 0;
   }
@@ -438,13 +438,13 @@
     border: 1px solid var(--border);
     z-index: 1001;
     min-width: 140px;
-    padding: 4px 0;
+    padding: var(--space-1) 0;
   }
 
   .ctx-item {
     display: block;
     width: 100%;
-    padding: 6px 14px;
+    padding: var(--space-1) var(--space-3);
     text-align: start;
     background: none;
     border: none;

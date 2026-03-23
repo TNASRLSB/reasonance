@@ -165,7 +165,7 @@
     background: var(--bg-tertiary);
     color: var(--text-primary);
     border: var(--border-width) solid var(--border);
-    padding: 4px 10px;
+    padding: var(--space-1) var(--space-2);
     font-size: var(--font-size-sm);
     font-family: var(--font-ui);
     cursor: pointer;
@@ -181,7 +181,7 @@
     background: var(--bg-secondary);
     border: 1px solid var(--border);
     min-width: 200px;
-    padding: 4px 0;
+    padding: var(--space-1) 0;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   }
   .menu-item {
@@ -192,7 +192,7 @@
     background: none;
     border: none;
     color: var(--text-primary);
-    padding: 6px 12px;
+    padding: var(--space-1) var(--space-3);
     font-size: var(--font-size-sm);
     font-family: var(--font-ui);
     cursor: pointer;
@@ -208,10 +208,10 @@
   .menu-divider {
     height: 1px;
     background: var(--border);
-    margin: 4px 0;
+    margin: var(--stack-tight) 0;
   }
   .template-list {
-    padding-inline-start: 12px;
+    padding-inline-start: var(--space-3);
   }
   .template-item {
     font-size: var(--font-size-sm);
@@ -219,7 +219,7 @@
   .no-templates {
     font-size: var(--font-size-sm);
     color: var(--text-muted);
-    padding: 4px 12px;
+    padding: var(--space-1) var(--space-3);
     display: block;
   }
 </style>

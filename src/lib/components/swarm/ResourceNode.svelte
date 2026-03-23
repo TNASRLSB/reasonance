@@ -37,7 +37,7 @@
   .resource-node {
     background: var(--bg-secondary, #1a1a1a);
     border: 2px solid var(--success, #16a34a);
-    padding: 10px 14px;
+    padding: var(--space-2) var(--space-3);
     min-width: 120px;
     font-family: var(--font-ui, sans-serif);
     cursor: pointer;
@@ -49,7 +49,7 @@
   .node-header {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--interactive-gap);
   }
   .node-icon { font-size: var(--font-size-base); }
   .node-label {
@@ -60,7 +60,7 @@
   .node-path {
     font-size: var(--font-size-sm);
     color: var(--text-muted, #666);
-    margin-top: 4px;
+    margin-top: var(--stack-tight);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

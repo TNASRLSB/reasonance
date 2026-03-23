@@ -108,7 +108,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 12px 16px 10px;
+    padding: var(--space-3) var(--space-4) var(--space-2);
     border-bottom: var(--border-width) solid var(--border);
     flex-shrink: 0;
   }
@@ -127,7 +127,7 @@
     color: var(--text-secondary);
     font-size: var(--font-size-base);
     cursor: pointer;
-    padding: 4px 6px;
+    padding: var(--space-1) var(--space-1);
     border-radius: 0;
     font-family: var(--font-ui);
     min-width: 32px;
@@ -145,16 +145,16 @@
   .dialog-body {
     flex: 1;
     overflow-y: auto;
-    padding: 12px 16px;
+    padding: var(--space-3) var(--space-4);
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: var(--space-4);
   }
 
   .group {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: var(--stack-tight);
   }
 
   .group-label {
@@ -163,16 +163,16 @@
     text-transform: uppercase;
     letter-spacing: 0.08em;
     color: var(--accent);
-    margin-bottom: 4px;
+    margin-bottom: var(--stack-tight);
   }
 
   .shortcut-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 5px 0;
+    padding: var(--space-1) 0;
     border-bottom: 1px solid var(--border);
-    gap: 12px;
+    gap: var(--space-3);
   }
 
   .shortcut-row:last-child {
@@ -188,7 +188,7 @@
   .shortcut-keys {
     display: flex;
     align-items: center;
-    gap: 2px;
+    gap: var(--stack-tight);
     flex-shrink: 0;
   }
 
@@ -200,7 +200,7 @@
     font-family: var(--font-mono);
     font-size: var(--font-size-sm);
     font-weight: 700;
-    padding: 2px 6px;
+    padding: var(--stack-tight) var(--space-1);
     min-width: 24px;
     text-align: center;
     white-space: nowrap;
@@ -209,13 +209,13 @@
   .plus {
     font-size: var(--font-size-sm);
     color: var(--text-muted);
-    padding: 0 1px;
+    padding: 0 var(--stack-tight);
   }
 
   .dialog-footer {
     display: flex;
     justify-content: flex-end;
-    padding: 10px 16px;
+    padding: var(--space-2) var(--space-4);
     border-top: var(--border-width) solid var(--border);
     flex-shrink: 0;
   }
@@ -225,7 +225,7 @@
     color: var(--text-primary);
     border: var(--border-width) solid var(--border);
     border-radius: 0;
-    padding: 4px 16px;
+    padding: var(--space-1) var(--space-4);
     font-family: var(--font-ui);
     font-size: var(--font-size-sm);
     font-weight: 700;

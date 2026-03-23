@@ -209,7 +209,7 @@
     left: 4px;
     width: auto;
     height: auto;
-    padding: 8px 16px;
+    padding: var(--space-2) var(--space-4);
     margin: 0;
     overflow: visible;
     clip: auto;
@@ -342,9 +342,9 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 8px;
+    gap: var(--stack-normal);
     flex: 1;
-    padding: 24px;
+    padding: var(--space-5);
     font-family: var(--font-ui);
   }
 
@@ -378,7 +378,7 @@
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    padding: 4px 16px;
+    padding: var(--space-1) var(--space-4);
     cursor: pointer;
   }
 

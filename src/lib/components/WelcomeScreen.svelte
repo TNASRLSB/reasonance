@@ -197,10 +197,10 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 16px;
+    gap: var(--stack-loose);
     max-width: 480px;
     width: 100%;
-    padding: 32px;
+    padding: var(--space-6);
     -webkit-app-region: no-drag;
   }
 
@@ -208,7 +208,7 @@
     width: 80px;
     height: 80px;
     color: var(--text-primary);
-    margin-bottom: 8px;
+    margin-bottom: var(--stack-normal);
   }
 
   .welcome-logo {
@@ -224,12 +224,12 @@
   .welcome-subtitle {
     color: var(--text-muted);
     font-size: var(--font-size-base);
-    margin: 0 0 24px;
+    margin: 0 0 var(--space-5);
     font-family: var(--font-ui);
   }
 
   .welcome-btn.primary {
-    padding: 12px 32px;
+    padding: var(--space-3) var(--space-6);
     font-family: var(--font-ui);
     font-size: var(--font-size-base);
     font-weight: 700;
@@ -250,7 +250,7 @@
 
   .recent-section {
     width: 100%;
-    margin-top: 32px;
+    margin-top: var(--space-6);
   }
 
   .recent-title {
@@ -259,7 +259,7 @@
     text-transform: uppercase;
     letter-spacing: 0.12em;
     color: var(--text-muted);
-    margin: 0 0 12px;
+    margin: 0 0 var(--space-3);
     font-family: var(--font-ui);
   }
 
@@ -276,13 +276,13 @@
     padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: var(--stack-tight);
   }
 
   .recent-item {
     display: block;
     width: 100%;
-    padding: 8px 12px;
+    padding: var(--space-2) var(--space-3);
     font-family: var(--font-ui);
     font-size: var(--font-size-sm);
     text-align: start;
@@ -305,12 +305,12 @@
   .onboarding-banner {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 14px 18px;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
     border: 2px solid var(--warning);
     background: rgba(202, 138, 4, 0.08);
     width: 100%;
-    margin-bottom: 8px;
+    margin-bottom: var(--space-2);
   }
 
   .onboarding-icon {
@@ -327,7 +327,7 @@
     font-size: var(--font-size-sm);
     font-weight: 800;
     color: var(--text-primary);
-    margin-bottom: 2px;
+    margin-bottom: var(--stack-tight);
   }
 
   .onboarding-text p {
@@ -338,7 +338,7 @@
   }
 
   .welcome-btn.secondary {
-    padding: 8px 16px;
+    padding: var(--space-2) var(--space-4);
     font-family: var(--font-ui);
     font-size: var(--font-size-sm);
     font-weight: 700;

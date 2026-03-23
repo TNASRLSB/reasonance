@@ -45,7 +45,7 @@
   .markdown-preview {
     flex: 1;
     overflow: auto;
-    padding: 24px 32px;
+    padding: var(--space-5) var(--space-6);
     color: var(--text-primary, #e2e8f0);
     font-family: var(--font-ui);
     font-size: var(--font-size-base);
@@ -95,6 +95,10 @@
     margin: 0.75em 0;
   }
 
+  .markdown-preview :global(p + p) {
+    margin-top: var(--paragraph-spacing);
+  }
+
   .markdown-preview :global(a) {
     color: var(--accent, #6366f1);
     text-decoration: none;
@@ -117,7 +121,7 @@
     background: var(--code-bg);
     border: 1px solid var(--border, #334155);
     border-radius: 8px;
-    padding: 16px;
+    padding: var(--inset-section);
     overflow: auto;
     margin: 1em 0;
   }
@@ -153,7 +157,7 @@
   .markdown-preview :global(th),
   .markdown-preview :global(td) {
     border: 1px solid var(--border, #334155);
-    padding: 8px 12px;
+    padding: var(--space-2) var(--space-3);
     text-align: start;
   }
 

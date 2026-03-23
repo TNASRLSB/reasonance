@@ -7,8 +7,8 @@
 <style>
   .streaming-indicator {
     display: flex;
-    gap: 4px;
-    padding: 8px 16px;
+    gap: var(--stack-tight);
+    padding: var(--space-2) var(--space-4);
   }
 
   .dot {

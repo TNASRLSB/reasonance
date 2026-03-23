@@ -405,8 +405,8 @@
   .flat-tabs {
     display: flex;
     align-items: center;
-    gap: 2px;
-    padding: 4px 8px;
+    gap: var(--stack-tight);
+    padding: var(--space-1) var(--space-2);
     background: var(--bg-primary);
     border-bottom: 2px solid var(--border);
     flex-shrink: 0;
@@ -418,8 +418,8 @@
   .flat-tab {
     display: flex;
     align-items: center;
-    gap: 4px;
-    padding: 3px 10px;
+    gap: var(--stack-tight);
+    padding: var(--space-1) var(--space-2);
     font-family: var(--font-ui);
     font-size: var(--font-size-small);
     font-weight: 600;
@@ -450,7 +450,7 @@
   .flat-tab.add-tab {
     font-size: var(--font-size-small);
     font-weight: 700;
-    padding: 3px 10px;
+    padding: var(--space-1) var(--space-2);
   }
 
   .tab-add-wrapper {
@@ -468,7 +468,7 @@
     line-height: 1;
     opacity: 0;
     cursor: pointer;
-    padding: 4px 6px;
+    padding: var(--space-1) var(--space-1);
     min-width: 24px;
     min-height: 24px;
     display: inline-flex;
@@ -516,7 +516,7 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    padding: 3px 8px;
+    padding: var(--space-1) var(--space-2);
     min-height: 24px;
     display: inline-flex;
     align-items: center;
@@ -533,12 +533,12 @@
     background: var(--bg-surface);
     border: 1px solid var(--border);
     min-width: 160px;
-    padding: 4px 0;
+    padding: var(--space-1) 0;
   }
 
   .dropdown-header {
     display: block;
-    padding: 4px 12px;
+    padding: var(--space-1) var(--space-3);
     font-size: var(--font-size-tiny);
     font-weight: 700;
     text-transform: uppercase;
@@ -549,7 +549,7 @@
   .dropdown-item {
     display: block;
     width: 100%;
-    padding: 6px 14px;
+    padding: var(--space-1) var(--space-3);
     text-align: start;
     background: transparent;
     border: none;
@@ -565,7 +565,7 @@
 
   .dropdown-empty {
     display: block;
-    padding: 6px 14px;
+    padding: var(--space-1) var(--space-3);
     color: var(--text-muted);
     font-size: var(--font-size-small);
   }
@@ -588,10 +588,10 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 16px;
+    gap: var(--stack-loose);
     color: var(--text-primary);
     font-family: var(--font-ui);
-    padding: 24px;
+    padding: var(--space-5);
     min-height: 200px;
     background: var(--bg-primary);
   }
@@ -602,7 +602,7 @@
     text-transform: uppercase;
     letter-spacing: 0.08em;
     color: var(--text-muted);
-    margin-bottom: 4px;
+    margin-bottom: var(--stack-tight);
   }
 
   .empty-subtitle {
@@ -623,9 +623,9 @@
   .llm-selector {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: var(--space-3);
     align-items: center;
-    margin-top: 8px;
+    margin-top: var(--space-2);
     width: 100%;
     max-width: 280px;
   }
@@ -633,7 +633,7 @@
   .llm-card-list {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: var(--stack-tight);
     width: 100%;
   }
 
@@ -649,9 +649,9 @@
     display: flex;
     flex-direction: row;
     align-items: center;
-    gap: 8px;
+    gap: var(--space-2);
     width: 100%;
-    padding: 7px 12px;
+    padding: var(--space-2) var(--space-3);
     background: var(--bg-secondary);
     border: 2px solid var(--border);
     border-radius: 0;
@@ -686,7 +686,7 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    padding: 1px 5px;
+    padding: var(--stack-tight) var(--space-1);
     background: var(--bg-tertiary);
     border: 1px solid var(--border);
     color: var(--text-muted);
@@ -696,8 +696,8 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 12px;
-    padding: 16px 20px;
+    gap: var(--space-3);
+    padding: var(--inset-section) var(--space-5);
     background: var(--bg-secondary);
     border: 2px solid var(--accent);
     max-width: 320px;
@@ -712,7 +712,7 @@
   }
 
   .no-llm-btn {
-    padding: 7px 18px;
+    padding: var(--space-2) var(--space-4);
     font-family: var(--font-ui);
     font-size: var(--font-size-small);
     font-weight: 700;

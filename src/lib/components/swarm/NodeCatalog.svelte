@@ -26,16 +26,16 @@
 <style>
   .node-catalog {
     display: flex;
-    gap: 4px;
+    gap: var(--stack-tight);
   }
   .catalog-btn {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: var(--stack-tight);
     background: var(--bg-tertiary);
     color: var(--text-primary);
     border: var(--border-width) solid var(--border);
-    padding: 4px 10px;
+    padding: var(--space-1) var(--space-2);
     font-size: var(--font-size-sm);
     font-family: var(--font-ui);
     cursor: pointer;

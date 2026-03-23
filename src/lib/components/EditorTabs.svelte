@@ -114,8 +114,8 @@
   .tab-actions {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 0 10px;
+    gap: var(--interactive-gap);
+    padding: 0 var(--space-2);
     flex-shrink: 0;
     border-inline-start: 1px solid var(--border);
   }
@@ -123,8 +123,8 @@
   .tab {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 0 12px;
+    gap: var(--interactive-gap);
+    padding: 0 var(--space-3);
     min-width: 100px;
     max-width: 200px;
     cursor: pointer;
@@ -171,7 +171,7 @@
     cursor: pointer;
     font-size: var(--font-size-sm);
     line-height: 1;
-    padding: 3px 4px;
+    padding: var(--space-1) var(--space-1);
     min-width: 22px;
     min-height: 22px;
     border-radius: var(--radius);
@@ -195,7 +195,7 @@
     cursor: pointer;
     font-size: var(--font-size-base);
     line-height: 1;
-    padding: 5px 6px;
+    padding: var(--space-1) var(--space-1);
     min-width: 24px;
     min-height: 24px;
     border-radius: var(--radius);

@@ -403,7 +403,7 @@
   .about-dialog {
     background: var(--bg-primary);
     border: var(--border-width) solid var(--border);
-    padding: 32px 40px;
+    padding: var(--space-6) var(--space-6);
     text-align: center;
     font-family: var(--font-ui);
     min-width: 280px;
@@ -413,7 +413,7 @@
     width: 56px;
     height: 56px;
     color: var(--text-primary);
-    margin-bottom: 12px;
+    margin-bottom: var(--space-3);
   }
 
   .about-logo {
@@ -422,39 +422,39 @@
     line-height: var(--line-height-lg);
     color: var(--text-primary);
     letter-spacing: -0.02em;
-    margin-bottom: 4px;
+    margin-bottom: var(--space-1);
   }
 
   .about-subtitle {
     font-size: var(--font-size-base);
     color: var(--text-secondary);
-    margin-bottom: 16px;
+    margin-bottom: var(--space-4);
   }
 
   .about-version {
     font-size: var(--font-size-small);
     color: var(--accent);
     font-weight: 700;
-    margin-bottom: 4px;
+    margin-bottom: var(--space-1);
   }
 
   .about-stack {
     font-size: var(--font-size-small);
     color: var(--text-muted);
-    margin-bottom: 4px;
+    margin-bottom: var(--space-1);
   }
 
   .about-license {
     font-size: var(--font-size-small);
     color: var(--text-muted);
-    margin-bottom: 20px;
+    margin-bottom: var(--space-5);
   }
 
   .about-close {
     background: var(--accent);
     border: none;
     color: var(--text-on-accent);
-    padding: 6px 24px;
+    padding: var(--space-2) var(--space-5);
     font-family: var(--font-ui);
     font-size: var(--font-size-small);
     font-weight: 700;
@@ -476,7 +476,7 @@
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.02em;
-    padding: 2px 8px;
+    padding: var(--space-1) var(--space-2);
     cursor: pointer;
     transition: background 0.1s, color 0.1s;
     white-space: nowrap;

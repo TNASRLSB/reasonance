@@ -234,8 +234,8 @@
   .canvas-toolbar {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 6px 10px;
+    gap: var(--space-2);
+    padding: var(--space-1) var(--space-2);
     background: var(--bg-secondary);
     border-bottom: var(--border-width) solid var(--border);
   }
@@ -251,7 +251,7 @@
     color: var(--text-secondary);
     border: 2px solid var(--border);
     border-radius: 0;
-    padding: 3px 10px;
+    padding: var(--space-1) var(--space-2);
     font-size: var(--font-size-sm);
     cursor: pointer;
     font-family: var(--font-ui);
@@ -268,7 +268,7 @@
     border: 2px solid var(--border);
     border-radius: 0;
     color: var(--text-secondary);
-    padding: 3px 8px;
+    padding: var(--space-1) var(--space-2);
     cursor: pointer;
     font-size: var(--font-size-base);
   }
@@ -305,13 +305,13 @@
     background: var(--bg-primary);
     color: var(--text-body);
     border: none;
-    padding: 12px;
+    padding: var(--inset-component);
     font-family: var(--font-mono, monospace);
     font-size: var(--font-size-sm);
     resize: none;
   }
   .json-error {
-    padding: 4px 12px;
+    padding: var(--space-1) var(--space-3);
     font-size: var(--font-size-sm);
     color: var(--danger);
     background: var(--bg-secondary);

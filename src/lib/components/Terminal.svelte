@@ -316,8 +316,8 @@
   .terminal-search {
     display: flex;
     align-items: center;
-    gap: 4px;
-    padding: 4px 8px;
+    gap: var(--stack-tight);
+    padding: var(--space-1) var(--space-2);
     background: var(--bg-secondary);
     border-bottom: 2px solid var(--border);
     flex-shrink: 0;
@@ -331,7 +331,7 @@
     color: var(--text-primary);
     font-family: var(--font-mono);
     font-size: var(--font-size-small);
-    padding: 2px 8px;
+    padding: var(--stack-tight) var(--space-2);
     outline: none;
   }
 
@@ -346,7 +346,7 @@
     color: var(--text-secondary);
     cursor: pointer;
     font-size: var(--font-size-sm);
-    padding: 2px 6px;
+    padding: var(--stack-tight) var(--space-1);
     font-weight: 800;
   }
 

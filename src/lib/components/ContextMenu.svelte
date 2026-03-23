@@ -150,7 +150,7 @@
     background: var(--bg-secondary, #1e293b);
     border: var(--border-width) solid var(--border, #334155);
     border-radius: var(--radius);
-    padding: 4px 0;
+    padding: var(--space-1) 0;
     min-width: 200px;
     max-width: 280px;
     font-size: var(--font-size-sm);
@@ -162,7 +162,7 @@
     align-items: center;
     justify-content: space-between;
     width: 100%;
-    padding: 7px 14px;
+    padding: var(--space-2) var(--space-3);
     background: none;
     border: none;
     color: var(--text-primary, #e2e8f0);
@@ -171,7 +171,7 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    gap: 8px;
+    gap: var(--interactive-gap);
     transition: background 0.1s;
   }
 
@@ -186,12 +186,12 @@
   }
 
   .context-menu-hint {
-    padding: 6px 14px;
+    padding: var(--space-1) var(--space-3);
     font-size: var(--font-size-sm);
     color: var(--text-secondary, #94a3b8);
     border-top: 1px solid var(--border, #334155);
-    margin-top: 4px;
-    padding-top: 8px;
+    margin-top: var(--stack-tight);
+    padding-top: var(--space-2);
   }
 
   .spinner {

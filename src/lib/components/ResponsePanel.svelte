@@ -109,7 +109,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 8px 14px;
+    padding: var(--space-2) var(--space-3);
     border-bottom: var(--border-width) solid var(--border);
     flex-shrink: 0;
     background: var(--bg-primary);
@@ -129,7 +129,7 @@
     color: var(--text-secondary, #94a3b8);
     cursor: pointer;
     font-size: var(--font-size-base);
-    padding: 2px 6px;
+    padding: var(--space-1) var(--space-1);
     border-radius: 4px;
     line-height: 1;
     transition: color 0.15s, background 0.15s;
@@ -147,7 +147,7 @@
   }
 
   .markdown-preview {
-    padding: 20px 24px;
+    padding: var(--space-5) var(--space-5);
     color: var(--text-primary, #e2e8f0);
     font-family: var(--font-ui);
     font-size: var(--font-size-base);
@@ -173,6 +173,7 @@
   .markdown-preview :global(h3) { font-size: var(--font-size-md); line-height: var(--line-height-md); }
 
   .markdown-preview :global(p) { margin: 0.65em 0; }
+  .markdown-preview :global(p + p) { margin-top: var(--paragraph-spacing); }
 
   .markdown-preview :global(a) { color: var(--accent, #6366f1); text-decoration: none; }
   .markdown-preview :global(a:hover) { text-decoration: underline; }
@@ -190,7 +191,7 @@
     background: var(--code-bg);
     border: 1px solid var(--border, #334155);
     border-radius: 6px;
-    padding: 14px;
+    padding: var(--space-3);
     overflow: auto;
     margin: 0.75em 0;
   }
@@ -229,7 +230,7 @@
   .markdown-preview :global(th),
   .markdown-preview :global(td) {
     border: 1px solid var(--border, #334155);
-    padding: 6px 10px;
+    padding: var(--space-1) var(--space-2);
     text-align: start;
   }
 

@@ -81,7 +81,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 14px;
+    padding: 0 var(--space-3);
     flex-shrink: 0;
     font-family: var(--font-ui);
     font-size: var(--font-size-small);
@@ -107,7 +107,7 @@
   .status-right {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: var(--space-3);
   }
 
   .status-left {
@@ -117,7 +117,7 @@
   .status-center {
     flex: 1;
     justify-content: center;
-    gap: 16px;
+    gap: var(--space-4);
   }
 
   .status-right {

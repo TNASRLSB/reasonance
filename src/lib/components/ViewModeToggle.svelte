@@ -28,7 +28,7 @@
     color: var(--text-secondary);
     background: transparent;
     border: var(--border-width) solid var(--border);
-    padding: 3px 8px;
+    padding: var(--space-1) var(--space-2);
     min-height: 24px;
     display: inline-flex;
     align-items: center;

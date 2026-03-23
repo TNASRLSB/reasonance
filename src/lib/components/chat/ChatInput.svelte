@@ -218,17 +218,17 @@
   .chat-input-wrapper {
     display: flex;
     flex-direction: column;
-    padding: 8px 16px 6px;
+    padding: var(--space-2) var(--space-4) var(--space-1);
     border-top: 2px solid var(--border);
     background: var(--bg-surface);
     flex-shrink: 0;
-    gap: 6px;
+    gap: var(--interactive-gap);
   }
 
   .input-row {
     display: flex;
     align-items: flex-end;
-    gap: 8px;
+    gap: var(--space-2);
   }
 
   textarea {
@@ -239,7 +239,7 @@
     color: var(--text-body);
     background: var(--bg-primary);
     border: var(--border-width) solid var(--border);
-    padding: 8px 12px;
+    padding: var(--space-2) var(--space-3);
     outline: none;
     min-height: 40px;
     max-height: 120px;
@@ -263,7 +263,7 @@
     color: var(--text-on-accent);
     background: var(--accent);
     border: var(--border-width) solid var(--accent);
-    padding: 8px 16px;
+    padding: var(--btn-padding);
     cursor: pointer;
     align-self: flex-end;
     transition: opacity 0.1s;
@@ -282,20 +282,20 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 2px;
+    padding: 0 var(--stack-tight);
     min-height: 20px;
   }
 
   .footer-left {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--space-2);
   }
 
   .footer-right {
     display: flex;
     align-items: center;
-    gap: 14px;
+    gap: var(--space-3);
   }
 
   .metrics {
@@ -311,7 +311,7 @@
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    padding: 1px 6px;
+    padding: var(--stack-tight) var(--space-1);
     border: var(--border-width) solid var(--border);
     border-radius: 0;
     background: transparent;

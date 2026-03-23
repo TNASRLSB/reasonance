@@ -54,11 +54,11 @@
 
 <style>
   .swarm-panel {
-    padding: 10px;
+    padding: var(--space-2);
     height: 100%;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: var(--stack-normal);
     font-family: var(--font-ui, sans-serif);
     background: var(--bg-secondary);
   }
@@ -78,7 +78,7 @@
     background: none;
     border: 1px solid var(--border);
     color: var(--text-secondary);
-    padding: 2px 6px;
+    padding: var(--stack-tight) var(--space-1);
     cursor: pointer;
     font-size: var(--font-size-base);
   }
@@ -89,8 +89,8 @@
   .mini-map {
     display: flex;
     flex-wrap: wrap;
-    gap: 4px;
-    padding: 6px;
+    gap: var(--stack-tight);
+    padding: var(--space-1);
     background: var(--bg-primary);
     border: 1px solid var(--border);
     min-height: 30px;

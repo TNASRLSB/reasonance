@@ -224,8 +224,8 @@
   .analytics-bar {
     display: flex;
     flex-direction: column;
-    gap: 2px;
-    padding: 4px 8px;
+    gap: var(--stack-tight);
+    padding: var(--space-1) var(--space-2);
     background: var(--bg-primary);
     border-top: var(--border-width, 2px) solid var(--border);
     border-radius: 0;
@@ -277,7 +277,7 @@
   .analytics-bar-row {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--space-2);
     flex-wrap: nowrap;
     overflow: hidden;
     min-height: 20px;
@@ -374,7 +374,7 @@
   .metric.vs-avg {
     display: flex;
     align-items: center;
-    gap: 3px;
+    gap: var(--stack-tight);
   }
 
   .metric.vs-avg.above {

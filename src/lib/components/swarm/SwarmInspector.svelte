@@ -64,7 +64,7 @@
 
 <style>
   .inspector {
-    padding: 12px;
+    padding: var(--inset-component);
     font-family: var(--font-ui, sans-serif);
     height: 100%;
     overflow-y: auto;
@@ -79,8 +79,8 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 12px;
-    padding-bottom: 8px;
+    margin-bottom: var(--space-3);
+    padding-bottom: var(--space-2);
     border-bottom: var(--border-width) solid var(--border);
   }
   .inspector-header h3 {
@@ -92,18 +92,18 @@
     font-size: var(--font-size-sm);
     text-transform: uppercase;
     color: var(--text-secondary);
-    padding: 2px 6px;
+    padding: var(--stack-tight) var(--space-1);
     background: var(--bg-tertiary);
     border: 1px solid var(--border);
   }
   .inspector-section {
-    margin-bottom: 10px;
+    margin-bottom: var(--space-2);
   }
   .section-label {
     font-size: var(--font-size-sm);
     color: var(--text-muted);
     text-transform: uppercase;
-    margin-bottom: 2px;
+    margin-bottom: var(--stack-tight);
   }
   .section-value {
     font-size: var(--font-size-sm);
@@ -117,7 +117,7 @@
     background: var(--bg-tertiary);
     color: var(--text-secondary);
     border: 1px solid var(--border);
-    padding: 3px 8px;
+    padding: var(--space-1) var(--space-2);
     font-size: var(--font-size-sm);
     cursor: pointer;
     font-family: var(--font-ui);
@@ -128,11 +128,11 @@
   .json-raw {
     background: var(--bg-primary);
     border: 1px solid var(--border);
-    padding: 8px;
+    padding: var(--space-2);
     font-size: var(--font-size-sm);
     font-family: var(--font-mono, monospace);
     color: var(--text-body);
-    margin-top: 6px;
+    margin-top: var(--interactive-gap);
     overflow-x: auto;
     white-space: pre-wrap;
   }

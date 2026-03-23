@@ -125,7 +125,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 6px 12px;
+    padding: var(--space-1) var(--space-3);
     background: var(--bg-secondary);
     border-bottom: var(--border-width) solid var(--border);
     flex-shrink: 0;
@@ -141,12 +141,12 @@
 
   .diff-actions {
     display: flex;
-    gap: 8px;
+    gap: var(--interactive-gap);
   }
 
   .btn-accept,
   .btn-reject {
-    padding: 3px 12px;
+    padding: var(--space-1) var(--space-3);
     border-radius: var(--radius);
     border: 1px solid transparent;
     font-size: var(--font-size-sm);
