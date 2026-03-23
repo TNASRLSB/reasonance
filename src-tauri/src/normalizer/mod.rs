@@ -46,6 +46,10 @@ pub struct CliConfig {
     pub update_command: Vec<String>,
     #[serde(default)]
     pub api_key_env: Option<String>,
+    /// Extra args appended to grant the CLI full access to the project folder.
+    /// Supports `{project_root}` placeholder.
+    #[serde(default)]
+    pub permission_args: Vec<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -115,6 +119,12 @@ impl TomlConfig {
             emit: r.emit.clone(),
             mappings: r.mappings.clone(),
         }).collect()
+    }
+
+    /// Returns the JSON path for extracting CLI session IDs from stream output.
+    pub fn session_id_path(&self) -> Option<&str> {
+        self.session.as_ref()
+            .and_then(|s| s.session_id_path.as_deref())
     }
 }
 
@@ -344,5 +354,26 @@ emit = "done"
         let result = registry.reload_provider("testprovider", "invalid { toml");
         assert!(result.is_err());
         assert!(registry.has_provider("testprovider"));
+    }
+
+    #[test]
+    fn test_session_id_path() {
+        let toml_str = r#"
+[cli]
+name = "testprov"
+binary = "test"
+
+[session]
+session_id_path = "message.id"
+model_path = "message.model"
+"#;
+        let config = TomlConfig::parse(toml_str).unwrap();
+        assert_eq!(config.session_id_path(), Some("message.id"));
+    }
+
+    #[test]
+    fn test_session_id_path_missing() {
+        let config = TomlConfig::parse(sample_toml()).unwrap();
+        assert_eq!(config.session_id_path(), None);
     }
 }
