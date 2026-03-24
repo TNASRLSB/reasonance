@@ -54,6 +54,9 @@ pub struct CliConfig {
     /// Absent for providers that don't support selective tool approval.
     #[serde(default)]
     pub allowed_tools_arg: Option<String>,
+    /// Tool names allowed in read-only workspace mode (e.g. ["Read", "Grep", "Glob"]).
+    #[serde(default)]
+    pub read_only_tools: Vec<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]

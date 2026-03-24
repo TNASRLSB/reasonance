@@ -8,6 +8,7 @@ update_command = ["claude", "update"]
 api_key_env = "ANTHROPIC_API_KEY"
 permission_args = ["--dangerously-skip-permissions"]
 allowed_tools_arg = "--allowedTools"
+read_only_tools = ["Read", "Grep", "Glob", "WebSearch", "WebFetch"]
 
 [capabilities]
 streaming = true

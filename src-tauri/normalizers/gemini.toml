@@ -7,6 +7,7 @@ version_command = ["gemini", "--version"]
 update_command = ["npm", "install", "-g", "@FIXME/gemini-cli@latest"]
 api_key_env = "GEMINI_API_KEY"
 permission_args = ["--sandbox=none"]
+read_only_tools = ["Read", "Grep", "Glob"]
 
 [capabilities]
 streaming = true
