@@ -27,8 +27,10 @@
         class="slash-item"
         class:active={i === activeIndex}
         role="option"
+        tabindex="-1"
         aria-selected={i === activeIndex}
         onclick={() => onSelect(cmd)}
+        onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') onSelect(cmd); }}
       >
         <span class="cmd-name">{cmd.command}</span>
         <span class="cmd-desc">{cmd.description}</span>

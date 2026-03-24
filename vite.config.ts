@@ -19,7 +19,7 @@ export default defineConfig({
 					if (id.includes('@xterm/')) {
 						return 'vendor-xterm';
 					}
-					// xyflow/svelte — loaded on swarm canvas
+					// xyflow/svelte — loaded on hive canvas
 					if (id.includes('@xyflow/') || id.includes('xyflow')) {
 						return 'vendor-xyflow';
 					}

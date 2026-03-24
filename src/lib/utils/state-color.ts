@@ -7,6 +7,7 @@ const stateTokenMap: Record<string, string> = {
   retrying: '--state-retrying',
   fallback: '--state-retrying',
   error: '--state-failed',
+  skipped: '--state-idle',
 };
 
 export const stateIcons: Record<string, string> = {
@@ -18,6 +19,7 @@ export const stateIcons: Record<string, string> = {
   retrying: '↻',
   fallback: '↻',
   error: '✗',
+  skipped: '⏭',
 };
 
 export function getStateColor(s: string): string {

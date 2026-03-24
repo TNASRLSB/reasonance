@@ -22,9 +22,9 @@ export const editorTheme = writable<string>('forge-dark');
 
 export const cursorBlink = writable(false);
 
-// Swarm canvas state
-export const showSwarmCanvas = writable<boolean>(false);
-export const swarmViewMode = writable<'visual' | 'code' | 'split'>('visual');
+// Hive canvas state
+export const showHiveCanvas = writable<boolean>(false);
+export const hiveViewMode = writable<'visual' | 'code' | 'split'>('visual');
 export const selectedNodeId = writable<string | null>(null);
 
 import type { AnalyticsDashboardState } from '$lib/types/analytics';

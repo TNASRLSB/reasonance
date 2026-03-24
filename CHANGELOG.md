@@ -195,7 +195,7 @@
 - feat(design-system): add all new CSS tokens — typography, spacing, layers, colors, borders, transitions
 - feat(chat): add slash command menu with combobox ARIA pattern
 - feat(chat): delete ChatHeader, add streaming metrics to footer
-- feat(Toolbar): replace emoji buttons with accessible text buttons, add SWARM
+- feat(Toolbar): replace emoji buttons with accessible text buttons, add HIVE
 - feat(TerminalManager): flat tab bar with model names and [+] provider dropdown
 - feat(store): add turnCount to AgentSessionState
 
@@ -598,7 +598,7 @@
 - 
 - Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
 - 
-- workflows, discovery, config), Svelte frontend (all components, chat, swarm),
+- workflows, discovery, config), Svelte frontend (all components, chat, hive),
 - internationalization (9 languages), build config, and CI/CD pipeline.
 - 
 - Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
@@ -1218,21 +1218,21 @@
 - feat(ui): add WorkflowMenu component and dialog plugin (save/import/export/templates)
 - feat(backend): add duplicate, save-to-global, list-global workflow commands
 - feat(adapter): add duplicate, save-to-global, list-global workflow methods
-- feat(ui): integrate SwarmCanvas as fullscreen overlay in main layout
-- feat(ui): integrate SwarmPanel as tab in TerminalManager
-- feat(ui): add SwarmCanvas with Svelvet graph, toolbar, inspector, dual mode
-- feat(ui): add SwarmPanel compact monitoring component
-- feat(ui): add SwarmInspector component (node props, JSON toggle)
+- feat(ui): integrate HiveCanvas as fullscreen overlay in main layout
+- feat(ui): integrate HivePanel as tab in TerminalManager
+- feat(ui): add HiveCanvas with SvelteFlow graph, toolbar, inspector, dual mode
+- feat(ui): add HivePanel compact monitoring component
+- feat(ui): add HiveInspector component (node props, JSON toggle)
 - feat(ui): add Agent, Resource, Logic node components with state colors
 - feat(ui): add NodeCatalog component (Agent/Resource/Logic buttons)
-- feat(ui): add SwarmControls component (play/pause/stop/step)
+- feat(ui): add HiveControls component (play/pause/stop/step)
 - feat(frontend): add workflow engine adapter and store
 - feat(engine): add Tauri commands (play, pause, resume, stop, step, notify)
 - feat(engine): add WorkflowEngine with graph analysis, run lifecycle, and scheduler
-- feat: add agent swarm frontend adapter types and Svelte stores
-- feat: add Agent Runtime (Tasks 9-10) for agent swarm platform
+- feat: add agent hive frontend adapter types and Svelte stores
+- feat: add Agent Runtime (Tasks 9-10) for agent hive platform
 - feat: add WorkflowStore with CRUD commands (Tasks 6-8)
-- feat: add Discovery Engine for agent swarm platform
+- feat: add Discovery Engine for agent hive platform
 - feat: add discover_llms and get_system_colors Tauri commands, rename package to reasonance
 - feat: add REASONANCE logo and app icons
 - feat: enhanced readability class toggle, remove KDE color overrides
@@ -1346,7 +1346,7 @@
 - - Update mock adapter with new method stubs
 - - WelcomeScreen: add about dialog, logo, adapter integration
 - - FileTree: improved a11y and layout
-- - SwarmCanvas: layout and reactivity improvements
+- - HiveCanvas: layout and reactivity improvements
 - - theme store: simplify
 - - fs_watcher: cleanup
 - 
@@ -1515,7 +1515,7 @@
 - Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
 - 
 - 
-- chore: cleanup — swarm coming soon, fix a11y warnings, i18n DiffView
+- chore: cleanup — hive coming soon, fix a11y warnings, i18n DiffView
 - - Remove svelte-ignore a11y comments by adding proper roles, tabindex,
 -   and keyboard handlers to overlay/backdrop elements
 - - Add i18n to DiffView (diff.changes, diff.accept, diff.reject)
@@ -1543,7 +1543,7 @@
 - chore: add tauri-plugin-dialog for file import/export
 - 
 - 
-- chore: add svelvet dependency and swarm UI stores
+- chore: add @xyflow/svelte dependency and hive UI stores
 - 7 Tauri commands in TauriAdapter, and create derived Svelte stores for
 - run state tracking.
 - 
@@ -1554,7 +1554,7 @@
 - Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
 - 
 - 
-- - Implement all agent swarm methods in TauriAdapter (discovery, workflow CRUD, agent runtime)
+- - Implement all agent hive methods in TauriAdapter (discovery, workflow CRUD, agent runtime)
 - - Add workflow.ts store: currentWorkflow, workflowPath, dirty flag, derived node/edge counts
 - - Add agents.ts store: discoveredAgents, activeAgents, messages, derived running/errored counts
 - 
@@ -1576,7 +1576,7 @@
 - 
 - Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
 - 
-- chore: add reqwest, tokio, chrono dependencies for agent swarm
+- chore: add reqwest, tokio, chrono dependencies for agent hive
 - 
 - 
 - refactor: rename package/distribution files to reasonance

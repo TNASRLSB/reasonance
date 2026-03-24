@@ -329,7 +329,7 @@
 
 <div class="terminal-manager">
   <!-- Flat Tab Bar -->
-  <div class="flat-tabs" role="tablist" aria-label="Session tabs" onkeydown={handleTabKeydown}>
+  <div class="flat-tabs" role="tablist" tabindex="0" aria-label="Session tabs" onkeydown={handleTabKeydown}>
     {#each $terminalInstances as inst (inst.id)}
       {@const label = $computedLabels.get(inst.id) ?? inst.provider}
       {@const isActive = inst.id === $activeInstanceId}

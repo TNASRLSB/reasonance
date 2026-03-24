@@ -96,14 +96,12 @@
     onPermissionChange(next);
   }
 
-  function handleInputKeydown(e: KeyboardEvent) {
+  function handleKeydown(e: KeyboardEvent) {
     if (e.altKey && e.key === 'p') {
       e.preventDefault();
       cyclePermission();
+      return;
     }
-  }
-
-  function handleKeydown(e: KeyboardEvent) {
     if (showSlashMenu && slashFiltered.length > 0) {
       if (e.key === 'ArrowDown') {
         e.preventDefault();
@@ -145,7 +143,7 @@
   });
 </script>
 
-<div class="chat-input-wrapper" onkeydown={handleInputKeydown} role="region" aria-label="Chat input area">
+<div class="chat-input-wrapper" role="region" aria-label="Chat input area">
   {#if showSlashMenu}
     <SlashMenu
       commands={slashFiltered}

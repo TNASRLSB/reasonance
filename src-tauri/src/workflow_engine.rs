@@ -7,7 +7,7 @@ use log::{debug, info, warn};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex};
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Listener};
 
 #[derive(Serialize, Clone)]
 struct NodeStateEvent {
@@ -135,7 +135,7 @@ impl WorkflowEngine {
         preds.iter().all(|pred_id| {
             node_states
                 .get(pred_id)
-                .map(|s| s.state == AgentState::Success)
+                .map(|s| matches!(s.state, AgentState::Success | AgentState::Skipped))
                 .unwrap_or(false)
         })
     }
@@ -259,7 +259,7 @@ impl WorkflowEngine {
         Ok(run
             .node_states
             .values()
-            .all(|ns| matches!(ns.state, AgentState::Success | AgentState::Error)))
+            .all(|ns| matches!(ns.state, AgentState::Success | AgentState::Error | AgentState::Skipped)))
     }
 
     pub fn finalize_run(&self, run_id: &str) -> Result<RunStatus, String> {
@@ -411,6 +411,24 @@ impl WorkflowEngine {
             "node_id": node_id,
             "pty_id": pty_id,
         })).ok();
+
+        // Subscribe to PTY output for backend buffering (used by message routing + memory)
+        let runtime_agents = runtime.agents.clone();
+        let buf_agent_id = agent_id.clone();
+        app.listen(format!("pty-data-{}", pty_id), move |event| {
+            if let Ok(data) = serde_json::from_str::<String>(event.payload()) {
+                let mut agents = runtime_agents.lock().unwrap_or_else(|e| e.into_inner());
+                if let Some(agent) = agents.get_mut(&buf_agent_id) {
+                    for line in data.lines() {
+                        agent.output_buffer.push(line.to_string());
+                        if agent.output_buffer.len() > 200 {
+                            agent.output_buffer.remove(0);
+                        }
+                    }
+                }
+            }
+        });
+
         Ok(())
     }
 
@@ -536,9 +554,18 @@ impl WorkflowEngine {
                                         self.update_node_state(
                                             run_id,
                                             &succ_id,
-                                            AgentState::Error,
+                                            AgentState::Skipped,
                                             None,
                                         )?;
+                                        let _ = app.emit(
+                                            "hive://node-state-changed",
+                                            NodeStateEvent {
+                                                run_id: run_id.to_string(),
+                                                node_id: succ_id.clone(),
+                                                old_state: "idle".to_string(),
+                                                new_state: "skipped".to_string(),
+                                            },
+                                        );
                                     }
                                 }
                             }
@@ -628,6 +655,23 @@ impl WorkflowEngine {
                     new_state: "success".to_string(),
                 },
             );
+
+            // Route output to successor nodes via agent messaging
+            let output = agent_id
+                .as_ref()
+                .and_then(|aid| runtime.get_output(aid).ok())
+                .unwrap_or_default();
+            if !output.is_empty() {
+                let successors = Self::get_successors(node_id, &workflow.edges);
+                let payload = serde_json::json!({
+                    "from_node": node_id,
+                    "output": output.join("\n"),
+                });
+                for succ_id in &successors {
+                    runtime.send_message(node_id, succ_id, payload.clone());
+                    debug!("Routed output from {} to {} ({} lines)", node_id, succ_id, output.len());
+                }
+            }
         } else {
             warn!("Workflow node failed: run_id={}, node_id={}", run_id, node_id);
             if let Some(ref aid) = agent_id {
@@ -669,11 +713,35 @@ impl WorkflowEngine {
                         };
                         let path_str = mem_path.to_str().unwrap_or("");
                         let mut store = AgentMemoryStore::load(path_str).unwrap_or_else(|_| AgentMemoryStore::new(node_id));
+                        // Build input summary from messages routed to this node
+                        let input_msgs = runtime.get_messages_for(node_id);
+                        let input_summary = if input_msgs.is_empty() {
+                            String::new()
+                        } else {
+                            input_msgs.iter()
+                                .filter_map(|m| m.payload.get("output").and_then(|v| v.as_str()))
+                                .collect::<Vec<_>>()
+                                .join("\n---\n")
+                                .chars().take(2000).collect()
+                        };
+
+                        // Build output summary from PTY output buffer
+                        let output_summary = agent_id
+                            .as_ref()
+                            .and_then(|aid| runtime.get_output(aid).ok())
+                            .map(|lines| {
+                                let last_50: Vec<&str> = lines.iter().rev().take(50).map(|s| s.as_str()).collect();
+                                let mut reversed = last_50;
+                                reversed.reverse();
+                                reversed.join("\n").chars().take(2000).collect::<String>()
+                            })
+                            .unwrap_or_default();
+
                         let entry = crate::agent_memory::MemoryEntry {
                             run_id: run_id.to_string(),
                             timestamp: chrono::Utc::now().to_rfc3339(),
-                            input_summary: String::new(),
-                            output_summary: String::new(),
+                            input_summary,
+                            output_summary,
                             outcome: if success { "success".to_string() } else { "failure".to_string() },
                             context: serde_json::Value::Null,
                         };

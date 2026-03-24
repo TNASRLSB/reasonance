@@ -267,6 +267,7 @@
               role="option"
               aria-selected={i === selectedIndex}
               onclick={() => selectItem(item)}
+              onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') selectItem(item); }}
             >
               <span class="item-icon">{item.type === 'command' ? '>' : ''}</span>
               <span class="item-label">{item.label}</span>

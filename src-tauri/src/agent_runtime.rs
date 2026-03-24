@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
-pub enum AgentState { Idle, Queued, Running, Success, Failed, Retrying, Fallback, Error }
+pub enum AgentState { Idle, Queued, Running, Success, Failed, Retrying, Fallback, Error, Skipped }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentInstance {
@@ -20,6 +20,8 @@ pub struct AgentInstance {
     pub started_at: Option<String>,
     pub finished_at: Option<String>,
     pub error_message: Option<String>,
+    #[serde(default)]
+    pub output_buffer: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -49,7 +51,7 @@ impl AgentRuntime {
         let agent = AgentInstance {
             id: id.clone(), node_id: node_id.to_string(), workflow_path: workflow_path.to_string(),
             state: AgentState::Idle, pty_id: None, retry_count: 0, max_retries,
-            fallback_agent, started_at: None, finished_at: None, error_message: None,
+            fallback_agent, started_at: None, finished_at: None, error_message: None, output_buffer: Vec::new(),
         };
         self.agents.lock().unwrap_or_else(|e| e.into_inner()).insert(id.clone(), agent);
         id
@@ -71,6 +73,7 @@ impl AgentRuntime {
             (AgentState::Failed, AgentState::Error) => true,
             (AgentState::Retrying, AgentState::Running) => true,
             (AgentState::Fallback, AgentState::Running) => true,
+            (AgentState::Idle, AgentState::Skipped) => true,
             _ => false,
         };
         if !valid {
@@ -82,7 +85,7 @@ impl AgentRuntime {
         match &new_state {
             AgentState::Running => { if agent.started_at.is_none() { agent.started_at = Some(now); } }
             AgentState::Retrying => { agent.retry_count += 1; }
-            AgentState::Success | AgentState::Error => { agent.finished_at = Some(now); }
+            AgentState::Success | AgentState::Error | AgentState::Skipped => { agent.finished_at = Some(now); }
             _ => {}
         }
         agent.state = new_state.clone();
@@ -130,6 +133,25 @@ impl AgentRuntime {
             timestamp: chrono::Utc::now().to_rfc3339(),
         };
         self.messages.lock().unwrap_or_else(|e| e.into_inner()).push(msg);
+    }
+
+    const MAX_OUTPUT_LINES: usize = 200;
+
+    pub fn append_output(&self, agent_id: &str, line: &str) -> Result<(), String> {
+        let mut agents = self.agents.lock().unwrap_or_else(|e| e.into_inner());
+        let agent = agents.get_mut(agent_id).ok_or_else(|| format!("Agent {} not found", agent_id))?;
+        agent.output_buffer.push(line.to_string());
+        if agent.output_buffer.len() > Self::MAX_OUTPUT_LINES {
+            let drain_count = agent.output_buffer.len() - Self::MAX_OUTPUT_LINES;
+            agent.output_buffer.drain(..drain_count);
+        }
+        Ok(())
+    }
+
+    pub fn get_output(&self, agent_id: &str) -> Result<Vec<String>, String> {
+        let agents = self.agents.lock().unwrap_or_else(|e| e.into_inner());
+        let agent = agents.get(agent_id).ok_or_else(|| format!("Agent {} not found", agent_id))?;
+        Ok(agent.output_buffer.clone())
     }
 
     pub fn get_messages_for(&self, agent_id: &str) -> Vec<AgentMessage> {
@@ -271,6 +293,20 @@ mod tests {
         runtime.remove_workflow_agents("wf-a");
         assert_eq!(runtime.get_workflow_agents("wf-a").len(), 0);
         assert_eq!(runtime.get_workflow_agents("wf-b").len(), 1);
+    }
+
+    #[test]
+    fn test_skipped_transition() {
+        let runtime = AgentRuntime::new();
+        let id = runtime.create_agent("node-1", "wf", 0, None);
+
+        // Idle → Skipped is valid
+        let result = runtime.transition(&id, AgentState::Skipped);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), AgentState::Skipped);
+
+        let agent = runtime.get_agent(&id).unwrap();
+        assert!(agent.finished_at.is_some());
     }
 
     #[test]

@@ -13,14 +13,14 @@
   import { TauriAdapter } from '$lib/adapter/tauri';
   import { initTheme } from '$lib/stores/theme';
   import { openFiles, activeFilePath, projectRoot, addRecentProject } from '$lib/stores/files';
-  import { showSettings, enhancedReadability, showSwarmCanvas } from '$lib/stores/ui';
+  import { showSettings, enhancedReadability, showHiveCanvas } from '$lib/stores/ui';
   import { activeInstance } from '$lib/stores/terminals';
   import { llmConfigs } from '$lib/stores/config';
   import { initI18n, tr } from '$lib/i18n/index';
   import { registerKeybinding, initKeybindings } from '$lib/utils/keybindings';
   import Toast from '$lib/components/Toast.svelte';
   import { showToast } from '$lib/stores/toast';
-  import SwarmCanvas from '$lib/components/swarm/SwarmCanvas.svelte';
+  import HiveCanvas from '$lib/components/hive/HiveCanvas.svelte';
   import ShortcutsDialog from '$lib/components/ShortcutsDialog.svelte';
   import SessionPanel from '$lib/components/SessionPanel.svelte';
   import { saveSession, restoreSession, initShadowTracking } from '$lib/utils/session';
@@ -57,8 +57,8 @@
   let showSessions = $state(false);
   let editorReadOnly = $state(false);
   let showMarkdownPreview = $state(false);
-  let swarmVisible = $state(false);
-  const unsubSwarm = showSwarmCanvas.subscribe((val) => { swarmVisible = val; });
+  let hiveVisible = $state(false);
+  const unsubHive = showHiveCanvas.subscribe((val) => { hiveVisible = val; });
   let unsubEnhanced: () => void;
 
   // Reactive projectRoot for passing as cwd
@@ -327,7 +327,7 @@
   onDestroy(() => {
     unsubFiles?.();
     unsubEnhanced?.();
-    unsubSwarm();
+    unsubHive();
     unsubRoot();
     cleanups.forEach((fn) => fn());
     if (unwatchFiles) unwatchFiles();
@@ -443,9 +443,9 @@
   onClose={() => (showFindInFiles = false)}
 />
 
-{#if swarmVisible}
-  <div class="swarm-overlay">
-    <SwarmCanvas {adapter} />
+{#if hiveVisible}
+  <div class="hive-overlay">
+    <HiveCanvas {adapter} />
   </div>
 {/if}
 
@@ -483,7 +483,7 @@
 <Toast />
 
 <style>
-  .swarm-overlay {
+  .hive-overlay {
     position: fixed;
     top: 0;
     left: 0;

@@ -175,7 +175,7 @@ export interface DiscoveredAgent {
   available: boolean;
 }
 
-export type AgentState = 'idle' | 'queued' | 'running' | 'success' | 'failed' | 'retrying' | 'fallback' | 'error';
+export type AgentState = 'idle' | 'queued' | 'running' | 'success' | 'failed' | 'retrying' | 'fallback' | 'error' | 'skipped';
 
 export interface AgentInstance {
   id: string;
@@ -189,6 +189,7 @@ export interface AgentInstance {
   started_at: string | null;
   finished_at: string | null;
   error_message: string | null;
+  output_buffer: string[];
 }
 
 export interface AgentMessage {

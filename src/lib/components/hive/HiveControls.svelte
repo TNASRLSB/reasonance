@@ -60,7 +60,7 @@
   onDestroy(() => unsubStatus());
 </script>
 
-<div class="swarm-controls">
+<div class="hive-controls">
   {#if status === 'idle' || status === 'stopped' || status === 'completed' || status === 'failed'}
     <button class="ctrl-btn play" onclick={play} title="Play">&#9654;</button>
   {:else if status === 'running'}
@@ -73,7 +73,7 @@
 </div>
 
 <style>
-  .swarm-controls {
+  .hive-controls {
     display: flex;
     gap: var(--interactive-gap);
     align-items: center;

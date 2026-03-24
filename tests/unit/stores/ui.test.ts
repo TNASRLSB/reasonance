@@ -10,8 +10,8 @@ import {
   fontSize,
   enhancedReadability,
   editorTheme,
-  showSwarmCanvas,
-  swarmViewMode,
+  showHiveCanvas,
+  hiveViewMode,
   selectedNodeId,
 } from '$lib/stores/ui';
 
@@ -26,8 +26,8 @@ describe('ui store', () => {
     fontSize.set(14);
     enhancedReadability.set(false);
     editorTheme.set('forge-dark');
-    showSwarmCanvas.set(false);
-    swarmViewMode.set('visual');
+    showHiveCanvas.set(false);
+    hiveViewMode.set('visual');
     selectedNodeId.set(null);
   });
 
@@ -68,24 +68,24 @@ describe('ui store', () => {
     expect(get(activeEditorTab)).toBe('/project/src/main.ts');
   });
 
-  it('swarm canvas defaults to hidden with visual mode and no selection', () => {
-    expect(get(showSwarmCanvas)).toBe(false);
-    expect(get(swarmViewMode)).toBe('visual');
+  it('hive canvas defaults to hidden with visual mode and no selection', () => {
+    expect(get(showHiveCanvas)).toBe(false);
+    expect(get(hiveViewMode)).toBe('visual');
     expect(get(selectedNodeId)).toBeNull();
   });
 
-  it('can show swarm canvas and switch view mode', () => {
-    showSwarmCanvas.set(true);
-    expect(get(showSwarmCanvas)).toBe(true);
+  it('can show hive canvas and switch view mode', () => {
+    showHiveCanvas.set(true);
+    expect(get(showHiveCanvas)).toBe(true);
 
-    swarmViewMode.set('code');
-    expect(get(swarmViewMode)).toBe('code');
+    hiveViewMode.set('code');
+    expect(get(hiveViewMode)).toBe('code');
 
-    swarmViewMode.set('split');
-    expect(get(swarmViewMode)).toBe('split');
+    hiveViewMode.set('split');
+    expect(get(hiveViewMode)).toBe('split');
   });
 
-  it('can select a swarm node', () => {
+  it('can select a hive node', () => {
     selectedNodeId.set('node-42');
     expect(get(selectedNodeId)).toBe('node-42');
 

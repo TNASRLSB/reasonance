@@ -68,6 +68,7 @@
   <div
     class="term-toolbar-left"
     role="toolbar"
+    tabindex="0"
     aria-label="Terminal actions"
     bind:this={toolbarLeftEl}
     onkeydown={(e) => { if (toolbarLeftEl && (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'Home' || e.key === 'End')) toolbarKeyHandler(e, toolbarLeftEl); }}

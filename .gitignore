@@ -25,9 +25,6 @@ references/
 .orson/
 .scribe/
 .seurat/
-.claude/settings.local.json
-.claude/docs/session-notes/*.md
-!.claude/docs/session-notes/.gitkeep
 .heimdall/state.json
 .heimdall/findings.json
 __pycache__/

@@ -202,6 +202,7 @@ export function createMockAdapter(overrides?: Partial<Adapter>): Adapter {
         started_at: null,
         finished_at: null,
         error_message: null,
+        output_buffer: [],
       };
       agents.set(id, instance);
       agentMessages.set(id, []);

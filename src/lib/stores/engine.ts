@@ -22,7 +22,11 @@ export const nodeStates = derived(currentRun, ($run): NodeRunState[] =>
 );
 
 export const completedNodeCount = derived(nodeStates, ($states) =>
-  $states.filter(s => s.state === 'success').length
+  $states.filter(s => s.state === 'success' || s.state === 'skipped').length
+);
+
+export const skippedNodeCount = derived(nodeStates, ($states) =>
+  $states.filter(s => s.state === 'skipped').length
 );
 
 export const totalNodeCount = derived(nodeStates, ($states) => $states.length);

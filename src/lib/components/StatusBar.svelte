@@ -134,9 +134,6 @@
     opacity: 0.75;
   }
 
-  .llm-count {
-    opacity: 0.85;
-  }
 
   .cursor-pos {
     font-family: var(--font-mono);
