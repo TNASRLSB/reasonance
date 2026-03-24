@@ -35,6 +35,7 @@ mod capability;
 mod self_heal;
 mod analytics;
 mod workspace_trust;
+mod theme_manager;
 
 use commands::fs::ProjectRootState;
 use fs_watcher::FsWatcherState;
@@ -308,6 +309,12 @@ pub fn run() {
             commands::workspace_trust::set_workspace_trust,
             commands::workspace_trust::revoke_workspace_trust,
             commands::workspace_trust::list_workspace_trust,
+            theme_manager::list_user_themes,
+            theme_manager::load_user_theme,
+            theme_manager::save_user_theme,
+            theme_manager::delete_user_theme,
+            theme_manager::load_theme_preferences,
+            theme_manager::save_theme_preferences,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
