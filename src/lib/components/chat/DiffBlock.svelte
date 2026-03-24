@@ -49,7 +49,7 @@
 </script>
 
 <div class="diff-block">
-  <button class="diff-header" onclick={() => expanded = !expanded}>
+  <button class="diff-header" onclick={() => expanded = !expanded} aria-expanded={expanded} aria-label="{expanded ? 'Collapse' : 'Expand'} diff for {filePath}">
     <span class="diff-icon">±</span>
     <span class="diff-file">{filePath}</span>
     <span class="diff-stats">
@@ -65,10 +65,10 @@
           <div class="hunk-header">@@ -{hunk.old_start} +{hunk.new_start} @@</div>
           <div class="hunk-lines">
             {#each hunk.old_lines as line}
-              <div class="line removed"><span class="diff-prefix" aria-hidden="true">-</span> {line}</div>
+              <div class="line removed"><span class="diff-prefix">-</span> {line}</div>
             {/each}
             {#each hunk.new_lines as line}
-              <div class="line added"><span class="diff-prefix" aria-hidden="true">+</span> {line}</div>
+              <div class="line added"><span class="diff-prefix">+</span> {line}</div>
             {/each}
           </div>
         </div>
@@ -176,8 +176,11 @@
 
   .diff-prefix {
     font-weight: 700;
-    font-size: var(--font-size-md);
-    margin-inline-end: var(--stack-tight);
+    font-size: var(--font-size-base);
+    margin-inline-end: var(--space-1);
+    min-width: 1em;
+    display: inline-block;
+    text-align: center;
   }
 
   .line.removed {
