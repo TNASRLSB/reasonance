@@ -296,6 +296,10 @@ pub fn run() {
             commands::analytics::analytics_active,
             commands::provider::test_provider_connection,
             commands::provider::reload_normalizers,
+            commands::workspace_trust::check_workspace_trust,
+            commands::workspace_trust::set_workspace_trust,
+            commands::workspace_trust::revoke_workspace_trust,
+            commands::workspace_trust::list_workspace_trust,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
