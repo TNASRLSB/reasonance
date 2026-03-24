@@ -1,5 +1,6 @@
 use crate::agent_runtime::AgentRuntime;
 use crate::pty_manager::PtyManager;
+use crate::resource_lock::ResourceLockManager;
 use crate::workflow_engine::{WorkflowEngine, WorkflowRun};
 use crate::workflow_store::WorkflowStore;
 use log::{info, debug};
@@ -14,13 +15,14 @@ pub fn play_workflow(
     store: State<'_, WorkflowStore>,
     runtime: State<'_, AgentRuntime>,
     pty_manager: State<'_, PtyManager>,
+    lock_manager: State<'_, ResourceLockManager>,
 ) -> Result<String, String> {
     info!("cmd::play_workflow(workflow_path={}, cwd={})", workflow_path, cwd);
     let workflow = store
         .load(&workflow_path)
         .or_else(|_| store.get(&workflow_path).ok_or("Workflow not loaded".to_string()))?;
     let run_id = engine.create_run(&workflow, &workflow_path)?;
-    engine.advance_run(&run_id, &workflow, &runtime, &pty_manager, &app, &cwd)?;
+    engine.advance_run(&run_id, &workflow, &runtime, &pty_manager, &app, &cwd, &lock_manager)?;
     let _ = app.emit("workflow-run-started", serde_json::json!({
         "run_id": run_id, "workflow_path": workflow_path,
     }));
@@ -47,11 +49,12 @@ pub fn resume_workflow(
     store: State<'_, WorkflowStore>,
     runtime: State<'_, AgentRuntime>,
     pty_manager: State<'_, PtyManager>,
+    lock_manager: State<'_, ResourceLockManager>,
 ) -> Result<(), String> {
     info!("cmd::resume_workflow(run_id={})", run_id);
     engine.resume_run(&run_id)?;
     let workflow = store.get(&workflow_path).ok_or("Workflow not loaded")?;
-    engine.advance_run(&run_id, &workflow, &runtime, &pty_manager, &app, &cwd)?;
+    engine.advance_run(&run_id, &workflow, &runtime, &pty_manager, &app, &cwd, &lock_manager)?;
     Ok(())
 }
 
@@ -62,10 +65,13 @@ pub fn stop_workflow(
     engine: State<'_, WorkflowEngine>,
     runtime: State<'_, AgentRuntime>,
     pty_manager: State<'_, PtyManager>,
+    lock_manager: State<'_, ResourceLockManager>,
 ) -> Result<(), String> {
     info!("cmd::stop_workflow(run_id={})", run_id);
     if let Some(run) = engine.get_run(&run_id) {
         for ns in run.node_states.values() {
+            // Release all resource locks held by this node
+            lock_manager.release_all(&ns.node_id);
             if let Some(ref agent_id) = ns.agent_id {
                 if let Some(agent) = runtime.get_agent(agent_id) {
                     if let Some(ref pty_id) = agent.pty_id {
@@ -90,10 +96,11 @@ pub fn step_workflow(
     store: State<'_, WorkflowStore>,
     runtime: State<'_, AgentRuntime>,
     pty_manager: State<'_, PtyManager>,
+    lock_manager: State<'_, ResourceLockManager>,
 ) -> Result<Option<String>, String> {
     info!("cmd::step_workflow(run_id={})", run_id);
     let workflow = store.get(&workflow_path).ok_or("Workflow not loaded")?;
-    engine.step_run(&run_id, &workflow, &runtime, &pty_manager, &app, &cwd)
+    engine.step_run(&run_id, &workflow, &runtime, &pty_manager, &app, &cwd, &lock_manager)
 }
 
 #[tauri::command]
@@ -117,8 +124,9 @@ pub fn notify_node_completed(
     store: State<'_, WorkflowStore>,
     runtime: State<'_, AgentRuntime>,
     pty_manager: State<'_, PtyManager>,
+    lock_manager: State<'_, ResourceLockManager>,
 ) -> Result<(), String> {
     info!("cmd::notify_node_completed(run_id={}, node_id={}, success={})", run_id, node_id, success);
     let workflow = store.get(&workflow_path).ok_or("Workflow not loaded")?;
-    engine.on_node_completed(&run_id, &node_id, success, &workflow, &runtime, &pty_manager, &app, &cwd)
+    engine.on_node_completed(&run_id, &node_id, success, &workflow, &runtime, &pty_manager, &app, &cwd, &lock_manager)
 }

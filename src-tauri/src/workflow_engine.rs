@@ -1,6 +1,7 @@
 use crate::agent_runtime::{AgentRuntime, AgentState};
 use crate::pty_manager::PtyManager;
-use crate::workflow_store::{NodeType, Workflow, WorkflowEdge};
+use crate::resource_lock::ResourceLockManager;
+use crate::workflow_store::{NodeType, ResourceNodeConfig, Workflow, WorkflowEdge};
 use log::{debug, info, warn};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
@@ -275,6 +276,7 @@ impl WorkflowEngine {
         pty_manager: &PtyManager,
         app: &AppHandle,
         cwd: &str,
+        lock_manager: &ResourceLockManager,
     ) -> Result<Vec<String>, String> {
         {
             let runs = self.runs.lock().unwrap_or_else(|e| e.into_inner());
@@ -312,6 +314,40 @@ impl WorkflowEngine {
 
             match node.node_type {
                 NodeType::Agent => {
+                    // Acquire locks on connected Resource nodes before spawning
+                    let mut lock_failed = false;
+                    let mut acquired_resources: Vec<String> = Vec::new();
+                    for edge in &workflow.edges {
+                        let resource_node_id = if edge.to == node_id {
+                            &edge.from
+                        } else if edge.from == node_id {
+                            &edge.to
+                        } else {
+                            continue;
+                        };
+                        if let Some(res_node) = workflow.nodes.iter().find(|n| n.id == *resource_node_id && n.node_type == NodeType::Resource) {
+                            let write = if let Ok(cfg) = serde_json::from_value::<ResourceNodeConfig>(res_node.config.clone()) {
+                                cfg.access == "write" || cfg.access == "read_write"
+                            } else {
+                                false
+                            };
+                            if let Err(e) = lock_manager.acquire(resource_node_id, &node_id, write) {
+                                debug!("Lock acquisition failed for node {} on resource {}: {}", node_id, resource_node_id, e);
+                                lock_failed = true;
+                                break;
+                            }
+                            acquired_resources.push(resource_node_id.clone());
+                        }
+                    }
+                    if lock_failed {
+                        // Release any locks we acquired in this attempt
+                        for rid in &acquired_resources {
+                            lock_manager.release(rid, &node_id);
+                        }
+                        // Skip this node — it will be retried on next advance_run() call
+                        continue;
+                    }
+
                     let retry = node
                         .config
                         .get("retry")
@@ -453,6 +489,7 @@ impl WorkflowEngine {
         pty_manager: &PtyManager,
         app: &AppHandle,
         cwd: &str,
+        lock_manager: &ResourceLockManager,
     ) -> Result<(), String> {
         let agent_id = {
             let runs = self.runs.lock().unwrap_or_else(|e| e.into_inner());
@@ -463,6 +500,9 @@ impl WorkflowEngine {
                 .get(node_id)
                 .and_then(|ns| ns.agent_id.clone())
         };
+
+        // Release all locks held by this node
+        lock_manager.release_all(node_id);
 
         if success {
             info!("Workflow node completed successfully: run_id={}, node_id={}", run_id, node_id);
@@ -501,7 +541,7 @@ impl WorkflowEngine {
                 );
             }
         }
-        self.advance_run(run_id, workflow, runtime, pty_manager, app, cwd)?;
+        self.advance_run(run_id, workflow, runtime, pty_manager, app, cwd, lock_manager)?;
         Ok(())
     }
 
@@ -605,6 +645,7 @@ impl WorkflowEngine {
         pty_manager: &PtyManager,
         app: &AppHandle,
         cwd: &str,
+        lock_manager: &ResourceLockManager,
     ) -> Result<Option<String>, String> {
         debug!("Stepping workflow run: run_id={}", run_id);
         {
@@ -629,7 +670,7 @@ impl WorkflowEngine {
             return Ok(None);
         }
 
-        let started = self.advance_run(run_id, workflow, runtime, pty_manager, app, cwd)?;
+        let started = self.advance_run(run_id, workflow, runtime, pty_manager, app, cwd, lock_manager)?;
         {
             let mut runs = self.runs.lock().unwrap_or_else(|e| e.into_inner());
             if let Some(run) = runs.get_mut(run_id) {

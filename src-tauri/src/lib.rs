@@ -25,6 +25,7 @@ mod shadow_store;
 mod workflow_store;
 mod agent_runtime;
 mod workflow_engine;
+mod resource_lock;
 mod logic_eval;
 mod cli_updater;
 mod normalizer_version;
@@ -100,6 +101,7 @@ pub fn run() {
         .manage(workflow_store::WorkflowStore::new())
         .manage(agent_runtime::AgentRuntime::new())
         .manage(workflow_engine::WorkflowEngine::new())
+        .manage(resource_lock::ResourceLockManager::new())
         .manage(
             transport::StructuredAgentTransport::new(
                 std::path::Path::new("normalizers")
