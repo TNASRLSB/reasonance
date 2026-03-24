@@ -1,5 +1,6 @@
 <script lang="ts">
   import { get } from 'svelte/store';
+  import { invoke } from '@tauri-apps/api/core';
   import { activeTheme, setPreviewVariable } from '$lib/stores/theme';
   import { validateTheme } from '$lib/engine/theme-validator';
   import { extractVariables } from '$lib/engine/theme-engine';
@@ -27,6 +28,10 @@
   let showJson = $state(false);
   let activeSection = $state('colors');
   let searchQuery = $state('');
+  let saveError = $state<string | null>(null);
+  let copyConfirm = $state(false);
+  let dragOver = $state(false);
+  let importError = $state<string | null>(null);
 
   // Undo/redo stacks
   let undoStack = $state<ThemeFile[]>([]);
@@ -120,20 +125,85 @@
     onClose();
   }
 
-  function handleSaveAsNew() {
+  async function handleSaveAsNew() {
     if (!currentTheme) return;
+    saveError = null;
+    const result = validateTheme(currentTheme);
+    if (!result.valid) {
+      saveError = result.errors.join('\n');
+      return;
+    }
     const name = currentTheme.meta.name ?? 'custom-theme';
-    const blob = new Blob([JSON.stringify(currentTheme, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${name}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+    const content = JSON.stringify(currentTheme, null, 2);
+    try {
+      await invoke('save_user_theme', { name, content });
+    } catch (err) {
+      saveError = String(err);
+    }
   }
 
-  function handleExport() {
-    handleSaveAsNew();
+  async function handleExport() {
+    if (!currentTheme) return;
+    saveError = null;
+    const result = validateTheme(currentTheme);
+    if (!result.valid) {
+      saveError = result.errors.join('\n');
+      return;
+    }
+    const json = JSON.stringify(currentTheme, null, 2);
+    try {
+      await navigator.clipboard.writeText(json);
+      copyConfirm = true;
+      setTimeout(() => { copyConfirm = false; }, 2000);
+    } catch (err) {
+      saveError = `Clipboard error: ${String(err)}`;
+    }
+  }
+
+  function handleDragOver(e: DragEvent) {
+    e.preventDefault();
+    dragOver = true;
+  }
+
+  function handleDragLeave() {
+    dragOver = false;
+  }
+
+  function handleDrop(e: DragEvent) {
+    e.preventDefault();
+    dragOver = false;
+    importError = null;
+    const file = e.dataTransfer?.files?.[0];
+    if (!file) return;
+    if (!file.name.endsWith('.json')) {
+      importError = 'Only .json files are supported';
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(reader.result as string);
+        const result = validateTheme(parsed);
+        if (!result.valid) {
+          importError = result.errors.join('\n');
+          return;
+        }
+        const theme = parsed as ThemeFile;
+        if (currentTheme) pushUndo(currentTheme);
+        currentTheme = theme;
+        undoStack = [];
+        redoStack = [];
+        editorMode = theme.meta.type === 'modifier' ? 'modifier' : 'theme';
+        activeSection = availableSections[0] ?? 'colors';
+        const vars = extractVariables(theme);
+        for (const [k, v] of Object.entries(vars)) {
+          setPreviewVariable(k, String(v));
+        }
+      } catch {
+        importError = 'Invalid JSON file';
+      }
+    };
+    reader.readAsText(file);
   }
 
   function handleKeydown(e: KeyboardEvent) {
@@ -152,7 +222,17 @@
 {#if open}
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div class="editor-overlay" onkeydown={handleKeydown} role="presentation">
-    <div class="editor-shell" role="dialog" aria-modal="true" aria-label="Theme Editor">
+    <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+    <div
+      class="editor-shell"
+      class:drag-over={dragOver}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Theme Editor"
+      ondragover={handleDragOver}
+      ondragleave={handleDragLeave}
+      ondrop={handleDrop}
+    >
 
       <!-- Top bar -->
       <div class="top-bar">
@@ -253,6 +333,12 @@
       <!-- Bottom bar -->
       <div class="bottom-bar">
         <button class="bar-btn cancel-btn" onclick={handleCancel}>Cancel</button>
+        {#if importError}
+          <span class="feedback-msg error-msg" role="alert">{importError}</span>
+        {/if}
+        {#if saveError}
+          <span class="feedback-msg error-msg" role="alert">{saveError}</span>
+        {/if}
         <div class="spacer"></div>
         <button
           class="bar-btn save-btn"
@@ -263,7 +349,7 @@
           class="bar-btn export-btn"
           onclick={handleExport}
           disabled={!currentTheme}
-        >Export JSON</button>
+        >{copyConfirm ? 'Copied!' : 'Export JSON'}</button>
       </div>
     </div>
   </div>
@@ -502,5 +588,24 @@
 
   .export-btn:hover:not(:disabled) {
     background: var(--bg-hover, #252525);
+  }
+
+  .editor-shell.drag-over {
+    outline: 2px dashed var(--accent, #4a9eff);
+    outline-offset: -4px;
+  }
+
+  .feedback-msg {
+    font-size: 11px;
+    font-family: var(--font-ui, sans-serif);
+    max-width: 300px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex-shrink: 1;
+  }
+
+  .error-msg {
+    color: var(--color-error, #f87171);
   }
 </style>
