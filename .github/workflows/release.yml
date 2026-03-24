@@ -154,7 +154,7 @@ jobs:
             echo -e "$BODY" >> CHANGELOG.md
           fi
 
-      - name: Commit and tag
+      - name: Tag release (no commit to main)
         run: |
           NEW="${{ needs.analyze.outputs.new_version }}"
           git config user.name "github-actions[bot]"
@@ -163,7 +163,7 @@ jobs:
           git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml aur/PKGBUILD CHANGELOG.md
           git commit -m "[release] v${NEW} [skip ci]"
           git tag "v${NEW}"
-          git push origin main --tags
+          git push origin "v${NEW}"
 
   build:
     needs: [analyze, version]
