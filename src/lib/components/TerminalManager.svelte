@@ -413,6 +413,11 @@
               configName={inst.provider}
             />
           {:else if getViewMode(inst.id) === 'terminal'}
+            {#if $workspaceTrustLevel === 'blocked' || $workspaceTrustLevel === null}
+              <div class="pty-trust-warning">
+                Trust revoked — new commands may be restricted.
+              </div>
+            {/if}
             <ImageDrop {adapter} instanceId={inst.id} llmName={inst.provider}>
               {#snippet children()}
                 <Terminal {adapter} ptyId={inst.id} />
@@ -833,5 +838,17 @@
 
   .no-llm-btn:hover {
     opacity: 0.85;
+  }
+
+  .pty-trust-warning {
+    padding: var(--space-1) var(--space-2);
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    font-size: var(--font-size-tiny);
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    text-align: center;
   }
 </style>
