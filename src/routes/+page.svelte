@@ -14,6 +14,8 @@
   import { initTheme } from '$lib/stores/theme';
   import { openFiles, activeFilePath, projectRoot, addRecentProject } from '$lib/stores/files';
   import { showSettings, enhancedReadability, showSwarmCanvas } from '$lib/stores/ui';
+  import { activeInstance } from '$lib/stores/terminals';
+  import { llmConfigs } from '$lib/stores/config';
   import { initI18n, tr } from '$lib/i18n/index';
   import { registerKeybinding, initKeybindings } from '$lib/utils/keybindings';
   import Toast from '$lib/components/Toast.svelte';
@@ -28,6 +30,13 @@
   import { attachConsole } from '@tauri-apps/plugin-log';
   import '../app.css';
 
+  function isActiveSessionYolo(): boolean {
+    const inst = get(activeInstance);
+    if (!inst) return false;
+    const config = get(llmConfigs).find((c) => c.name === inst.provider);
+    return config?.permissionLevel === 'yolo';
+  }
+
   interface DiffState {
     path: string;
     original: string;
@@ -37,7 +46,7 @@
 
   const adapter = new TauriAdapter();
 
-  let diffState = $state<DiffState | null>(null);
+  let diffState = $state<(DiffState & { isUserSave?: boolean }) | null>(null);
   let unwatchFiles: (() => void) | null = null;
   let showSearchPalette = $state(false);
   let showFindInFiles = $state(false);
@@ -46,7 +55,7 @@
   let showAbout = $state(false);
   let showShortcuts = $state(false);
   let showSessions = $state(false);
-  let editorReadOnly = $state(true);
+  let editorReadOnly = $state(false);
   let showMarkdownPreview = $state(false);
   let swarmVisible = $state(false);
   const unsubSwarm = showSwarmCanvas.subscribe((val) => { swarmVisible = val; });
@@ -73,6 +82,52 @@
   // Cleanup array for event listeners
   const cleanups: Array<() => void> = [];
 
+  // ── Save File ─────────────────────────────────────────────────────────────
+
+  async function saveActiveFile() {
+    const path = get(activeFilePath);
+    if (!path) return;
+    const files = get(openFiles);
+    const file = files.find((f) => f.path === path);
+    if (!file || !file.isDirty) return;
+
+    // Get original content (shadow) to show diff
+    const shadow = await adapter.getShadow(path);
+    const original = shadow ?? '';
+
+    if (original === file.content) {
+      // No actual change vs saved — just clear dirty flag
+      openFiles.update((all) =>
+        all.map((f) => f.path === path ? { ...f, isDirty: false } : f)
+      );
+      return;
+    }
+
+    // Show diff for user to review before saving
+    diffState = {
+      path,
+      original,
+      modified: file.content,
+      filename: file.name,
+      isUserSave: true,
+    };
+  }
+
+  async function saveAllFiles() {
+    const files = get(openFiles).filter((f) => f.isDirty);
+    for (const file of files) {
+      try {
+        await adapter.writeFile(file.path, file.content);
+        await adapter.storeShadow(file.path, file.content);
+      } catch (err) {
+        showToast('error', 'Save failed', `${file.name}: ${err}`);
+      }
+    }
+    openFiles.update((all) =>
+      all.map((f) => ({ ...f, isDirty: false }))
+    );
+  }
+
   // ── Open Folder / Switch Project ─────────────────────────────────────────
 
   async function openFolder() {
@@ -93,6 +148,11 @@
     // Restart file watcher for new directory
     if (unwatchFiles) unwatchFiles();
     unwatchFiles = await adapter.watchFiles(path, async (event) => {
+      // Notify FileTree about filesystem changes
+      if (event.type === 'create' || event.type === 'remove') {
+        document.dispatchEvent(new CustomEvent('reasonance:fsChange', { detail: event }));
+      }
+
       const currentFiles = get(openFiles);
       const openFile = currentFiles.find((f) => f.path === event.path);
       if (!openFile) return;
@@ -114,13 +174,22 @@
           ]);
           if (shadow === null) return;
           if (newContent === shadow) return;
-          diffState = {
-            path: event.path,
-            original: shadow,
-            modified: newContent,
-            filename: event.path.split('/').pop() ?? event.path,
-          };
-          activeFilePath.set(event.path);
+
+          if (isActiveSessionYolo()) {
+            // AUTO/YOLO: accept changes silently
+            await adapter.storeShadow(event.path, newContent);
+            openFiles.update((files) =>
+              files.map((f) => (f.path === event.path ? { ...f, content: newContent, isDirty: false } : f))
+            );
+          } else {
+            diffState = {
+              path: event.path,
+              original: shadow,
+              modified: newContent,
+              filename: event.path.split('/').pop() ?? event.path,
+            };
+            activeFilePath.set(event.path);
+          }
         } catch { /* non-fatal */ }
       }
     });
@@ -164,6 +233,7 @@
     registerKeybinding('f1', () => { showHelp = !showHelp; });
     registerKeybinding('ctrl+/', () => { showShortcuts = true; });
     registerKeybinding('ctrl+shift+h', () => { showSessions = true; });
+    registerKeybinding('ctrl+s', () => saveActiveFile());
     initKeybindings();
 
     // Listen for openFolder custom event from MenuBar
@@ -186,10 +256,24 @@
     document.addEventListener('reasonance:shortcuts', handleShortcuts);
     cleanups.push(() => document.removeEventListener('reasonance:shortcuts', handleShortcuts));
 
+    // Listen for save events from MenuBar / EditorTabs
+    const handleSave = () => saveActiveFile();
+    document.addEventListener('reasonance:save', handleSave);
+    cleanups.push(() => document.removeEventListener('reasonance:save', handleSave));
+
+    const handleSaveAll = () => saveAllFiles();
+    document.addEventListener('reasonance:saveAll', handleSaveAll);
+    cleanups.push(() => document.removeEventListener('reasonance:saveAll', handleSaveAll));
+
     // Start watching the project directory for external changes
     const root = get(projectRoot);
     if (root) {
     unwatchFiles = await adapter.watchFiles(root, async (event) => {
+      // Notify FileTree about filesystem changes (create/remove/modify)
+      if (event.type === 'create' || event.type === 'remove') {
+        document.dispatchEvent(new CustomEvent('reasonance:fsChange', { detail: event }));
+      }
+
       const currentFiles = get(openFiles);
       const openFile = currentFiles.find((f) => f.path === event.path);
 
@@ -217,15 +301,21 @@
           if (shadow === null) return; // No shadow means we don't track this file
           if (newContent === shadow) return; // No actual change
 
-          diffState = {
-            path: event.path,
-            original: shadow,
-            modified: newContent,
-            filename: event.path.split('/').pop() ?? event.path,
-          };
-
-          // Switch to the changed file's tab
-          activeFilePath.set(event.path);
+          if (isActiveSessionYolo()) {
+            // AUTO/YOLO: accept changes silently
+            await adapter.storeShadow(event.path, newContent);
+            openFiles.update((files) =>
+              files.map((f) => (f.path === event.path ? { ...f, content: newContent, isDirty: false } : f))
+            );
+          } else {
+            diffState = {
+              path: event.path,
+              original: shadow,
+              modified: newContent,
+              filename: event.path.split('/').pop() ?? event.path,
+            };
+            activeFilePath.set(event.path);
+          }
         } catch {
           // Read failures are non-fatal
         }
@@ -243,10 +333,23 @@
     if (unwatchFiles) unwatchFiles();
   });
 
-  function handleAccept() {
+  async function handleAccept() {
     if (!diffState) return;
     const path = diffState.path;
     const newContent = diffState.modified;
+
+    // If this is a user-initiated save, write the file to disk
+    if (diffState.isUserSave) {
+      try {
+        await adapter.writeFile(path, newContent);
+        await adapter.storeShadow(path, newContent);
+      } catch (err) {
+        showToast('error', 'Save failed', String(err));
+        diffState = null;
+        return;
+      }
+    }
+
     // Update the open file's content in the store
     openFiles.update((files) =>
       files.map((f) => (f.path === path ? { ...f, content: newContent, isDirty: false } : f))

@@ -28,7 +28,7 @@
   let sessionPermissionOverride = $state<'yolo' | 'ask' | 'locked' | null>(null);
 
   // Resolve per-model permission level from config (session override takes precedence)
-  let modelConfig = $derived(get(llmConfigs).find((c) => c.name === configName));
+  let modelConfig = $derived($llmConfigs.find((c) => c.name === configName));
   let permissionLevel = $derived(sessionPermissionOverride ?? modelConfig?.permissionLevel ?? 'yolo');
   let configAllowedTools = $derived(modelConfig?.allowedTools ?? []);
 

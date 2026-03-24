@@ -27,6 +27,26 @@
     entries = await adapter.listDir(root);
   });
 
+  // Listen for filesystem changes (dispatched by +page.svelte watcher)
+  $effect(() => {
+    function handleFsChange(e: Event) {
+      const { type, path } = (e as CustomEvent).detail as { type: string; path: string };
+      if (type !== 'create' && type !== 'remove') return;
+      const parentDir = path.substring(0, path.lastIndexOf('/')) || currentRoot;
+      // Refresh the parent directory if it's currently visible
+      adapter.listDir(parentDir).then((refreshed) => {
+        if (parentDir === currentRoot) {
+          entries = refreshed;
+        } else if (childrenCache.has(parentDir)) {
+          childrenCache.set(parentDir, refreshed);
+          childrenCache = new Map(childrenCache);
+        }
+      }).catch(() => { /* parent dir may no longer exist */ });
+    }
+    document.addEventListener('reasonance:fsChange', handleFsChange);
+    return () => document.removeEventListener('reasonance:fsChange', handleFsChange);
+  });
+
   async function toggleDir(entry: FileEntry) {
     if (expandedDirs.has(entry.path)) {
       expandedDirs.delete(entry.path);

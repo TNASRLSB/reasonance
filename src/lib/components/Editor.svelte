@@ -1,7 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { EditorView, basicSetup } from 'codemirror';
-  import { EditorState, EditorSelection, type Extension } from '@codemirror/state';
+  import { EditorState, EditorSelection, type Extension, RangeSet, RangeSetBuilder } from '@codemirror/state';
+  import { gutter, GutterMarker } from '@codemirror/view';
   import { foldGutter } from '@codemirror/language';
   import { oneDark } from '@codemirror/theme-one-dark';
   import { getLangAsync } from '$lib/editor/languages';
@@ -67,6 +68,8 @@
   let wrapper = $state<HTMLDivElement | null>(null);
   let view: EditorView | null = null;
   let currentLangExts: Extension[] = [];
+  // Guard to prevent store→editor feedback loop when user types
+  let suppressEditorReinit = false;
 
   // Context menu state
   let ctxVisible = $state(false);
@@ -108,7 +111,42 @@
     $activeFilePath ? ($activeFilePath.split('.').pop()?.toLowerCase() === 'md') : false
   );
 
-  // Extension that tracks cursor position changes
+  // Modified-line gutter marker
+  class ModifiedMarker extends GutterMarker {
+    toDOM() {
+      const el = document.createElement('div');
+      el.className = 'cm-modified-marker';
+      return el;
+    }
+  }
+  const modifiedMarkerInstance = new ModifiedMarker();
+
+  // Track original content per file to compare for modified lines
+  let originalContents: Record<string, string> = {};
+
+  function buildModifiedLineGutter(): Extension {
+    const modifiedGutter = gutter({
+      class: 'cm-modified-gutter',
+      markers(view: EditorView) {
+        const path = $activeFilePath;
+        if (!path || !(path in originalContents)) return RangeSet.empty;
+        const original = originalContents[path];
+        const originalLines = original.split('\n');
+        const builder = new RangeSetBuilder<GutterMarker>();
+        for (let i = 1; i <= view.state.doc.lines; i++) {
+          const line = view.state.doc.line(i);
+          const origLine = originalLines[i - 1];
+          if (origLine === undefined || line.text !== origLine) {
+            builder.add(line.from, line.from, modifiedMarkerInstance);
+          }
+        }
+        return builder.finish();
+      },
+    });
+    return modifiedGutter;
+  }
+
+  // Extension that tracks cursor position and syncs edits to store
   function buildCursorTracker(): Extension {
     return EditorView.updateListener.of((update) => {
       if (update.selectionSet || update.docChanged) {
@@ -116,6 +154,17 @@
         const line = update.state.doc.lineAt(pos);
         cursorLine.set(line.number);
         cursorCol.set(pos - line.from + 1);
+      }
+      // Sync edited content back to openFiles store and mark dirty
+      if (update.docChanged && $activeFilePath) {
+        suppressEditorReinit = true;
+        const newDoc = update.state.doc.toString();
+        const path = $activeFilePath;
+        openFiles.update((files) =>
+          files.map((f) => f.path === path ? { ...f, content: newDoc, isDirty: true } : f)
+        );
+        // Force gutter redraw
+        if (view) view.requestMeasure();
       }
     });
   }
@@ -149,6 +198,7 @@
         buildFontExt(),
         ...langExts,
         buildCursorTracker(),
+        buildModifiedLineGutter(),
         EditorView.editable.of(!ro),
         EditorState.readOnly.of(ro),
       ],
@@ -166,6 +216,11 @@
     if (!container) return;
     destroyView();
     currentLangExts = [];
+    // Store original content for modified-line tracking
+    const path = $activeFilePath;
+    if (path && !(path in originalContents)) {
+      originalContents[path] = content;
+    }
     // Start with no language highlighting so the editor shows immediately
     const baseState = buildState(content, [], readOnly);
     view = new EditorView({ state: baseState, parent: container });
@@ -179,9 +234,17 @@
 
   // Watch for active file changes — debounced to prevent rapid teardown/recreation
   let editorSwitchTimer: ReturnType<typeof setTimeout> | null = null;
+  let lastInitPath: string | null = null;
   $effect(() => {
     const path = $activeFilePath;
     const content = currentContent;
+
+    // Skip reinit when the store was updated by user typing (same file)
+    if (suppressEditorReinit && path === lastInitPath) {
+      suppressEditorReinit = false;
+      return;
+    }
+    suppressEditorReinit = false;
 
     if (editorSwitchTimer) {
       clearTimeout(editorSwitchTimer);
@@ -190,14 +253,26 @@
 
     if (!path || !container) {
       destroyView();
+      lastInitPath = null;
       return;
     }
 
     const fileName = path.split('/').pop() ?? path;
     editorSwitchTimer = setTimeout(() => {
       editorSwitchTimer = null;
+      lastInitPath = path;
       initEditor(content, fileName);
     }, 75);
+  });
+
+  // Reset original content when file is saved (isDirty goes false) to clear gutter markers
+  $effect(() => {
+    if (!$activeFilePath) return;
+    const file = $openFiles.find((f) => f.path === $activeFilePath);
+    if (file && !file.isDirty && $activeFilePath in originalContents) {
+      originalContents[$activeFilePath] = file.content;
+      if (view) view.requestMeasure();
+    }
   });
 
   // Watch for readOnly toggle — rebuild with same content and cached language extensions
@@ -338,6 +413,17 @@
 
   .editor-cm :global(.cm-scroller) {
     overflow: auto;
+  }
+
+  .editor-cm :global(.cm-modified-gutter) {
+    width: 3px;
+    min-width: 3px;
+  }
+
+  .editor-cm :global(.cm-modified-marker) {
+    width: 3px;
+    height: 100%;
+    background: var(--accent, #e5c07b);
   }
 
   .editor-empty {

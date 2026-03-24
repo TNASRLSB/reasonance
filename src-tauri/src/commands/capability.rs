@@ -3,6 +3,7 @@ use crate::cli_updater::{CliUpdater, CliVersionInfo};
 use crate::normalizer_health::{NormalizerHealth, HealthReport};
 use crate::normalizer_version::{NormalizerVersionStore, VersionEntry};
 use log::{info, error, debug};
+use serde::Serialize;
 use std::collections::HashMap;
 use tauri::State;
 
@@ -84,4 +85,22 @@ pub fn get_all_health_reports(
 ) -> HashMap<String, HealthReport> {
     debug!("cmd::get_all_health_reports called");
     health.all_reports()
+}
+
+#[derive(Serialize)]
+pub struct NormalizerConfigResponse {
+    pub permission_args: Vec<String>,
+}
+
+#[tauri::command]
+pub fn get_normalizer_config(
+    transport: State<'_, crate::transport::StructuredAgentTransport>,
+    provider: String,
+) -> Option<NormalizerConfigResponse> {
+    info!("cmd::get_normalizer_config(provider={})", provider);
+    let registry = transport.registry();
+    let registry = registry.lock().unwrap_or_else(|e| e.into_inner());
+    registry.get_config(&provider).map(|config| NormalizerConfigResponse {
+        permission_args: config.cli.permission_args.clone(),
+    })
 }

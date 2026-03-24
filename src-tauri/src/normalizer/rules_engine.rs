@@ -33,10 +33,16 @@ pub fn eval_expr(value: &Value, expr: &str) -> bool {
         return eval_expr(value, left) && eval_expr(value, right);
     }
 
-    // Handle exists()
+    // Handle exists() — returns false for missing keys AND empty arrays/objects
     if expr.starts_with("exists(") && expr.ends_with(')') {
         let path = &expr[7..expr.len() - 1].trim();
-        return resolve_path(value, path).is_some();
+        return match resolve_path(value, path) {
+            Some(serde_json::Value::Array(arr)) => !arr.is_empty(),
+            Some(serde_json::Value::Object(obj)) => !obj.is_empty(),
+            Some(serde_json::Value::Null) => false,
+            Some(_) => true,
+            None => false,
+        };
     }
 
     // Handle !=

@@ -10,13 +10,22 @@
     activeFilePath.set(path);
   }
 
-  function handleClose(e: MouseEvent, path: string) {
+  async function handleClose(e: MouseEvent, path: string) {
     e.stopPropagation();
     const file = get(openFiles).find((f) => f.path === path);
     if (file?.isDirty) {
-      const fileName = file.name;
-      const ok = confirm(`Save changes to "${fileName}"?\n\nYour unsaved changes will be lost if you close without saving.\n\nClick Cancel to go back, or OK to close without saving.`);
-      if (!ok) return;
+      const { ask } = await import('@tauri-apps/plugin-dialog');
+      const save = await ask(
+        `Save changes to "${file.name}" before closing?`,
+        { title: 'Unsaved Changes', kind: 'warning', okLabel: 'Save', cancelLabel: 'Discard' }
+      );
+      if (save) {
+        // Save before closing
+        document.dispatchEvent(new CustomEvent('reasonance:save'));
+        // Wait a tick for save to process
+        await new Promise((r) => setTimeout(r, 50));
+      }
+      // If user chose Discard (save=false), close without saving
     }
     closeFile(path);
   }

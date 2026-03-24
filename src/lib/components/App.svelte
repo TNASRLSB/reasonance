@@ -276,7 +276,7 @@
     flex-shrink: 0;
     background: var(--bg-surface);
     border-left: none;
-    contain: layout style;
+    contain: style;
   }
 
   .divider {

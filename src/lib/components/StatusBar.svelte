@@ -3,8 +3,16 @@
   import { activeFilePath, cursorLine, cursorCol } from '$lib/stores/files';
   import { llmConfigs } from '$lib/stores/config';
   import { activeInstance } from '$lib/stores/terminals';
+  import { updateState } from '$lib/stores/update';
+  import { installUpdate, postponeUpdate } from '$lib/updater';
 
   let activeInstanceData = $derived($activeInstance);
+  let installing = $state(false);
+
+  async function handleInstall() {
+    installing = true;
+    await installUpdate();
+  }
   function generateBar(percent: number): string {
     const filled = Math.round(percent / 12.5);
     const empty = 8 - filled;
@@ -25,8 +33,18 @@
 <div class="status-bar" role="status">
     <div class="status-left">
       <span class="app-name">REASONANCE</span>
-      <span class="separator">|</span>
-      <span class="llm-count">{$tr('status.llmDetected', { count: String($llmConfigs.length) })}</span>
+      {#if $updateState.newVersion}
+        <span class="separator">|</span>
+        <span class="update-indicator">
+          {#if $updateState.downloadProgress != null}
+            Updating... {$updateState.downloadProgress}%
+          {:else}
+            v{__APP_VERSION__} → v{$updateState.newVersion}
+            <button class="status-action" onclick={handleInstall} disabled={installing}>Install</button>
+            <button class="status-action dim" onclick={postponeUpdate}>Later</button>
+          {/if}
+        </span>
+      {/if}
     </div>
 
     <div class="status-center">
@@ -171,5 +189,45 @@
     font-size: var(--font-size-tiny);
     opacity: 0.5;
     font-style: italic;
+  }
+
+  .update-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-weight: 700;
+  }
+
+  .status-action {
+    background: none;
+    border: 1px solid currentColor;
+    color: inherit;
+    font-family: var(--font-ui);
+    font-size: var(--font-size-tiny);
+    font-weight: 700;
+    padding: 0 var(--space-1);
+    cursor: pointer;
+    line-height: 1.4;
+    opacity: 0.9;
+    transition: opacity var(--transition-fast);
+  }
+
+  .status-action:hover {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.15);
+  }
+
+  .status-action:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+
+  .status-action.dim {
+    border: none;
+    opacity: 0.6;
+  }
+
+  .status-action.dim:hover {
+    opacity: 0.9;
   }
 </style>

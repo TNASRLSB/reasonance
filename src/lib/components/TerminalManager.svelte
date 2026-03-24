@@ -20,7 +20,7 @@
   import { menuKeyHandler } from '$lib/utils/a11y';
   import ChatView from './chat/ChatView.svelte';
   import type { ViewMode } from '$lib/types/agent-event';
-  import { processAgentEvent, streamingSessionIds } from '$lib/stores/agent-events';
+  import { processAgentEvent } from '$lib/stores/agent-events';
   import WorkspaceTrustDialog from './WorkspaceTrustDialog.svelte';
   import { workspaceTrustLevel } from '$lib/stores/workspace-trust';
   import type { TrustLevel, FolderInfo } from '$lib/stores/workspace-trust';
@@ -31,27 +31,23 @@
   let llmMenuEl = $state<HTMLElement | null>(null);
   let addBtnEl = $state<HTMLElement | null>(null);
   let addWrapperEl = $state<HTMLElement | null>(null);
+
   let showViewModeDropdown = $state(false);
   let viewModeDropdownEl = $state<HTMLElement | null>(null);
-  let viewModeBtnEl = $state<HTMLElement | null>(null);
-  let viewModeWrapperEl = $state<HTMLElement | null>(null);
+  let activeTabEl = $state<HTMLElement | null>(null);
 
   let showTrustDialog = $state(false);
   let trustFolderInfo = $state<FolderInfo | null>(null);
   let pendingProviderName = $state<string | null>(null);
 
-  // Compute fixed dropdown position from anchor button rect
-  let llmDropdownStyle = $derived.by(() => {
-    if (!showLLMDropdown || !addBtnEl) return '';
+  // Dropdown positions — computed at click time, not via $effect
+  let llmDropdownStyle = $state('');
+  let viewModeDropdownStyle = $state('');
+  function updateLlmDropdownPosition() {
+    if (!addBtnEl) return;
     const r = addBtnEl.getBoundingClientRect();
-    return `position:fixed;top:${r.bottom}px;left:${r.left}px;`;
-  });
-
-  let viewModeDropdownStyle = $derived.by(() => {
-    if (!showViewModeDropdown || !viewModeBtnEl) return '';
-    const r = viewModeBtnEl.getBoundingClientRect();
-    return `position:fixed;top:${r.bottom}px;left:${r.left}px;`;
-  });
+    llmDropdownStyle = `position:fixed;top:${r.bottom}px;left:${r.left}px;`;
+  }
 
   $effect(() => {
     if (showLLMDropdown && llmMenuEl) {
@@ -61,11 +57,16 @@
   });
 
   // Click-outside handler for the dropdown — uses mousedown on document
-  // instead of svelte:window onclick to avoid Svelte 5 event delegation issues
+  // instead of svelte:window onclick to avoid Svelte 5 event delegation issues.
+  // Must check both wrapper AND the fixed dropdown (rendered outside wrapper).
   $effect(() => {
     if (!showLLMDropdown) return;
     function handleOutsideClick(e: MouseEvent) {
-      if (addWrapperEl && !addWrapperEl.contains(e.target as Node)) {
+      const target = e.target as Node;
+      if (
+        addWrapperEl && !addWrapperEl.contains(target) &&
+        llmMenuEl && !llmMenuEl.contains(target)
+      ) {
         showLLMDropdown = false;
       }
     }
@@ -77,7 +78,11 @@
   $effect(() => {
     if (!showViewModeDropdown) return;
     function handleOutsideClick(e: MouseEvent) {
-      if (viewModeWrapperEl && !viewModeWrapperEl.contains(e.target as Node)) {
+      const target = e.target as Node;
+      if (
+        activeTabEl && !activeTabEl.contains(target) &&
+        viewModeDropdownEl && !viewModeDropdownEl.contains(target)
+      ) {
         showViewModeDropdown = false;
       }
     }
@@ -85,12 +90,16 @@
     return () => document.removeEventListener('mousedown', handleOutsideClick);
   });
 
+  function updateViewModeDropdownPosition() {
+    if (!activeTabEl) return;
+    const r = activeTabEl.getBoundingClientRect();
+    viewModeDropdownStyle = `position:fixed;top:${r.bottom}px;left:${r.left}px;`;
+  }
+
   // Derived configs from store (CLI with command + API with provider)
   let configs = $derived($llmConfigs.filter((c) => (c.type === 'cli' && c.command) || c.type === 'api'));
 
   let activeConfig = $derived(configs.find((c) => c.name === $activeInstance?.provider));
-
-  let streaming = $derived($streamingSessionIds.has($activeInstanceId ?? ''));
 
   // Per-instance view mode: tracks whether each instance shows chat or terminal
   let instanceViewModes: Record<string, ViewMode> = $state({});
@@ -280,6 +289,36 @@
       unlisten?.();
     };
   });
+
+  // Listen for menu bar events (newTerminal, closeTerminal, detectLLMs)
+  $effect(() => {
+    function handleNewTerminal() {
+      // If only one provider, open directly; otherwise toggle dropdown
+      if (configs.length === 1) {
+        addInstance(configs[0].name);
+      } else {
+        updateLlmDropdownPosition();
+        showLLMDropdown = !showLLMDropdown;
+      }
+    }
+    function handleCloseTerminal() {
+      const id = get(activeInstanceId);
+      if (id) closeInstance(id);
+    }
+    function handleDetectLLMs() {
+      import('$lib/utils/config-bootstrap').then(({ discoverAndApplyLlms }) => {
+        discoverAndApplyLlms(adapter);
+      });
+    }
+    document.addEventListener('reasonance:newTerminal', handleNewTerminal);
+    document.addEventListener('reasonance:closeTerminal', handleCloseTerminal);
+    document.addEventListener('reasonance:detectLLMs', handleDetectLLMs);
+    return () => {
+      document.removeEventListener('reasonance:newTerminal', handleNewTerminal);
+      document.removeEventListener('reasonance:closeTerminal', handleCloseTerminal);
+      document.removeEventListener('reasonance:detectLLMs', handleDetectLLMs);
+    };
+  });
 </script>
 
 <svelte:window onkeydown={handleGlobalKeydown} />
@@ -300,7 +339,15 @@
           aria-selected={isActive}
           aria-label="{label}, Provider {inst.provider}{isActive ? ', Active' : ''}{hasError ? ', Error' : ''}"
           title="Provider: {inst.provider}"
-          onclick={() => activeInstanceId.set(inst.id)}
+          onclick={(e) => {
+            if (isActive && !inst.apiOnly) {
+              activeTabEl = e.currentTarget as HTMLElement;
+              updateViewModeDropdownPosition();
+              showViewModeDropdown = !showViewModeDropdown;
+            } else {
+              activeInstanceId.set(inst.id);
+            }
+          }}
           onauxclick={(e) => { if (e.button === 1) closeInstance(inst.id); }}
         >
           {label}{#if hasError} <span class="error-indicator">!</span>{/if}
@@ -310,18 +357,6 @@
           aria-label="Close {label}"
           onclick={(e) => { e.stopPropagation(); closeInstance(inst.id); }}
         >&times;</button>
-        {#if isActive && !inst.apiOnly}
-          <div class="viewmode-wrapper" bind:this={viewModeWrapperEl}>
-            <button
-              class="viewmode-btn"
-              bind:this={viewModeBtnEl}
-              aria-label="Switch view mode"
-              aria-haspopup="menu"
-              aria-expanded={showViewModeDropdown}
-              onclick={(e) => { e.stopPropagation(); showViewModeDropdown = !showViewModeDropdown; }}
-            >▾</button>
-          </div>
-        {/if}
       </div>
     {/each}
 
@@ -332,15 +367,10 @@
         aria-label="New session"
         aria-haspopup="menu"
         aria-expanded={showLLMDropdown}
-        onclick={() => { showLLMDropdown = !showLLMDropdown; }}
+        onclick={() => { updateLlmDropdownPosition(); showLLMDropdown = !showLLMDropdown; }}
       >+</button>
     </div>
 
-    {#if $terminalInstances.length > 0}
-      <span class="status-badge" role="status" aria-label="Session status: {streaming ? 'streaming response' : 'active and ready'}">
-        {#if streaming}STREAMING{:else}ACTIVE{/if}
-      </span>
-    {/if}
   </div>
 
   {#if $workspaceTrustLevel === 'blocked'}
@@ -455,7 +485,7 @@
   </div>
 {/if}
 
-{#if showViewModeDropdown && $activeInstanceId}
+{#if showViewModeDropdown && $activeInstanceId && !isApiOnlyInstance($activeInstanceId)}
   <div class="fixed-dropdown" style={viewModeDropdownStyle}
        role="menu" tabindex="-1"
        bind:this={viewModeDropdownEl}>
@@ -591,46 +621,6 @@
     font-size: var(--font-size-sm);
   }
 
-  .status-badge {
-    font-family: var(--font-ui);
-    font-size: var(--font-size-small);
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    padding: var(--space-1) var(--space-2);
-    min-height: 24px;
-    display: inline-flex;
-    align-items: center;
-    color: var(--success-text);
-    white-space: nowrap;
-    margin-inline-start: auto;
-  }
-
-  .viewmode-wrapper {
-    position: relative;
-    display: flex;
-    align-items: center;
-  }
-
-  .viewmode-btn {
-    font-size: var(--font-size-sm);
-    line-height: 1;
-    cursor: pointer;
-    padding: var(--space-1);
-    min-width: 20px;
-    min-height: 24px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    background: none;
-    border: none;
-    color: var(--text-secondary);
-    transition: color var(--transition-fast);
-  }
-
-  .viewmode-btn:hover {
-    color: var(--text-primary);
-  }
 
   .fixed-dropdown {
     z-index: 200;

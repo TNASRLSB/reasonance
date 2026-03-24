@@ -3,8 +3,10 @@
   import type { Adapter, FileEntry } from '$lib/adapter/index';
   import { addOpenFile, projectRoot } from '$lib/stores/files';
   import { showToast } from '$lib/stores/toast';
+  import { showSettings } from '$lib/stores/ui';
   import { tr } from '$lib/i18n/index';
   import { trapFocus } from '$lib/utils/a11y';
+  import { checkForUpdate } from '$lib/updater';
 
   let {
     adapter,
@@ -16,9 +18,56 @@
     onClose: () => void;
   } = $props();
 
+  // ── Command definitions ──────────────────────────────────────────────────
+
+  interface Command {
+    id: string;
+    label: string;
+    shortcut?: string;
+    category: string;
+    execute: () => void;
+  }
+
+  function dispatch(name: string) {
+    document.dispatchEvent(new CustomEvent(name));
+  }
+
+  const commands: Command[] = [
+    { id: 'settings', label: 'Open Settings', shortcut: 'Ctrl+,', category: 'General', execute: () => showSettings.set(true) },
+    { id: 'help', label: 'Documentation', shortcut: 'F1', category: 'General', execute: () => dispatch('reasonance:help') },
+    { id: 'shortcuts', label: 'Keyboard Shortcuts', shortcut: 'Ctrl+/', category: 'General', execute: () => dispatch('reasonance:shortcuts') },
+    { id: 'about', label: 'About Reasonance', category: 'General', execute: () => dispatch('reasonance:about') },
+    { id: 'save', label: 'Save File', shortcut: 'Ctrl+S', category: 'File', execute: () => dispatch('reasonance:save') },
+    { id: 'saveAll', label: 'Save All Files', shortcut: 'Ctrl+Shift+S', category: 'File', execute: () => dispatch('reasonance:saveAll') },
+    { id: 'openFolder', label: 'Open Folder', category: 'File', execute: () => dispatch('reasonance:openFolder') },
+    { id: 'closeFile', label: 'Close File', shortcut: 'Ctrl+W', category: 'File', execute: () => dispatch('reasonance:closeFile') },
+    { id: 'findInFiles', label: 'Find in Files', shortcut: 'Ctrl+Shift+F', category: 'Search', execute: () => dispatch('reasonance:findInFiles') },
+    { id: 'newTerminal', label: 'New LLM Session', category: 'Terminal', execute: () => dispatch('reasonance:newTerminal') },
+    { id: 'closeTerminal', label: 'Close Terminal', category: 'Terminal', execute: () => dispatch('reasonance:closeTerminal') },
+    { id: 'detectLLMs', label: 'Detect LLMs', category: 'Terminal', execute: () => dispatch('reasonance:detectLLMs') },
+    { id: 'toggleFilePanel', label: 'Toggle File Panel', category: 'View', execute: () => dispatch('reasonance:toggleFilePanel') },
+    { id: 'toggleTerminalPanel', label: 'Toggle Terminal Panel', category: 'View', execute: () => dispatch('reasonance:toggleTerminalPanel') },
+    { id: 'zoomIn', label: 'Zoom In', shortcut: 'Ctrl++', category: 'View', execute: () => dispatch('reasonance:zoomIn') },
+    { id: 'zoomOut', label: 'Zoom Out', shortcut: 'Ctrl+-', category: 'View', execute: () => dispatch('reasonance:zoomOut') },
+    { id: 'sessions', label: 'Session History', shortcut: 'Ctrl+Shift+H', category: 'General', execute: () => dispatch('reasonance:sessions') },
+    { id: 'analytics', label: 'Toggle Analytics', shortcut: 'Ctrl+Shift+A', category: 'View', execute: () => dispatch('reasonance:analytics') },
+    { id: 'checkUpdate', label: 'Check for Updates', category: 'General', execute: () => { checkForUpdate(true); } },
+  ];
+
+  // ── Result types ─────────────────────────────────────────────────────────
+
+  interface ResultItem {
+    type: 'command' | 'file';
+    label: string;
+    detail: string;
+    shortcut?: string;
+    path?: string;
+    command?: Command;
+  }
+
   let query = $state('');
   let allFiles = $state<string[]>([]);
-  let matches = $state<string[]>([]);
+  let results = $state<ResultItem[]>([]);
   let selectedIndex = $state(0);
   let loading = $state(false);
   let inputEl = $state<HTMLInputElement | null>(null);
@@ -31,15 +80,11 @@
     }
   });
 
-  // Build flat file list by recursively listing directories (with cycle detection)
-  async function buildFileList(dirPath: string, visited: Set<string> = new Set(), depth: number = 0): Promise<string[]> {
-    // Prevent infinite recursion from symlink loops or extreme depth
+  // Build flat file list recursively
+  async function buildFileList(dirPath: string, visited: Set<string> = new Set(), depth = 0): Promise<string[]> {
     const MAX_DEPTH = 50;
-    if (depth > MAX_DEPTH || visited.has(dirPath)) {
-      return [];
-    }
+    if (depth > MAX_DEPTH || visited.has(dirPath)) return [];
     visited.add(dirPath);
-
     let result: string[] = [];
     try {
       const entries: FileEntry[] = await adapter.listDir(dirPath, true);
@@ -51,9 +96,7 @@
           result.push(entry.path);
         }
       }
-    } catch {
-      // Skip unreadable dirs
-    }
+    } catch { /* skip unreadable dirs */ }
     return result;
   }
 
@@ -62,22 +105,17 @@
       loadFiles();
     } else {
       query = '';
-      matches = [];
+      results = [];
       selectedIndex = 0;
     }
   });
 
   $effect(() => {
-    if (visible && inputEl) {
-      inputEl.focus();
-    }
+    if (visible && inputEl) inputEl.focus();
   });
 
   async function loadFiles() {
-    if (allFiles.length > 0) {
-      applyFilter();
-      return;
-    }
+    if (allFiles.length > 0) { applyFilter(); return; }
     loading = true;
     const root = get(projectRoot) || '.';
     allFiles = await buildFileList(root);
@@ -85,77 +123,105 @@
     applyFilter();
   }
 
-  function fuzzyScore(path: string, q: string): number {
-    const lower = path.toLowerCase();
-    const name = path.split('/').pop()?.toLowerCase() ?? lower;
+  function fuzzyMatch(text: string, q: string): number {
+    const lower = text.toLowerCase();
     if (q === '') return 0;
-    // Starts-with on filename gets highest score
-    if (name.startsWith(q)) return 3;
-    // Contains on filename
-    if (name.includes(q)) return 2;
-    // Contains on full path
-    if (lower.includes(q)) return 1;
-    // Fuzzy: all chars appear in order
+    if (lower.startsWith(q)) return 3;
+    if (lower.includes(q)) return 2;
+    // Fuzzy: all chars in order
     let idx = 0;
     for (const ch of q) {
       const found = lower.indexOf(ch, idx);
       if (found === -1) return -1;
       idx = found + 1;
     }
-    return 0;
+    return 1;
   }
 
   function applyFilter() {
-    const q = query.toLowerCase().trim();
-    if (!q) {
-      matches = allFiles.slice(0, 20);
-      selectedIndex = 0;
-      return;
+    const raw = query.trim();
+    const isCommandMode = raw.startsWith('>');
+    const q = (isCommandMode ? raw.slice(1) : raw).toLowerCase().trim();
+
+    const items: ResultItem[] = [];
+
+    // Search commands
+    for (const cmd of commands) {
+      const score = fuzzyMatch(cmd.label, q);
+      if (score >= 0) {
+        items.push({
+          type: 'command',
+          label: cmd.label,
+          detail: cmd.category,
+          shortcut: cmd.shortcut,
+          command: cmd,
+        });
+      }
     }
-    const scored = allFiles
-      .map((f) => ({ f, score: fuzzyScore(f, q) }))
-      .filter((x) => x.score >= 0)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 20)
-      .map((x) => x.f);
-    matches = scored;
+
+    // Search files (unless in command-only mode)
+    if (!isCommandMode) {
+      const fileResults: { item: ResultItem; score: number }[] = [];
+      for (const path of allFiles) {
+        const name = path.split('/').pop() ?? path;
+        const score = fuzzyMatch(name, q);
+        if (score >= 0) {
+          fileResults.push({
+            item: {
+              type: 'file',
+              label: name,
+              detail: displayPath(path),
+              path,
+            },
+            score,
+          });
+        }
+      }
+      fileResults.sort((a, b) => b.score - a.score);
+      // Interleave: commands first, then files
+      items.push(...fileResults.slice(0, 20).map((r) => r.item));
+    }
+
+    results = items.slice(0, 30);
     selectedIndex = 0;
   }
 
-  $effect(() => {
-    // Re-run filter whenever query changes
-    query;
-    applyFilter();
-  });
+  $effect(() => { query; applyFilter(); });
 
-  async function openFile(path: string) {
-    try {
-      const content = await adapter.readFile(path);
-      const name = path.split('/').pop() ?? path;
-      addOpenFile({ path, name, content, isDirty: false, isDeleted: false });
-    } catch (e) {
-      console.error('SearchPalette openFile error:', e);
-      const name = path.split('/').pop() ?? path;
-      showToast('error', $tr('search.errorOpen'), name);
-      return;
+  async function selectItem(item: ResultItem) {
+    if (item.type === 'command' && item.command) {
+      onClose();
+      // Defer execution so the palette closes first
+      setTimeout(() => item.command!.execute(), 50);
+    } else if (item.type === 'file' && item.path) {
+      try {
+        const content = await adapter.readFile(item.path);
+        addOpenFile({ path: item.path, name: item.label, content, isDirty: false, isDeleted: false });
+      } catch (e) {
+        const msg = (e as Error)?.message ?? String(e);
+        if (msg.includes('non-UTF-8') || msg.includes('binary')) {
+          showToast('info', 'Binary file', `Opening "${item.label}" externally`);
+          adapter.openExternal(item.path);
+        } else {
+          showToast('error', $tr('search.errorOpen'), item.label);
+          return;
+        }
+      }
+      onClose();
     }
-    onClose();
   }
 
   function handleKeydown(e: KeyboardEvent) {
-    if (e.key === 'Escape') {
-      onClose();
-      return;
-    }
+    if (e.key === 'Escape') { onClose(); return; }
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      selectedIndex = Math.min(selectedIndex + 1, matches.length - 1);
+      selectedIndex = Math.min(selectedIndex + 1, results.length - 1);
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
       selectedIndex = Math.max(selectedIndex - 1, 0);
     } else if (e.key === 'Enter') {
       e.preventDefault();
-      if (matches[selectedIndex]) openFile(matches[selectedIndex]);
+      if (results[selectedIndex]) selectItem(results[selectedIndex]);
     }
   }
 
@@ -164,7 +230,6 @@
   }
 
   function displayPath(path: string): string {
-    // Show relative path if possible
     const root = get(projectRoot) || '.';
     if (path.startsWith(root + '/')) return path.slice(root.length + 1);
     if (path.startsWith('./')) return path.slice(2);
@@ -174,48 +239,46 @@
 
 {#if visible}
   <div class="palette-overlay" role="presentation" onclick={handleOverlayClick} onkeydown={(e) => { if (e.key === 'Escape') onClose(); }}>
-    <div class="palette" role="dialog" aria-label={$tr('search.ariaLabel')} aria-modal="true" bind:this={dialogEl}>
+    <div class="palette" role="dialog" aria-label="Command palette" aria-modal="true" bind:this={dialogEl}>
       <div class="palette-input-row">
-        <span class="palette-icon">&#128269;</span>
         <input
           bind:this={inputEl}
           bind:value={query}
           onkeydown={handleKeydown}
           type="text"
-          placeholder={$tr('search.placeholder')}
+          placeholder="Search files and commands... (> for commands only)"
           class="palette-input"
-          aria-label={$tr('search.inputLabel')}
+          aria-label="Search"
           autocomplete="off"
           spellcheck="false"
         />
         {#if loading}
-          <span class="palette-hint">{$tr('search.loading')}</span>
-        {:else}
-          <span class="palette-hint">{$tr('search.escClose')}</span>
+          <span class="palette-hint">Loading...</span>
         {/if}
-        <button class="palette-close" onclick={onClose} aria-label={$tr('search.close')}>&#10005;</button>
       </div>
 
-      {#if matches.length > 0}
+      {#if results.length > 0}
         <ul class="palette-list" role="listbox">
-          {#each matches as path, i}
+          {#each results as item, i}
             <li
               class="palette-item"
               class:selected={i === selectedIndex}
+              class:command={item.type === 'command'}
               role="option"
               aria-selected={i === selectedIndex}
-              onclick={() => openFile(path)}
-              onkeydown={(e) => { if (e.key === 'Enter') openFile(path); }}
+              onclick={() => selectItem(item)}
             >
-              <span class="item-name">{path.split('/').pop()}</span>
-              <span class="item-dir">{displayPath(path).split('/').slice(0, -1).join('/')}</span>
+              <span class="item-icon">{item.type === 'command' ? '>' : ''}</span>
+              <span class="item-label">{item.label}</span>
+              <span class="item-detail">{item.detail}</span>
+              {#if item.shortcut}
+                <kbd class="item-shortcut">{item.shortcut}</kbd>
+              {/if}
             </li>
           {/each}
         </ul>
       {:else if !loading && query.trim()}
-        <p class="palette-empty">{$tr('search.noMatch', { query })}</p>
-      {:else if !loading}
-        <p class="palette-empty">{$tr('search.hint')}</p>
+        <p class="palette-empty">No results for "{query}"</p>
       {/if}
     </div>
   </div>
@@ -230,16 +293,15 @@
     display: flex;
     align-items: flex-start;
     justify-content: center;
-    padding-top: 80px;
+    padding-top: 60px;
   }
 
   .palette {
     background: var(--bg-primary);
     border: var(--border-width) solid var(--border);
-    border-radius: var(--radius);
-    width: 580px;
+    width: 560px;
     max-width: 95vw;
-    max-height: 60vh;
+    max-height: 50vh;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -253,11 +315,6 @@
     padding: var(--space-2) var(--space-3);
     border-bottom: var(--border-width) solid var(--border);
     flex-shrink: 0;
-  }
-
-  .palette-icon {
-    font-size: var(--font-size-base);
-    opacity: 0.6;
   }
 
   .palette-input {
@@ -275,7 +332,7 @@
   }
 
   .palette-hint {
-    font-size: var(--font-size-sm);
+    font-size: var(--font-size-tiny);
     color: var(--text-secondary);
     flex-shrink: 0;
   }
@@ -290,11 +347,12 @@
 
   .palette-item {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     gap: var(--space-2);
     padding: var(--space-1) var(--space-3);
     cursor: pointer;
     transition: background var(--transition-fast);
+    min-height: 28px;
   }
 
   .palette-item:hover,
@@ -303,52 +361,60 @@
     color: var(--text-on-accent);
   }
 
-  .palette-item.selected .item-dir,
-  .palette-item:hover .item-dir {
-    color: color-mix(in srgb, var(--text-on-accent) 70%, transparent);
-  }
-
-  .item-name {
-    font-size: var(--font-size-sm);
-    font-weight: 500;
-    color: var(--text-primary);
+  .item-icon {
+    width: 14px;
     flex-shrink: 0;
-    font-family: var(--font-ui);
+    font-family: var(--font-mono);
+    font-size: var(--font-size-tiny);
+    font-weight: 700;
+    opacity: 0.6;
+    text-align: center;
   }
 
-  .item-dir {
-    font-size: var(--font-size-sm);
+  .item-label {
+    font-size: var(--font-size-small);
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+
+  .item-detail {
+    font-size: var(--font-size-tiny);
     color: var(--text-secondary);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .palette-item.selected .item-detail,
+  .palette-item:hover .item-detail {
+    color: color-mix(in srgb, var(--text-on-accent) 60%, transparent);
+  }
+
+  .item-shortcut {
+    font-family: var(--font-mono);
+    font-size: var(--font-size-tiny);
+    padding: 0 var(--space-1);
+    border: 1px solid var(--border);
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    flex-shrink: 0;
+    line-height: 1.6;
+  }
+
+  .palette-item.selected .item-shortcut,
+  .palette-item:hover .item-shortcut {
+    border-color: color-mix(in srgb, var(--text-on-accent) 30%, transparent);
+    background: transparent;
+    color: color-mix(in srgb, var(--text-on-accent) 80%, transparent);
   }
 
   .palette-empty {
-    padding: var(--space-5) var(--space-3);
-    font-size: var(--font-size-sm);
+    padding: var(--space-4) var(--space-3);
+    font-size: var(--font-size-small);
     color: var(--text-secondary);
     margin: 0;
     text-align: center;
-  }
-
-  .palette-close {
-    flex-shrink: 0;
-    background: transparent;
-    border: none;
-    color: var(--text-secondary);
-    font-size: var(--font-size-sm);
-    padding: var(--space-1) var(--space-1);
-    cursor: pointer;
-    line-height: 1;
-    min-width: 32px;
-    min-height: 32px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .palette-close:hover {
-    color: var(--text-primary);
   }
 </style>

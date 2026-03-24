@@ -288,6 +288,7 @@ pub fn run() {
             commands::capability::rollback_normalizer,
             commands::capability::get_health_report,
             commands::capability::get_all_health_reports,
+            commands::capability::get_normalizer_config,
             commands::analytics::analytics_provider,
             commands::analytics::analytics_compare,
             commands::analytics::analytics_model_breakdown,

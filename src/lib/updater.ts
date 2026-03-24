@@ -1,6 +1,7 @@
 import { check } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
-import { showToast, updateToastProgress, dismissToast } from '$lib/stores/toast';
+import { updateState } from '$lib/stores/update';
+import { showToast } from '$lib/stores/toast';
 
 export type UpdateMode = 'notify' | 'silent';
 
@@ -48,89 +49,50 @@ export async function checkForUpdate(manual = false): Promise<boolean> {
       return false;
     }
 
-    const settings = await getUpdateSettings();
-    const version = update.version;
-
-    if (settings.updateMode === 'silent' && !manual) {
-      // Silent mode: download, then prompt before relaunch
-      const toastId = showToast('update', `Downloading v${version}...`, '', 0, { persistent: true });
-      let downloaded = 0;
-      let contentLength = 0;
-
-      await update.downloadAndInstall((event) => {
-        if (event.event === 'Started' && event.data.contentLength) {
-          contentLength = event.data.contentLength;
-        } else if (event.event === 'Progress') {
-          downloaded += event.data.chunkLength;
-          if (contentLength > 0) {
-            updateToastProgress(toastId, Math.round((downloaded / contentLength) * 100));
-          }
-        } else if (event.event === 'Finished') {
-          dismissToast(toastId);
-        }
-      });
-
-      showToast('update', `v${version} ready`, 'Restarting in 10s...', 10000, {
-        actions: [
-          { label: 'Restart now', onClick: () => relaunch() },
-          {
-            label: 'Later',
-            onClick: () => {
-              postponedUntil = Date.now() + CHECK_INTERVAL;
-            },
-          },
-        ],
-      });
-
-      // Auto-relaunch after 10s unless postponed
-      setTimeout(() => {
-        if (Date.now() >= postponedUntil || postponedUntil === 0) {
-          relaunch();
-        }
-      }, 10000);
-    } else {
-      // Notify mode (or manual check)
-      showToast('update', `Update available: v${version}`, update.body ?? '', 0, {
-        persistent: true,
-        actions: [
-          {
-            label: 'Install & restart',
-            onClick: async () => {
-              const toastId = showToast('update', 'Downloading...', '', 0, { persistent: true });
-              let downloaded = 0;
-              let contentLength = 0;
-
-              await update.downloadAndInstall((event) => {
-                if (event.event === 'Started' && event.data.contentLength) {
-                  contentLength = event.data.contentLength;
-                } else if (event.event === 'Progress') {
-                  downloaded += event.data.chunkLength;
-                  if (contentLength > 0) {
-                    updateToastProgress(toastId, Math.round((downloaded / contentLength) * 100));
-                  }
-                } else if (event.event === 'Finished') {
-                  dismissToast(toastId);
-                }
-              });
-
-              await relaunch();
-            },
-          },
-          {
-            label: 'Later',
-            onClick: () => {
-              postponedUntil = Date.now() + CHECK_INTERVAL;
-            },
-          },
-        ],
-      });
-    }
+    // Store the update info — StatusBar will display it
+    updateState.set({
+      newVersion: update.version,
+      downloadProgress: null,
+      updateHandle: update,
+    });
 
     return true;
   } catch (err) {
     if (manual) showToast('error', 'Update check failed', String(err));
     return false;
   }
+}
+
+/** Called from StatusBar when user clicks install */
+export async function installUpdate(): Promise<void> {
+  let update: any;
+  updateState.subscribe((s) => { update = s.updateHandle; })();
+
+  if (!update) return;
+
+  let downloaded = 0;
+  let contentLength = 0;
+
+  await update.downloadAndInstall((event: any) => {
+    if (event.event === 'Started' && event.data.contentLength) {
+      contentLength = event.data.contentLength;
+    } else if (event.event === 'Progress') {
+      downloaded += event.data.chunkLength;
+      if (contentLength > 0) {
+        updateState.update((s) => ({ ...s, downloadProgress: Math.round((downloaded / contentLength) * 100) }));
+      }
+    } else if (event.event === 'Finished') {
+      updateState.update((s) => ({ ...s, downloadProgress: 100 }));
+    }
+  });
+
+  await relaunch();
+}
+
+/** Called from StatusBar when user clicks "later" */
+export function postponeUpdate(): void {
+  postponedUntil = Date.now() + CHECK_INTERVAL;
+  updateState.set({ newVersion: null, downloadProgress: null, updateHandle: null });
 }
 
 export function startUpdateChecker(): void {

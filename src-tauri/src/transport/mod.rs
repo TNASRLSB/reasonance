@@ -70,19 +70,21 @@ impl StructuredAgentTransport {
 
     pub fn send(&self, request: AgentRequest, trust_store: &crate::workspace_trust::TrustStore) -> Result<String, String> {
         let provider = request.provider.to_lowercase();
-        info!("Transport: send request provider={} model={:?} session_id={:?}", provider, request.model, request.session_id);
+        info!("Transport: send request provider={} model={:?} session_id={:?} yolo={} cwd={:?}", provider, request.model, request.session_id, request.yolo, request.cwd);
 
         // Backend safety net: query trust from the store, not from frontend-supplied value
         let trust = request.cwd.as_deref().map(|cwd| {
             trust_store.check_trust(cwd)
         });
         let trust_level = trust.as_ref().and_then(|r| r.level);
+        info!("Transport: trust_level={:?} yolo={}", trust_level, request.yolo);
 
         if matches!(trust_level, Some(crate::workspace_trust::TrustLevel::Blocked)) {
             warn!("Transport: send blocked — workspace is not trusted cwd={:?}", request.cwd);
             return Err("Workspace is not trusted".to_string());
         }
-        if trust_level.is_none() && request.cwd.is_some() {
+        // When yolo=true, skip the trust gate — user has explicitly opted into full permissions
+        if !request.yolo && trust_level.is_none() && request.cwd.is_some() {
             warn!("Transport: send blocked — workspace trust not established cwd={:?}", request.cwd);
             return Err("Workspace trust has not been established".to_string());
         }
@@ -130,6 +132,7 @@ impl StructuredAgentTransport {
 
         let args = Self::build_cli_args(config, &request, cli_session_id.as_deref());
         let permission_args = Self::build_permission_args_with_trust(config, request.cwd.as_deref(), request.yolo, trust_level);
+        info!("Transport: permission_args={:?}", permission_args);
         let allowed_tools_args = if matches!(trust_level, Some(crate::workspace_trust::TrustLevel::ReadOnly)) {
             Self::build_read_only_tools_args(config)
         } else {
@@ -185,7 +188,7 @@ impl StructuredAgentTransport {
             }
         }
 
-        debug!("Transport: spawning CLI binary={} with {} args", binary, args.len());
+        info!("Transport: spawning CLI binary={} args={:?} permission_args={:?} allowed_tools_args={:?}", binary, args, permission_args, allowed_tools_args);
         let mut child = cmd.spawn().map_err(|e| {
             error!("Transport: failed to spawn {}: {}", binary, e);
             format!("Failed to spawn {}: {}", binary, e)
@@ -334,9 +337,18 @@ impl StructuredAgentTransport {
         trust_level: Option<crate::workspace_trust::TrustLevel>,
     ) -> Vec<String> {
         use crate::workspace_trust::TrustLevel;
+        let project_root = cwd.unwrap_or(".");
+
+        // When yolo=true, always pass permission args regardless of trust level
+        if yolo {
+            return config.cli.permission_args.iter().map(|arg| {
+                arg.replace("{project_root}", project_root)
+            }).collect();
+        }
+
         match trust_level {
-            Some(TrustLevel::Trusted) if yolo => {
-                let project_root = cwd.unwrap_or(".");
+            Some(TrustLevel::Trusted) => {
+                // Trusted workspace without yolo — still pass permission args for stdin=null CLIs
                 config.cli.permission_args.iter().map(|arg| {
                     arg.replace("{project_root}", project_root)
                 }).collect()
@@ -344,7 +356,6 @@ impl StructuredAgentTransport {
             Some(TrustLevel::ReadOnly) => {
                 // Pass permission_args to avoid interactive prompts (stdin=null)
                 // Tool restriction handled separately via read_only_tools_args
-                let project_root = cwd.unwrap_or(".");
                 config.cli.permission_args.iter().map(|arg| {
                     arg.replace("{project_root}", project_root)
                 }).collect()
@@ -557,11 +568,11 @@ mod tests {
         );
         assert!(!args.is_empty());
 
-        // Trusted + not yolo → no permission args
+        // Trusted + not yolo → permission args (trusted workspace gets args for stdin=null CLIs)
         let args = StructuredAgentTransport::build_permission_args_with_trust(
             config, Some("/project"), false, Some(crate::workspace_trust::TrustLevel::Trusted)
         );
-        assert!(args.is_empty());
+        assert!(!args.is_empty());
 
         // ReadOnly → permission args (to avoid interactive prompt) regardless of yolo
         let args = StructuredAgentTransport::build_permission_args_with_trust(
@@ -569,15 +580,27 @@ mod tests {
         );
         assert!(!args.is_empty());
 
-        // Blocked → empty (session should not even start)
+        // yolo + Blocked → permission args (yolo overrides; send() blocks Blocked upstream)
         let args = StructuredAgentTransport::build_permission_args_with_trust(
             config, Some("/project"), true, Some(crate::workspace_trust::TrustLevel::Blocked)
         );
-        assert!(args.is_empty());
+        assert!(!args.is_empty());
 
-        // None trust → empty (not yet trusted)
+        // yolo + None trust → permission args (yolo bypasses trust gate)
         let args = StructuredAgentTransport::build_permission_args_with_trust(
             config, Some("/project"), true, None
+        );
+        assert!(!args.is_empty());
+
+        // not yolo + None trust → no permission args
+        let args = StructuredAgentTransport::build_permission_args_with_trust(
+            config, Some("/project"), false, None
+        );
+        assert!(args.is_empty());
+
+        // not yolo + Blocked → no permission args
+        let args = StructuredAgentTransport::build_permission_args_with_trust(
+            config, Some("/project"), false, Some(crate::workspace_trust::TrustLevel::Blocked)
         );
         assert!(args.is_empty());
     }
