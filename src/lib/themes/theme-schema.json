@@ -1,0 +1,176 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Theme and Modifier Schema",
+  "description": "JSON Schema for validating Reasonance theme and modifier files",
+  "definitions": {
+    "meta": {
+      "type": "object",
+      "required": ["name", "type", "schemaVersion"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Human-readable name of the theme or modifier"
+        },
+        "type": {
+          "enum": ["theme", "modifier"],
+          "description": "Type of this configuration"
+        },
+        "schemaVersion": {
+          "const": 1,
+          "description": "Schema version (must be 1)"
+        },
+        "author": {
+          "type": "string",
+          "description": "Author of the theme or modifier"
+        },
+        "version": {
+          "type": "string",
+          "description": "Version string (e.g., '1.0.0')"
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of the theme or modifier"
+        },
+        "colorScheme": {
+          "enum": ["dark", "light"],
+          "description": "Color scheme preference"
+        },
+        "editorTheme": {
+          "type": "string",
+          "description": "Associated editor theme name"
+        },
+        "trigger": {
+          "type": "string",
+          "description": "Trigger condition for automatic application"
+        }
+      },
+      "additionalProperties": false
+    },
+    "styleSection": {
+      "type": "object",
+      "description": "Section containing CSS custom properties (--name)",
+      "patternProperties": {
+        "^--": {
+          "oneOf": [
+            { "type": "string" },
+            { "type": "number" }
+          ]
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "oneOf": [
+    {
+      "title": "Theme",
+      "description": "A complete theme with all 11 required sections",
+      "type": "object",
+      "required": [
+        "meta",
+        "colors",
+        "hues",
+        "states",
+        "ui-states",
+        "typography",
+        "spacing",
+        "borders",
+        "focus",
+        "transitions",
+        "layout",
+        "layers"
+      ],
+      "properties": {
+        "meta": {
+          "allOf": [
+            { "$ref": "#/definitions/meta" },
+            {
+              "properties": {
+                "type": { "const": "theme" }
+              }
+            }
+          ]
+        },
+        "colors": { "$ref": "#/definitions/styleSection" },
+        "hues": { "$ref": "#/definitions/styleSection" },
+        "states": { "$ref": "#/definitions/styleSection" },
+        "ui-states": { "$ref": "#/definitions/styleSection" },
+        "typography": { "$ref": "#/definitions/styleSection" },
+        "spacing": { "$ref": "#/definitions/styleSection" },
+        "borders": { "$ref": "#/definitions/styleSection" },
+        "focus": { "$ref": "#/definitions/styleSection" },
+        "transitions": { "$ref": "#/definitions/styleSection" },
+        "layout": { "$ref": "#/definitions/styleSection" },
+        "layers": { "$ref": "#/definitions/styleSection" },
+        "when-dark": {
+          "type": "object",
+          "description": "Optional overrides for dark color scheme",
+          "additionalProperties": { "$ref": "#/definitions/styleSection" }
+        },
+        "when-light": {
+          "type": "object",
+          "description": "Optional overrides for light color scheme",
+          "additionalProperties": { "$ref": "#/definitions/styleSection" }
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "title": "Modifier",
+      "description": "A modifier with optional sections and conditional overrides",
+      "type": "object",
+      "required": ["meta"],
+      "properties": {
+        "meta": {
+          "allOf": [
+            { "$ref": "#/definitions/meta" },
+            {
+              "properties": {
+                "type": { "const": "modifier" }
+              }
+            }
+          ]
+        },
+        "colors": { "$ref": "#/definitions/styleSection" },
+        "hues": { "$ref": "#/definitions/styleSection" },
+        "states": { "$ref": "#/definitions/styleSection" },
+        "ui-states": { "$ref": "#/definitions/styleSection" },
+        "typography": { "$ref": "#/definitions/styleSection" },
+        "spacing": { "$ref": "#/definitions/styleSection" },
+        "borders": { "$ref": "#/definitions/styleSection" },
+        "focus": { "$ref": "#/definitions/styleSection" },
+        "transitions": { "$ref": "#/definitions/styleSection" },
+        "layout": { "$ref": "#/definitions/styleSection" },
+        "layers": { "$ref": "#/definitions/styleSection" },
+        "when-dark": {
+          "type": "object",
+          "description": "Optional overrides for dark color scheme",
+          "additionalProperties": { "$ref": "#/definitions/styleSection" }
+        },
+        "when-light": {
+          "type": "object",
+          "description": "Optional overrides for light color scheme",
+          "additionalProperties": { "$ref": "#/definitions/styleSection" }
+        }
+      },
+      "additionalProperties": false,
+      "not": {
+        "required": ["meta"],
+        "properties": {
+          "colors": { "not": {} },
+          "hues": { "not": {} },
+          "states": { "not": {} },
+          "ui-states": { "not": {} },
+          "typography": { "not": {} },
+          "spacing": { "not": {} },
+          "borders": { "not": {} },
+          "focus": { "not": {} },
+          "transitions": { "not": {} },
+          "layout": { "not": {} },
+          "layers": { "not": {} },
+          "when-dark": { "not": {} },
+          "when-light": { "not": {} }
+        }
+      }
+    }
+  ]
+}
