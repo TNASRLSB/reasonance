@@ -1,5 +1,69 @@
 # Changelog
 
+## [0.12.0] - 2026-03-24
+
+### Features
+
+- feat: command palette, editable files, inline updater, yolo trust bypass (v0.10.0)
+- feat: i18n translations for workspace trust and permission switcher
+- feat: reactive session suspension on trust revocation
+- feat: trust level enforcement in transport send()
+- feat: trusted workspaces section in Settings
+- feat: config migration — default yolo, legacy permission cleanup
+- feat: trust gate check before LLM session spawn
+- feat: WorkspaceTrustDialog component with accessibility
+- feat: frontend trust store and adapter methods
+- feat: trust-aware permission args and read-only tool whitelist
+- feat: add Tauri commands for workspace trust
+- feat: add TrustStore backend for workspace trust
+
+### Bug Fixes
+
+- fix: resolve type narrowing error in PTY trust warning
+- fix: remove red YOLO warning styling from StatusBar
+
+### Other
+
+- chore: bump version to 0.11.0
+- 
+- - Editor: editable with modified-line gutter markers, dirty tracking, Ctrl+S save with diff review
+- - EditorTabs: native Tauri save dialog on close with unsaved changes
+- - StatusBar: inline update indicator with install/later actions (replaces toast-based updater)
+- - TerminalManager: simplified dropdowns, removed STREAMING badge, view mode toggle on active tab click
+- - FileTree: reactive filesystem change listener for create/remove events
+- - Transport: yolo mode bypasses workspace trust gate, always passes permission args
+- - rules_engine: exists() now returns false for empty arrays/objects/null
+- - +page.svelte: auto-accept file changes in yolo mode, save/saveAll handlers
+- - ChatView: reactive $llmConfigs instead of get() for permission level
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- 
+- sends for blocked or not-yet-trusted workspaces regardless of frontend
+- state, and uses trust-aware permission/tool args (read-only tools for
+- ReadOnly trust level).
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- 
+- 
+- 
+- 
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- 
+- and list_workspace_trust as Tauri invoke_handler commands backed by TrustStore.
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- SHA-256 path hashing, parent directory inheritance, broad-directory blocking,
+- and expiration support. Wires TrustStore into Tauri state management.
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+
+
+
 ## [0.10.0] - 2026-03-24
 
 ### Features
