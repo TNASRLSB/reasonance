@@ -307,6 +307,43 @@ impl StructuredAgentTransport {
         }
     }
 
+    /// Build permission args considering both yolo flag and workspace trust level.
+    fn build_permission_args_with_trust(
+        config: &crate::normalizer::TomlConfig,
+        cwd: Option<&str>,
+        yolo: bool,
+        trust_level: Option<crate::workspace_trust::TrustLevel>,
+    ) -> Vec<String> {
+        use crate::workspace_trust::TrustLevel;
+        match trust_level {
+            Some(TrustLevel::Trusted) if yolo => {
+                let project_root = cwd.unwrap_or(".");
+                config.cli.permission_args.iter().map(|arg| {
+                    arg.replace("{project_root}", project_root)
+                }).collect()
+            }
+            Some(TrustLevel::ReadOnly) => {
+                // Pass permission_args to avoid interactive prompts (stdin=null)
+                // Tool restriction handled separately via read_only_tools_args
+                let project_root = cwd.unwrap_or(".");
+                config.cli.permission_args.iter().map(|arg| {
+                    arg.replace("{project_root}", project_root)
+                }).collect()
+            }
+            _ => Vec::new(),
+        }
+    }
+
+    /// Build `--allowedTools` args for read-only mode using the normalizer's read_only_tools list.
+    fn build_read_only_tools_args(config: &crate::normalizer::TomlConfig) -> Vec<String> {
+        match &config.cli.allowed_tools_arg {
+            Some(flag) if !config.cli.read_only_tools.is_empty() => {
+                vec![flag.clone(), config.cli.read_only_tools.join(",")]
+            }
+            _ => Vec::new(),
+        }
+    }
+
     /// Build CLI args. `cli_session_id` is the session ID returned by the CLI
     /// (e.g., from a previous invocation), NOT the internal Reasonance session ID.
     /// Only when a real CLI session ID is provided do we use `resume_args`.
@@ -482,5 +519,56 @@ mod tests {
         let transport = StructuredAgentTransport::new(Path::new("normalizers")).unwrap();
         let result = transport.get_status("nonexistent");
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_build_permission_args_with_trust() {
+        let transport = StructuredAgentTransport::new(Path::new("normalizers")).unwrap();
+        let registry = transport.registry.lock().unwrap_or_else(|e| e.into_inner());
+        let config = registry.get_config("claude").unwrap();
+
+        // Trusted + yolo → permission args
+        let args = StructuredAgentTransport::build_permission_args_with_trust(
+            config, Some("/project"), true, Some(crate::workspace_trust::TrustLevel::Trusted)
+        );
+        assert!(!args.is_empty());
+
+        // Trusted + not yolo → no permission args
+        let args = StructuredAgentTransport::build_permission_args_with_trust(
+            config, Some("/project"), false, Some(crate::workspace_trust::TrustLevel::Trusted)
+        );
+        assert!(args.is_empty());
+
+        // ReadOnly → permission args (to avoid interactive prompt) regardless of yolo
+        let args = StructuredAgentTransport::build_permission_args_with_trust(
+            config, Some("/project"), false, Some(crate::workspace_trust::TrustLevel::ReadOnly)
+        );
+        assert!(!args.is_empty());
+
+        // Blocked → empty (session should not even start)
+        let args = StructuredAgentTransport::build_permission_args_with_trust(
+            config, Some("/project"), true, Some(crate::workspace_trust::TrustLevel::Blocked)
+        );
+        assert!(args.is_empty());
+
+        // None trust → empty (not yet trusted)
+        let args = StructuredAgentTransport::build_permission_args_with_trust(
+            config, Some("/project"), true, None
+        );
+        assert!(args.is_empty());
+    }
+
+    #[test]
+    fn test_read_only_uses_allowed_tools_whitelist() {
+        let transport = StructuredAgentTransport::new(Path::new("normalizers")).unwrap();
+        let registry = transport.registry.lock().unwrap_or_else(|e| e.into_inner());
+        let config = registry.get_config("claude").unwrap();
+
+        let args = StructuredAgentTransport::build_read_only_tools_args(config);
+        assert!(args.contains(&"--allowedTools".to_string()));
+        // Should contain comma-separated read-only tools
+        let tools_str = &args[1];
+        assert!(tools_str.contains("Read"));
+        assert!(tools_str.contains("Grep"));
     }
 }

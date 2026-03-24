@@ -7,6 +7,7 @@ version_command = ["kimi", "--version"]
 update_command = ["npm", "install", "-g", "kimi@latest"]
 api_key_env = "MOONSHOT_API_KEY"
 permission_args = ["--dangerously-skip-permissions"]
+read_only_tools = ["Read", "Grep", "Glob"]
 
 [capabilities]
 streaming = true
