@@ -9,6 +9,8 @@
   import { llmConfigs } from '$lib/stores/config';
   import { get } from 'svelte/store';
   import { MODEL_INFO } from '$lib/data/model-info';
+  import { showToast } from '$lib/stores/toast';
+  import { t } from '$lib/i18n/index';
 
   let { adapter, sessionId, provider, model, configName }: {
     adapter: Adapter;
@@ -21,9 +23,12 @@
   // Per-session approved tools (not persisted — only for this session)
   let sessionApprovedTools = $state<Set<string>>(new Set());
 
-  // Resolve per-model permission level from config
+  // Session-local permission override (not persisted)
+  let sessionPermissionOverride = $state<'yolo' | 'ask' | 'locked' | null>(null);
+
+  // Resolve per-model permission level from config (session override takes precedence)
   let modelConfig = $derived(get(llmConfigs).find((c) => c.name === configName));
-  let permissionLevel = $derived(modelConfig?.permissionLevel ?? 'ask');
+  let permissionLevel = $derived(sessionPermissionOverride ?? modelConfig?.permissionLevel ?? 'yolo');
   let configAllowedTools = $derived(modelConfig?.allowedTools ?? []);
 
   let events = $derived(($agentEvents).get(sessionId) ?? []);
@@ -76,6 +81,14 @@
       }
     }).catch((e) => console.warn('Failed to load events:', e));
   });
+
+  function handlePermissionChange(level: 'yolo' | 'ask' | 'locked') {
+    sessionPermissionOverride = level;
+    const msgKey = level === 'yolo' ? 'permission.switchedAuto'
+      : level === 'locked' ? 'permission.switchedLocked'
+      : 'permission.switchedConfirm';
+    showToast('info', t(msgKey));
+  }
 
   async function handleSend(text: string) {
     try {
@@ -153,7 +166,8 @@
 
     try {
       setStreaming(sessionId, true);
-      await adapter.agentSend(lastUserEvent.content.value, provider, model, newSessionId, cwd, false, mergedTools);
+      const isYolo = permissionLevel === 'yolo';
+      await adapter.agentSend(lastUserEvent.content.value, provider, model, newSessionId, cwd, isYolo, mergedTools);
     } catch (e) {
       console.error('Replay failed:', e);
       setStreaming(sessionId, false);
@@ -173,6 +187,7 @@
     {streaming}
     {provider}
     {permissionLevel}
+    onPermissionChange={handlePermissionChange}
   />
 </div>
 
