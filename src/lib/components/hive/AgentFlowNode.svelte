@@ -11,8 +11,11 @@
   id={data.id ?? ''}
   label={data.label ?? 'Agent'}
   llm={data.config?.llm ?? ''}
+  prompt={data.config?.prompt ?? ''}
   nodeState={data.state ?? 'idle'}
   selected={data.selected ?? false}
+  memoryCount={data.memoryCount ?? 0}
   onselect={(id) => selectedNodeId.set(id)}
+  onchange={(field, value) => data.onchange?.(data.id, field, value)}
 />
 <Handle type="source" position={Position.Bottom} />

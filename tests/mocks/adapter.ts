@@ -267,6 +267,9 @@ export function createMockAdapter(overrides?: Partial<Adapter>): Adapter {
     getAgentMessages(agentId: string): Promise<AgentMessage[]> {
       return Promise.resolve(agentMessages.get(agentId) ?? []);
     },
+    getAgentMemory(): Promise<any[]> {
+      return Promise.resolve([]);
+    },
 
     // Workflow Engine
     playWorkflow(_workflowPath: string, _cwd: string) {

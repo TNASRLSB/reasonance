@@ -1,4 +1,5 @@
 use crate::agent_runtime::{AgentInstance, AgentMessage, AgentRuntime, AgentState};
+use crate::agent_memory::{AgentMemoryStore, MemoryEntry};
 use log::{info, error, debug};
 use tauri::State;
 
@@ -65,4 +66,18 @@ pub fn send_agent_message(from: String, to: String, payload: serde_json::Value, 
 pub fn get_agent_messages(agent_id: String, runtime: State<'_, AgentRuntime>) -> Vec<AgentMessage> {
     debug!("cmd::get_agent_messages(agent_id={})", agent_id);
     runtime.get_messages_for(&agent_id)
+}
+
+#[tauri::command]
+pub fn get_agent_memory(node_id: String, workflow_path: String, persist: String) -> Result<Vec<MemoryEntry>, String> {
+    info!("cmd::get_agent_memory(node_id={}, persist={})", node_id, persist);
+    let mem_path = match persist.as_str() {
+        "global" => AgentMemoryStore::global_memory_path(&node_id),
+        _ => AgentMemoryStore::workflow_memory_path(&workflow_path, &node_id),
+    };
+    let path_str = mem_path.to_str().unwrap_or("");
+    match AgentMemoryStore::load(path_str) {
+        Ok(store) => Ok(store.entries),
+        Err(_) => Ok(Vec::new()),
+    }
 }

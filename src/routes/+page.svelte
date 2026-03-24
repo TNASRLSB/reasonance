@@ -378,42 +378,46 @@
     {/snippet}
 
     {#snippet editor()}
-      <EditorTabs>
-        {#snippet actions()}
-          {#if $activeFilePath}
-            {#if isMarkdown}
+      {#if hiveVisible}
+        <HiveCanvas {adapter} />
+      {:else}
+        <EditorTabs>
+          {#snippet actions()}
+            {#if $activeFilePath}
+              {#if isMarkdown}
+                <button
+                  class="editor-action"
+                  class:active={showMarkdownPreview}
+                  onclick={() => (showMarkdownPreview = !showMarkdownPreview)}
+                >
+                  {showMarkdownPreview ? $tr('editor.code') : $tr('editor.preview')}
+                </button>
+              {/if}
               <button
                 class="editor-action"
-                class:active={showMarkdownPreview}
-                onclick={() => (showMarkdownPreview = !showMarkdownPreview)}
+                class:active={!editorReadOnly}
+                onclick={() => (editorReadOnly = !editorReadOnly)}
               >
-                {showMarkdownPreview ? $tr('editor.code') : $tr('editor.preview')}
+                {editorReadOnly ? $tr('editor.readOnly') : $tr('editor.editing')}
               </button>
             {/if}
-            <button
-              class="editor-action"
-              class:active={!editorReadOnly}
-              onclick={() => (editorReadOnly = !editorReadOnly)}
-            >
-              {editorReadOnly ? $tr('editor.readOnly') : $tr('editor.editing')}
-            </button>
-          {/if}
-        {/snippet}
-      </EditorTabs>
-      {#if showHelp}
-        <HelpPanel />
-      {:else if diffState}
-        <DiffView
-          original={diffState.original}
-          modified={diffState.modified}
-          filename={diffState.filename}
-          {adapter}
-          filePath={diffState.path}
-          onAccept={handleAccept}
-          onReject={handleReject}
-        />
-      {:else}
-        <Editor {adapter} readOnly={editorReadOnly} {showMarkdownPreview} />
+          {/snippet}
+        </EditorTabs>
+        {#if showHelp}
+          <HelpPanel />
+        {:else if diffState}
+          <DiffView
+            original={diffState.original}
+            modified={diffState.modified}
+            filename={diffState.filename}
+            {adapter}
+            filePath={diffState.path}
+            onAccept={handleAccept}
+            onReject={handleReject}
+          />
+        {:else}
+          <Editor {adapter} readOnly={editorReadOnly} {showMarkdownPreview} />
+        {/if}
       {/if}
     {/snippet}
 
@@ -443,11 +447,6 @@
   onClose={() => (showFindInFiles = false)}
 />
 
-{#if hiveVisible}
-  <div class="hive-overlay">
-    <HiveCanvas {adapter} />
-  </div>
-{/if}
 
 {#if showAbout}
   <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -483,15 +482,6 @@
 <Toast />
 
 <style>
-  .hive-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 1000;
-    background: var(--bg-primary);
-  }
 
   .about-overlay {
     position: fixed;

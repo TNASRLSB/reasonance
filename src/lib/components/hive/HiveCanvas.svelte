@@ -33,6 +33,10 @@
 
   onMount(() => {
     setupHiveEventListeners();
+    // Initialize empty workflow if none loaded
+    if (!get(currentWorkflow)) {
+      currentWorkflow.set({ name: 'Untitled', nodes: [], edges: [], settings: {} });
+    }
   });
 
   let wfNodes = $derived<WorkflowNode[]>($currentWorkflow?.nodes ?? []);
@@ -49,10 +53,12 @@
     type: n.type,
     position: { x: n.position.x, y: n.position.y },
     data: {
+      id: n.id,
       label: n.label,
       config: n.config,
       state: getNodeState(n.id),
       selected: $selectedNodeId === n.id,
+      onchange: onNodeChange,
     },
   })));
 
@@ -94,6 +100,21 @@
 
   function selectNode(id: string) {
     selectedNodeId.set(id);
+  }
+
+  function onNodeChange(nodeId: string, field: string, value: string) {
+    const wf = get(currentWorkflow);
+    if (!wf) return;
+    const updated = {
+      ...wf,
+      nodes: wf.nodes.map((n) => {
+        if (n.id !== nodeId) return n;
+        if (field === 'label') return { ...n, label: value };
+        return { ...n, config: { ...n.config, [field]: value } };
+      }),
+    };
+    currentWorkflow.set(updated);
+    workflowDirty.set(true);
   }
 
   function closeCanvas() {
@@ -306,9 +327,11 @@
     display: flex;
     align-items: center;
     gap: var(--space-2);
-    padding: var(--space-1) var(--space-2);
+    padding: 0 var(--space-2);
     background: var(--bg-secondary);
     border-bottom: var(--border-width) solid var(--border);
+    height: 38px;
+    flex-shrink: 0;
   }
   .toolbar-spacer {
     flex: 1;

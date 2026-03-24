@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { Adapter, FileEntry, FsEvent, GrepResult, PtyHandle, DiscoveredAgent, Workflow, AgentState, AgentInstance, AgentMessage, WorkflowRun } from './index';
+import type { Adapter, FileEntry, FsEvent, GrepResult, PtyHandle, DiscoveredAgent, Workflow, AgentState, AgentInstance, AgentMessage, MemoryEntry, WorkflowRun } from './index';
 import type { AgentEvent, AgentEventPayload, SessionHandle, SessionSummary, ViewMode } from '$lib/types/agent-event';
 import type { NegotiatedCapabilities, CliVersionInfo, VersionEntry, HealthReport } from '$lib/types/capability';
 import type { ProviderAnalytics, ModelAnalytics, DailyStats, SessionMetrics, ConnectionTestStep } from '$lib/types/analytics';
@@ -200,6 +200,9 @@ export class TauriAdapter implements Adapter {
   }
   async getAgentMessages(agentId: string): Promise<AgentMessage[]> {
     return invoke<AgentMessage[]>('get_agent_messages', { agentId });
+  }
+  async getAgentMemory(nodeId: string, workflowPath: string, persist = 'workflow'): Promise<MemoryEntry[]> {
+    return invoke<MemoryEntry[]>('get_agent_memory', { nodeId, workflowPath, persist });
   }
 
   // Workflow Engine

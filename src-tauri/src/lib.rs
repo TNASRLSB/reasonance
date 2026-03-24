@@ -265,6 +265,7 @@ pub fn run() {
             commands::agent::stop_workflow_agents,
             commands::agent::send_agent_message,
             commands::agent::get_agent_messages,
+            commands::agent::get_agent_memory,
             commands::engine::play_workflow,
             commands::engine::pause_workflow,
             commands::engine::resume_workflow,

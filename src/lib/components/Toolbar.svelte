@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { showSettings, analyticsDashboard } from '$lib/stores/ui';
+  import { showSettings, analyticsDashboard, showHiveCanvas } from '$lib/stores/ui';
   import type { Adapter } from '$lib/adapter/index';
   import MenuBar from './MenuBar.svelte';
   import { activeInstanceId } from '$lib/stores/terminals';
@@ -98,8 +98,10 @@
     >ANALYTICS</button>
     <button
       class="toolbar-btn"
-      disabled
-      title={$tr('terminal.hiveComingSoon')}
+      class:active={$showHiveCanvas}
+      aria-pressed={$showHiveCanvas}
+      onclick={() => showHiveCanvas.update(v => !v)}
+      title={$tr('terminal.hive')}
       aria-label={$tr('terminal.hive')}
     >HIVE</button>
     <button class="toolbar-btn" onclick={openSettings} title={$tr('toolbar.settings')} aria-label={$tr('toolbar.settings')}>SETTINGS</button>

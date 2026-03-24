@@ -12,7 +12,9 @@
   label={data.label ?? 'Resource'}
   kind={data.config?.kind ?? 'folder'}
   path={data.config?.path ?? ''}
+  access={data.config?.access ?? 'read'}
   selected={data.selected ?? false}
   onselect={(id) => selectedNodeId.set(id)}
+  onchange={(field, value) => data.onchange?.(data.id, field, value)}
 />
 <Handle type="source" position={Position.Bottom} />

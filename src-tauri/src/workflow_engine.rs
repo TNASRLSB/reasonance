@@ -353,6 +353,7 @@ impl WorkflowEngine {
             .unwrap_or("claude");
 
         // Load agent memory if enabled
+        let mut memory_context = String::new();
         if let Ok(agent_cfg) = serde_json::from_value::<AgentNodeConfig>(node.config.clone()) {
             if let Some(ref mem_cfg) = agent_cfg.memory {
                 if mem_cfg.enabled {
@@ -366,12 +367,20 @@ impl WorkflowEngine {
                         _ => AgentMemoryStore::workflow_memory_path(".", node_id),
                     };
                     match AgentMemoryStore::load(mem_path.to_str().unwrap_or("")) {
-                        Ok(store) => {
+                        Ok(store) if !store.entries.is_empty() => {
+                            let summary = store.entries.iter()
+                                .map(|e| format!("[{}] {}: {}", e.timestamp, e.outcome, e.output_summary))
+                                .collect::<Vec<_>>()
+                                .join("\n");
+                            memory_context = format!("\n<memory>\n{}\n</memory>\n", summary);
                             info!(
                                 "Memory loaded for node {}: {} entries injected",
                                 node_id,
                                 store.entries.len()
                             );
+                        }
+                        Ok(_) => {
+                            debug!("No memory entries for node {}", node_id);
                         }
                         Err(_) => {
                             debug!("No existing memory for node {}, starting fresh", node_id);
@@ -380,6 +389,20 @@ impl WorkflowEngine {
                 }
             }
         }
+
+        // Build prompt from node config + routed messages + memory
+        let prompt = node.config.get("prompt").and_then(|v| v.as_str()).unwrap_or("").to_string();
+        let input_msgs = runtime.get_messages_for(node_id);
+        let routed_input = if input_msgs.is_empty() {
+            String::new()
+        } else {
+            let parts: Vec<&str> = input_msgs.iter()
+                .filter_map(|m| m.payload.get("output").and_then(|v| v.as_str()))
+                .collect();
+            format!("\n<input>\n{}\n</input>\n", parts.join("\n---\n"))
+        };
+
+        let full_prompt = format!("{}{}{}\n", memory_context, routed_input, prompt);
 
         let agent_id = runtime.create_agent(
             node_id,
@@ -391,6 +414,15 @@ impl WorkflowEngine {
         runtime.transition(&agent_id, AgentState::Running)?;
         let pty_id = pty_manager.spawn(llm, &[], cwd, app.clone())?;
         runtime.set_pty(&agent_id, &pty_id)?;
+
+        // Inject prompt + memory + routed input into PTY
+        if !full_prompt.trim().is_empty() {
+            if let Err(e) = pty_manager.write(&pty_id, &full_prompt) {
+                warn!("Failed to write prompt to PTY {}: {}", pty_id, e);
+            } else {
+                debug!("Injected prompt into PTY {} for node {} ({} bytes)", pty_id, node_id, full_prompt.len());
+            }
+        }
         self.update_node_state(
             run_id,
             node_id,

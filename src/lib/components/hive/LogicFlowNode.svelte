@@ -15,5 +15,6 @@
   nodeState={data.state ?? 'idle'}
   selected={data.selected ?? false}
   onselect={(id) => selectedNodeId.set(id)}
+  onchange={(field, value) => data.onchange?.(data.id, field, value)}
 />
 <Handle type="source" position={Position.Bottom} />

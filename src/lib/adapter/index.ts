@@ -86,6 +86,7 @@ export interface Adapter {
   stopWorkflowAgents(workflowPath: string): Promise<void>;
   sendAgentMessage(from: string, to: string, payload: unknown): Promise<void>;
   getAgentMessages(agentId: string): Promise<AgentMessage[]>;
+  getAgentMemory(nodeId: string, workflowPath: string, persist?: string): Promise<MemoryEntry[]>;
 
   // Workflow Engine
   playWorkflow(workflowPath: string, cwd: string): Promise<string>;
@@ -197,6 +198,15 @@ export interface AgentMessage {
   to: string;
   payload: unknown;
   timestamp: string;
+}
+
+export interface MemoryEntry {
+  run_id: string;
+  timestamp: string;
+  input_summary: string;
+  output_summary: string;
+  outcome: string;
+  context: unknown;
 }
 
 export interface WorkflowNode {
