@@ -1,8 +1,11 @@
 import { writable, derived, get } from 'svelte/store';
-import type { ThemeFile } from '$lib/engine/theme-types';
+import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
+import type { ThemeFile, ThemePreferences } from '$lib/engine/theme-types';
 import { extractVariables, mergeModifier, buildCssString, injectStyles, applyColorScheme } from '$lib/engine/theme-engine';
 import { validateTheme } from '$lib/engine/theme-validator';
 import { FALLBACK_THEME } from '$lib/engine/fallback-theme';
+import { editorTheme } from '$lib/stores/ui';
 
 // --- Stores ---
 export const activeThemeName = writable<string>('reasonance-dark');
@@ -32,6 +35,26 @@ const builtinModifiers: Record<string, () => Promise<ThemeFile>> = {
   '_reduced-motion': () => import('$lib/themes/_reduced-motion.json').then((m) => m.default as ThemeFile),
 };
 
+// --- Persistence ---
+
+let initialized = false;
+
+activeThemeName.subscribe(() => { if (initialized) savePreferences(); });
+activeModifierNames.subscribe(() => { if (initialized) savePreferences(); });
+
+async function savePreferences(): Promise<void> {
+  try {
+    await invoke('save_theme_preferences', {
+      prefs: {
+        activeTheme: get(activeThemeName),
+        activeModifiers: get(activeModifierNames),
+      },
+    });
+  } catch (e) {
+    console.warn('Failed to save theme preferences:', e);
+  }
+}
+
 // --- Actions ---
 
 function reapply(): void {
@@ -47,6 +70,12 @@ function reapply(): void {
   injectStyles('reasonance-theme', buildCssString(vars));
   applyColorScheme(cs);
   colorScheme.set(cs);
+
+  // Auto-select editor theme from app theme metadata
+  const editorThemeName = theme.meta.editorTheme;
+  if (editorThemeName) {
+    editorTheme.set(editorThemeName);
+  }
 }
 
 export async function loadBuiltinTheme(name: string): Promise<void> {
@@ -140,6 +169,46 @@ export function initTheme(): void {
 }
 
 export async function initThemeEngine(): Promise<void> {
-  await loadBuiltinTheme('reasonance-dark');
+  try {
+    const prefs = await invoke<ThemePreferences>('load_theme_preferences');
+
+    // Try user theme first, then built-in
+    try {
+      const json = await invoke<string>('load_user_theme', { name: prefs.activeTheme });
+      const theme = JSON.parse(json) as ThemeFile;
+      const validation = validateTheme(theme);
+      if (validation.valid) {
+        activeTheme.set(theme);
+        activeThemeName.set(prefs.activeTheme);
+      } else {
+        await loadBuiltinTheme(prefs.activeTheme);
+      }
+    } catch {
+      await loadBuiltinTheme(prefs.activeTheme);
+    }
+
+    // Load saved modifiers
+    for (const name of prefs.activeModifiers) {
+      await loadModifierByName(name);
+    }
+
+    reapply();
+  } catch {
+    // Tauri not available or preferences error — use defaults
+    await loadBuiltinTheme('reasonance-dark');
+  }
+
   setupSystemModifiers();
+
+  // Hot reload on file changes
+  try {
+    await listen('theme://changed', () => {
+      const name = get(activeThemeName);
+      loadBuiltinTheme(name);
+    });
+  } catch {
+    // listen not available outside Tauri
+  }
+
+  initialized = true;
 }
