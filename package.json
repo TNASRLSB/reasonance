@@ -9,12 +9,12 @@
     "preview": "vite preview",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "tauri": "tauri",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "test:a11y": "vitest run tests/a11y",
+    "test": "svelte-kit sync && vitest run",
+    "test:watch": "svelte-kit sync && vitest",
+    "test:a11y": "svelte-kit sync && vitest run tests/a11y",
     "test:visual": "playwright test tests/visual",
     "test:interaction": "playwright test tests/interaction",
-    "test:all": "vitest run && playwright test"
+    "test:all": "svelte-kit sync && vitest run && playwright test"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.11.1",

@@ -20,6 +20,7 @@ export default defineConfig({
     include: ['tests/**/*.test.ts'],
     exclude: ['tests/visual/**', 'tests/interaction/**', 'tests/a11y/**'],
     globals: true,
+    setupFiles: ['./tests/setup.ts'],
     alias: {
       '@tauri-apps/api/event': path.resolve('./tests/mocks/tauri-api.ts'),
       '@tauri-apps/api/core': path.resolve('./tests/mocks/tauri-api.ts'),
