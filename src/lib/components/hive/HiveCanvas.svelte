@@ -58,7 +58,7 @@
 
   // Convert WorkflowEdge[] → SvelteFlow Edge[]
   let flowEdges = $derived<FlowEdge[]>(wfEdges.map((e) => ({
-    id: e.id,
+    id: e.id ?? `edge-${e.from}-${e.to}`,
     source: e.from,
     target: e.to,
     label: e.label ?? '',
