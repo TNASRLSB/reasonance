@@ -1,0 +1,27 @@
+{
+  "meta": {
+    "name": "High Contrast",
+    "type": "modifier",
+    "trigger": "prefers-contrast: more",
+    "schemaVersion": 1
+  },
+  "when-dark": {
+    "colors": {
+      "--text-body": "#ffffff",
+      "--text-secondary": "#e0e0e0",
+      "--bg-primary": "#000000",
+      "--border": "#ffffff",
+      "--border-color": "#ffffff"
+    },
+    "borders": { "--border-width": "3px" }
+  },
+  "when-light": {
+    "colors": {
+      "--text-body": "#000000",
+      "--text-secondary": "#1a1a1a",
+      "--bg-primary": "#ffffff",
+      "--border": "#000000",
+      "--border-color": "#000000"
+    }
+  }
+}
