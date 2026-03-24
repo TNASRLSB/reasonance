@@ -113,6 +113,24 @@ pub fn get_run_status(
 }
 
 #[tauri::command]
+pub fn approve_node(
+    run_id: String,
+    node_id: String,
+    workflow_path: String,
+    cwd: String,
+    app: AppHandle,
+    engine: State<'_, WorkflowEngine>,
+    store: State<'_, WorkflowStore>,
+    runtime: State<'_, AgentRuntime>,
+    pty_manager: State<'_, PtyManager>,
+    lock_manager: State<'_, ResourceLockManager>,
+) -> Result<(), String> {
+    info!("cmd::approve_node(run_id={}, node_id={})", run_id, node_id);
+    let workflow = store.get(&workflow_path).ok_or("Workflow not loaded")?;
+    engine.spawn_single_node(&run_id, &node_id, &workflow, &runtime, &pty_manager, &lock_manager, &app, &cwd)
+}
+
+#[tauri::command]
 pub fn notify_node_completed(
     run_id: String,
     node_id: String,

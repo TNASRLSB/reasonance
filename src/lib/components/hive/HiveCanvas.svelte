@@ -185,6 +185,21 @@
     <NodeCatalog onadd={addNode} />
     <div class="toolbar-spacer"></div>
     <HiveControls {adapter} {cwd} />
+    {#if $currentWorkflow?.settings?.permissionLevel}
+      <span class="permission-badge"
+            class:supervised={$currentWorkflow.settings.permissionLevel === 'supervised'}
+            class:trusted={$currentWorkflow.settings.permissionLevel === 'trusted'}
+            class:dryrun={$currentWorkflow.settings.permissionLevel === 'dry-run'}
+            title={$currentWorkflow.settings.permissionLevel}>
+        {#if $currentWorkflow.settings.permissionLevel === 'supervised'}
+          <span aria-hidden="true">&#x1F512;</span>
+        {:else if $currentWorkflow.settings.permissionLevel === 'trusted'}
+          <span aria-hidden="true">&#x1F6E1;</span>
+        {:else}
+          <span aria-hidden="true">&#x3030;</span>
+        {/if}
+      </span>
+    {/if}
     <div class="toolbar-spacer"></div>
     <div class="view-modes">
       <button class:active={$hiveViewMode === 'visual'} onclick={() => hiveViewMode.set('visual')}>Visual</button>
@@ -247,6 +262,19 @@
   }
   .toolbar-spacer {
     flex: 1;
+  }
+  .permission-badge {
+    font-size: 1.2em;
+    padding: 0 0.25rem;
+  }
+  .permission-badge.supervised {
+    color: var(--warning);
+  }
+  .permission-badge.trusted {
+    color: var(--success);
+  }
+  .permission-badge.dryrun {
+    opacity: 0.6;
   }
   .view-modes {
     display: flex;

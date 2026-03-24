@@ -34,9 +34,10 @@ export function createMockAdapter(overrides?: Partial<Adapter>): Adapter {
   const defaultWorkflow = (): Workflow => ({
     name: 'Untitled',
     version: '1.0.0',
+    schemaVersion: 1,
     nodes: [],
     edges: [],
-    settings: { max_concurrent_agents: 4, default_retry: 3, timeout: 300 },
+    settings: { max_concurrent_agents: 4, default_retry: 3, timeout: 300, permissionLevel: 'supervised' },
   });
 
   const base: Adapter = {

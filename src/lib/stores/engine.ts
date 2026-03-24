@@ -4,6 +4,7 @@ import type { WorkflowRun, RunStatus, AgentState, NodeRunState } from '$lib/adap
 
 export const currentRun = writable<WorkflowRun | null>(null);
 export const currentRunId = writable<string | null>(null);
+export const pendingApprovals = writable<Array<{ run_id: string; node_id: string; agent_label: string }>>([]);
 
 export const runStatus = derived(currentRun, ($run): RunStatus => $run?.status ?? 'idle');
 
@@ -61,6 +62,13 @@ export async function setupHiveEventListeners() {
         if (!run || run.id !== event.payload.run_id) return run;
         return { ...run, status: event.payload.new_status as RunStatus };
       });
+    }
+  );
+
+  await listen<{ run_id: string; node_id: string; agent_label: string }>(
+    'hive://permission-request',
+    (event) => {
+      pendingApprovals.update(list => [...list, event.payload]);
     }
   );
 

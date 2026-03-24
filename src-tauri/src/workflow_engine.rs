@@ -282,6 +282,138 @@ impl WorkflowEngine {
         Ok(final_status)
     }
 
+    // --- Agent PTY spawn helper ---
+
+    /// Spawns a PTY for a single Agent node. Used by both `advance_run` (trusted mode)
+    /// and `approve_node` (supervised mode after user approval).
+    pub fn spawn_single_node(
+        &self,
+        run_id: &str,
+        node_id: &str,
+        workflow: &Workflow,
+        runtime: &AgentRuntime,
+        pty_manager: &PtyManager,
+        lock_manager: &ResourceLockManager,
+        app: &AppHandle,
+        cwd: &str,
+    ) -> Result<(), String> {
+        let node = workflow
+            .nodes
+            .iter()
+            .find(|n| n.id == node_id)
+            .ok_or_else(|| format!("Node {} not in workflow", node_id))?;
+
+        // Acquire locks on connected Resource nodes before spawning
+        let mut lock_failed = false;
+        let mut acquired_resources: Vec<String> = Vec::new();
+        for edge in &workflow.edges {
+            let resource_node_id = if edge.to == node_id {
+                &edge.from
+            } else if edge.from == node_id {
+                &edge.to
+            } else {
+                continue;
+            };
+            if let Some(res_node) = workflow.nodes.iter().find(|n| n.id == *resource_node_id && n.node_type == NodeType::Resource) {
+                let write = if let Ok(cfg) = serde_json::from_value::<ResourceNodeConfig>(res_node.config.clone()) {
+                    cfg.access == "write" || cfg.access == "read_write"
+                } else {
+                    false
+                };
+                if let Err(e) = lock_manager.acquire(resource_node_id, node_id, write) {
+                    debug!("Lock acquisition failed for node {} on resource {}: {}", node_id, resource_node_id, e);
+                    lock_failed = true;
+                    break;
+                }
+                acquired_resources.push(resource_node_id.clone());
+            }
+        }
+        if lock_failed {
+            for rid in &acquired_resources {
+                lock_manager.release(rid, node_id);
+            }
+            return Err(format!("Resource lock acquisition failed for node {}", node_id));
+        }
+
+        let retry = node
+            .config
+            .get("retry")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(workflow.settings.default_retry as u64)
+            as u32;
+        let fallback = node
+            .config
+            .get("fallback")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
+        let llm = node
+            .config
+            .get("llm")
+            .and_then(|v| v.as_str())
+            .unwrap_or("claude");
+
+        // Load agent memory if enabled
+        if let Ok(agent_cfg) = serde_json::from_value::<AgentNodeConfig>(node.config.clone()) {
+            if let Some(ref mem_cfg) = agent_cfg.memory {
+                if mem_cfg.enabled {
+                    let mem_path = match mem_cfg.persist.as_str() {
+                        "workflow" => {
+                            let runs = self.runs.lock().unwrap_or_else(|e| e.into_inner());
+                            let wf_path = &runs.get(run_id).unwrap().workflow_path;
+                            AgentMemoryStore::workflow_memory_path(wf_path, node_id)
+                        }
+                        "global" => AgentMemoryStore::global_memory_path(node_id),
+                        _ => AgentMemoryStore::workflow_memory_path(".", node_id),
+                    };
+                    match AgentMemoryStore::load(mem_path.to_str().unwrap_or("")) {
+                        Ok(store) => {
+                            info!(
+                                "Memory loaded for node {}: {} entries injected",
+                                node_id,
+                                store.entries.len()
+                            );
+                        }
+                        Err(_) => {
+                            debug!("No existing memory for node {}, starting fresh", node_id);
+                        }
+                    }
+                }
+            }
+        }
+
+        let agent_id = runtime.create_agent(
+            node_id,
+            &format!("{}:{}", run_id, node_id),
+            retry,
+            fallback,
+        );
+        runtime.transition(&agent_id, AgentState::Queued)?;
+        runtime.transition(&agent_id, AgentState::Running)?;
+        let pty_id = pty_manager.spawn(llm, &[], cwd, app.clone())?;
+        runtime.set_pty(&agent_id, &pty_id)?;
+        self.update_node_state(
+            run_id,
+            node_id,
+            AgentState::Running,
+            Some(agent_id.clone()),
+        )?;
+        let _ = app.emit(
+            "hive://node-state-changed",
+            NodeStateEvent {
+                run_id: run_id.to_string(),
+                node_id: node_id.to_string(),
+                old_state: "idle".to_string(),
+                new_state: "running".to_string(),
+            },
+        );
+        app.emit("hive://agent-output", serde_json::json!({
+            "run_id": run_id,
+            "node_id": node_id,
+            "pty_id": pty_id,
+        })).ok();
+        Ok(())
+    }
+
     // --- Scheduler ---
 
     pub fn advance_run(
@@ -314,6 +446,7 @@ impl WorkflowEngine {
             .count() as u32;
         let max_concurrent = workflow.settings.max_concurrent_agents;
         let mut started = Vec::new();
+        let permission_level = &workflow.settings.permission_level;
 
         debug!("Advancing run {}: {} ready nodes, {} currently running", run_id, ready.len(), running_count);
 
@@ -330,117 +463,43 @@ impl WorkflowEngine {
 
             match node.node_type {
                 NodeType::Agent => {
-                    // Acquire locks on connected Resource nodes before spawning
-                    let mut lock_failed = false;
-                    let mut acquired_resources: Vec<String> = Vec::new();
-                    for edge in &workflow.edges {
-                        let resource_node_id = if edge.to == node_id {
-                            &edge.from
-                        } else if edge.from == node_id {
-                            &edge.to
-                        } else {
-                            continue;
-                        };
-                        if let Some(res_node) = workflow.nodes.iter().find(|n| n.id == *resource_node_id && n.node_type == NodeType::Resource) {
-                            let write = if let Ok(cfg) = serde_json::from_value::<ResourceNodeConfig>(res_node.config.clone()) {
-                                cfg.access == "write" || cfg.access == "read_write"
-                            } else {
-                                false
-                            };
-                            if let Err(e) = lock_manager.acquire(resource_node_id, &node_id, write) {
-                                debug!("Lock acquisition failed for node {} on resource {}: {}", node_id, resource_node_id, e);
-                                lock_failed = true;
-                                break;
-                            }
-                            acquired_resources.push(resource_node_id.clone());
+                    match permission_level.as_str() {
+                        "dry-run" => {
+                            // Simulate execution — mark as Success without spawning
+                            self.update_node_state(run_id, &node_id, AgentState::Success, None)?;
+                            app.emit("hive://node-state-changed", NodeStateEvent {
+                                run_id: run_id.to_string(),
+                                node_id: node_id.clone(),
+                                old_state: "idle".to_string(),
+                                new_state: "success".to_string(),
+                            }).ok();
+                            log::info!("[dry-run] Node {} simulated as success", node_id);
+                            // Don't push to started since it completes immediately
+                        }
+                        "supervised" => {
+                            // Emit permission request — frontend shows approval dialog
+                            app.emit("hive://permission-request", serde_json::json!({
+                                "run_id": run_id,
+                                "node_id": node_id,
+                                "agent_label": node.label,
+                            })).ok();
+                            // Don't spawn PTY yet — wait for approval via approve_node command
+                            // Mark as Queued so it's visually distinct
+                            self.update_node_state(run_id, &node_id, AgentState::Queued, None)?;
+                            app.emit("hive://node-state-changed", NodeStateEvent {
+                                run_id: run_id.to_string(),
+                                node_id: node_id.clone(),
+                                old_state: "idle".to_string(),
+                                new_state: "queued".to_string(),
+                            }).ok();
+                            log::info!("[supervised] Node {} awaiting approval", node_id);
+                        }
+                        _ => {
+                            // "trusted" — spawn directly (existing behavior)
+                            self.spawn_single_node(run_id, &node_id, workflow, runtime, pty_manager, lock_manager, app, cwd)?;
+                            started.push(node_id);
                         }
                     }
-                    if lock_failed {
-                        // Release any locks we acquired in this attempt
-                        for rid in &acquired_resources {
-                            lock_manager.release(rid, &node_id);
-                        }
-                        // Skip this node — it will be retried on next advance_run() call
-                        continue;
-                    }
-
-                    let retry = node
-                        .config
-                        .get("retry")
-                        .and_then(|v| v.as_u64())
-                        .unwrap_or(workflow.settings.default_retry as u64)
-                        as u32;
-                    let fallback = node
-                        .config
-                        .get("fallback")
-                        .and_then(|v| v.as_str())
-                        .map(|s| s.to_string());
-                    let llm = node
-                        .config
-                        .get("llm")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("claude");
-
-                    // Load agent memory if enabled
-                    if let Ok(agent_cfg) = serde_json::from_value::<AgentNodeConfig>(node.config.clone()) {
-                        if let Some(ref mem_cfg) = agent_cfg.memory {
-                            if mem_cfg.enabled {
-                                let mem_path = match mem_cfg.persist.as_str() {
-                                    "workflow" => {
-                                        let runs = self.runs.lock().unwrap_or_else(|e| e.into_inner());
-                                        let wf_path = &runs.get(run_id).unwrap().workflow_path;
-                                        AgentMemoryStore::workflow_memory_path(wf_path, &node_id)
-                                    }
-                                    "global" => AgentMemoryStore::global_memory_path(&node_id),
-                                    _ => AgentMemoryStore::workflow_memory_path(".", &node_id),
-                                };
-                                match AgentMemoryStore::load(mem_path.to_str().unwrap_or("")) {
-                                    Ok(store) => {
-                                        info!(
-                                            "Memory loaded for node {}: {} entries injected",
-                                            node_id,
-                                            store.entries.len()
-                                        );
-                                    }
-                                    Err(_) => {
-                                        debug!("No existing memory for node {}, starting fresh", node_id);
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    let agent_id = runtime.create_agent(
-                        &node_id,
-                        &format!("{}:{}", run_id, node_id),
-                        retry,
-                        fallback,
-                    );
-                    runtime.transition(&agent_id, AgentState::Queued)?;
-                    runtime.transition(&agent_id, AgentState::Running)?;
-                    let pty_id = pty_manager.spawn(llm, &[], cwd, app.clone())?;
-                    runtime.set_pty(&agent_id, &pty_id)?;
-                    self.update_node_state(
-                        run_id,
-                        &node_id,
-                        AgentState::Running,
-                        Some(agent_id.clone()),
-                    )?;
-                    let _ = app.emit(
-                        "hive://node-state-changed",
-                        NodeStateEvent {
-                            run_id: run_id.to_string(),
-                            node_id: node_id.clone(),
-                            old_state: "idle".to_string(),
-                            new_state: "running".to_string(),
-                        },
-                    );
-                    app.emit("hive://agent-output", serde_json::json!({
-                        "run_id": run_id,
-                        "node_id": node_id,
-                        "pty_id": pty_id,
-                    })).ok();
-                    started.push(node_id);
                 }
                 NodeType::Logic => {
                     let config: crate::workflow_store::LogicNodeConfig =

@@ -271,6 +271,7 @@ pub fn run() {
             commands::engine::stop_workflow,
             commands::engine::step_workflow,
             commands::engine::get_run_status,
+            commands::engine::approve_node,
             commands::engine::notify_node_completed,
             commands::llm::call_llm_api,
             commands::transport::agent_send,
