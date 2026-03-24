@@ -10,7 +10,8 @@
   import { get } from 'svelte/store';
   import { MODEL_INFO } from '$lib/data/model-info';
   import { showToast } from '$lib/stores/toast';
-  import { t } from '$lib/i18n/index';
+  import { t, tr } from '$lib/i18n/index';
+  import { workspaceTrustLevel } from '$lib/stores/workspace-trust';
 
   let { adapter, sessionId, provider, model, configName }: {
     adapter: Adapter;
@@ -30,6 +31,8 @@
   let modelConfig = $derived(get(llmConfigs).find((c) => c.name === configName));
   let permissionLevel = $derived(sessionPermissionOverride ?? modelConfig?.permissionLevel ?? 'yolo');
   let configAllowedTools = $derived(modelConfig?.allowedTools ?? []);
+
+  let trustSuspended = $derived($workspaceTrustLevel === 'blocked' || $workspaceTrustLevel === null);
 
   let events = $derived(($agentEvents).get(sessionId) ?? []);
   let streaming = $derived(($streamingSessionIds).has(sessionId));
@@ -177,9 +180,14 @@
 
 <div class="chat-view">
   <ChatMessages {events} {streaming} {adapter} onFork={handleFork} {permissionLevel} onApproveTools={handleApproveTools} />
+  {#if trustSuspended}
+    <div class="trust-suspended-banner">
+      {$tr('trust.revokedBanner')}
+    </div>
+  {/if}
   <ChatInput
     onSend={handleSend}
-    disabled={streaming}
+    disabled={streaming || trustSuspended}
     contextPercent={contextPercent()}
     {turnCount}
     {currentSpeed}
@@ -200,5 +208,17 @@
     min-height: 0;
     background: var(--bg-surface);
     overflow: hidden;
+  }
+
+  .trust-suspended-banner {
+    padding: var(--space-2) var(--space-3);
+    background: var(--bg-secondary);
+    border-top: 2px solid var(--border);
+    font-size: var(--font-size-small);
+    font-weight: 700;
+    color: var(--text-muted);
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
   }
 </style>
