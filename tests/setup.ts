@@ -2,6 +2,7 @@
  * Global vitest setup — provides a working localStorage mock for jsdom/forks pool,
  * where Node's built-in localStorage may be partially initialized.
  */
+import { beforeEach } from 'vitest';
 
 const store = new Map<string, string>();
 
