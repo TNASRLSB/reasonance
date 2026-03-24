@@ -1,5 +1,286 @@
 # Changelog
 
+## [0.14.0] - 2026-03-24
+
+### Features
+
+- feat(theme): add Elegant Dark theme — modern, clean and refined
+- feat(theme): add theme import and selection to Settings
+- feat(theme): add import/export functionality to theme editor
+- feat(theme): add visual theme editor with all sub-components
+- feat(theme): add color harmony utility for family suggestions
+- feat(theme): add WCAG contrast ratio checker
+- feat(theme): wire Tauri persistence, hot reload, and editor theme linkage
+- feat(theme): add file watcher for user themes directory
+- feat(theme): add Rust theme manager with Tauri commands
+- feat(theme): wire JSON theme engine into app startup and menu
+- feat(theme): rewrite theme store with JSON engine, modifiers, system listeners
+- feat(theme): add theme engine with extract, merge, inject logic
+- feat(theme): add JSON theme validator with tests
+- feat(theme): add hardcoded fallback theme for emergency recovery
+- feat(theme): add JSON Schema for theme validation
+- feat(theme): add modifier JSON files (enhanced-readability, high-contrast, reduced-motion)
+- feat(theme): add built-in light theme JSON
+- feat(theme): add built-in dark theme JSON
+- feat(theme): add TypeScript type definitions for theme system
+- feat(ci): auto-publish to AUR after release
+- feat: auto-add REASONANCE IDE as co-author on commits
+- feat(hive): interactive canvas nodes, memory injection, gitignore cleanup
+- feat(hive): add capability validation on canvas edge connections
+- feat(hive): add live agent output log and HivePanel terminal tab
+- feat(hive): add permission enforcement for workflow execution
+- feat(hive): wire real-time event system with hive:// namespace
+- feat(discovery): add OpenAI-compatible probe and custom agent registration
+- feat(hive): add agent memory persistence with FIFO eviction
+- feat(hive): add resource locking with reader/writer exclusion
+- feat(hive): add Rhai expression evaluator for Logic nodes
+- feat(hive): schema & data model completion for workflow store
+
+### Bug Fixes
+
+- fix(theme): prevent race condition reverting user theme selection
+- fix(theme): load user themes from disk when not found in built-in registry
+- fix(i18n): add missing translations for theme import, modifiers, and theme editor
+- fix(ci): push version commit to main to prevent tag conflicts
+- fix(tests): update StatusBar and SearchPalette tests to match current components
+- fix(ci): stop release action from pushing commits to main
+- fix: add missing vitest import in tests/setup.ts
+- fix(hive): resolve Svelte 5 $state rune conflicts, update registry
+- fix(hive): harden Rhai sandbox, fix dead code and started-list leak
+- fix(hive): use union types for permissionLevel/persist, doc timeout semantics
+
+### Other
+
+- chore: sync version files to v0.13.0
+- can cleanly create v0.14.0.
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- Co-Authored-By: Reasonance <reasonance@users.noreply.github.com>
+- 
+- was being reverted by stale debounced reloads from the filesystem watcher.
+- 
+- Two fixes:
+- - Move debounce timer to module scope so loadBuiltinTheme can cancel it,
+-   preventing queued reloads from firing after an explicit theme switch
+- - Add generation counter to discard in-flight async loads superseded by
+-   a newer loadBuiltinTheme call
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- Co-Authored-By: Reasonance <reasonance@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: Reasonance <reasonance@users.noreply.github.com>
+- 
+- refactor(theme): remove Elegant Dark from built-in, keep as importable JSON
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- Co-Authored-By: Reasonance <reasonance@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: Reasonance <reasonance@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: Reasonance <reasonance@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: Reasonance <reasonance@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: Reasonance <reasonance@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: Reasonance <reasonance@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: Reasonance <reasonance@users.noreply.github.com>
+- 
+- - hexToRgb: Converts hex color codes to RGB values
+- - relativeLuminance: Calculates relative luminance per WCAG standards
+- - contrastRatio: Computes contrast ratio between two colors
+- - wcagLevel: Determines WCAG compliance level (AAA/AA/FAIL)
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- Co-Authored-By: Reasonance <reasonance@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: Reasonance <reasonance@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: Reasonance <reasonance@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: Reasonance <reasonance@users.noreply.github.com>
+- 
+- test(theme): add migration verification tests
+- 
+- Co-Authored-By: Reasonance <reasonance@users.noreply.github.com>
+- 
+- refactor(theme): remove hardcoded CSS variables, now powered by JSON engine
+- 
+- Co-Authored-By: Reasonance <reasonance@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: Reasonance <reasonance@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: Reasonance <reasonance@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: Reasonance <reasonance@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: Reasonance <reasonance@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: Reasonance <reasonance@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: Reasonance <reasonance@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: Reasonance <reasonance@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: Reasonance <reasonance@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: Reasonance <reasonance@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: Reasonance <reasonance@users.noreply.github.com>
+- 
+- subsequent runs calculate the correct next version.
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- Co-Authored-By: Reasonance <reasonance@users.noreply.github.com>
+- 
+- and aria-label assertions.
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- Co-Authored-By: Reasonance <reasonance@users.noreply.github.com>
+- 
+- .SRCINFO, and pushes automatically after each GitHub Release.
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- Co-Authored-By: Reasonance <reasonance@users.noreply.github.com>
+- 
+- chore: trigger release build
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- Co-Authored-By: Reasonance <reasonance@users.noreply.github.com>
+- 
+- Reasonance. Every commit made from within the app will include the
+- REASONANCE IDE co-author trailer, making it appear as a contributor
+- on GitHub.
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- Co-Authored-By: Reasonance <reasonance@users.noreply.github.com>
+- 
+- - Make ResourceNode editable: kind toggle, path input, access mode
+- - Make LogicNode editable: kind selector, rule textarea
+- - Wire onchange callbacks from FlowNode wrappers through HiveCanvas store
+- - Fix memory injection: load entries and inject into PTY prompt on spawn
+- - Add get_agent_memory Tauri command for frontend memory access
+- - Upgrade HiveInspector: capabilities, memory config, retry, delete node
+- - Activate HIVE toolbar button with toggle
+- - Embed HiveCanvas in editor area instead of fullscreen overlay
+- - Initialize empty workflow on HIVE open
+- - Remove framework/specs/audit files from git tracking (.gitignore)
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- local/remote divergence that requires manual rebase before every push.
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- refactor: rename swarm→hive, add Skipped state and output routing
+- - Update stores, page layout, and CHANGELOG references
+- - Add AgentState::Skipped with Idle→Skipped transition and cascade
+- - Buffer PTY output per agent and route to successor nodes on success
+- - Populate memory entries with input/output summaries from actual data
+- - Add skippedNodeCount derived store, count skipped as completed
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- 
+- - Fix edge id type (ensure always string)
+- - Update registry with new HIVE modules and functions
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- resources. Shows error toast on invalid connections.
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- - Live log section in HivePanel with scrollable output
+- - Hive tab in TerminalManager (visible when workflow loaded)
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- directly, "supervised" emits approval request and waits, "dry-run"
+- simulates success. Extract spawn logic into reusable spawn_single_node
+- helper. Add approve_node Tauri command, pendingApprovals store, and
+- permission badge in HiveCanvas toolbar.
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- - Add structured NodeStateEvent/RunStatusEvent payloads
+- - Emit hive://agent-output with PTY-to-node mapping
+- - Add setupHiveEventListeners() for frontend store updates
+- - Initialize listeners on HiveCanvas mount
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- OpenAI-compatible API servers, and register_custom_agent() for manual agent
+- registration. Wire new register_custom_agent Tauri command.
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- runs. Memory is loaded before agent spawn and saved on node completion,
+- with configurable per-workflow or global storage and max-entry eviction.
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- - Acquire locks before agent PTY spawn, release on completion
+- - Roll back partial acquisitions on lock failure
+- - Cleanup all locks on forced stop
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- - Remove dead _predecessors binding
+- - Don't push Logic nodes to started list (they complete synchronously)
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- Logic nodes now parse their rule expression, evaluate it against
+- predecessor output, and route execution to onTrue/onFalse branches,
+- skipping the inactive branch.
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- 
+- LogicNodeConfig serde renames, optional edge IDs, and v0→v1 migration.
+- Includes 7 new tests (17 total passing). Updates frontend types to match.
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- plan(hive): implementation plan for remaining HIVE platform features
+- permissions, resource locking, agent memory, live log, capability
+- validation, discovery engine completion, and final integration.
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+
+
+
 ## [0.12.1] - 2026-03-24
 
 ### Bug Fixes
