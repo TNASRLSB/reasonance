@@ -1,5 +1,46 @@
 # Changelog
 
+## [0.10.0] - 2026-03-24
+
+### Features
+
+- feat: per-model permission system (yolo/ask/locked) replacing global yoloMode
+
+### Bug Fixes
+
+- fix: resolve CI test failures — tsconfig resolution and localStorage mock
+
+### Other
+
+- [release] v0.9.0 — per-model permissions, CI test fixes
+- - Per-model permission system (yolo/ask/locked) replacing global yoloMode
+- - Deny-then-replay flow with interactive tool approval UI
+- - Persistent allowed tools configuration per LLM model
+- - PermissionDenial event pipeline through normalizer
+- 
+- ### Bug Fixes
+- - CI test failures: svelte-kit sync for tsconfig resolution
+- - localStorage mock for jsdom/forks pool compatibility
+- - Stale Toolbar test selectors after yoloMode removal
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- .svelte-kit/tsconfig.json required by Vite 8's oxc transformer.
+- Add localStorage mock in tests/setup.ts for jsdom/forks pool compatibility.
+- Update stale Toolbar test selectors after yoloMode removal.
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- user with approve/deny UI), locked (deny, info-only). Includes deny-then-replay
+- flow with new session ID, persistent allowed tools config, and normalizer
+- pipeline for PermissionDenial events. Removes global yoloMode store.
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- chore: sync Cargo.lock version to v0.8.0 release
+
+
+
 ## [0.8.2] - 2026-03-23
 
 ### Bug Fixes
