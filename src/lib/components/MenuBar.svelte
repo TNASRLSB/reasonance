@@ -91,13 +91,13 @@
           ],
         },
         {
-          label: $tr('menu.view.modifiers') ?? 'Modifiers',
+          label: $tr('menu.view.modifiers'),
           submenu: [
-            { label: 'Enhanced Readability', action: () => toggleModifier('enhanced-readability') },
+            { label: $tr('menu.view.readability'), action: () => toggleModifier('enhanced-readability') },
           ],
         },
         { divider: true },
-        { label: 'Theme Editor...', action: () => showThemeEditor.set(true) },
+        { label: $tr('menu.view.themeEditor'), action: () => showThemeEditor.set(true) },
         { divider: true },
         { label: $tr('menu.view.filePanel'), action: () => document.dispatchEvent(new CustomEvent('reasonance:toggleFilePanel')) },
         { label: $tr('menu.view.terminalPanel'), action: () => document.dispatchEvent(new CustomEvent('reasonance:toggleTerminalPanel')) },

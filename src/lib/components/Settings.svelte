@@ -673,7 +673,7 @@
           </div>
 
           <div class="field-row" style="margin-top: var(--space-3);">
-            <span class="field-label">{$tr('settings.theme.import') ?? 'Import theme'}</span>
+            <span class="field-label">{$tr('settings.theme.import')}</span>
             <button
               class="import-theme-btn"
               onclick={() => {
@@ -704,7 +704,7 @@
                 input.click();
               }}
             >
-              {$tr('settings.theme.importBtn') ?? 'Import .json'}
+              {$tr('settings.theme.importBtn')}
             </button>
           </div>
           {#if importError}
