@@ -27,6 +27,7 @@ export const themeMode = writable<ThemeMode>('dark');
 const builtinThemes: Record<string, () => Promise<ThemeFile>> = {
   'reasonance-dark': () => import('$lib/themes/reasonance-dark.json').then((m) => m.default as ThemeFile),
   'reasonance-light': () => import('$lib/themes/reasonance-light.json').then((m) => m.default as ThemeFile),
+  'elegant-dark': () => import('$lib/themes/elegant-dark.json').then((m) => m.default as ThemeFile),
 };
 
 const builtinModifiers: Record<string, () => Promise<ThemeFile>> = {

@@ -661,6 +661,13 @@
             >
               Light
             </button>
+            <button
+              class="theme-btn"
+              class:active={localActiveTheme === 'elegant-dark'}
+              onclick={() => (localActiveTheme = 'elegant-dark')}
+            >
+              Elegant
+            </button>
             {#each userThemes as ut}
               <button
                 class="theme-btn"
