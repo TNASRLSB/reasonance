@@ -2,6 +2,15 @@ import { writable, derived } from 'svelte/store';
 import { listen } from '@tauri-apps/api/event';
 import type { WorkflowRun, RunStatus, AgentState, NodeRunState } from '$lib/adapter/index';
 
+export interface AgentLogEntry {
+  node_id: string;
+  line: string;
+  timestamp: number;
+}
+
+export const agentOutputLog = writable<AgentLogEntry[]>([]);
+const MAX_LOG_LINES = 500;
+
 export const currentRun = writable<WorkflowRun | null>(null);
 export const currentRunId = writable<string | null>(null);
 export const pendingApprovals = writable<Array<{ run_id: string; node_id: string; agent_label: string }>>([]);
@@ -78,6 +87,19 @@ export async function setupHiveEventListeners() {
       currentRun.update(run => {
         if (!run || run.id !== event.payload.run_id) return run;
         return { ...run, status: event.payload.status as RunStatus };
+      });
+    }
+  );
+
+  await listen<{ run_id: string; node_id: string; pty_id: string }>(
+    'hive://agent-output',
+    (event) => {
+      const { node_id, pty_id } = event.payload;
+      listen<string>(`pty-data-${pty_id}`, (ptyEvent) => {
+        agentOutputLog.update(log => {
+          const newLog = [...log, { node_id, line: ptyEvent.payload, timestamp: Date.now() }];
+          return newLog.slice(-MAX_LOG_LINES);
+        });
       });
     }
   );

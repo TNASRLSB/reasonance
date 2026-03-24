@@ -15,6 +15,8 @@
   } from '$lib/stores/terminals';
   import type { TerminalInstance } from '$lib/stores/terminals';
   import { showSettings } from '$lib/stores/ui';
+  import { currentWorkflow } from '$lib/stores/workflow';
+  import HivePanel from './hive/HivePanel.svelte';
   import { tr } from '$lib/i18n/index';
   import { defaultSlashCommands } from '$lib/data/slash-commands';
   import { menuKeyHandler } from '$lib/utils/a11y';
@@ -31,6 +33,8 @@
   let llmMenuEl = $state<HTMLElement | null>(null);
   let addBtnEl = $state<HTMLElement | null>(null);
   let addWrapperEl = $state<HTMLElement | null>(null);
+
+  let hiveTabActive = $state(false);
 
   let showViewModeDropdown = $state(false);
   let viewModeDropdownEl = $state<HTMLElement | null>(null);
@@ -340,6 +344,7 @@
           aria-label="{label}, {$tr('a11y.provider', { name: inst.provider })}{isActive ? ', Active' : ''}{hasError ? ', Error' : ''}"
           title={$tr('a11y.provider', { name: inst.provider })}
           onclick={(e) => {
+            hiveTabActive = false;
             if (isActive && !inst.apiOnly) {
               activeTabEl = e.currentTarget as HTMLElement;
               updateViewModeDropdownPosition();
@@ -359,6 +364,19 @@
         >&times;</button>
       </div>
     {/each}
+
+    {#if $currentWorkflow}
+      <div class="tab-group" class:active={hiveTabActive}>
+        <button
+          class="flat-tab"
+          class:active={hiveTabActive}
+          role="tab"
+          aria-selected={hiveTabActive}
+          aria-label="Hive workflow panel"
+          onclick={() => { hiveTabActive = true; }}
+        >Hive</button>
+      </div>
+    {/if}
 
     <div class="tab-add-wrapper" bind:this={addWrapperEl}>
       <button
@@ -416,49 +434,57 @@
       {/if}
     </div>
   {:else}
-    <!-- Terminal Toolbar (only in terminal mode for active instance) -->
-    {#if $activeInstanceId && activeConfig && getViewMode($activeInstanceId) === 'terminal'}
-      <TerminalToolbar
-        {adapter}
-        instanceId={$activeInstanceId}
-        llmName={$activeInstance?.provider ?? ''}
-        activeMode={$activeInstance?.activeMode}
-        modes={activeConfig.modes ?? []}
-        slashCommands={activeSlashCommands}
-      />
-    {/if}
-
-    <div class="terminal-area">
-      {#each $terminalInstances as inst (inst.id)}
-        <div
-          class="terminal-wrap"
-          style="display: {inst.id === $activeInstanceId ? 'flex' : 'none'};"
-          role="tabpanel"
-          aria-label="{$computedLabels.get(inst.id) ?? inst.provider} session"
-        >
-          {#if getViewMode(inst.id) === 'chat'}
-            <ChatView
-              {adapter}
-              sessionId={inst.id}
-              provider={inst.provider}
-              model={inst.modelName ?? inst.provider}
-              configName={inst.provider}
-            />
-          {:else if getViewMode(inst.id) === 'terminal'}
-            {#if $workspaceTrustLevel === null}
-              <div class="pty-trust-warning">
-                Trust revoked — new commands may be restricted.
-              </div>
-            {/if}
-            <ImageDrop {adapter} instanceId={inst.id} llmName={inst.provider}>
-              {#snippet children()}
-                <Terminal {adapter} ptyId={inst.id} />
-              {/snippet}
-            </ImageDrop>
-          {/if}
+    {#if hiveTabActive}
+      <div class="terminal-area">
+        <div class="terminal-wrap" style="display: flex;" role="tabpanel" aria-label="Hive workflow panel">
+          <HivePanel {adapter} {cwd} />
         </div>
-      {/each}
-    </div>
+      </div>
+    {:else}
+      <!-- Terminal Toolbar (only in terminal mode for active instance) -->
+      {#if $activeInstanceId && activeConfig && getViewMode($activeInstanceId) === 'terminal'}
+        <TerminalToolbar
+          {adapter}
+          instanceId={$activeInstanceId}
+          llmName={$activeInstance?.provider ?? ''}
+          activeMode={$activeInstance?.activeMode}
+          modes={activeConfig.modes ?? []}
+          slashCommands={activeSlashCommands}
+        />
+      {/if}
+
+      <div class="terminal-area">
+        {#each $terminalInstances as inst (inst.id)}
+          <div
+            class="terminal-wrap"
+            style="display: {inst.id === $activeInstanceId ? 'flex' : 'none'};"
+            role="tabpanel"
+            aria-label="{$computedLabels.get(inst.id) ?? inst.provider} session"
+          >
+            {#if getViewMode(inst.id) === 'chat'}
+              <ChatView
+                {adapter}
+                sessionId={inst.id}
+                provider={inst.provider}
+                model={inst.modelName ?? inst.provider}
+                configName={inst.provider}
+              />
+            {:else if getViewMode(inst.id) === 'terminal'}
+              {#if $workspaceTrustLevel === null}
+                <div class="pty-trust-warning">
+                  Trust revoked — new commands may be restricted.
+                </div>
+              {/if}
+              <ImageDrop {adapter} instanceId={inst.id} llmName={inst.provider}>
+                {#snippet children()}
+                  <Terminal {adapter} ptyId={inst.id} />
+                {/snippet}
+              </ImageDrop>
+            {/if}
+          </div>
+        {/each}
+      </div>
+    {/if}
   {/if}
 
   {#if showTrustDialog && trustFolderInfo}
