@@ -57,6 +57,11 @@ async function savePreferences(): Promise<void> {
 
 // --- Actions ---
 
+let lastAppliedCss = '';
+let suppressThemeChanged = false;
+let themeChangedTimer: ReturnType<typeof setTimeout> | null = null;
+let loadGeneration = 0;
+
 function reapply(): void {
   const theme = get(activeTheme);
   const mods = get(activeModifiers);
@@ -67,7 +72,14 @@ function reapply(): void {
     vars = mergeModifier(vars, mod, cs);
   }
 
-  injectStyles('reasonance-theme', buildCssString(vars));
+  const css = buildCssString(vars);
+
+  // Skip if CSS hasn't changed (prevents infinite loop from HMR/subscriptions)
+  if (css === lastAppliedCss) return;
+  lastAppliedCss = css;
+
+  console.info(`[Theme] reapply: "${theme.meta.name}", scheme=${cs}, vars=${Object.keys(vars).length}, css=${css.length} chars`);
+  injectStyles('reasonance-theme', css);
   applyColorScheme(cs);
   colorScheme.set(cs);
 
@@ -79,10 +91,18 @@ function reapply(): void {
 }
 
 export async function loadBuiltinTheme(name: string): Promise<void> {
+  // Cancel any pending debounced reload from theme://changed
+  if (themeChangedTimer) {
+    clearTimeout(themeChangedTimer);
+    themeChangedTimer = null;
+  }
+  const gen = ++loadGeneration;
+
   // Try built-in first
   const loader = builtinThemes[name];
   if (loader) {
     const theme = await loader();
+    if (gen !== loadGeneration) return;
     const validation = validateTheme(theme);
     if (validation.valid) {
       activeTheme.set(theme);
@@ -96,6 +116,7 @@ export async function loadBuiltinTheme(name: string): Promise<void> {
   // Try user theme from disk
   try {
     const json = await invoke<string>('load_user_theme', { name });
+    if (gen !== loadGeneration) return;
     const theme = JSON.parse(json) as ThemeFile;
     const validation = validateTheme(theme);
     if (validation.valid) {
@@ -105,14 +126,27 @@ export async function loadBuiltinTheme(name: string): Promise<void> {
       return;
     }
     console.error(`Invalid user theme ${name}:`, validation.errors);
-  } catch {
-    // Not found on disk either
+  } catch (e) {
+    console.warn(`User theme "${name}" not found on disk:`, e);
   }
 
-  // Fallback
-  console.error(`Theme not found: ${name}, falling back`);
+  // Fallback — use reasonance-dark as default, not 'fallback'
+  console.error(`Theme not found: ${name}, falling back to reasonance-dark`);
+  const fallbackLoader = builtinThemes['reasonance-dark'];
+  if (fallbackLoader) {
+    try {
+      const fallbackTheme = await fallbackLoader();
+      if (gen !== loadGeneration) return;
+      activeTheme.set(fallbackTheme);
+      activeThemeName.set('reasonance-dark');
+      reapply();
+      return;
+    } catch {
+      // Even built-in failed — use hardcoded emergency theme
+    }
+  }
   activeTheme.set(FALLBACK_THEME);
-  activeThemeName.set('fallback');
+  activeThemeName.set('reasonance-dark');
   reapply();
 }
 
@@ -138,6 +172,11 @@ async function loadModifierByName(name: string): Promise<void> {
   const mod = await loader();
   (mod as any)._registryKey = name;
   activeModifiers.update((mods) => [...mods.filter((m) => (m as any)._registryKey !== name), mod]);
+}
+
+/** Suppress theme://changed events during import to prevent ping-pong. */
+export function suppressFileWatcher(suppress: boolean): void {
+  suppressThemeChanged = suppress;
 }
 
 export function setPreviewVariable(name: string, value: string): void {
@@ -184,20 +223,21 @@ export function initTheme(): void {
 export async function initThemeEngine(): Promise<void> {
   try {
     const prefs = await invoke<ThemePreferences>('load_theme_preferences');
+    const themeName = prefs.activeTheme === 'fallback' ? 'reasonance-dark' : prefs.activeTheme;
 
     // Try user theme first, then built-in
     try {
-      const json = await invoke<string>('load_user_theme', { name: prefs.activeTheme });
+      const json = await invoke<string>('load_user_theme', { name: themeName });
       const theme = JSON.parse(json) as ThemeFile;
       const validation = validateTheme(theme);
       if (validation.valid) {
         activeTheme.set(theme);
-        activeThemeName.set(prefs.activeTheme);
+        activeThemeName.set(themeName);
       } else {
-        await loadBuiltinTheme(prefs.activeTheme);
+        await loadBuiltinTheme(themeName);
       }
     } catch {
-      await loadBuiltinTheme(prefs.activeTheme);
+      await loadBuiltinTheme(themeName);
     }
 
     // Load saved modifiers
@@ -213,11 +253,19 @@ export async function initThemeEngine(): Promise<void> {
 
   setupSystemModifiers();
 
-  // Hot reload on file changes
+  // Hot reload on file changes (debounced to avoid spurious reloads)
   try {
     await listen('theme://changed', () => {
+      console.info(`[Theme] theme://changed event fired, suppress=${suppressThemeChanged}, active="${get(activeThemeName)}"`);
+      if (suppressThemeChanged) return;
+      if (themeChangedTimer) clearTimeout(themeChangedTimer);
+      // Only reload user themes (built-in themes don't live on disk)
       const name = get(activeThemeName);
-      loadBuiltinTheme(name);
+      if (builtinThemes[name]) return;
+      themeChangedTimer = setTimeout(() => {
+        themeChangedTimer = null;
+        loadBuiltinTheme(name);
+      }, 300);
     });
   } catch {
     // listen not available outside Tauri
