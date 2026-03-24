@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
+use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Position {
@@ -18,6 +19,22 @@ pub enum NodeType {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MemoryConfig {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default = "default_max_entries", rename = "maxEntries")]
+    pub max_entries: u32,
+    #[serde(default = "default_persist")]
+    pub persist: String,
+}
+fn default_max_entries() -> u32 {
+    50
+}
+fn default_persist() -> String {
+    "none".to_string()
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentNodeConfig {
     pub llm: String,
     #[serde(default)]
@@ -30,6 +47,10 @@ pub struct AgentNodeConfig {
     pub retry: Option<u32>,
     #[serde(default)]
     pub fallback: Option<String>,
+    #[serde(default)]
+    pub memory: Option<MemoryConfig>,
+    #[serde(default)]
+    pub timeout: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -47,9 +68,9 @@ fn default_access() -> String {
 pub struct LogicNodeConfig {
     pub kind: String,
     pub rule: String,
-    #[serde(default)]
+    #[serde(default, rename = "onTrue")]
     pub on_true: Option<String>,
-    #[serde(default)]
+    #[serde(default, rename = "onFalse")]
     pub on_false: Option<String>,
 }
 
@@ -65,6 +86,7 @@ pub struct WorkflowNode {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkflowEdge {
+    #[serde(default)]
     pub id: String,
     pub from: String,
     pub to: String,
@@ -80,6 +102,8 @@ pub struct WorkflowSettings {
     pub default_retry: u32,
     #[serde(default = "default_timeout")]
     pub timeout: u64,
+    #[serde(default = "default_permission_level", rename = "permissionLevel")]
+    pub permission_level: String,
 }
 fn default_max_concurrent() -> u32 {
     5
@@ -90,12 +114,16 @@ fn default_retry() -> u32 {
 fn default_timeout() -> u64 {
     300
 }
+fn default_permission_level() -> String {
+    "supervised".to_string()
+}
 impl Default for WorkflowSettings {
     fn default() -> Self {
         Self {
             max_concurrent_agents: default_max_concurrent(),
             default_retry: default_retry(),
             timeout: default_timeout(),
+            permission_level: default_permission_level(),
         }
     }
 }
@@ -105,6 +133,8 @@ pub struct Workflow {
     pub name: String,
     #[serde(default = "default_version")]
     pub version: String,
+    #[serde(default, rename = "schemaVersion")]
+    pub schema_version: u32,
     #[serde(default)]
     pub description: Option<String>,
     #[serde(default)]
@@ -118,6 +148,22 @@ pub struct Workflow {
 }
 fn default_version() -> String {
     "1.0".to_string()
+}
+
+pub fn migrate(wf: &mut Workflow) {
+    if wf.schema_version < 1 {
+        // Add IDs to edges missing them
+        for edge in &mut wf.edges {
+            if edge.id.is_empty() {
+                edge.id = Uuid::new_v4().to_string();
+            }
+        }
+        // Ensure permission_level default
+        if wf.settings.permission_level.is_empty() {
+            wf.settings.permission_level = default_permission_level();
+        }
+        wf.schema_version = 1;
+    }
 }
 
 pub struct WorkflowStore {
@@ -143,8 +189,9 @@ impl WorkflowStore {
     pub fn load(&self, file_path: &str) -> Result<Workflow, String> {
         let content = std::fs::read_to_string(file_path)
             .map_err(|e| format!("Failed to read {}: {}", file_path, e))?;
-        let workflow: Workflow = serde_json::from_str(&content)
+        let mut workflow: Workflow = serde_json::from_str(&content)
             .map_err(|e| format!("Invalid workflow JSON: {}", e))?;
+        migrate(&mut workflow);
         self.workflows
             .lock()
             .unwrap()
@@ -207,6 +254,7 @@ impl WorkflowStore {
         Workflow {
             name: name.to_string(),
             version: "1.0".to_string(),
+            schema_version: 1,
             description: None,
             created: Some(now.clone()),
             modified: Some(now),
@@ -225,6 +273,7 @@ mod tests {
         Workflow {
             name: "Test Workflow".to_string(),
             version: "1.0".to_string(),
+            schema_version: 1,
             description: Some("A test workflow".to_string()),
             created: Some("2026-03-21".to_string()),
             modified: Some("2026-03-21".to_string()),
@@ -258,8 +307,8 @@ mod tests {
 
     #[test]
     fn test_create_empty() {
-        let wf = WorkflowStore::create_empty("My Swarm");
-        assert_eq!(wf.name, "My Swarm");
+        let wf = WorkflowStore::create_empty("My Hive");
+        assert_eq!(wf.name, "My Hive");
         assert_eq!(wf.version, "1.0");
         assert!(wf.nodes.is_empty());
         assert!(wf.edges.is_empty());
@@ -381,5 +430,64 @@ mod tests {
     fn test_project_dir() {
         let dir = WorkflowStore::project_dir("/my/project");
         assert_eq!(dir, std::path::PathBuf::from("/my/project/.reasonance/workflows"));
+    }
+
+    #[test]
+    fn test_schema_version_default() {
+        let wf = WorkflowStore::create_empty("Versioned");
+        assert_eq!(wf.schema_version, 1);
+    }
+
+    #[test]
+    fn test_schema_version_missing_defaults_to_zero() {
+        let json = r#"{"name":"Old","nodes":[],"edges":[]}"#;
+        let wf: Workflow = serde_json::from_str(json).unwrap();
+        assert_eq!(wf.schema_version, 0);
+    }
+
+    #[test]
+    fn test_permission_level_default() {
+        let settings = WorkflowSettings::default();
+        assert_eq!(settings.permission_level, "supervised");
+    }
+
+    #[test]
+    fn test_permission_level_deserialization() {
+        let json = r#"{"permissionLevel":"trusted"}"#;
+        let settings: WorkflowSettings = serde_json::from_str(json).unwrap();
+        assert_eq!(settings.permission_level, "trusted");
+    }
+
+    #[test]
+    fn test_agent_memory_config() {
+        let json = r#"{"llm":"claude","memory":{"enabled":true,"maxEntries":100,"persist":"workflow"}}"#;
+        let config: AgentNodeConfig = serde_json::from_str(json).unwrap();
+        assert!(config.memory.is_some());
+        let mem = config.memory.unwrap();
+        assert!(mem.enabled);
+        assert_eq!(mem.max_entries, 100);
+        assert_eq!(mem.persist, "workflow");
+    }
+
+    #[test]
+    fn test_agent_memory_config_default_none() {
+        let json = r#"{"llm":"claude"}"#;
+        let config: AgentNodeConfig = serde_json::from_str(json).unwrap();
+        assert!(config.memory.is_none());
+    }
+
+    #[test]
+    fn test_migrate_v0_to_v1() {
+        let json = r#"{
+            "name": "Legacy",
+            "nodes": [{"id":"a1","type":"agent","label":"X","config":{"llm":"claude"},"position":{"x":0,"y":0}}],
+            "edges": [{"from":"a1","to":"a1"}],
+            "settings": {}
+        }"#;
+        let mut wf: Workflow = serde_json::from_str(json).unwrap();
+        migrate(&mut wf);
+        assert_eq!(wf.schema_version, 1);
+        assert_eq!(wf.settings.permission_level, "supervised");
+        assert!(!wf.edges[0].id.is_empty());
     }
 }

@@ -594,6 +594,7 @@ mod tests {
         Workflow {
             name: "Test".to_string(),
             version: "1.0".to_string(),
+            schema_version: 1,
             description: None,
             created: None,
             modified: None,

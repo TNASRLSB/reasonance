@@ -153,7 +153,7 @@ export interface FsEvent {
   path: string;
 }
 
-// === Agent Swarm Types ===
+// === Agent Hive Types ===
 
 export interface CapabilityProfile {
   read_file: boolean;
@@ -207,21 +207,29 @@ export interface WorkflowNode {
 }
 
 export interface WorkflowEdge {
-  id: string;
+  id?: string;
   from: string;
   to: string;
   label?: string;
+}
+
+export interface MemoryConfig {
+  enabled: boolean;
+  maxEntries: number;
+  persist: string;
 }
 
 export interface WorkflowSettings {
   max_concurrent_agents: number;
   default_retry: number;
   timeout: number;
+  permissionLevel: string;
 }
 
 export interface Workflow {
   name: string;
   version: string;
+  schemaVersion: number;
   description?: string;
   created?: string;
   modified?: string;
