@@ -37,7 +37,7 @@ Today's development tools were built for a world without AI. They bolt on chat p
 
 **Intent over keystrokes.** You describe what you want. Reasonance and your AI of choice figure out how to get there. No more fighting the tool to express your idea.
 
-**Built for every human.** Not an afterthought — accessibility is the architecture. Screen readers, keyboard navigation, high contrast, reduced motion. Same power, every modality. WCAG 2.1 AA compliant.
+**Built for every human.** Not an afterthought — accessibility is the architecture. Screen readers, keyboard navigation, high contrast, reduced motion. Same power, every modality. Targeting WCAG 2.1 AA conformance ([current audit status](docs/audit/wcag-matrix.md)).
 
 **Secure by design.** API keys never touch the browser. All LLM calls are proxied through the native Rust backend. Markdown output is sanitized against XSS.
 
@@ -68,11 +68,36 @@ Select code, right-click, and ask any connected AI to explain, refactor, or exte
 ### Built-In Diff View
 Side-by-side comparison with accept/reject controls. Review AI-generated changes before they touch your code.
 
+### Command Palette
+Quick access to every action via `Ctrl+P` / `Cmd+P`. Search commands, open files, switch settings — all without leaving the keyboard.
+
+### Per-Model Permission System
+Fine-grained control over what each AI can do. Three levels per model: **YOLO** (auto-approve), **Ask** (interactive approve/deny), **Locked** (deny all). Persistent allowed-tools configuration.
+
+### Session Replay & History
+Full session persistence with replay capability. Review past conversations, re-run tool approvals, and pick up where you left off.
+
+### Analytics Dashboard
+Live token count, cost tracking, and duration metrics. Budget alerts and per-provider breakdowns so you always know what your AI usage costs.
+
+### Hive Canvas
+Visual dataflow editor for AI orchestration. Drag-and-drop Agent, Logic, and Resource nodes to build workflows visually. Powered by xyflow.
+
+### Inline Updater
+Automatic update detection with in-app download and install. Postpone updates when you're in the flow.
+
+### Internationalization
+Full i18n support with 9 languages: English, Arabic, German, Spanish, French, Hindi, Italian, Portuguese, Chinese.
+
+### Workspace Trust
+Per-workspace trust levels. Control which workspaces can execute code and access system resources.
+
 ### Accessibility-First Design
 - **Atkinson Hyperlegible** font family — designed for maximum readability
 - High contrast, large touch targets, keyboard-navigable everything
 - Screen reader compatible with full ARIA support
 - Reduced motion support for seizure safety
+- Targeting WCAG 2.1 AA — see [accessibility audit](docs/audit/wcag-matrix.md)
 
 ---
 
@@ -123,7 +148,7 @@ npm run tauri dev
 ## Roadmap
 
 - [ ] Multi-modal input (voice, switch, eye tracking)
-- [ ] Visual dataflow editor for AI orchestration
+- [x] Visual dataflow editor for AI orchestration (Hive Canvas)
 - [ ] Persistent decision log across sessions
 - [ ] Plugin ecosystem with self-evolving skills
 - [ ] Collaborative multi-user sessions
