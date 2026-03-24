@@ -1,7 +1,8 @@
+use crate::agent_memory::AgentMemoryStore;
 use crate::agent_runtime::{AgentRuntime, AgentState};
 use crate::pty_manager::PtyManager;
 use crate::resource_lock::ResourceLockManager;
-use crate::workflow_store::{NodeType, ResourceNodeConfig, Workflow, WorkflowEdge};
+use crate::workflow_store::{AgentNodeConfig, NodeType, ResourceNodeConfig, Workflow, WorkflowEdge};
 use log::{debug, info, warn};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
@@ -365,6 +366,35 @@ impl WorkflowEngine {
                         .and_then(|v| v.as_str())
                         .unwrap_or("claude");
 
+                    // Load agent memory if enabled
+                    if let Ok(agent_cfg) = serde_json::from_value::<AgentNodeConfig>(node.config.clone()) {
+                        if let Some(ref mem_cfg) = agent_cfg.memory {
+                            if mem_cfg.enabled {
+                                let mem_path = match mem_cfg.persist.as_str() {
+                                    "workflow" => {
+                                        let runs = self.runs.lock().unwrap_or_else(|e| e.into_inner());
+                                        let wf_path = &runs.get(run_id).unwrap().workflow_path;
+                                        AgentMemoryStore::workflow_memory_path(wf_path, &node_id)
+                                    }
+                                    "global" => AgentMemoryStore::global_memory_path(&node_id),
+                                    _ => AgentMemoryStore::workflow_memory_path(".", &node_id),
+                                };
+                                match AgentMemoryStore::load(mem_path.to_str().unwrap_or("")) {
+                                    Ok(store) => {
+                                        info!(
+                                            "Memory loaded for node {}: {} entries injected",
+                                            node_id,
+                                            store.entries.len()
+                                        );
+                                    }
+                                    Err(_) => {
+                                        debug!("No existing memory for node {}, starting fresh", node_id);
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     let agent_id = runtime.create_agent(
                         &node_id,
                         &format!("{}:{}", run_id, node_id),
@@ -541,6 +571,41 @@ impl WorkflowEngine {
                 );
             }
         }
+        // Save memory entry if enabled for this node
+        if let Some(wf_node) = workflow.nodes.iter().find(|n| n.id == node_id) {
+            if let Ok(agent_cfg) = serde_json::from_value::<AgentNodeConfig>(wf_node.config.clone()) {
+                if let Some(ref mem_cfg) = agent_cfg.memory {
+                    if mem_cfg.enabled {
+                        let mem_path = match mem_cfg.persist.as_str() {
+                            "workflow" => {
+                                let runs = self.runs.lock().unwrap_or_else(|e| e.into_inner());
+                                let wf_path = &runs.get(run_id).unwrap().workflow_path;
+                                AgentMemoryStore::workflow_memory_path(wf_path, node_id)
+                            }
+                            "global" => AgentMemoryStore::global_memory_path(node_id),
+                            _ => AgentMemoryStore::workflow_memory_path(".", node_id),
+                        };
+                        let path_str = mem_path.to_str().unwrap_or("");
+                        let mut store = AgentMemoryStore::load(path_str).unwrap_or_else(|_| AgentMemoryStore::new(node_id));
+                        let entry = crate::agent_memory::MemoryEntry {
+                            run_id: run_id.to_string(),
+                            timestamp: chrono::Utc::now().to_rfc3339(),
+                            input_summary: String::new(),
+                            output_summary: String::new(),
+                            outcome: if success { "success".to_string() } else { "failure".to_string() },
+                            context: serde_json::Value::Null,
+                        };
+                        store.add_entry(entry, mem_cfg.max_entries);
+                        if let Err(e) = store.save(path_str) {
+                            warn!("Failed to save memory for node {}: {}", node_id, e);
+                        } else {
+                            info!("Memory saved for node {}: {} entries", node_id, store.entries.len());
+                        }
+                    }
+                }
+            }
+        }
+
         self.advance_run(run_id, workflow, runtime, pty_manager, app, cwd, lock_manager)?;
         Ok(())
     }

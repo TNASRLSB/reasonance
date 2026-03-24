@@ -26,6 +26,7 @@ mod workflow_store;
 mod agent_runtime;
 mod workflow_engine;
 mod resource_lock;
+mod agent_memory;
 mod logic_eval;
 mod cli_updater;
 mod normalizer_version;
