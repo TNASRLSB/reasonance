@@ -88,7 +88,6 @@
           submenu: [
             { label: 'Reasonance Dark', action: () => loadBuiltinTheme('reasonance-dark') },
             { label: 'Reasonance Light', action: () => loadBuiltinTheme('reasonance-light') },
-            { label: 'Elegant Dark', action: () => loadBuiltinTheme('elegant-dark') },
           ],
         },
         {
