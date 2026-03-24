@@ -1,8 +1,7 @@
 <script lang="ts">
   import { get } from 'svelte/store';
   import { tr } from '$lib/i18n/index';
-  import { enhancedReadability } from '$lib/stores/ui';
-  import { themeMode } from '$lib/stores/theme';
+  import { activeThemeName, loadBuiltinTheme, toggleModifier } from '$lib/stores/theme';
   import { activeInstanceId } from '$lib/stores/terminals';
   import type { Adapter } from '$lib/adapter/index';
   import type { MenuItemDef } from '$lib/types/menu';
@@ -86,12 +85,16 @@
         {
           label: $tr('menu.view.theme'),
           submenu: [
-            { label: $tr('menu.view.theme.light'), action: () => themeMode.set('light') },
-            { label: $tr('menu.view.theme.dark'), action: () => themeMode.set('dark') },
-            { label: $tr('menu.view.theme.system'), action: () => themeMode.set('system') },
+            { label: 'Reasonance Dark', action: () => loadBuiltinTheme('reasonance-dark') },
+            { label: 'Reasonance Light', action: () => loadBuiltinTheme('reasonance-light') },
           ],
         },
-        { label: $tr('menu.view.readability'), action: () => enhancedReadability.update(v => !v) },
+        {
+          label: $tr('menu.view.modifiers') ?? 'Modifiers',
+          submenu: [
+            { label: 'Enhanced Readability', action: () => toggleModifier('enhanced-readability') },
+          ],
+        },
         { divider: true },
         { label: $tr('menu.view.filePanel'), action: () => document.dispatchEvent(new CustomEvent('reasonance:toggleFilePanel')) },
         { label: $tr('menu.view.terminalPanel'), action: () => document.dispatchEvent(new CustomEvent('reasonance:toggleTerminalPanel')) },

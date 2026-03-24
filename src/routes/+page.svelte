@@ -11,7 +11,7 @@
   import FindInFiles from '$lib/components/FindInFiles.svelte';
   import WelcomeScreen from '$lib/components/WelcomeScreen.svelte';
   import { TauriAdapter } from '$lib/adapter/tauri';
-  import { initTheme } from '$lib/stores/theme';
+  import { initThemeEngine } from '$lib/stores/theme';
   import { openFiles, activeFilePath, projectRoot, addRecentProject } from '$lib/stores/files';
   import { showSettings, enhancedReadability, showHiveCanvas } from '$lib/stores/ui';
   import { activeInstance } from '$lib/stores/terminals';
@@ -203,7 +203,7 @@
     const detachConsole = await attachConsole();
     console.info('[Reasonance] Frontend log bridge attached');
 
-    initTheme();
+    await initThemeEngine();
 
     // Initialize i18n before restoring session
     await initI18n();
