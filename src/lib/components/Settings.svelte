@@ -5,7 +5,10 @@
   import type { LlmConfig, AppSettings } from '$lib/stores/config';
   import { llmConfigs, appSettings } from '$lib/stores/config';
   import { fontFamily, fontSize, enhancedReadability } from '$lib/stores/ui';
-  import { themeMode, type ThemeMode } from '$lib/stores/theme';
+  import { themeMode, type ThemeMode, activeThemeName, loadBuiltinTheme, toggleModifier, activeModifierNames } from '$lib/stores/theme';
+  import { validateTheme } from '$lib/engine/theme-validator';
+  import { invoke } from '@tauri-apps/api/core';
+  import type { ThemeFile } from '$lib/engine/theme-types';
   import { tr, t, locale, loadLocale, type Locale } from '$lib/i18n/index';
   import { get } from 'svelte/store';
   import { getUpdateSettings, saveUpdateSettings, checkForUpdate, type UpdateMode } from '$lib/updater';
@@ -33,6 +36,10 @@
   let localFontFamily = $state("'Atkinson Hyperlegible Mono', monospace");
   let localFontSize = $state(14);
   let localTheme = $state<ThemeMode>('system');
+  let localActiveTheme = $state('reasonance-dark');
+  let localModifiers = $state<string[]>([]);
+  let userThemes = $state<string[]>([]);
+  let importError = $state('');
   let localEnhancedReadability = $state(false);
   let localLocale = $state<Locale>('en');
   let dialogEl = $state<HTMLElement | null>(null);
@@ -159,7 +166,15 @@
     localFontFamily = get(fontFamily);
     localFontSize = get(fontSize);
     localTheme = get(themeMode);
+    localActiveTheme = get(activeThemeName);
+    localModifiers = [...get(activeModifierNames)];
     localEnhancedReadability = get(enhancedReadability);
+    try {
+      userThemes = await invoke<string[]>('list_user_themes');
+    } catch {
+      userThemes = [];
+    }
+    importError = '';
     localLocale = get(locale);
     pendingDeleteIndices = new Set();
     const updateSettings = await getUpdateSettings();
@@ -351,6 +366,9 @@
       fontSize.set(localFontSize);
       enhancedReadability.set(localEnhancedReadability);
       themeMode.set(localTheme);
+      if (localActiveTheme !== get(activeThemeName)) {
+        await loadBuiltinTheme(localActiveTheme);
+      }
       if (localLocale !== get(locale)) {
         loadLocale(localLocale).then(() => {
           locale.set(localLocale);
@@ -629,16 +647,69 @@
         <section>
           <h3>{$tr('settings.theme')}</h3>
           <div class="theme-toggle">
-            {#each (['light', 'dark', 'system'] as ThemeMode[]) as mode}
+            <button
+              class="theme-btn"
+              class:active={localActiveTheme === 'reasonance-dark'}
+              onclick={() => (localActiveTheme = 'reasonance-dark')}
+            >
+              Dark
+            </button>
+            <button
+              class="theme-btn"
+              class:active={localActiveTheme === 'reasonance-light'}
+              onclick={() => (localActiveTheme = 'reasonance-light')}
+            >
+              Light
+            </button>
+            {#each userThemes as ut}
               <button
                 class="theme-btn"
-                class:active={localTheme === mode}
-                onclick={() => (localTheme = mode)}
+                class:active={localActiveTheme === ut}
+                onclick={() => (localActiveTheme = ut)}
               >
-                {mode === 'light' ? $tr('settings.theme.light') : mode === 'dark' ? $tr('settings.theme.dark') : $tr('settings.theme.system')}
+                {ut}
               </button>
             {/each}
           </div>
+
+          <div class="field-row" style="margin-top: var(--space-3);">
+            <span class="field-label">{$tr('settings.theme.import') ?? 'Import theme'}</span>
+            <button
+              class="import-theme-btn"
+              onclick={() => {
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = '.json';
+                input.onchange = async () => {
+                  const file = input.files?.[0];
+                  if (!file) return;
+                  try {
+                    const text = await file.text();
+                    const parsed = JSON.parse(text);
+                    const validation = validateTheme(parsed);
+                    if (!validation.valid) {
+                      importError = validation.errors.join(', ');
+                      return;
+                    }
+                    const theme = parsed as ThemeFile;
+                    const name = theme.meta.name.toLowerCase().replace(/\s+/g, '-');
+                    await invoke('save_user_theme', { name, content: text });
+                    userThemes = await invoke<string[]>('list_user_themes');
+                    localActiveTheme = name;
+                    importError = '';
+                  } catch (e) {
+                    importError = e instanceof Error ? e.message : String(e);
+                  }
+                };
+                input.click();
+              }}
+            >
+              {$tr('settings.theme.importBtn') ?? 'Import .json'}
+            </button>
+          </div>
+          {#if importError}
+            <p class="field-error">{importError}</p>
+          {/if}
         </section>
 
         <!-- Updates -->
@@ -1151,6 +1222,26 @@
     display: flex;
     gap: var(--interactive-gap);
     flex-shrink: 0;
+  }
+
+  .import-theme-btn {
+    padding: var(--space-1) var(--space-3);
+    font-size: var(--font-size-sm);
+    border: var(--border-width) solid var(--border);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: border-color var(--transition-fast);
+  }
+
+  .import-theme-btn:hover {
+    border-color: var(--accent);
+  }
+
+  .field-error {
+    font-size: var(--font-size-sm);
+    color: var(--danger-text);
+    margin: var(--space-1) 0 0;
   }
 
   .empty-hint {
