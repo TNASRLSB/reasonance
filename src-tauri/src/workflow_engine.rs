@@ -361,8 +361,7 @@ impl WorkflowEngine {
                         serde_json::from_value(node.config.clone())
                             .map_err(|e| format!("Invalid logic config: {}", e))?;
 
-                    // Get output from predecessor (empty object for now — full output capture is a future task)
-                    let _predecessors = Self::get_predecessors(&node_id, &workflow.edges);
+                    // Predecessor output is empty for now — full output capture is a future task
                     let predecessor_output = serde_json::json!({});
 
                     let evaluator = crate::logic_eval::LogicEvaluator::new();
@@ -424,7 +423,8 @@ impl WorkflowEngine {
                             );
                         }
                     }
-                    started.push(node_id);
+                    // Note: started.push is omitted for Logic nodes — they complete synchronously
+                    // and don't count toward the concurrency limit
                 }
                 NodeType::Resource => {} // already Success from create_run
             }

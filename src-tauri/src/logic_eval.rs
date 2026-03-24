@@ -8,8 +8,12 @@ pub struct LogicEvaluator {
 impl LogicEvaluator {
     pub fn new() -> Self {
         let mut engine = Engine::new();
+        // Sandbox: prevent DoS from untrusted rule expressions
         engine.set_max_operations(10_000);
         engine.set_max_string_size(4096);
+        engine.set_max_array_size(1024);
+        engine.set_max_map_size(256);
+        engine.set_max_call_levels(10);
         Self { engine }
     }
 
