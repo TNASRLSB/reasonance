@@ -49,6 +49,7 @@ pub struct AgentNodeConfig {
     pub fallback: Option<String>,
     #[serde(default)]
     pub memory: Option<MemoryConfig>,
+    /// Per-node timeout in seconds. Overrides `WorkflowSettings.timeout` when set.
     #[serde(default)]
     pub timeout: Option<u64>,
 }

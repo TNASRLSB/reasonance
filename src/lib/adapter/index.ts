@@ -216,14 +216,14 @@ export interface WorkflowEdge {
 export interface MemoryConfig {
   enabled: boolean;
   maxEntries: number;
-  persist: string;
+  persist: 'none' | 'workflow' | 'global';
 }
 
 export interface WorkflowSettings {
   max_concurrent_agents: number;
   default_retry: number;
   timeout: number;
-  permissionLevel: string;
+  permissionLevel: 'supervised' | 'trusted' | 'dry-run';
 }
 
 export interface Workflow {
