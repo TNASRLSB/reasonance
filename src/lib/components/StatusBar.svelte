@@ -88,7 +88,7 @@
 <style>
   .status-bar {
     height: var(--statusbar-height);
-    background: var(--accent);
+    background: var(--accent-statusbar);
     color: var(--text-on-accent);
     display: flex;
     align-items: center;
@@ -131,7 +131,7 @@
   }
 
   .separator {
-    opacity: 0.5;
+    opacity: 0.75;
   }
 
   .llm-count {
@@ -153,7 +153,7 @@
   }
 
   .file-encoding {
-    opacity: 0.5;
+    opacity: 0.75;
   }
 
   .ctx-status {
@@ -187,7 +187,7 @@
   .idle-hint {
     font-family: var(--font-mono);
     font-size: var(--font-size-tiny);
-    opacity: 0.5;
+    opacity: 0.75;
     font-style: italic;
   }
 

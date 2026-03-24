@@ -81,6 +81,7 @@
   --accent: #3b82f6;
   --accent-text: #93bbfc;       /* AAA 7.1:1 on #121212 (was #60a5fa ~6.6:1) */
   --accent-hover: #2563eb;
+  --accent-statusbar: #1e40af;
   --danger: #ef4444;
   --danger-dark: #991b1b;
   --danger-text: #fca5a5;       /* AAA 8.8:1 on #121212 — use for danger as text color */
@@ -255,6 +256,7 @@
 
   /* Button-background tokens — darker variants for AAA (7:1) with white text */
   --accent-btn:  #1e40af;      /* AAA 8.72:1 white on btn bg */
+  --accent-statusbar: #1e40af;
   --danger-btn:  #991b1b;      /* AAA 8.31:1 white on btn bg (same as --danger-dark) */
 
   /* text-on-accent is shared with dark theme via :root */
