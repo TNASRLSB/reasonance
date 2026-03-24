@@ -132,6 +132,11 @@
     padding: var(--space-1) var(--space-1);
     border-radius: 0;
     line-height: 1;
+    min-width: 32px;
+    min-height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     transition: color var(--transition-fast), background var(--transition-fast);
   }
 

@@ -214,6 +214,11 @@
     cursor: pointer;
     padding: var(--stack-tight) var(--space-1);
     border-radius: var(--radius);
+    min-width: 32px;
+    min-height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .close-btn:hover {

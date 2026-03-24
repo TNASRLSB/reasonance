@@ -181,8 +181,8 @@
     font-size: var(--font-size-sm);
     line-height: 1;
     padding: var(--space-1) var(--space-1);
-    min-width: 22px;
-    min-height: 22px;
+    min-width: 24px;
+    min-height: 24px;
     border-radius: var(--radius);
     flex-shrink: 0;
     transition: color var(--transition-fast);
