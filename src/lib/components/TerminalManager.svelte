@@ -433,6 +433,8 @@
         <div
           class="terminal-wrap"
           style="display: {inst.id === $activeInstanceId ? 'flex' : 'none'};"
+          role="tabpanel"
+          aria-label="{$computedLabels.get(inst.id) ?? inst.provider} session"
         >
           {#if getViewMode(inst.id) === 'chat'}
             <ChatView
