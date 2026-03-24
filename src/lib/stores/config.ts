@@ -33,6 +33,8 @@ export interface LlmConfig {
 export interface AppSettings {
   default?: string;
   contextMenuLlm?: string;
+  defaultPermissionLevel?: 'yolo' | 'ask' | 'locked';
+  keybindings?: { cycle_permission?: string };
 }
 
 export const llmConfigs = writable<LlmConfig[]>([]);

@@ -23,7 +23,12 @@ export async function loadInitialConfig(adapter: Adapter): Promise<void> {
     if (!raw || !raw.trim()) return;
 
     const parsed = parse(raw) as {
-      settings?: { default?: string; context_menu_llm?: string };
+      settings?: {
+        default?: string;
+        context_menu_llm?: string;
+        default_permission_level?: string;
+        keybindings?: { cycle_permission?: string };
+      };
       llm?: Array<Record<string, unknown>>;
     };
 
@@ -31,11 +36,22 @@ export async function loadInitialConfig(adapter: Adapter): Promise<void> {
     llmConfigs.set(parseLlmConfig(rawLlms));
 
     const s = parsed.settings ?? {};
+    const dpl = String(s.default_permission_level ?? '');
+    const validDpl = ['yolo', 'ask', 'locked'].includes(dpl) ? dpl : undefined;
     appSettings.set({
       default: s.default !== undefined ? String(s.default) : undefined,
       contextMenuLlm:
         s.context_menu_llm !== undefined ? String(s.context_menu_llm) : undefined,
+      defaultPermissionLevel: validDpl as 'yolo' | 'ask' | 'locked' | undefined,
+      keybindings: s.keybindings ? {
+        cycle_permission: s.keybindings.cycle_permission ? String(s.keybindings.cycle_permission) : undefined,
+      } : undefined,
     });
+
+    // Migration: if defaultPermissionLevel was not set, this is first run after upgrade
+    if (!validDpl) {
+      showToast('info', t('toast.permissionDefault'), t('toast.permissionDefaultBody'));
+    }
   } catch (err) {
     // Config load failures are non-fatal — continue with defaults
     showToast('error', 'Config parse error', String(err));
@@ -63,13 +79,11 @@ export async function discoverAndApplyLlms(adapter: Adapter): Promise<void> {
     const brandNew: LlmConfig[] = found
       .filter((d) => !existingCommands.has(d.command) && !existingNames.has(d.name))
       .map((d) => {
-        const isClaude = d.command.endsWith('/claude') || d.command === 'claude';
         return {
           name: d.name,
           type: 'cli' as const,
           command: d.command,
-          // Claude needs --dangerously-skip-permissions by default to work in embedded terminal
-          args: isClaude ? ['--dangerously-skip-permissions'] : [],
+          args: [], // Permission args now handled by trust + transport
           imageMode: 'path' as const,
         };
       });
@@ -89,23 +103,20 @@ export async function discoverAndApplyLlms(adapter: Adapter): Promise<void> {
       });
     }
 
-    // Ensure existing Claude entries always have --dangerously-skip-permissions
-    // (needed for embedded terminal — Claude prompts for permissions otherwise)
+    // Strip legacy permission args from config — now handled by transport
+    const knownPermissionArgs = ['--dangerously-skip-permissions', '--sandbox=none', '--full-auto'];
     let patched = false;
-    const updated = existing.map((c) => {
-      if (c.type !== 'cli') return c;
-      const cmd = c.command ?? '';
-      const isClaude = cmd.endsWith('/claude') || cmd === 'claude';
-      if (!isClaude) return c;
-      const args = c.args ?? [];
-      if (args.includes('--dangerously-skip-permissions')) return c;
+    const cleaned = existing.map((c) => {
+      if (c.type !== 'cli' || !c.args?.length) return c;
+      const cleanedArgs = c.args.filter((a) => !knownPermissionArgs.includes(a));
+      if (cleanedArgs.length === c.args.length) return c;
       patched = true;
-      return { ...c, args: ['--dangerously-skip-permissions', ...args] };
+      return { ...c, args: cleanedArgs };
     });
 
     if (brandNew.length === 0 && !patched) return;
 
-    const merged = [...updated, ...brandNew];
+    const merged = [...cleaned, ...brandNew];
     llmConfigs.set(merged);
 
     // Persist merged config to TOML
@@ -115,6 +126,7 @@ export async function discoverAndApplyLlms(adapter: Adapter): Promise<void> {
         settings: {
           default: get(appSettings).default ?? '',
           context_menu_llm: get(appSettings).contextMenuLlm ?? '',
+          default_permission_level: get(appSettings).defaultPermissionLevel ?? 'yolo',
         },
         llm: merged.map((l) => {
           const entry: Record<string, unknown> = { name: l.name, type: l.type };

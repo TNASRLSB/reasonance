@@ -292,5 +292,16 @@
   "trust.bannerBlocked": "Workspace not trusted — LLM sessions are disabled",
   "trust.bannerReadOnly": "READ-ONLY",
   "trust.bannerTrustBtn": "Trust this workspace",
-  "trust.revokedBanner": "Trust revoked — session suspended. Trust this workspace to resume."
+  "trust.revokedBanner": "Trust revoked — session suspended. Trust this workspace to resume.",
+  "permission.auto": "AUTO",
+  "permission.confirm": "CONFIRM",
+  "permission.locked": "LOCKED",
+  "permission.autoTooltip": "Tools execute automatically",
+  "permission.confirmTooltip": "Tools require your approval",
+  "permission.lockedTooltip": "All tools are blocked",
+  "permission.switchedAuto": "Switched to AUTO — tools execute automatically",
+  "permission.switchedConfirm": "Switched to CONFIRM — tools require approval",
+  "permission.switchedLocked": "Switched to LOCKED — all tools blocked",
+  "toast.permissionDefault": "Permission default changed",
+  "toast.permissionDefaultBody": "Permission default is now AUTO — LLMs can use tools freely in trusted workspaces. Change in Settings."
 }

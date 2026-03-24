@@ -16,6 +16,7 @@
     streaming = false,
     provider = '',
     permissionLevel = 'ask',
+    onPermissionChange = (_level: 'yolo' | 'ask' | 'locked') => {},
   }: {
     onSend: (text: string) => void;
     disabled?: boolean;
@@ -28,6 +29,7 @@
     streaming?: boolean;
     provider?: string;
     permissionLevel?: 'yolo' | 'ask' | 'locked';
+    onPermissionChange?: (level: 'yolo' | 'ask' | 'locked') => void;
   } = $props();
 
   let text = $state('');
@@ -87,6 +89,20 @@
     text = '';
   }
 
+  function cyclePermission() {
+    const order: Array<'yolo' | 'ask' | 'locked'> = ['yolo', 'ask', 'locked'];
+    const idx = order.indexOf(permissionLevel);
+    const next = order[(idx + 1) % order.length];
+    onPermissionChange(next);
+  }
+
+  function handleInputKeydown(e: KeyboardEvent) {
+    if (e.altKey && e.key === 'p') {
+      e.preventDefault();
+      cyclePermission();
+    }
+  }
+
   function handleKeydown(e: KeyboardEvent) {
     if (showSlashMenu && slashFiltered.length > 0) {
       if (e.key === 'ArrowDown') {
@@ -129,7 +145,7 @@
   });
 </script>
 
-<div class="chat-input-wrapper">
+<div class="chat-input-wrapper" onkeydown={handleInputKeydown} role="region" aria-label="Chat input area">
   {#if showSlashMenu}
     <SlashMenu
       commands={slashFiltered}
@@ -165,21 +181,26 @@
 
   <div class="input-footer">
     <div class="footer-left">
-      <span
+      <button
         class="permission-badge"
-        class:yolo={permissionLevel === 'yolo'}
+        class:auto={permissionLevel === 'yolo'}
         class:locked={permissionLevel === 'locked'}
-        title="Permission level: {permissionLevel.toUpperCase()}"
-        role="status"
+        title={permissionLevel === 'yolo'
+          ? $tr('permission.autoTooltip')
+          : permissionLevel === 'locked'
+            ? $tr('permission.lockedTooltip')
+            : $tr('permission.confirmTooltip')}
+        onclick={cyclePermission}
+        aria-label="Permission mode: {permissionLevel === 'yolo' ? 'AUTO' : permissionLevel === 'locked' ? 'LOCKED' : 'CONFIRM'}. Click to change."
       >
         {#if permissionLevel === 'yolo'}
-          &#x26A1; YOLO
+          &#x26A1; {$tr('permission.auto')}
         {:else if permissionLevel === 'locked'}
-          &#x1F512; LOCKED
+          &#x1F512; {$tr('permission.locked')}
         {:else}
-          ASK
+          ? {$tr('permission.confirm')}
         {/if}
-      </span>
+      </button>
       {#if turnCount > 0 || streaming}
         <span class="metrics">
           Turn {turnCount}
@@ -318,12 +339,19 @@
     border-radius: 0;
     background: transparent;
     color: var(--text-muted);
+    cursor: pointer;
+    transition: background var(--transition-fast), color var(--transition-fast);
   }
 
-  .permission-badge.yolo {
-    background: var(--danger-dark);
-    border-color: var(--danger);
+  .permission-badge:hover {
+    background: var(--bg-hover);
     color: var(--text-primary);
+  }
+
+  .permission-badge.auto {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--text-on-accent);
   }
 
   .permission-badge.locked {
