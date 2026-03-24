@@ -31,6 +31,7 @@ mod normalizer_health;
 mod capability;
 mod self_heal;
 mod analytics;
+mod workspace_trust;
 
 use commands::fs::ProjectRootState;
 use fs_watcher::FsWatcherState;
@@ -131,6 +132,12 @@ pub fn run() {
                 .join("reasonance")
                 .join("normalizer-versions");
             normalizer_version::NormalizerVersionStore::new(&versions_dir)
+        })
+        .manage({
+            let config_dir = dirs::config_dir()
+                .unwrap_or_else(|| std::path::PathBuf::from("."))
+                .join("reasonance");
+            workspace_trust::TrustStore::new(config_dir.join("trusted-workspaces.json"))
         })
         .setup(|app| {
             info!("🚀 Reasonance setup starting");
