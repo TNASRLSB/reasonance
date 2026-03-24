@@ -2,6 +2,7 @@
   import { get } from 'svelte/store';
   import { tr } from '$lib/i18n/index';
   import { activeThemeName, loadBuiltinTheme, toggleModifier } from '$lib/stores/theme';
+  import { showThemeEditor } from '$lib/stores/ui';
   import { activeInstanceId } from '$lib/stores/terminals';
   import type { Adapter } from '$lib/adapter/index';
   import type { MenuItemDef } from '$lib/types/menu';
@@ -95,6 +96,8 @@
             { label: 'Enhanced Readability', action: () => toggleModifier('enhanced-readability') },
           ],
         },
+        { divider: true },
+        { label: 'Theme Editor...', action: () => showThemeEditor.set(true) },
         { divider: true },
         { label: $tr('menu.view.filePanel'), action: () => document.dispatchEvent(new CustomEvent('reasonance:toggleFilePanel')) },
         { label: $tr('menu.view.terminalPanel'), action: () => document.dispatchEvent(new CustomEvent('reasonance:toggleTerminalPanel')) },

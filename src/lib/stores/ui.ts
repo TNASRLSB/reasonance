@@ -29,3 +29,5 @@ export const selectedNodeId = writable<string | null>(null);
 
 import type { AnalyticsDashboardState } from '$lib/types/analytics';
 export const analyticsDashboard = writable<AnalyticsDashboardState>({ open: false, focus: null });
+
+export const showThemeEditor = writable(false);

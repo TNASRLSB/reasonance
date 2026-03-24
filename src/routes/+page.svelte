@@ -7,13 +7,14 @@
   import HelpPanel from '$lib/components/HelpPanel.svelte';
   import TerminalManager from '$lib/components/TerminalManager.svelte';
   import Settings from '$lib/components/Settings.svelte';
+  import ThemeEditor from '$lib/components/theme-editor/ThemeEditor.svelte';
   import SearchPalette from '$lib/components/SearchPalette.svelte';
   import FindInFiles from '$lib/components/FindInFiles.svelte';
   import WelcomeScreen from '$lib/components/WelcomeScreen.svelte';
   import { TauriAdapter } from '$lib/adapter/tauri';
   import { initThemeEngine } from '$lib/stores/theme';
   import { openFiles, activeFilePath, projectRoot, addRecentProject } from '$lib/stores/files';
-  import { showSettings, enhancedReadability, showHiveCanvas } from '$lib/stores/ui';
+  import { showSettings, enhancedReadability, showHiveCanvas, showThemeEditor } from '$lib/stores/ui';
   import { activeInstance } from '$lib/stores/terminals';
   import { llmConfigs } from '$lib/stores/config';
   import { initI18n, tr } from '$lib/i18n/index';
@@ -434,6 +435,11 @@
     onClose={() => showSettings.set(false)}
   />
 {/if}
+
+<ThemeEditor
+  open={$showThemeEditor}
+  onClose={() => showThemeEditor.set(false)}
+/>
 
 <SearchPalette
   {adapter}
