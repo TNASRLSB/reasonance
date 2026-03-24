@@ -5,14 +5,18 @@
   import ThinkingBlock from './ThinkingBlock.svelte';
   import ToolUseBlock from './ToolUseBlock.svelte';
   import ErrorBlock from './ErrorBlock.svelte';
+  import PermissionRequestBlock from './PermissionRequestBlock.svelte';
+  import PermissionDenialBlock from './PermissionDenialBlock.svelte';
   import StreamingIndicator from './StreamingIndicator.svelte';
   import ActionableMessage from './ActionableMessage.svelte';
 
-  let { events = [], streaming = false, adapter, onFork }: {
+  let { events = [], streaming = false, adapter, onFork, permissionLevel = 'ask', onApproveTools }: {
     events: AgentEvent[];
     streaming: boolean;
     adapter?: Adapter;
     onFork?: (eventIndex: number) => void;
+    permissionLevel?: 'yolo' | 'ask' | 'locked';
+    onApproveTools?: (tools: string[], remember: boolean) => void;
   } = $props();
 
   let messagesEl: HTMLElement | undefined = $state();
@@ -124,6 +128,19 @@
                   severity={event.metadata.error_severity ?? 'fatal'}
                   code={event.metadata.error_code ?? ''}
                 />
+              {:else if event.event_type === 'permission_denial'}
+                {#if permissionLevel === 'ask' && onApproveTools}
+                  <PermissionRequestBlock
+                    denials={event.content.type === 'json' ? event.content.value : []}
+                    onApprove={(tools) => onApproveTools(tools, false)}
+                    onApproveRemember={(tools) => onApproveTools(tools, true)}
+                  />
+                {:else}
+                  <PermissionDenialBlock
+                    denials={event.content.type === 'json' ? event.content.value : []}
+                    locked={permissionLevel === 'locked'}
+                  />
+                {/if}
               {:else}
                 <ContentRenderer {event} {adapter} />
               {/if}

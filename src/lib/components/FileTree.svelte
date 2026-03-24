@@ -65,8 +65,15 @@
           isDeleted: false,
         });
       } catch (err) {
-        console.error('Failed to read file:', err);
-        showToast('error', 'Failed to read file', (err as Error)?.message ?? String(err));
+        const msg = (err as Error)?.message ?? String(err);
+        // Binary files: open externally instead of showing error
+        if (msg.includes('non-UTF-8') || msg.includes('binary')) {
+          showToast('info', 'Binary file', `Opening "${entry.name}" with default application`);
+          adapter.openExternal(entry.path);
+        } else {
+          console.error('Failed to read file:', err);
+          showToast('error', 'Failed to read file', msg);
+        }
       }
     }, 250);
   }

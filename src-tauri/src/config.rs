@@ -23,6 +23,10 @@ pub struct LlmConfig {
     pub yolo_flag: Option<String>,
     #[serde(default)]
     pub image_mode: Option<String>,
+    #[serde(default)]
+    pub permission_level: Option<String>,
+    #[serde(default)]
+    pub allowed_tools: Option<Vec<String>>,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -97,6 +101,8 @@ command = "claude"
 args = ["--dangerously-skip-permissions"]
 yolo_flag = "--dangerously-skip-permissions"
 image_mode = "auto"
+permission_level = "ask"
+allowed_tools = ["Read", "Edit"]
 "#;
         let config: AppConfig = toml::from_str(toml_str).unwrap();
         let settings = config.settings.unwrap();
@@ -111,6 +117,8 @@ image_mode = "auto"
         assert_eq!(llm.command.as_deref(), Some("claude"));
         assert_eq!(llm.yolo_flag.as_deref(), Some("--dangerously-skip-permissions"));
         assert_eq!(llm.image_mode.as_deref(), Some("auto"));
+        assert_eq!(llm.permission_level.as_deref(), Some("ask"));
+        assert_eq!(llm.allowed_tools, Some(vec!["Read".to_string(), "Edit".to_string()]));
         assert!(llm.provider.is_none());
         assert!(llm.api_key_env.is_none());
         assert!(llm.model.is_none());

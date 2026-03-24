@@ -225,9 +225,9 @@ export class TauriAdapter implements Adapter {
   }
 
   // Structured Transport
-  async agentSend(prompt: string, provider: string, model?: string, sessionId?: string, cwd?: string, yolo?: boolean): Promise<string> {
+  async agentSend(prompt: string, provider: string, model?: string, sessionId?: string, cwd?: string, yolo?: boolean, allowedTools?: string[]): Promise<string> {
     return invoke<string>('agent_send', {
-      request: { prompt, provider, model: model ?? null, context: [], session_id: sessionId ?? null, system_prompt: null, max_tokens: null, allowed_tools: null, cwd: cwd ?? null, yolo: yolo ?? false }
+      request: { prompt, provider, model: model ?? null, context: [], session_id: sessionId ?? null, system_prompt: null, max_tokens: null, allowed_tools: allowedTools ?? null, cwd: cwd ?? null, yolo: yolo ?? false }
     });
   }
   async agentStop(sessionId: string): Promise<void> {

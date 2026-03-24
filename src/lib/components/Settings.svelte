@@ -67,12 +67,15 @@
     args: [],
     yoloFlag: '',
     imageMode: 'path',
+    permissionLevel: 'ask',
+    allowedTools: [],
     provider: 'anthropic',
     apiKeyEnv: '',
     model: '',
     endpoint: '',
   });
   let newLlmArgsStr = $state('');
+  let newLlmAllowedToolsStr = $state('');
 
   let saving = $state(false);
   let error = $state('');
@@ -153,12 +156,15 @@
       args: [],
       yoloFlag: '',
       imageMode: 'path',
+      permissionLevel: 'ask',
+      allowedTools: [],
       provider: 'anthropic',
       apiKeyEnv: '',
       model: '',
       endpoint: '',
     };
     newLlmArgsStr = '';
+    newLlmAllowedToolsStr = '';
     showAddForm = true;
   }
 
@@ -167,6 +173,7 @@
     const l = llms[index];
     newLlm = { ...l };
     newLlmArgsStr = (l.args ?? []).join(', ');
+    newLlmAllowedToolsStr = (l.allowedTools ?? []).join(', ');
     showAddForm = true;
   }
 
@@ -233,6 +240,11 @@
         .filter(Boolean);
       entry.yoloFlag = newLlm.yoloFlag ?? '';
       entry.imageMode = newLlm.imageMode ?? 'path';
+      entry.permissionLevel = newLlm.permissionLevel ?? 'ask';
+      entry.allowedTools = newLlmAllowedToolsStr
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
     } else {
       entry.provider = newLlm.provider ?? 'anthropic';
       entry.apiKeyEnv = newLlm.apiKeyEnv ?? '';
@@ -285,6 +297,8 @@
             entry.args = l.args ?? [];
             entry.yolo_flag = l.yoloFlag ?? '';
             entry.image_mode = l.imageMode ?? 'path';
+            if (l.permissionLevel && l.permissionLevel !== 'ask') entry.permission_level = l.permissionLevel;
+            if (l.allowedTools?.length) entry.allowed_tools = l.allowedTools;
           } else {
             entry.provider = l.provider ?? 'anthropic';
             entry.api_key_env = l.apiKeyEnv ?? '';
@@ -488,6 +502,19 @@
                 <div class="field-row">
                   <label for="llm-yolo">{$tr('settings.llm.yoloFlag')}</label>
                   <input id="llm-yolo" type="text" bind:value={newLlm.yoloFlag} placeholder="e.g. --dangerously-skip-permissions" />
+                </div>
+                <div class="field-row">
+                  <label for="llm-permission">Permission Level</label>
+                  <select id="llm-permission" bind:value={newLlm.permissionLevel}>
+                    <option value="ask">ASK (default)</option>
+                    <option value="yolo">YOLO</option>
+                    <option value="locked">LOCKED</option>
+                  </select>
+                </div>
+                <div class="field-row">
+                  <label for="llm-allowed-tools">Allowed Tools</label>
+                  <input id="llm-allowed-tools" type="text" bind:value={newLlmAllowedToolsStr} placeholder="e.g. Read, Edit, Bash" />
+                  <span class="field-hint">Comma-separated tool names pre-approved for this model</span>
                 </div>
                 <div class="field-row">
                   <label for="llm-image-mode">{$tr('settings.llm.imageMode')}</label>

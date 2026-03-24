@@ -14,7 +14,6 @@ export const fileTreeWidth = persistedWidth('reasonance:fileTreeWidth', 200);
 export const terminalWidth = persistedWidth('reasonance:terminalWidth', 300);
 export const activeEditorTab = writable<string | null>(null);
 export const showSettings = writable(false);
-export const yoloMode = writable(false);
 export const showDiff = writable(false);
 export const fontFamily = writable("'Atkinson Hyperlegible Mono', monospace");
 export const fontSize = writable(14);

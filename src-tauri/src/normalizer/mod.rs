@@ -50,6 +50,10 @@ pub struct CliConfig {
     /// Supports `{project_root}` placeholder.
     #[serde(default)]
     pub permission_args: Vec<String>,
+    /// The CLI flag for passing allowed tool names (e.g. "--allowedTools").
+    /// Absent for providers that don't support selective tool approval.
+    #[serde(default)]
+    pub allowed_tools_arg: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]

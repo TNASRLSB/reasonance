@@ -1,13 +1,11 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { render } from '@testing-library/svelte';
 import StatusBar from '$lib/components/StatusBar.svelte';
-import { yoloMode } from '$lib/stores/ui';
 import { activeFilePath } from '$lib/stores/files';
 import { llmConfigs } from '$lib/stores/config';
 import { terminalInstances, activeInstanceId } from '$lib/stores/terminals';
 
 beforeEach(() => {
-  yoloMode.set(false);
   activeFilePath.set(null);
   llmConfigs.set([]);
   terminalInstances.set([]);
@@ -27,25 +25,25 @@ describe('StatusBar component', () => {
     expect(appName?.textContent).toBe('REASONANCE');
   });
 
-  it('shows YOLO MODE label when yoloMode is active', async () => {
-    yoloMode.set(true);
+  it('shows YOLO MODEL ACTIVE label when a model has yolo permission level', async () => {
+    llmConfigs.set([{ name: 'claude', type: 'cli', command: 'claude', permissionLevel: 'yolo' }]);
     render(StatusBar);
     await new Promise((r) => setTimeout(r, 0));
     const yoloLabel = document.querySelector('.yolo-label');
     expect(yoloLabel).not.toBeNull();
-    expect(yoloLabel?.textContent).toContain('YOLO MODE');
+    expect(yoloLabel?.textContent).toContain('YOLO MODEL ACTIVE');
   });
 
-  it('applies yolo CSS class when yoloMode is true', async () => {
-    yoloMode.set(true);
+  it('applies yolo CSS class when a model has yolo permission level', async () => {
+    llmConfigs.set([{ name: 'claude', type: 'cli', command: 'claude', permissionLevel: 'yolo' }]);
     render(StatusBar);
     await new Promise((r) => setTimeout(r, 0));
     const bar = document.querySelector('.status-bar');
     expect(bar?.classList.contains('yolo')).toBe(true);
   });
 
-  it('does not apply yolo CSS class in normal mode', () => {
-    yoloMode.set(false);
+  it('does not apply yolo CSS class when no model has yolo permission', () => {
+    llmConfigs.set([{ name: 'claude', type: 'cli', command: 'claude', permissionLevel: 'ask' }]);
     render(StatusBar);
     const bar = document.querySelector('.status-bar');
     expect(bar?.classList.contains('yolo')).toBe(false);

@@ -7,6 +7,7 @@ version_command = ["claude", "--version"]
 update_command = ["claude", "update"]
 api_key_env = "ANTHROPIC_API_KEY"
 permission_args = ["--dangerously-skip-permissions"]
+allowed_tools_arg = "--allowedTools"
 
 [capabilities]
 streaming = true
@@ -57,6 +58,14 @@ emit = "error"
 content = "message"
 error_code = "code"
 severity = "fatal"
+
+[[rules]]
+name = "permission_denial"
+when = 'type == "result" && exists(permission_denials)'
+emit = "permission_denial"
+
+[rules.mappings]
+denials = "permission_denials"
 
 [[rules]]
 name = "usage"

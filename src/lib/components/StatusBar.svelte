@@ -1,11 +1,11 @@
 <script lang="ts">
   import { tr } from '$lib/i18n/index';
-  import { yoloMode } from '$lib/stores/ui';
   import { activeFilePath, cursorLine, cursorCol } from '$lib/stores/files';
   import { llmConfigs } from '$lib/stores/config';
   import { activeInstance } from '$lib/stores/terminals';
 
   let activeInstanceData = $derived($activeInstance);
+  let hasYoloModel = $derived($llmConfigs.some(c => c.permissionLevel === 'yolo'));
 
   function generateBar(percent: number): string {
     const filled = Math.round(percent / 12.5);
@@ -24,10 +24,10 @@
   }
 </script>
 
-<div class="status-bar" class:yolo={$yoloMode} role="status">
-  {#if $yoloMode}
-    <span class="yolo-label">&#10005; YOLO MODE — CONFIRMATIONS DISABLED</span>
-  {:else}
+<div class="status-bar" class:yolo={hasYoloModel} role="status">
+  {#if hasYoloModel}
+    <span class="yolo-label">&#10005; YOLO MODEL ACTIVE — SOME CONFIRMATIONS DISABLED</span>
+  {/if}
     <div class="status-left">
       <span class="app-name">REASONANCE</span>
       <span class="separator">|</span>
@@ -70,7 +70,6 @@
         <span class="file-encoding">UTF-8</span>
       {/if}
     </div>
-  {/if}
 </div>
 
 <style>

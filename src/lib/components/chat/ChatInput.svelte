@@ -1,6 +1,4 @@
 <script lang="ts">
-  import { get } from 'svelte/store';
-  import { yoloMode } from '$lib/stores/ui';
   import { tr } from '$lib/i18n/index';
   import SlashMenu from './SlashMenu.svelte';
   import type { SlashCommand } from '$lib/stores/config';
@@ -17,6 +15,7 @@
     elapsed = 0,
     streaming = false,
     provider = '',
+    permissionLevel = 'ask',
   }: {
     onSend: (text: string) => void;
     disabled?: boolean;
@@ -28,6 +27,7 @@
     elapsed?: number;
     streaming?: boolean;
     provider?: string;
+    permissionLevel?: 'yolo' | 'ask' | 'locked';
   } = $props();
 
   let text = $state('');
@@ -116,16 +116,6 @@
     }
   }
 
-  async function toggleYolo() {
-    const current = get(yoloMode);
-    if (!current) {
-      const { ask } = await import('@tauri-apps/plugin-dialog');
-      const ok = await ask($tr('toolbar.yoloConfirm'), { title: 'Reasonance', kind: 'warning' });
-      if (!ok) return;
-    }
-    yoloMode.update((v) => !v);
-  }
-
   function generateBar(percent: number): string {
     const total = 20;
     const filled = Math.round(percent / (100 / total));
@@ -175,17 +165,21 @@
 
   <div class="input-footer">
     <div class="footer-left">
-      <button
-        class="yolo-toggle"
-        class:active={$yoloMode}
-        onclick={toggleYolo}
-        title={$tr('toolbar.yoloTitle')}
-        aria-pressed={$yoloMode}
-        aria-describedby="yolo-desc"
+      <span
+        class="permission-badge"
+        class:yolo={permissionLevel === 'yolo'}
+        class:locked={permissionLevel === 'locked'}
+        title="Permission level: {permissionLevel.toUpperCase()}"
+        role="status"
       >
-        {$yoloMode ? '\u26A1 YOLO' : 'YOLO'}
-      </button>
-      <span id="yolo-desc" class="sr-only">Auto-approve all tool executions without confirmation prompts</span>
+        {#if permissionLevel === 'yolo'}
+          &#x26A1; YOLO
+        {:else if permissionLevel === 'locked'}
+          &#x1F512; LOCKED
+        {:else}
+          ASK
+        {/if}
+      </span>
       {#if turnCount > 0 || streaming}
         <span class="metrics">
           Turn {turnCount}
@@ -313,7 +307,7 @@
     white-space: nowrap;
   }
 
-  .yolo-toggle {
+  .permission-badge {
     font-family: var(--font-ui);
     font-size: var(--font-size-sm);
     font-weight: 800;
@@ -324,23 +318,17 @@
     border-radius: 0;
     background: transparent;
     color: var(--text-muted);
-    cursor: pointer;
-    transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
   }
 
-  .yolo-toggle:hover {
-    color: var(--text-primary);
-    border-color: var(--text-secondary);
-  }
-
-  .yolo-toggle.active {
+  .permission-badge.yolo {
     background: var(--danger-dark);
     border-color: var(--danger);
     color: var(--text-primary);
   }
 
-  .yolo-toggle.active:hover {
-    background: var(--danger);
+  .permission-badge.locked {
+    border-color: var(--text-muted);
+    color: var(--text-secondary);
   }
 
   .stat {
@@ -356,15 +344,4 @@
     opacity: 0.7;
   }
 
-  .sr-only {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
-  }
 </style>

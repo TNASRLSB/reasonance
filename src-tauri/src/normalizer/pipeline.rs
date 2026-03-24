@@ -181,18 +181,27 @@ impl NormalizerPipeline {
             "status" => AgentEventType::Status,
             "usage" => AgentEventType::Usage,
             "metrics" => AgentEventType::Metrics,
+            "permission_denial" => AgentEventType::PermissionDenial,
             "done" => AgentEventType::Done,
             _ => AgentEventType::Text,
         };
 
         // Extract content from mapping
-        let content_str = rule.mappings.get("content")
-            .and_then(|path| resolve_path(value, path))
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_string();
-
-        let content = EventContent::Text { value: content_str };
+        let content = if event_type == AgentEventType::PermissionDenial {
+            // For permission denials, extract the denials array as JSON
+            let denials_value = rule.mappings.get("denials")
+                .and_then(|path| resolve_path(value, path))
+                .cloned()
+                .unwrap_or(serde_json::Value::Array(vec![]));
+            EventContent::Json { value: denials_value }
+        } else {
+            let content_str = rule.mappings.get("content")
+                .and_then(|path| resolve_path(value, path))
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            EventContent::Text { value: content_str }
+        };
 
         // Build metadata
         let metadata = AgentEventMetadata {

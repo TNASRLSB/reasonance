@@ -11,7 +11,6 @@ import axe from 'axe-core';
 import { toasts } from '$lib/stores/toast';
 import { openFiles, activeFilePath } from '$lib/stores/files';
 import { llmConfigs } from '$lib/stores/config';
-import { yoloMode } from '$lib/stores/ui';
 import { terminalInstances, activeInstanceId } from '$lib/stores/terminals';
 
 // Component imports
@@ -82,7 +81,6 @@ describe('Toast accessibility', () => {
 
 describe('StatusBar accessibility', () => {
   beforeEach(() => {
-    yoloMode.set(false);
     llmConfigs.set([]);
     activeFilePath.set(null);
     terminalInstances.set([]);
@@ -98,8 +96,8 @@ describe('StatusBar accessibility', () => {
     expect(violations).toHaveLength(0);
   });
 
-  it('renders with no ARIA violations in YOLO mode', async () => {
-    yoloMode.set(true);
+  it('renders with no ARIA violations when a model has yolo permission', async () => {
+    llmConfigs.set([{ name: 'claude', type: 'cli' as const, command: 'claude', permissionLevel: 'yolo' as const }]);
     const { container } = render(StatusBar);
     const violations = await checkA11y(container);
     if (violations.length > 0) {

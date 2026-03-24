@@ -6,16 +6,25 @@
   import { agentEvents, streamingSessionIds, setSessionEvents, setStreaming } from '$lib/stores/agent-events';
   import { agentSessions, upsertSession, incrementTurnCount } from '$lib/stores/agent-session';
   import { projectRoot } from '$lib/stores/files';
-  import { yoloMode } from '$lib/stores/ui';
+  import { llmConfigs } from '$lib/stores/config';
   import { get } from 'svelte/store';
   import { MODEL_INFO } from '$lib/data/model-info';
 
-  let { adapter, sessionId, provider, model }: {
+  let { adapter, sessionId, provider, model, configName }: {
     adapter: Adapter;
     sessionId: string;
     provider: string;
     model: string;
+    configName: string;
   } = $props();
+
+  // Per-session approved tools (not persisted — only for this session)
+  let sessionApprovedTools = $state<Set<string>>(new Set());
+
+  // Resolve per-model permission level from config
+  let modelConfig = $derived(get(llmConfigs).find((c) => c.name === configName));
+  let permissionLevel = $derived(modelConfig?.permissionLevel ?? 'ask');
+  let configAllowedTools = $derived(modelConfig?.allowedTools ?? []);
 
   let events = $derived(($agentEvents).get(sessionId) ?? []);
   let streaming = $derived(($streamingSessionIds).has(sessionId));
@@ -99,8 +108,10 @@
       setStreaming(sessionId, true);
       incrementTurnCount(sessionId);
       const cwd = get(projectRoot) || undefined;
-      const isYolo = get(yoloMode);
-      await adapter.agentSend(text, provider, model, sessionId, cwd, isYolo);
+      const isYolo = permissionLevel === 'yolo';
+      const mergedTools = [...configAllowedTools, ...sessionApprovedTools];
+      const tools = mergedTools.length > 0 ? mergedTools : undefined;
+      await adapter.agentSend(text, provider, model, sessionId, cwd, isYolo, tools);
     } catch (e) {
       console.error('Failed to send message:', e);
       setStreaming(sessionId, false);
@@ -116,10 +127,42 @@
       console.error('Failed to fork session:', e);
     }
   }
+
+  async function handleApproveTools(tools: string[], remember: boolean) {
+    for (const t of tools) sessionApprovedTools.add(t);
+    sessionApprovedTools = new Set(sessionApprovedTools);
+
+    if (remember && modelConfig) {
+      // Persist to config
+      const existing = modelConfig.allowedTools ?? [];
+      const merged = [...new Set([...existing, ...tools])];
+      llmConfigs.update((list) =>
+        list.map((c) => c.name === configName ? { ...c, allowedTools: merged } : c)
+      );
+    }
+
+    // Replay: re-send last user message with updated allowed tools + new session ID
+    const lastUserEvent = [...events].reverse().find(
+      (e) => e.metadata.provider === 'user' && e.event_type === 'text'
+    );
+    if (!lastUserEvent || lastUserEvent.content.type !== 'text') return;
+
+    const newSessionId = crypto.randomUUID();
+    const cwd = get(projectRoot) || undefined;
+    const mergedTools = [...(modelConfig?.allowedTools ?? []), ...sessionApprovedTools];
+
+    try {
+      setStreaming(sessionId, true);
+      await adapter.agentSend(lastUserEvent.content.value, provider, model, newSessionId, cwd, false, mergedTools);
+    } catch (e) {
+      console.error('Replay failed:', e);
+      setStreaming(sessionId, false);
+    }
+  }
 </script>
 
 <div class="chat-view">
-  <ChatMessages {events} {streaming} {adapter} onFork={handleFork} />
+  <ChatMessages {events} {streaming} {adapter} onFork={handleFork} {permissionLevel} onApproveTools={handleApproveTools} />
   <ChatInput
     onSend={handleSend}
     disabled={streaming}
@@ -129,6 +172,7 @@
     {elapsed}
     {streaming}
     {provider}
+    {permissionLevel}
   />
 </div>
 

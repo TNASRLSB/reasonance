@@ -115,6 +115,7 @@ impl StructuredAgentTransport {
 
         let args = Self::build_cli_args(config, &request, cli_session_id.as_deref());
         let permission_args = Self::build_permission_args(config, request.cwd.as_deref(), request.yolo);
+        let allowed_tools_args = Self::build_allowed_tools_args(config, &request.allowed_tools);
         let rules = config.to_rules();
         let session_id_path = config.session_id_path().map(|s| s.to_string());
         drop(registry);
@@ -151,6 +152,8 @@ impl StructuredAgentTransport {
         cmd.args(&args);
         // Append permission args from normalizer config (e.g. --dangerously-skip-permissions)
         cmd.args(&permission_args);
+        // Append allowed tools args (e.g. --allowedTools Read,Edit)
+        cmd.args(&allowed_tools_args);
         cmd.stdin(Stdio::null());
         cmd.stdout(Stdio::piped());
         cmd.stderr(Stdio::piped());
@@ -281,15 +284,27 @@ impl StructuredAgentTransport {
     }
 
     /// Build permission args from the normalizer config, substituting `{project_root}` with the actual path.
-    /// Only returns args when `yolo` is true; otherwise returns an empty vec.
+    /// Only returns permission args when `yolo` is true. In non-yolo mode the CLI runs without
+    /// permission flags and auto-denies tool use (reporting `permission_denials` in the result event),
+    /// which the UI renders as approval prompts.
     fn build_permission_args(config: &crate::normalizer::TomlConfig, cwd: Option<&str>, yolo: bool) -> Vec<String> {
         if !yolo {
-            return vec![];
+            return Vec::new();
         }
         let project_root = cwd.unwrap_or(".");
         config.cli.permission_args.iter().map(|arg| {
             arg.replace("{project_root}", project_root)
         }).collect()
+    }
+
+    /// Build `--allowedTools tool1,tool2` args if the provider supports it and tools are provided.
+    fn build_allowed_tools_args(config: &crate::normalizer::TomlConfig, allowed_tools: &Option<Vec<String>>) -> Vec<String> {
+        match (allowed_tools, &config.cli.allowed_tools_arg) {
+            (Some(tools), Some(flag)) if !tools.is_empty() => {
+                vec![flag.clone(), tools.join(",")]
+            }
+            _ => Vec::new(),
+        }
     }
 
     /// Build CLI args. `cli_session_id` is the session ID returned by the CLI
@@ -398,17 +413,38 @@ mod tests {
     }
 
     #[test]
-    fn test_permission_args_only_when_yolo() {
+    fn test_permission_args_conditional_on_yolo() {
         let transport = StructuredAgentTransport::new(Path::new("normalizers")).unwrap();
         let registry = transport.registry.lock().unwrap_or_else(|e| e.into_inner());
         let config = registry.get_config("claude").unwrap();
 
+        // Permission args are only included when yolo=true
         let args_off = StructuredAgentTransport::build_permission_args(config, Some("/project"), false);
         assert!(args_off.is_empty());
 
         let args_on = StructuredAgentTransport::build_permission_args(config, Some("/project"), true);
         assert!(!args_on.is_empty());
         assert!(args_on.iter().any(|a| a.contains("dangerously-skip-permissions")));
+    }
+
+    #[test]
+    fn test_allowed_tools_args() {
+        let transport = StructuredAgentTransport::new(Path::new("normalizers")).unwrap();
+        let registry = transport.registry.lock().unwrap_or_else(|e| e.into_inner());
+        let config = registry.get_config("claude").unwrap();
+
+        // With tools and supported provider
+        let tools = Some(vec!["Read".to_string(), "Edit".to_string()]);
+        let args = StructuredAgentTransport::build_allowed_tools_args(config, &tools);
+        assert_eq!(args, vec!["--allowedTools".to_string(), "Read,Edit".to_string()]);
+
+        // Without tools
+        let args_none = StructuredAgentTransport::build_allowed_tools_args(config, &None);
+        assert!(args_none.is_empty());
+
+        // Empty tools list
+        let args_empty = StructuredAgentTransport::build_allowed_tools_args(config, &Some(vec![]));
+        assert!(args_empty.is_empty());
     }
 
     #[test]

@@ -5,7 +5,6 @@ import {
   terminalWidth,
   activeEditorTab,
   showSettings,
-  yoloMode,
   showDiff,
   fontFamily,
   fontSize,
@@ -22,7 +21,6 @@ describe('ui store', () => {
     terminalWidth.set(300);
     activeEditorTab.set(null);
     showSettings.set(false);
-    yoloMode.set(false);
     showDiff.set(false);
     fontFamily.set("'Atkinson Hyperlegible Mono', monospace");
     fontSize.set(14);
@@ -38,19 +36,10 @@ describe('ui store', () => {
     expect(get(terminalWidth)).toBe(300);
     expect(get(activeEditorTab)).toBeNull();
     expect(get(showSettings)).toBe(false);
-    expect(get(yoloMode)).toBe(false);
     expect(get(showDiff)).toBe(false);
     expect(get(fontSize)).toBe(14);
     expect(get(enhancedReadability)).toBe(false);
     expect(get(editorTheme)).toBe('forge-dark');
-  });
-
-  it('can toggle yoloMode', () => {
-    expect(get(yoloMode)).toBe(false);
-    yoloMode.set(true);
-    expect(get(yoloMode)).toBe(true);
-    yoloMode.update((v) => !v);
-    expect(get(yoloMode)).toBe(false);
   });
 
   it('can toggle showSettings', () => {

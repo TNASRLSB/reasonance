@@ -10,6 +10,7 @@ export type AgentEventType =
   | 'status'
   | 'usage'
   | 'metrics'
+  | 'permission_denial'
   | 'done';
 
 export type ErrorSeverity = 'recoverable' | 'degraded' | 'fatal';

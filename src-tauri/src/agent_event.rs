@@ -14,6 +14,7 @@ pub enum AgentEventType {
     Status,
     Usage,
     Metrics,
+    PermissionDenial,
     Done,
 }
 
@@ -240,6 +241,18 @@ impl AgentEvent {
             content: EventContent::Text { value: String::new() },
             timestamp: Self::now(),
             metadata: meta,
+        }
+    }
+
+    pub fn permission_denial(denials_json: serde_json::Value, provider: &str) -> Self {
+        trace!("AgentEvent::permission_denial created for provider='{}'", provider);
+        Self {
+            id: Uuid::new_v4().to_string(),
+            parent_id: None,
+            event_type: AgentEventType::PermissionDenial,
+            content: EventContent::Json { value: denials_json },
+            timestamp: Self::now(),
+            metadata: Self::base_metadata(provider),
         }
     }
 

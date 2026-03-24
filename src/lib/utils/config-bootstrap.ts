@@ -123,6 +123,8 @@ export async function discoverAndApplyLlms(adapter: Adapter): Promise<void> {
             entry.args = l.args ?? [];
             if (l.yoloFlag) entry.yolo_flag = l.yoloFlag;
             entry.image_mode = l.imageMode ?? 'path';
+            if (l.permissionLevel) entry.permission_level = l.permissionLevel;
+            if (l.allowedTools?.length) entry.allowed_tools = l.allowedTools;
           } else {
             entry.provider = l.provider ?? '';
             entry.model = l.model ?? '';

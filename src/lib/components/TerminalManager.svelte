@@ -14,12 +14,11 @@
     removeInstance,
   } from '$lib/stores/terminals';
   import type { TerminalInstance } from '$lib/stores/terminals';
-  import { yoloMode, showSettings } from '$lib/stores/ui';
+  import { showSettings } from '$lib/stores/ui';
   import { tr } from '$lib/i18n/index';
   import { defaultSlashCommands } from '$lib/data/slash-commands';
   import { menuKeyHandler } from '$lib/utils/a11y';
   import ChatView from './chat/ChatView.svelte';
-  import ViewModeToggle from './ViewModeToggle.svelte';
   import type { ViewMode } from '$lib/types/agent-event';
   import { processAgentEvent, streamingSessionIds } from '$lib/stores/agent-events';
 
@@ -27,7 +26,25 @@
 
   let showLLMDropdown = $state(false);
   let llmMenuEl = $state<HTMLElement | null>(null);
+  let addBtnEl = $state<HTMLElement | null>(null);
   let addWrapperEl = $state<HTMLElement | null>(null);
+  let showViewModeDropdown = $state(false);
+  let viewModeDropdownEl = $state<HTMLElement | null>(null);
+  let viewModeBtnEl = $state<HTMLElement | null>(null);
+  let viewModeWrapperEl = $state<HTMLElement | null>(null);
+
+  // Compute fixed dropdown position from anchor button rect
+  let llmDropdownStyle = $derived.by(() => {
+    if (!showLLMDropdown || !addBtnEl) return '';
+    const r = addBtnEl.getBoundingClientRect();
+    return `position:fixed;top:${r.bottom}px;left:${r.left}px;`;
+  });
+
+  let viewModeDropdownStyle = $derived.by(() => {
+    if (!showViewModeDropdown || !viewModeBtnEl) return '';
+    const r = viewModeBtnEl.getBoundingClientRect();
+    return `position:fixed;top:${r.bottom}px;left:${r.left}px;`;
+  });
 
   $effect(() => {
     if (showLLMDropdown && llmMenuEl) {
@@ -43,6 +60,18 @@
     function handleOutsideClick(e: MouseEvent) {
       if (addWrapperEl && !addWrapperEl.contains(e.target as Node)) {
         showLLMDropdown = false;
+      }
+    }
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  });
+
+  // Click-outside handler for view mode dropdown
+  $effect(() => {
+    if (!showViewModeDropdown) return;
+    function handleOutsideClick(e: MouseEvent) {
+      if (viewModeWrapperEl && !viewModeWrapperEl.contains(e.target as Node)) {
+        showViewModeDropdown = false;
       }
     }
     document.addEventListener('mousedown', handleOutsideClick);
@@ -84,7 +113,7 @@
       instanceId = `api-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     } else {
       const args = [...(config.args ?? [])];
-      if (get(yoloMode) && config.yoloFlag) {
+      if (config.permissionLevel === 'yolo' && config.yoloFlag) {
         args.push(config.yoloFlag);
       }
       let handle;
@@ -175,61 +204,9 @@
     }
   }
 
-  // Restart terminal-mode CLI instances when YOLO mode is toggled.
-  // Chat-mode instances are NOT restarted — their YOLO flag is applied per-request
-  // via the structured transport's build_permission_args.
-  let prevYolo: boolean | null = null;
-  let isRestarting = false;
-  $effect(() => {
-    const current = $yoloMode;
-    if (prevYolo === null) {
-      prevYolo = current;
-      return;
-    }
-    if (current === prevYolo) return;
-    prevYolo = current;
-
-    if (isRestarting) return;
-
-    const instances = get(terminalInstances);
-    const terminalModeInstances = instances.filter(
-      (i) => !i.apiOnly && getViewMode(i.id) === 'terminal'
-    );
-    if (terminalModeInstances.length === 0) return;
-
-    (async () => {
-      isRestarting = true;
-      for (const inst of terminalModeInstances) {
-        const config = get(llmConfigs).find((c) => c.name === inst.provider);
-        if (!config || !config.command) continue;
-
-        await adapter.killProcess(inst.id).catch((e) => console.warn('Failed to kill process:', e));
-
-        const args = [...(config.args ?? [])];
-        if (current && config.yoloFlag) {
-          args.push(config.yoloFlag);
-        }
-
-        let handle;
-        try {
-          handle = await adapter.spawnProcess(config.command, args, cwd);
-        } catch (err) {
-          console.error('Failed to respawn process:', err);
-          continue;
-        }
-
-        const oldId = inst.id;
-        terminalInstances.update(list =>
-          list.map(i => i.id === oldId ? { ...i, id: handle.id } : i)
-        );
-
-        if (get(activeInstanceId) === oldId) {
-          activeInstanceId.set(handle.id);
-        }
-      }
-      isRestarting = false;
-    })();
-  });
+  // Note: Terminal-mode instances use the per-model permissionLevel from config.
+  // When permissionLevel changes in Settings, the user needs to restart the terminal instance.
+  // Chat-mode instances pick up the new level on the next message send.
 
   // Listen for agent events from the structured transport
   $effect(() => {
@@ -276,48 +253,37 @@
           aria-label="Close {label}"
           onclick={(e) => { e.stopPropagation(); closeInstance(inst.id); }}
         >&times;</button>
-      </div>
-
-      {#if isActive}
-        {#if !inst.apiOnly}
-          <ViewModeToggle
-            mode={getViewMode(inst.id)}
-            onToggle={() => toggleViewMode(inst.id)}
-          />
+        {#if isActive && !inst.apiOnly}
+          <div class="viewmode-wrapper" bind:this={viewModeWrapperEl}>
+            <button
+              class="viewmode-btn"
+              bind:this={viewModeBtnEl}
+              aria-label="Switch view mode"
+              aria-haspopup="menu"
+              aria-expanded={showViewModeDropdown}
+              onclick={(e) => { e.stopPropagation(); showViewModeDropdown = !showViewModeDropdown; }}
+            >▾</button>
+          </div>
         {/if}
-        <span class="status-badge" role="status" aria-label="Session status: {streaming ? 'streaming response' : 'active and ready'}">
-          {#if streaming}STREAMING{:else}ACTIVE{/if}
-        </span>
-      {/if}
+      </div>
     {/each}
 
     <div class="tab-add-wrapper" bind:this={addWrapperEl}>
       <button
         class="flat-tab add-tab"
+        bind:this={addBtnEl}
         aria-label="New session"
         aria-haspopup="menu"
         aria-expanded={showLLMDropdown}
         onclick={() => { showLLMDropdown = !showLLMDropdown; }}
       >+</button>
-      {#if showLLMDropdown}
-        <div class="provider-dropdown" role="menu" tabindex="-1"
-             bind:this={llmMenuEl}
-             onkeydown={(e) => menuKeyHandler(e, llmMenuEl!, '[role="menuitem"]')}>
-          <span class="dropdown-header">New instance</span>
-          {#each configs as config (config.name)}
-            <button
-              class="dropdown-item"
-              role="menuitem"
-              tabindex="-1"
-              onclick={() => { addInstance(config.name); showLLMDropdown = false; }}
-            >{config.name}</button>
-          {/each}
-          {#if configs.length === 0}
-            <span class="dropdown-empty">{$tr('terminal.configHint')}</span>
-          {/if}
-        </div>
-      {/if}
     </div>
+
+    {#if $terminalInstances.length > 0}
+      <span class="status-badge" role="status" aria-label="Session status: {streaming ? 'streaming response' : 'active and ready'}">
+        {#if streaming}STREAMING{:else}ACTIVE{/if}
+      </span>
+    {/if}
   </div>
 
   {#if $terminalInstances.length === 0}
@@ -380,6 +346,7 @@
               sessionId={inst.id}
               provider={inst.provider}
               model={inst.modelName ?? inst.provider}
+              configName={inst.provider}
             />
           {:else if getViewMode(inst.id) === 'terminal'}
             <ImageDrop {adapter} instanceId={inst.id} llmName={inst.provider}>
@@ -394,6 +361,48 @@
   {/if}
 </div>
 
+<!-- Fixed-position dropdowns (outside overflow containers) -->
+{#if showLLMDropdown}
+  <div class="fixed-dropdown" style={llmDropdownStyle}
+       role="menu" tabindex="-1"
+       bind:this={llmMenuEl}
+       onkeydown={(e) => menuKeyHandler(e, llmMenuEl!, '[role="menuitem"]')}>
+    <span class="dropdown-header">New instance</span>
+    {#each configs as config (config.name)}
+      <button
+        class="dropdown-item"
+        role="menuitem"
+        tabindex="-1"
+        onclick={() => { addInstance(config.name); showLLMDropdown = false; }}
+      >{config.name}</button>
+    {/each}
+    {#if configs.length === 0}
+      <span class="dropdown-empty">{$tr('terminal.configHint')}</span>
+    {/if}
+  </div>
+{/if}
+
+{#if showViewModeDropdown && $activeInstanceId}
+  <div class="fixed-dropdown" style={viewModeDropdownStyle}
+       role="menu" tabindex="-1"
+       bind:this={viewModeDropdownEl}>
+    <button
+      class="dropdown-item"
+      class:active={getViewMode($activeInstanceId) === 'chat'}
+      role="menuitem"
+      tabindex="-1"
+      onclick={() => { if (getViewMode($activeInstanceId!) !== 'chat') toggleViewMode($activeInstanceId!); showViewModeDropdown = false; }}
+    >CHAT</button>
+    <button
+      class="dropdown-item"
+      class:active={getViewMode($activeInstanceId) === 'terminal'}
+      role="menuitem"
+      tabindex="-1"
+      onclick={() => { if (getViewMode($activeInstanceId!) !== 'terminal') toggleViewMode($activeInstanceId!); showViewModeDropdown = false; }}
+    >XTERM</button>
+  </div>
+{/if}
+
 <style>
   .terminal-manager {
     display: flex;
@@ -407,13 +416,13 @@
     display: flex;
     align-items: center;
     gap: var(--stack-tight);
-    padding: var(--space-1) var(--space-2);
+    padding: 0 var(--space-2);
     background: var(--bg-primary);
-    border-bottom: 2px solid var(--border);
+    border-bottom: var(--border-width) solid var(--border);
     flex-shrink: 0;
     overflow-x: auto;
     font-family: var(--font-ui);
-    min-height: 32px;
+    height: 38px;
   }
 
   .flat-tab {
@@ -456,12 +465,15 @@
 
   .tab-add-wrapper {
     position: relative;
+    flex-shrink: 0;
   }
 
   .tab-group {
     display: flex;
     align-items: center;
     gap: 0;
+    position: relative;
+    flex-shrink: 0;
   }
 
   .close-btn {
@@ -491,12 +503,7 @@
     color: var(--danger-text);
   }
 
-  .tab-group.active {
-    background: var(--bg-secondary);
-    border: var(--border-width) solid var(--accent);
-  }
-
-  .tab-group.error {
+  .tab-group.error .flat-tab {
     border-color: var(--danger);
   }
 
@@ -521,20 +528,49 @@
     min-height: 24px;
     display: inline-flex;
     align-items: center;
-    border: var(--border-width) solid var(--success);
     color: var(--success-text);
     white-space: nowrap;
+    margin-inline-start: auto;
   }
 
-  .provider-dropdown {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    z-index: 100;
+  .viewmode-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+
+  .viewmode-btn {
+    font-size: var(--font-size-sm);
+    line-height: 1;
+    cursor: pointer;
+    padding: var(--space-1);
+    min-width: 20px;
+    min-height: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    transition: color var(--transition-fast);
+  }
+
+  .viewmode-btn:hover {
+    color: var(--text-primary);
+  }
+
+  .fixed-dropdown {
+    z-index: 200;
     background: var(--bg-surface);
     border: 1px solid var(--border);
-    min-width: 160px;
+    min-width: 120px;
     padding: var(--space-1) 0;
+    font-family: var(--font-ui);
+  }
+
+  .fixed-dropdown .dropdown-item.active {
+    color: var(--accent-text);
+    font-weight: 700;
   }
 
   .dropdown-header {

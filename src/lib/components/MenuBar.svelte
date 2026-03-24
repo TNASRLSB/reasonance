@@ -1,7 +1,7 @@
 <script lang="ts">
   import { get } from 'svelte/store';
   import { tr } from '$lib/i18n/index';
-  import { yoloMode, enhancedReadability } from '$lib/stores/ui';
+  import { enhancedReadability } from '$lib/stores/ui';
   import { themeMode } from '$lib/stores/theme';
   import { activeInstanceId } from '$lib/stores/terminals';
   import type { Adapter } from '$lib/adapter/index';
@@ -108,14 +108,6 @@
           action: () => document.dispatchEvent(new CustomEvent('reasonance:newTerminal')),
         },
         { label: $tr('menu.terminal.close'), action: () => document.dispatchEvent(new CustomEvent('reasonance:closeTerminal')) },
-        { divider: true },
-        { label: $tr('menu.terminal.yolo'), action: () => {
-            if (!get(yoloMode)) {
-              if (!confirm($tr('toolbar.yoloConfirm'))) return;
-            }
-            yoloMode.update(v => !v);
-          }
-        },
         { divider: true },
         { label: $tr('menu.terminal.detectLLM'), action: () => document.dispatchEvent(new CustomEvent('reasonance:detectLLMs')) },
       ],
