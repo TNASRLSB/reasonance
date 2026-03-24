@@ -1,5 +1,38 @@
 # Changelog
 
+## [0.12.1] - 2026-03-24
+
+### Bug Fixes
+
+- fix(a11y): i18n all hardcoded English aria-label, title, placeholder strings
+- fix(a11y): close button target sizes to minimum 24x24px (AA 2.5.8)
+- fix(a11y): terminal-wrap role=tabpanel with aria-label
+- fix(a11y): ResponsePanel link color to --accent-text for AA contrast
+- fix(a11y): DiffBlock aria-expanded, visible diff prefix for color-blind users
+- fix(a11y): StatusBar contrast — darker accent bg, raise opacity minimums
+
+### Other
+
+- chore: update README with missing features, fix WCAG claim, bump PKGBUILD to 0.11.0
+-   Session Replay, Analytics Dashboard, Hive Canvas, Inline Updater, i18n,
+-   Workspace Trust)
+- - Correct "WCAG 2.1 AA compliant" → "Targeting WCAG 2.1 AA conformance" with
+-   link to audit
+- - Mark Hive Canvas as completed in roadmap
+- - Bump AUR PKGBUILD version from 0.10.0 to 0.11.0
+- 
+- Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- 
+- docs: update WCAG matrix, VPAT, and EN 301 549 after AA conformance fixes
+- previously blocking items in the Top Priority Fixes section are marked
+- resolved. VPAT and EN 301 549 conformance levels updated for 1.4.1, 1.4.3,
+- 2.1.1, 2.1.2, 2.4.3, 2.5.8, 3.3.2, 4.1.2, and related Chapter 4/11 clauses.
+- Top Known Issues sections reflect only remaining minor items; Remediation
+- Roadmap updated to show all prior items resolved.
+- 
+
+
+
 ## [0.12.0] - 2026-03-24
 
 ### Features
