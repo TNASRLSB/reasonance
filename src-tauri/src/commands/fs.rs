@@ -29,8 +29,72 @@ pub fn set_project_root(path: String, state: State<'_, ProjectRootState>) -> Res
                 .map_err(|e| format!("Cannot canonicalize project root '{}': {}", path, e))?,
         )
     };
-    *state.0.lock().unwrap_or_else(|e| e.into_inner()) = canonical;
+    *state.0.lock().unwrap_or_else(|e| e.into_inner()) = canonical.clone();
+
+    // Install prepare-commit-msg hook to add Reasonance co-author trailer
+    if let Some(ref root) = canonical {
+        install_commit_hook(root);
+    }
+
     Ok(())
+}
+
+/// Installs a git prepare-commit-msg hook that appends a Reasonance co-author
+/// trailer to every commit made from within the application.
+fn install_commit_hook(project_root: &std::path::Path) {
+    let git_dir = project_root.join(".git");
+    if !git_dir.is_dir() {
+        return; // not a git repo
+    }
+    let hooks_dir = git_dir.join("hooks");
+    let hook_path = hooks_dir.join("prepare-commit-msg");
+
+    // Don't overwrite an existing hook
+    if hook_path.exists() {
+        // Check if it's already our hook
+        if let Ok(content) = std::fs::read_to_string(&hook_path) {
+            if content.contains("Reasonance") {
+                return; // already installed
+            }
+        }
+        // Existing hook from user/other tool — don't touch it
+        debug!("prepare-commit-msg hook already exists, skipping Reasonance hook install");
+        return;
+    }
+
+    if let Err(e) = std::fs::create_dir_all(&hooks_dir) {
+        debug!("Failed to create hooks dir: {}", e);
+        return;
+    }
+
+    let hook_content = r#"#!/bin/sh
+# Added by Reasonance — adds co-author trailer to commits
+COMMIT_MSG_FILE="$1"
+COMMIT_SOURCE="$2"
+
+# Only add trailer for regular commits (not merges, squashes, etc.)
+if [ -z "$COMMIT_SOURCE" ] || [ "$COMMIT_SOURCE" = "message" ]; then
+    # Don't add if already present
+    if ! grep -q "Co-Authored-By:.*REASONANCE-IDE" "$COMMIT_MSG_FILE" 2>/dev/null; then
+        printf '\nCo-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>\n' >> "$COMMIT_MSG_FILE"
+    fi
+fi
+"#;
+
+    match std::fs::write(&hook_path, hook_content) {
+        Ok(_) => {
+            // Make executable
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                let _ = std::fs::set_permissions(&hook_path, std::fs::Permissions::from_mode(0o755));
+            }
+            info!("Installed Reasonance prepare-commit-msg hook at {:?}", hook_path);
+        }
+        Err(e) => {
+            debug!("Failed to write prepare-commit-msg hook: {}", e);
+        }
+    }
 }
 
 // ── Path validation helpers ───────────────────────────────────────────────────
