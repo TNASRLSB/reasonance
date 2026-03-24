@@ -281,5 +281,16 @@
   "toast.fileDeleted": "File deleted",
   "sessions.title": "Session History",
   "sessions.search": "Filter sessions...",
-  "chat.placeholder": "Reply..."
+  "chat.placeholder": "Reply...",
+  "trust.title": "Do you trust the files in this folder?",
+  "trust.explanation": "LLM tools configured in Reasonance will be able to read, modify, create and delete files in this folder, and execute commands in the terminal. Proceed only if you know and trust the contents of this folder.",
+  "trust.gitPresent": "Git repository",
+  "trust.fileCount": "{count} top-level items",
+  "trust.btnTrust": "Trust",
+  "trust.btnReadOnly": "Read-only",
+  "trust.btnBlock": "Block",
+  "trust.bannerBlocked": "Workspace not trusted — LLM sessions are disabled",
+  "trust.bannerReadOnly": "READ-ONLY",
+  "trust.bannerTrustBtn": "Trust this workspace",
+  "trust.revokedBanner": "Trust revoked — session suspended. Trust this workspace to resume."
 }
