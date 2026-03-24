@@ -413,7 +413,7 @@
               configName={inst.provider}
             />
           {:else if getViewMode(inst.id) === 'terminal'}
-            {#if $workspaceTrustLevel === 'blocked' || $workspaceTrustLevel === null}
+            {#if $workspaceTrustLevel === null}
               <div class="pty-trust-warning">
                 Trust revoked — new commands may be restricted.
               </div>
