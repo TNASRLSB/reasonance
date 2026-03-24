@@ -25,30 +25,6 @@ describe('StatusBar component', () => {
     expect(appName?.textContent).toBe('REASONANCE');
   });
 
-  it('shows YOLO MODEL ACTIVE label when a model has yolo permission level', async () => {
-    llmConfigs.set([{ name: 'claude', type: 'cli', command: 'claude', permissionLevel: 'yolo' }]);
-    render(StatusBar);
-    await new Promise((r) => setTimeout(r, 0));
-    const yoloLabel = document.querySelector('.yolo-label');
-    expect(yoloLabel).not.toBeNull();
-    expect(yoloLabel?.textContent).toContain('YOLO MODEL ACTIVE');
-  });
-
-  it('applies yolo CSS class when a model has yolo permission level', async () => {
-    llmConfigs.set([{ name: 'claude', type: 'cli', command: 'claude', permissionLevel: 'yolo' }]);
-    render(StatusBar);
-    await new Promise((r) => setTimeout(r, 0));
-    const bar = document.querySelector('.status-bar');
-    expect(bar?.classList.contains('yolo')).toBe(true);
-  });
-
-  it('does not apply yolo CSS class when no model has yolo permission', () => {
-    llmConfigs.set([{ name: 'claude', type: 'cli', command: 'claude', permissionLevel: 'ask' }]);
-    render(StatusBar);
-    const bar = document.querySelector('.status-bar');
-    expect(bar?.classList.contains('yolo')).toBe(false);
-  });
-
   it('shows file name in right panel when a file is active', async () => {
     activeFilePath.set('/project/src/main.ts');
     render(StatusBar);

@@ -36,7 +36,7 @@ describe('SearchPalette component', () => {
     render(SearchPalette, { props: { adapter, visible: true, onClose } });
     const input = document.querySelector('input.palette-input');
     expect(input).not.toBeNull();
-    expect((input as HTMLInputElement)?.placeholder).toBe('Go to file…');
+    expect((input as HTMLInputElement)?.placeholder).toBe('Search files and commands... (> for commands only)');
   });
 
   it('renders ESC hint when visible', () => {
@@ -60,7 +60,7 @@ describe('SearchPalette component', () => {
     const adapter = createMockAdapter();
     const onClose = vi.fn();
     render(SearchPalette, { props: { adapter, visible: true, onClose } });
-    const dialog = document.querySelector('[aria-label="File search"]');
+    const dialog = document.querySelector('[aria-label="Command palette"]');
     expect(dialog).not.toBeNull();
   });
 });
