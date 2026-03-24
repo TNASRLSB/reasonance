@@ -21,6 +21,11 @@ mod tests {
 
     #[test]
     fn test_transport_rejects_unknown_provider() {
+        use crate::workspace_trust::TrustStore;
+        use tempfile::TempDir;
+        let tmp = TempDir::new().unwrap();
+        let trust_store = TrustStore::new(tmp.path().join("trust.json"));
+
         let transport = StructuredAgentTransport::new(Path::new("normalizers")).unwrap();
 
         let req = AgentRequest {
@@ -36,7 +41,7 @@ mod tests {
             yolo: false,
         };
 
-        assert!(transport.send(req).is_err());
+        assert!(transport.send(req, &trust_store).is_err());
     }
 
     #[tokio::test]

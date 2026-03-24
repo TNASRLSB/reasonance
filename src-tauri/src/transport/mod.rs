@@ -68,9 +68,24 @@ impl StructuredAgentTransport {
         })
     }
 
-    pub fn send(&self, request: AgentRequest) -> Result<String, String> {
+    pub fn send(&self, request: AgentRequest, trust_store: &crate::workspace_trust::TrustStore) -> Result<String, String> {
         let provider = request.provider.to_lowercase();
         info!("Transport: send request provider={} model={:?} session_id={:?}", provider, request.model, request.session_id);
+
+        // Backend safety net: query trust from the store, not from frontend-supplied value
+        let trust = request.cwd.as_deref().map(|cwd| {
+            trust_store.check_trust(cwd)
+        });
+        let trust_level = trust.as_ref().and_then(|r| r.level);
+
+        if matches!(trust_level, Some(crate::workspace_trust::TrustLevel::Blocked)) {
+            warn!("Transport: send blocked — workspace is not trusted cwd={:?}", request.cwd);
+            return Err("Workspace is not trusted".to_string());
+        }
+        if trust_level.is_none() && request.cwd.is_some() {
+            warn!("Transport: send blocked — workspace trust not established cwd={:?}", request.cwd);
+            return Err("Workspace trust has not been established".to_string());
+        }
 
         let registry = self.registry.lock().unwrap_or_else(|e| {
             warn!("Transport: registry lock poisoned, recovering");
@@ -114,8 +129,12 @@ impl StructuredAgentTransport {
         };
 
         let args = Self::build_cli_args(config, &request, cli_session_id.as_deref());
-        let permission_args = Self::build_permission_args(config, request.cwd.as_deref(), request.yolo);
-        let allowed_tools_args = Self::build_allowed_tools_args(config, &request.allowed_tools);
+        let permission_args = Self::build_permission_args_with_trust(config, request.cwd.as_deref(), request.yolo, trust_level);
+        let allowed_tools_args = if matches!(trust_level, Some(crate::workspace_trust::TrustLevel::ReadOnly)) {
+            Self::build_read_only_tools_args(config)
+        } else {
+            Self::build_allowed_tools_args(config, &request.allowed_tools)
+        };
         let rules = config.to_rules();
         let session_id_path = config.session_id_path().map(|s| s.to_string());
         drop(registry);
@@ -385,6 +404,11 @@ mod tests {
 
     #[test]
     fn test_transport_unknown_provider() {
+        use crate::workspace_trust::TrustStore;
+        use tempfile::TempDir;
+        let tmp = TempDir::new().unwrap();
+        let trust_store = TrustStore::new(tmp.path().join("trust.json"));
+
         let transport = StructuredAgentTransport::new(Path::new("normalizers")).unwrap();
         let request = AgentRequest {
             prompt: "hello".to_string(),
@@ -398,7 +422,7 @@ mod tests {
             cwd: None,
             yolo: false,
         };
-        let result = transport.send(request);
+        let result = transport.send(request, &trust_store);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("Unknown provider"));
     }
