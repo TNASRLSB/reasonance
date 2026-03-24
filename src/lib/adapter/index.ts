@@ -1,6 +1,7 @@
 import type { AgentEvent, AgentEventPayload, SessionHandle, SessionSummary, ViewMode } from '$lib/types/agent-event';
 import type { NegotiatedCapabilities, CliVersionInfo, VersionEntry, HealthReport } from '$lib/types/capability';
 import type { ProviderAnalytics, ModelAnalytics, DailyStats, SessionMetrics, ConnectionTestStep } from '$lib/types/analytics';
+import type { TrustCheckResult, TrustLevel, TrustEntry } from '$lib/stores/workspace-trust';
 
 export interface FileEntry {
   name: string;
@@ -132,6 +133,13 @@ export interface Adapter {
   testProviderConnection(provider: string): Promise<void>;
   onConnectionTest(callback: (step: ConnectionTestStep) => void): Promise<() => void>;
   reloadNormalizers(): Promise<void>;
+
+  // Workspace Trust
+  checkWorkspaceTrust(path: string): Promise<TrustCheckResult>;
+  setWorkspaceTrust(path: string, level: TrustLevel): Promise<void>;
+  revokeWorkspaceTrust(hash: string): Promise<void>;
+  listWorkspaceTrust(): Promise<TrustEntry[]>;
+  getNormalizerConfig(provider: string): Promise<{ permission_args?: string[] } | null>;
 }
 
 export interface GrepResult {
