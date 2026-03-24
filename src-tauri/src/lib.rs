@@ -36,6 +36,7 @@ mod self_heal;
 mod analytics;
 mod workspace_trust;
 mod theme_manager;
+mod theme_watcher;
 
 use commands::fs::ProjectRootState;
 use fs_watcher::FsWatcherState;
@@ -221,6 +222,10 @@ pub fn run() {
                 };
                 negotiator.set_capabilities(provider, caps);
             }
+
+            // Start theme file watcher
+            info!("  ✓ Starting theme file watcher");
+            theme_watcher::start_theme_watcher(app.handle().clone());
 
             info!("🚀 Reasonance setup complete — all systems wired");
             Ok(())
