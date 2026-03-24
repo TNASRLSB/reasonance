@@ -21,6 +21,9 @@
   import ChatView from './chat/ChatView.svelte';
   import type { ViewMode } from '$lib/types/agent-event';
   import { processAgentEvent, streamingSessionIds } from '$lib/stores/agent-events';
+  import WorkspaceTrustDialog from './WorkspaceTrustDialog.svelte';
+  import { workspaceTrustLevel } from '$lib/stores/workspace-trust';
+  import type { TrustLevel, FolderInfo } from '$lib/stores/workspace-trust';
 
   let { adapter, cwd = '.' }: { adapter: Adapter; cwd?: string } = $props();
 
@@ -32,6 +35,10 @@
   let viewModeDropdownEl = $state<HTMLElement | null>(null);
   let viewModeBtnEl = $state<HTMLElement | null>(null);
   let viewModeWrapperEl = $state<HTMLElement | null>(null);
+
+  let showTrustDialog = $state(false);
+  let trustFolderInfo = $state<FolderInfo | null>(null);
+  let pendingProviderName = $state<string | null>(null);
 
   // Compute fixed dropdown position from anchor button rect
   let llmDropdownStyle = $derived.by(() => {
@@ -103,6 +110,31 @@
   }
 
   export async function addInstance(providerName: string) {
+    const cwdPath = cwd || '.';
+
+    // Check workspace trust
+    const trustResult = await adapter.checkWorkspaceTrust(cwdPath);
+
+    if (trustResult.needs_prompt) {
+      // Show trust dialog and wait for decision
+      trustFolderInfo = trustResult.folder_info;
+      pendingProviderName = providerName;
+      showTrustDialog = true;
+      return;
+    }
+
+    if (trustResult.level === 'blocked') {
+      // Already decided to block — don't spawn
+      workspaceTrustLevel.set('blocked');
+      return;
+    }
+
+    workspaceTrustLevel.set(trustResult.level);
+    await doAddInstance(providerName);
+  }
+
+  async function doAddInstance(providerName: string) {
+    const cwdPath = cwd || '.';
     const config = get(llmConfigs).find((c) => c.name === providerName);
     if (!config) return;
 
@@ -113,9 +145,20 @@
       instanceId = `api-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     } else {
       const args = [...(config.args ?? [])];
-      if (config.permissionLevel === 'yolo' && config.yoloFlag) {
-        args.push(config.yoloFlag);
+
+      // PTY mode: add permission args based on workspace trust level
+      const currentTrust = get(workspaceTrustLevel);
+      if (currentTrust === 'trusted') {
+        const normConfig = await adapter.getNormalizerConfig?.(providerName);
+        if (normConfig?.permission_args) {
+          for (const arg of normConfig.permission_args) {
+            args.push(arg.replace('{project_root}', cwdPath));
+          }
+        }
       }
+      // read_only: do NOT pass permission_args — user controls CLI directly
+      // blocked: should never reach here (caught by addInstance trust check)
+
       let handle;
       try {
         handle = await adapter.spawnProcess(config.command!, args, cwd);
@@ -136,6 +179,20 @@
 
     addInstanceToStore(instance);
     activeInstanceId.set(instanceId);
+  }
+
+  async function handleTrustDecision(level: TrustLevel) {
+    const cwdPath = cwd || '.';
+    showTrustDialog = false;
+
+    await adapter.setWorkspaceTrust(cwdPath, level);
+    workspaceTrustLevel.set(level);
+
+    if (level !== 'blocked' && pendingProviderName) {
+      await doAddInstance(pendingProviderName);
+    }
+    pendingProviderName = null;
+    trustFolderInfo = null;
   }
 
   async function closeInstance(id: string) {
@@ -286,7 +343,14 @@
     {/if}
   </div>
 
-  {#if $terminalInstances.length === 0}
+  {#if $workspaceTrustLevel === 'blocked'}
+    <div class="empty-state">
+      <div class="empty-header">{$tr('trust.bannerBlocked')}</div>
+      <button class="no-llm-btn" onclick={() => { showTrustDialog = true; }}>
+        {$tr('trust.bannerTrustBtn')}
+      </button>
+    </div>
+  {:else if $terminalInstances.length === 0}
     <div class="empty-state">
       <div class="empty-header">{$tr('terminal.header')}</div>
       <p class="empty-subtitle">{$tr('terminal.startLLM')}</p>
@@ -358,6 +422,10 @@
         </div>
       {/each}
     </div>
+  {/if}
+
+  {#if showTrustDialog && trustFolderInfo}
+    <WorkspaceTrustDialog folderInfo={trustFolderInfo} onDecision={handleTrustDecision} />
   {/if}
 </div>
 
