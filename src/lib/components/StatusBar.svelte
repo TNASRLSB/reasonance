@@ -5,8 +5,6 @@
   import { activeInstance } from '$lib/stores/terminals';
 
   let activeInstanceData = $derived($activeInstance);
-  let hasYoloModel = $derived($llmConfigs.some(c => c.permissionLevel === 'yolo'));
-
   function generateBar(percent: number): string {
     const filled = Math.round(percent / 12.5);
     const empty = 8 - filled;
@@ -24,10 +22,7 @@
   }
 </script>
 
-<div class="status-bar" class:yolo={hasYoloModel} role="status">
-  {#if hasYoloModel}
-    <span class="yolo-label">&#10005; YOLO MODEL ACTIVE — SOME CONFIRMATIONS DISABLED</span>
-  {/if}
+<div class="status-bar" role="status">
     <div class="status-left">
       <span class="app-name">REASONANCE</span>
       <span class="separator">|</span>
@@ -87,18 +82,6 @@
     font-weight: 600;
     user-select: none;
     border-top: 2px solid var(--border);
-  }
-
-  .status-bar.yolo {
-    background: var(--danger);
-  }
-
-  .yolo-label {
-    font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    width: 100%;
-    text-align: center;
   }
 
   .status-left,
