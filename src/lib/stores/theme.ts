@@ -79,27 +79,40 @@ function reapply(): void {
 }
 
 export async function loadBuiltinTheme(name: string): Promise<void> {
+  // Try built-in first
   const loader = builtinThemes[name];
-  if (!loader) {
-    console.error(`Theme not found: ${name}, falling back`);
-    activeTheme.set(FALLBACK_THEME);
-    activeThemeName.set('fallback');
-    reapply();
-    return;
+  if (loader) {
+    const theme = await loader();
+    const validation = validateTheme(theme);
+    if (validation.valid) {
+      activeTheme.set(theme);
+      activeThemeName.set(name);
+      reapply();
+      return;
+    }
+    console.error(`Invalid built-in theme ${name}:`, validation.errors);
   }
 
-  const theme = await loader();
-  const validation = validateTheme(theme);
-  if (!validation.valid) {
-    console.error(`Invalid theme ${name}:`, validation.errors);
-    activeTheme.set(FALLBACK_THEME);
-    activeThemeName.set('fallback');
-    reapply();
-    return;
+  // Try user theme from disk
+  try {
+    const json = await invoke<string>('load_user_theme', { name });
+    const theme = JSON.parse(json) as ThemeFile;
+    const validation = validateTheme(theme);
+    if (validation.valid) {
+      activeTheme.set(theme);
+      activeThemeName.set(name);
+      reapply();
+      return;
+    }
+    console.error(`Invalid user theme ${name}:`, validation.errors);
+  } catch {
+    // Not found on disk either
   }
 
-  activeTheme.set(theme);
-  activeThemeName.set(name);
+  // Fallback
+  console.error(`Theme not found: ${name}, falling back`);
+  activeTheme.set(FALLBACK_THEME);
+  activeThemeName.set('fallback');
   reapply();
 }
 
