@@ -357,16 +357,73 @@ impl WorkflowEngine {
                     started.push(node_id);
                 }
                 NodeType::Logic => {
-                    // Logic nodes evaluate immediately (rule evaluation deferred to Phase 4)
-                    self.update_node_state(run_id, &node_id, AgentState::Success, None)?;
-                    let _ = app.emit(
-                        "workflow-node-completed",
-                        serde_json::json!({
-                            "run_id": run_id,
-                            "node_id": node_id,
-                            "state": "success",
-                        }),
-                    );
+                    let config: crate::workflow_store::LogicNodeConfig =
+                        serde_json::from_value(node.config.clone())
+                            .map_err(|e| format!("Invalid logic config: {}", e))?;
+
+                    // Get output from predecessor (empty object for now — full output capture is a future task)
+                    let _predecessors = Self::get_predecessors(&node_id, &workflow.edges);
+                    let predecessor_output = serde_json::json!({});
+
+                    let evaluator = crate::logic_eval::LogicEvaluator::new();
+                    match evaluator.evaluate(&config.rule, &predecessor_output) {
+                        Ok(result) => {
+                            self.update_node_state(run_id, &node_id, AgentState::Success, None)?;
+
+                            // Route to onTrue or onFalse edge — disable the other branch
+                            let inactive_edge_id =
+                                if result { &config.on_false } else { &config.on_true };
+
+                            // Mark nodes on the inactive branch as skipped
+                            if let Some(ref inactive_id) = inactive_edge_id {
+                                let inactive_successors: Vec<String> = workflow
+                                    .edges
+                                    .iter()
+                                    .filter(|e| e.id == *inactive_id)
+                                    .map(|e| e.to.clone())
+                                    .collect();
+                                for succ_id in inactive_successors {
+                                    let other_inputs = workflow
+                                        .edges
+                                        .iter()
+                                        .filter(|e| e.to == succ_id && e.id != *inactive_id)
+                                        .count();
+                                    if other_inputs == 0 {
+                                        self.update_node_state(
+                                            run_id,
+                                            &succ_id,
+                                            AgentState::Error,
+                                            None,
+                                        )?;
+                                    }
+                                }
+                            }
+
+                            log::info!("Logic node {} evaluated to {}", node_id, result);
+                            let _ = app.emit(
+                                "workflow-node-completed",
+                                serde_json::json!({
+                                    "run_id": run_id,
+                                    "node_id": node_id,
+                                    "state": "success",
+                                    "result": result,
+                                }),
+                            );
+                        }
+                        Err(e) => {
+                            self.update_node_state(run_id, &node_id, AgentState::Error, None)?;
+                            log::error!("Logic node {} rule failed: {}", node_id, e);
+                            let _ = app.emit(
+                                "workflow-node-completed",
+                                serde_json::json!({
+                                    "run_id": run_id,
+                                    "node_id": node_id,
+                                    "state": "error",
+                                    "error": e,
+                                }),
+                            );
+                        }
+                    }
                     started.push(node_id);
                 }
                 NodeType::Resource => {} // already Success from create_run
