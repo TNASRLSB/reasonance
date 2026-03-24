@@ -1,56 +1,59 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { get } from 'svelte/store';
-import { themeMode, isDark } from '$lib/stores/theme';
-import type { ThemeMode } from '$lib/stores/theme';
+
+// Mock theme-engine DOM functions
+vi.mock('$lib/engine/theme-engine', async () => {
+  const actual = await vi.importActual('$lib/engine/theme-engine');
+  return {
+    ...actual,
+    injectStyles: vi.fn(),
+    applyColorScheme: vi.fn(),
+  };
+});
+
+import {
+  activeThemeName,
+  activeModifierNames,
+  colorScheme,
+  isDark,
+  loadBuiltinTheme,
+  toggleModifier,
+} from '$lib/stores/theme';
 
 describe('theme store', () => {
   beforeEach(() => {
-    themeMode.set('dark');
-    isDark.set(true);
+    activeThemeName.set('reasonance-dark');
+    activeModifierNames.set([]);
   });
 
-  it('defaults to dark mode', () => {
-    expect(get(themeMode)).toBe('dark');
+  it('defaults to reasonance-dark', () => {
+    expect(get(activeThemeName)).toBe('reasonance-dark');
+  });
+
+  it('defaults to dark colorScheme', () => {
+    expect(get(colorScheme)).toBe('dark');
+  });
+
+  it('isDark is derived from colorScheme', () => {
     expect(get(isDark)).toBe(true);
-  });
-
-  it('can switch to light mode', () => {
-    themeMode.set('light');
-    isDark.set(false);
-
-    expect(get(themeMode)).toBe('light');
+    colorScheme.set('light');
     expect(get(isDark)).toBe(false);
   });
 
-  it('can switch to system mode', () => {
-    themeMode.set('system');
-    expect(get(themeMode)).toBe('system');
+  it('loads a built-in theme by name', async () => {
+    await loadBuiltinTheme('reasonance-light');
+    expect(get(activeThemeName)).toBe('reasonance-light');
+    expect(get(colorScheme)).toBe('light');
   });
 
-  it('isDark can be set independently', () => {
-    isDark.set(false);
-    expect(get(isDark)).toBe(false);
-
-    isDark.set(true);
-    expect(get(isDark)).toBe(true);
+  it('toggles a modifier on', async () => {
+    await toggleModifier('enhanced-readability');
+    expect(get(activeModifierNames)).toContain('enhanced-readability');
   });
 
-  it('accepts all valid ThemeMode values', () => {
-    const modes: ThemeMode[] = ['dark', 'light', 'system'];
-    for (const mode of modes) {
-      themeMode.set(mode);
-      expect(get(themeMode)).toBe(mode);
-    }
-  });
-
-  it('dark mode keeps isDark true', () => {
-    themeMode.set('light');
-    isDark.set(false);
-
-    themeMode.set('dark');
-    isDark.set(true);
-
-    expect(get(themeMode)).toBe('dark');
-    expect(get(isDark)).toBe(true);
+  it('toggles a modifier off', async () => {
+    activeModifierNames.set(['enhanced-readability']);
+    await toggleModifier('enhanced-readability');
+    expect(get(activeModifierNames)).not.toContain('enhanced-readability');
   });
 });
