@@ -14,6 +14,7 @@ import type {
 import type { AgentEvent, AgentEventPayload, SessionHandle, SessionSummary, ViewMode } from '$lib/types/agent-event';
 import type { NegotiatedCapabilities, CliVersionInfo, VersionEntry, HealthReport } from '$lib/types/capability';
 import type { ProviderAnalytics, ModelAnalytics, DailyStats, SessionMetrics, ConnectionTestStep } from '$lib/types/analytics';
+import type { TrustCheckResult, TrustEntry } from '$lib/stores/workspace-trust';
 
 let _ptyIdCounter = 0;
 let _agentIdCounter = 0;
@@ -442,6 +443,23 @@ export function createMockAdapter(overrides?: Partial<Adapter>): Adapter {
     },
     reloadNormalizers(): Promise<void> {
       return Promise.resolve();
+    },
+
+    // Workspace Trust
+    checkWorkspaceTrust(_path: string): Promise<TrustCheckResult> {
+      return Promise.resolve({ level: null, needs_prompt: false, folder_info: null, rename_hint: null });
+    },
+    setWorkspaceTrust(_path: string, _level: import('$lib/stores/workspace-trust').TrustLevel): Promise<void> {
+      return Promise.resolve();
+    },
+    revokeWorkspaceTrust(_hash: string): Promise<void> {
+      return Promise.resolve();
+    },
+    listWorkspaceTrust(): Promise<TrustEntry[]> {
+      return Promise.resolve([]);
+    },
+    getNormalizerConfig(_provider: string): Promise<{ permission_args?: string[] } | null> {
+      return Promise.resolve(null);
     },
   };
 

@@ -3,6 +3,7 @@ import type { Adapter, FileEntry, FsEvent, GrepResult, PtyHandle, DiscoveredAgen
 import type { AgentEvent, AgentEventPayload, SessionHandle, SessionSummary, ViewMode } from '$lib/types/agent-event';
 import type { NegotiatedCapabilities, CliVersionInfo, VersionEntry, HealthReport } from '$lib/types/capability';
 import type { ProviderAnalytics, ModelAnalytics, DailyStats, SessionMetrics, ConnectionTestStep } from '$lib/types/analytics';
+import type { TrustCheckResult, TrustLevel, TrustEntry } from '$lib/stores/workspace-trust';
 
 export class TauriAdapter implements Adapter {
   async setProjectRoot(path: string): Promise<void> {
@@ -322,5 +323,26 @@ export class TauriAdapter implements Adapter {
   }
   async reloadNormalizers(): Promise<void> {
     return invoke<void>('reload_normalizers');
+  }
+
+  // Workspace Trust
+  async checkWorkspaceTrust(path: string): Promise<TrustCheckResult> {
+    return invoke<TrustCheckResult>('check_workspace_trust', { path });
+  }
+
+  async setWorkspaceTrust(path: string, level: TrustLevel): Promise<void> {
+    return invoke<void>('set_workspace_trust', { path, level });
+  }
+
+  async revokeWorkspaceTrust(hash: string): Promise<void> {
+    return invoke<void>('revoke_workspace_trust', { hash });
+  }
+
+  async listWorkspaceTrust(): Promise<TrustEntry[]> {
+    return invoke<TrustEntry[]>('list_workspace_trust');
+  }
+
+  async getNormalizerConfig(provider: string): Promise<{ permission_args?: string[] } | null> {
+    return invoke<{ permission_args?: string[] } | null>('get_normalizer_config', { provider });
   }
 }
