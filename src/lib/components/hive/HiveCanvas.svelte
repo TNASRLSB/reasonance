@@ -25,6 +25,7 @@
   import LogicFlowNode from './LogicFlowNode.svelte';
   import { get } from 'svelte/store';
   import type { NodeRunState } from '$lib/adapter/index';
+  import { tr } from '$lib/i18n/index';
 
   let { adapter, cwd = '.' }: { adapter: Adapter; cwd?: string } = $props();
 
@@ -185,7 +186,7 @@
       <button class:active={$hiveViewMode === 'code'} onclick={() => hiveViewMode.set('code')}>Code</button>
       <button class:active={$hiveViewMode === 'split'} onclick={() => hiveViewMode.set('split')}>Split</button>
     </div>
-    <button class="close-btn" onclick={closeCanvas} title="Close canvas">&#x2715;</button>
+    <button class="close-btn" onclick={closeCanvas} title={$tr('a11y.closeCanvas')}>&#x2715;</button>
   </div>
 
   <!-- Content area -->

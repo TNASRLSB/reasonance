@@ -109,7 +109,7 @@
     <div class="fif-panel" role="dialog" aria-label={$tr('fif.ariaLabel')} aria-modal="true" bind:this={dialogEl}>
       <div class="fif-header">
         <span class="fif-title">{$tr('fif.title')}</span>
-        <button class="close-btn" onclick={onClose} aria-label="Close">&#10005;</button>
+        <button class="close-btn" onclick={onClose} aria-label={$tr('settings.close')}>&#10005;</button>
       </div>
 
       <div class="fif-input-row">

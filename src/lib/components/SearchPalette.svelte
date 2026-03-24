@@ -246,9 +246,9 @@
           bind:value={query}
           onkeydown={handleKeydown}
           type="text"
-          placeholder="Search files and commands... (> for commands only)"
+          placeholder={$tr('a11y.commandPalettePlaceholder')}
           class="palette-input"
-          aria-label="Search"
+          aria-label={$tr('a11y.search')}
           autocomplete="off"
           spellcheck="false"
         />

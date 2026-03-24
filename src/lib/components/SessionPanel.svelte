@@ -91,10 +91,10 @@
 {#if visible}
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div class="session-overlay" onclick={(e) => { if ((e.target as HTMLElement).classList.contains('session-overlay')) onClose(); }} onkeydown={handleKeydown}>
-    <div class="session-panel" role="dialog" aria-label="Session history" aria-modal="true">
+    <div class="session-panel" role="dialog" aria-label={$tr('a11y.sessionHistory')} aria-modal="true">
       <div class="panel-header">
         <h2 class="panel-title">{$tr('sessions.title')}</h2>
-        <button class="panel-close" onclick={onClose} aria-label="Close">&#10005;</button>
+        <button class="panel-close" onclick={onClose} aria-label={$tr('settings.close')}>&#10005;</button>
       </div>
 
       <div class="panel-search">
@@ -103,7 +103,7 @@
           bind:value={filter}
           placeholder={$tr('sessions.search')}
           class="search-input"
-          aria-label="Filter sessions"
+          aria-label={$tr('a11y.filterSessions')}
         />
       </div>
 
@@ -136,8 +136,8 @@
                 </div>
               </div>
               <div class="session-actions">
-                <button class="action-btn" onclick={() => startRename(session)} aria-label="Rename session" title="Rename">&#9998;</button>
-                <button class="action-btn danger" onclick={() => deleteSession(session.id)} aria-label="Delete session" title="Delete">&#10005;</button>
+                <button class="action-btn" onclick={() => startRename(session)} aria-label={$tr('a11y.renameSession')} title={$tr('a11y.rename')}>&#9998;</button>
+                <button class="action-btn danger" onclick={() => deleteSession(session.id)} aria-label={$tr('a11y.deleteSession')} title={$tr('a11y.delete')}>&#10005;</button>
               </div>
             </li>
           {/each}

@@ -12,6 +12,7 @@
   import { updateInstance } from '$lib/stores/terminals';
   import { enhancedReadability, fontFamily, fontSize } from '$lib/stores/ui';
   import { isDark } from '$lib/stores/theme';
+  import { tr } from '$lib/i18n/index';
 
   function getToken(name: string): string {
     return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -279,13 +280,13 @@
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="terminal-wrapper" aria-label="Terminal" role="region">
+<div class="terminal-wrapper" aria-label={$tr('a11y.terminal')} role="region">
   {#if searchVisible}
     <div class="terminal-search">
       <input
         type="text"
-        placeholder="Find in terminal..."
-        aria-label="Find in terminal"
+        placeholder={$tr('a11y.findInTerminalPlaceholder')}
+        aria-label={$tr('a11y.findInTerminal')}
         bind:value={searchQuery}
         oninput={() => searchAddon?.findNext(searchQuery)}
         onkeydown={(e) => {
@@ -296,12 +297,12 @@
           if (e.key === 'Escape') { searchVisible = false; term?.focus(); }
         }}
       />
-      <button onclick={() => searchAddon?.findPrevious(searchQuery)} aria-label="Previous match">&#9650;</button>
-      <button onclick={() => searchAddon?.findNext(searchQuery)} aria-label="Next match">&#9660;</button>
-      <button onclick={() => { searchVisible = false; term?.focus(); }} aria-label="Close search">&#10005;</button>
+      <button onclick={() => searchAddon?.findPrevious(searchQuery)} aria-label={$tr('a11y.previousMatch')}>&#9650;</button>
+      <button onclick={() => searchAddon?.findNext(searchQuery)} aria-label={$tr('a11y.nextMatch')}>&#9660;</button>
+      <button onclick={() => { searchVisible = false; term?.focus(); }} aria-label={$tr('a11y.closeSearch')}>&#10005;</button>
     </div>
   {/if}
-  <div class="terminal-container" aria-label="Terminal output" bind:this={containerEl} onclick={() => term?.focus()}></div>
+  <div class="terminal-container" aria-label={$tr('a11y.terminalOutput')} bind:this={containerEl} onclick={() => term?.focus()}></div>
 </div>
 
 <style>

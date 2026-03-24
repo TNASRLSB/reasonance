@@ -273,7 +273,7 @@
   });
 </script>
 
-<div class="analytics-dashboard" role="region" aria-label="Analytics Dashboard">
+<div class="analytics-dashboard" role="region" aria-label={$tr('analytics.dashboard.title')}>
   <!-- Announcer (visually hidden) -->
   <div bind:this={announceContainer} class="sr-only-container"></div>
 
@@ -282,7 +282,7 @@
     <h2 class="dashboard-title">{$tr('analytics.dashboard.title')}</h2>
     <div class="header-actions">
       <!-- Period selector -->
-      <div class="period-selector" role="radiogroup" aria-label="Time period">
+      <div class="period-selector" role="radiogroup" aria-label={$tr('a11y.timePeriod')}>
         {#each ([['1d', 'analytics.dashboard.period.today'], ['7d', 'analytics.dashboard.period.7d'], ['14d', 'analytics.dashboard.period.14d'], ['30d', 'analytics.dashboard.period.30d'], ['all', 'analytics.dashboard.period.all']] as [Period, string][]) as [period, labelKey]}
           <button
             class="period-btn"
@@ -335,7 +335,7 @@
   <div class="dashboard-body">
 
     <!-- ── Section 1: KPI Cards ── -->
-    <section class="section kpi-section" aria-label="Key metrics" aria-busy={$providerAnalytics.status === 'loading'}>
+    <section class="section kpi-section" aria-label={$tr('a11y.keyMetrics')} aria-busy={$providerAnalytics.status === 'loading'}>
       {#if $providerAnalytics.status === 'loading'}
         <div class="kpi-grid">
           {#each [0,1,2,3] as _}
@@ -450,7 +450,7 @@
               <span class="insight-text">{$tr(insight.key, insight.params)}</span>
               <button
                 class="insight-dismiss"
-                aria-label="Dismiss insight"
+                aria-label={$tr('a11y.dismissInsight')}
                 onclick={() => dismissInsight(insight.id)}
               >✕</button>
             </div>
@@ -637,7 +637,7 @@
       {:else if !$dailyStats.data?.length}
         <p class="no-data">{$tr('analytics.dashboard.noData')}</p>
       {:else}
-        <div class="trend-chart" role="img" aria-label="Daily token trend">
+        <div class="trend-chart" role="img" aria-label={$tr('analytics.dashboard.trend')}>
           {#each trendBars as bar, i}
             {@const day = $dailyStats.data![i]}
             <div

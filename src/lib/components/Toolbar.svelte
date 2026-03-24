@@ -99,9 +99,9 @@
     <button
       class="toolbar-btn"
       disabled
-      title="SWARM — Coming soon"
-      aria-label="SWARM — Coming soon"
-    >SWARM</button>
+      title={$tr('terminal.hiveComingSoon')}
+      aria-label={$tr('terminal.hive')}
+    >HIVE</button>
     <button class="toolbar-btn" onclick={openSettings} title={$tr('toolbar.settings')} aria-label={$tr('toolbar.settings')}>SETTINGS</button>
     <div class="window-controls">
       <button class="win-btn" onclick={() => adapter.minimizeWindow()} title={$tr('toolbar.minimize')} aria-label={$tr('toolbar.minimize')}>&#8722;</button>

@@ -337,8 +337,8 @@
           class:error={hasError}
           role="tab"
           aria-selected={isActive}
-          aria-label="{label}, Provider {inst.provider}{isActive ? ', Active' : ''}{hasError ? ', Error' : ''}"
-          title="Provider: {inst.provider}"
+          aria-label="{label}, {$tr('a11y.provider', { name: inst.provider })}{isActive ? ', Active' : ''}{hasError ? ', Error' : ''}"
+          title={$tr('a11y.provider', { name: inst.provider })}
           onclick={(e) => {
             if (isActive && !inst.apiOnly) {
               activeTabEl = e.currentTarget as HTMLElement;
@@ -354,7 +354,7 @@
         </button>
         <button
           class="close-btn"
-          aria-label="Close {label}"
+          aria-label={$tr('a11y.closeSession', { name: label })}
           onclick={(e) => { e.stopPropagation(); closeInstance(inst.id); }}
         >&times;</button>
       </div>
@@ -364,7 +364,7 @@
       <button
         class="flat-tab add-tab"
         bind:this={addBtnEl}
-        aria-label="New session"
+        aria-label={$tr('a11y.newSession')}
         aria-haspopup="menu"
         aria-expanded={showLLMDropdown}
         onclick={() => { updateLlmDropdownPosition(); showLLMDropdown = !showLLMDropdown; }}

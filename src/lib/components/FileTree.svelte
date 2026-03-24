@@ -4,6 +4,7 @@
   import { getFileIcon } from '$lib/utils/icons';
   import { addOpenFile, projectRoot, activeFilePath } from '$lib/stores/files';
   import { showToast } from '$lib/stores/toast';
+  import { tr } from '$lib/i18n/index';
 
   let { adapter }: { adapter: Adapter } = $props();
 
@@ -255,12 +256,12 @@
   <div class="tree-header">
     <span>{currentRoot === '.' ? 'FILES' : currentRoot.split('/').pop()}</span>
     <span class="tree-header-actions">
-      <button class="tree-action-btn" title="New File" onclick={() => { ctxTargetDir = currentRoot; startInlineCreate('file'); }}>+</button>
-      <button class="tree-action-btn" title="New Folder" onclick={() => { ctxTargetDir = currentRoot; startInlineCreate('folder'); }}>&#128193;</button>
+      <button class="tree-action-btn" title={$tr('a11y.newFile')} onclick={() => { ctxTargetDir = currentRoot; startInlineCreate('file'); }}>+</button>
+      <button class="tree-action-btn" title={$tr('a11y.newFolder')} onclick={() => { ctxTargetDir = currentRoot; startInlineCreate('folder'); }}>&#128193;</button>
     </span>
   </div>
 
-  <div class="tree-scroll" role="tree" tabindex="-1" aria-label="File explorer" onkeydown={handleTreeKeydown}>
+  <div class="tree-scroll" role="tree" tabindex="-1" aria-label={$tr('a11y.fileExplorer')} onkeydown={handleTreeKeydown}>
     {#snippet renderEntries(items: FileEntry[], depth: number)}
       {#each items as entry, idx (entry.path)}
         <button
