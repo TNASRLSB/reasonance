@@ -303,5 +303,10 @@
   "permission.switchedConfirm": "Switched to CONFIRM — tools require approval",
   "permission.switchedLocked": "Switched to LOCKED — all tools blocked",
   "toast.permissionDefault": "Permission default changed",
-  "toast.permissionDefaultBody": "Permission default is now AUTO — LLMs can use tools freely in trusted workspaces. Change in Settings."
+  "toast.permissionDefaultBody": "Permission default is now AUTO — LLMs can use tools freely in trusted workspaces. Change in Settings.",
+  "settings.trustedWorkspaces": "Trusted Workspaces",
+  "settings.noTrustedWorkspaces": "No workspaces trusted yet",
+  "settings.revoke": "Revoke",
+  "settings.defaultPermission": "Default permission level",
+  "settings.defaultPermissionHint": "Applied to all new sessions unless overridden per-model"
 }

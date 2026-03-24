@@ -14,6 +14,8 @@
   import { budget, providerConfigVersion } from '$lib/stores/analytics';
   import { getModelsForProvider } from '$lib/data/model-info';
   import { getProviderVisual } from '$lib/utils/provider-patterns';
+  import type { TrustEntry } from '$lib/stores/workspace-trust';
+  import { workspaceTrustLevel } from '$lib/stores/workspace-trust';
 
   let {
     adapter,
@@ -89,6 +91,25 @@
   let testingProvider = $state<string | null>(null);
   let localBudget = $state<AnalyticsBudget>({ daily_limit_usd: null, weekly_limit_usd: null, notify_at_percent: 80 });
   let capturingShortcut = $state<string | null>(null);
+  let trustEntries = $state<TrustEntry[]>([]);
+
+  $effect(() => {
+    adapter.listWorkspaceTrust().then((entries) => {
+      trustEntries = entries;
+    }).catch((e) => console.warn('Failed to load trust entries:', e));
+  });
+
+  async function handleRevokeTrust(hash: string) {
+    await adapter.revokeWorkspaceTrust(hash);
+    trustEntries = trustEntries.filter((e) => e.hash !== hash);
+    // Trigger reactive suspension for active sessions in this workspace
+    workspaceTrustLevel.set(null);
+  }
+
+  function handleDefaultPermissionChange(e: Event) {
+    const value = (e.target as HTMLSelectElement).value as 'yolo' | 'ask' | 'locked';
+    appSettings.update((s) => ({ ...s, defaultPermissionLevel: value }));
+  }
 
   // Load config when visible
   $effect(() => {
@@ -840,6 +861,38 @@
             {/each}
           </div>
 
+          <!-- Trusted Workspaces sub-section -->
+          <div class="trust-section">
+            <h4 class="trust-title">{$tr('settings.trustedWorkspaces')}</h4>
+
+            {#if trustEntries.length === 0}
+              <p class="hint">{$tr('settings.noTrustedWorkspaces')}</p>
+            {:else}
+              <div class="trust-table">
+                {#each trustEntries as entry}
+                  <div class="trust-row">
+                    <span class="trust-path" title={entry.path}>{entry.path}</span>
+                    <span class="trust-level">{entry.level}</span>
+                    <span class="trust-date">{new Date(entry.trusted_at).toLocaleDateString()}</span>
+                    <button class="btn-small" onclick={() => handleRevokeTrust(entry.hash)}>
+                      {$tr('settings.revoke')}
+                    </button>
+                  </div>
+                {/each}
+              </div>
+            {/if}
+
+            <div class="field-row setting-row">
+              <label for="default-permission">{$tr('settings.defaultPermission')}</label>
+              <select id="default-permission" value={$appSettings.defaultPermissionLevel ?? 'yolo'} onchange={handleDefaultPermissionChange}>
+                <option value="yolo">AUTO</option>
+                <option value="ask">CONFIRM</option>
+                <option value="locked">LOCKED</option>
+              </select>
+            </div>
+            <p class="hint">{$tr('settings.defaultPermissionHint')}</p>
+          </div>
+
           <!-- Budget sub-section -->
           <div class="budget-section">
             <h4 class="budget-title">{$tr('settings.provider.budget')}</h4>
@@ -1462,5 +1515,34 @@
     min-width: 32px;
     text-align: end;
     flex-shrink: 0;
+  }
+
+  /* Trusted Workspaces section */
+  .trust-section {
+    margin-top: var(--space-3);
+    padding: var(--space-3);
+    border: var(--border-width) solid var(--border);
+    background: var(--bg-secondary);
+  }
+
+  .trust-title {
+    margin: 0 0 var(--space-2);
+    font-size: var(--font-size-sm);
+    font-weight: 700;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .trust-table { display: flex; flex-direction: column; gap: var(--stack-tight); margin-bottom: var(--space-2); }
+  .trust-row { display: flex; align-items: center; gap: var(--space-2); font-size: var(--font-size-small); }
+  .trust-path { flex: 1; font-family: var(--font-mono); overflow: hidden; text-overflow: ellipsis; }
+  .trust-level { text-transform: uppercase; font-weight: 700; font-size: var(--font-size-tiny); }
+  .trust-date { color: var(--text-muted); font-size: var(--font-size-tiny); }
+
+  .hint {
+    font-size: var(--font-size-small);
+    color: var(--text-muted);
+    margin: var(--space-1) 0;
   }
 </style>
