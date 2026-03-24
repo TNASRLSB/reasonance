@@ -212,10 +212,64 @@ impl DiscoveryEngine {
         if let Ok(agents) = Self::probe_ollama().await {
             discovered.extend(agents);
         }
+
+        // OpenAI-compatible on common ports
+        for port in [1234, 8080, 5000] {
+            let url = format!("http://localhost:{}", port);
+            if let Ok(oai_agents) = Self::probe_openai_compatible(&url).await {
+                discovered.extend(oai_agents);
+            }
+        }
+
         let mut agents = self.agents.lock().unwrap_or_else(|e| e.into_inner());
         agents.retain(|a| a.source != DiscoverySource::Api);
         agents.extend(discovered.clone());
         discovered
+    }
+
+    async fn probe_openai_compatible(base_url: &str) -> Result<Vec<DiscoveredAgent>, String> {
+        debug!("Probing OpenAI-compatible API at {}", base_url);
+        let client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(3))
+            .build()
+            .map_err(|e| e.to_string())?;
+
+        let url = format!("{}/v1/models", base_url.trim_end_matches('/'));
+        let resp = client.get(&url).send().await.map_err(|e| e.to_string())?;
+
+        if !resp.status().is_success() {
+            return Err(format!("API returned {}", resp.status()));
+        }
+
+        let body: serde_json::Value = resp.json().await.map_err(|e| e.to_string())?;
+        let models: Vec<String> = body["data"]
+            .as_array()
+            .unwrap_or(&vec![])
+            .iter()
+            .filter_map(|m| m["id"].as_str().map(String::from))
+            .collect();
+
+        if models.is_empty() {
+            return Ok(vec![]);
+        }
+
+        Ok(vec![DiscoveredAgent {
+            name: format!("openai-compatible@{}", base_url),
+            source: DiscoverySource::Api,
+            command: None,
+            endpoint: Some(base_url.to_string()),
+            models,
+            capabilities: CapabilityProfile {
+                read_file: false,
+                write_file: false,
+                execute_command: false,
+                web_search: false,
+                image_input: false,
+                long_context: false,
+            },
+            max_context: None,
+            available: true,
+        }])
     }
 
     async fn probe_ollama() -> Result<Vec<DiscoveredAgent>, String> {
@@ -264,6 +318,12 @@ impl DiscoveryEngine {
         let all = self.agents.lock().unwrap_or_else(|e| e.into_inner()).clone();
         info!("Full discovery complete: {} total agents", all.len());
         all
+    }
+
+    pub fn register_custom_agent(&self, agent: DiscoveredAgent) {
+        let mut agents = self.agents.lock().unwrap_or_else(|e| e.into_inner());
+        agents.retain(|a| a.name != agent.name);
+        agents.push(agent);
     }
 
     pub fn get_agents(&self) -> Vec<DiscoveredAgent> {
@@ -331,6 +391,69 @@ mod tests {
         assert!(!deserialized.capabilities.write_file);
         assert_eq!(deserialized.max_context, Some(128_000));
         assert!(deserialized.available);
+    }
+
+    #[tokio::test]
+    async fn test_probe_openai_compatible_timeout() {
+        // Should not crash on unreachable endpoint
+        let result = DiscoveryEngine::probe_openai_compatible("http://localhost:19999").await;
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_register_custom_agent() {
+        let engine = DiscoveryEngine::new();
+        let agent = DiscoveredAgent {
+            name: "custom-tool".to_string(),
+            source: DiscoverySource::Manual,
+            command: Some("my-tool".to_string()),
+            endpoint: None,
+            models: vec!["default".to_string()],
+            capabilities: CapabilityProfile {
+                read_file: true,
+                write_file: true,
+                execute_command: false,
+                web_search: false,
+                image_input: false,
+                long_context: false,
+            },
+            max_context: None,
+            available: true,
+        };
+        engine.register_custom_agent(agent);
+        let agents = engine.get_agents();
+        assert!(agents.iter().any(|a| a.name == "custom-tool"));
+    }
+
+    #[test]
+    fn test_register_custom_agent_replaces_existing() {
+        let engine = DiscoveryEngine::new();
+        let agent1 = DiscoveredAgent {
+            name: "custom-tool".to_string(),
+            source: DiscoverySource::Manual,
+            command: Some("my-tool-v1".to_string()),
+            endpoint: None,
+            models: vec!["v1".to_string()],
+            capabilities: CapabilityProfile::default(),
+            max_context: None,
+            available: true,
+        };
+        let agent2 = DiscoveredAgent {
+            name: "custom-tool".to_string(),
+            source: DiscoverySource::Manual,
+            command: Some("my-tool-v2".to_string()),
+            endpoint: None,
+            models: vec!["v2".to_string()],
+            capabilities: CapabilityProfile::default(),
+            max_context: None,
+            available: true,
+        };
+        engine.register_custom_agent(agent1);
+        engine.register_custom_agent(agent2);
+        let agents = engine.get_agents();
+        let matching: Vec<_> = agents.iter().filter(|a| a.name == "custom-tool").collect();
+        assert_eq!(matching.len(), 1);
+        assert_eq!(matching[0].command.as_deref(), Some("my-tool-v2"));
     }
 
     #[test]

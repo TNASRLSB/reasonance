@@ -245,6 +245,7 @@ pub fn run() {
             commands::config::write_config,
             commands::discovery::discover_agents,
             commands::discovery::get_discovered_agents,
+            commands::discovery::register_custom_agent,
             commands::workflow::load_workflow,
             commands::workflow::save_workflow,
             commands::workflow::list_workflows,

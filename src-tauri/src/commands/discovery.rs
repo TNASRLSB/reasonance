@@ -19,3 +19,13 @@ pub fn get_discovered_agents(
     info!("cmd::get_discovered_agents called");
     engine.get_agents()
 }
+
+#[tauri::command]
+pub fn register_custom_agent(
+    agent: crate::discovery::DiscoveredAgent,
+    engine: State<'_, DiscoveryEngine>,
+) -> Result<(), String> {
+    info!("cmd::register_custom_agent called for '{}'", agent.name);
+    engine.register_custom_agent(agent);
+    Ok(())
+}
