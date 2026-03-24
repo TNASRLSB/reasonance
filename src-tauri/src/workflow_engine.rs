@@ -9,6 +9,21 @@ use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter};
 
+#[derive(Serialize, Clone)]
+struct NodeStateEvent {
+    run_id: String,
+    node_id: String,
+    old_state: String,
+    new_state: String,
+}
+
+#[derive(Serialize, Clone)]
+struct RunStatusEvent {
+    run_id: String,
+    old_status: String,
+    new_status: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum RunStatus {
@@ -412,14 +427,19 @@ impl WorkflowEngine {
                         Some(agent_id.clone()),
                     )?;
                     let _ = app.emit(
-                        "workflow-node-started",
-                        serde_json::json!({
-                            "run_id": run_id,
-                            "node_id": node_id,
-                            "agent_id": agent_id,
-                            "pty_id": pty_id,
-                        }),
+                        "hive://node-state-changed",
+                        NodeStateEvent {
+                            run_id: run_id.to_string(),
+                            node_id: node_id.clone(),
+                            old_state: "idle".to_string(),
+                            new_state: "running".to_string(),
+                        },
                     );
+                    app.emit("hive://agent-output", serde_json::json!({
+                        "run_id": run_id,
+                        "node_id": node_id,
+                        "pty_id": pty_id,
+                    })).ok();
                     started.push(node_id);
                 }
                 NodeType::Logic => {
@@ -466,26 +486,26 @@ impl WorkflowEngine {
 
                             log::info!("Logic node {} evaluated to {}", node_id, result);
                             let _ = app.emit(
-                                "workflow-node-completed",
-                                serde_json::json!({
-                                    "run_id": run_id,
-                                    "node_id": node_id,
-                                    "state": "success",
-                                    "result": result,
-                                }),
+                                "hive://node-state-changed",
+                                NodeStateEvent {
+                                    run_id: run_id.to_string(),
+                                    node_id: node_id.clone(),
+                                    old_state: "idle".to_string(),
+                                    new_state: "success".to_string(),
+                                },
                             );
                         }
                         Err(e) => {
                             self.update_node_state(run_id, &node_id, AgentState::Error, None)?;
                             log::error!("Logic node {} rule failed: {}", node_id, e);
                             let _ = app.emit(
-                                "workflow-node-completed",
-                                serde_json::json!({
-                                    "run_id": run_id,
-                                    "node_id": node_id,
-                                    "state": "error",
-                                    "error": e,
-                                }),
+                                "hive://node-state-changed",
+                                NodeStateEvent {
+                                    run_id: run_id.to_string(),
+                                    node_id: node_id.clone(),
+                                    old_state: "idle".to_string(),
+                                    new_state: "error".to_string(),
+                                },
                             );
                         }
                     }
@@ -499,7 +519,7 @@ impl WorkflowEngine {
         if self.check_run_complete(run_id)? {
             let final_status = self.finalize_run(run_id)?;
             let _ = app.emit(
-                "workflow-run-completed",
+                "hive://run-completed",
                 serde_json::json!({
                     "run_id": run_id,
                     "status": final_status,
@@ -541,12 +561,13 @@ impl WorkflowEngine {
             }
             self.update_node_state(run_id, node_id, AgentState::Success, None)?;
             let _ = app.emit(
-                "workflow-node-completed",
-                serde_json::json!({
-                    "run_id": run_id,
-                    "node_id": node_id,
-                    "state": "success",
-                }),
+                "hive://node-state-changed",
+                NodeStateEvent {
+                    run_id: run_id.to_string(),
+                    node_id: node_id.to_string(),
+                    old_state: "running".to_string(),
+                    new_state: "success".to_string(),
+                },
             );
         } else {
             warn!("Workflow node failed: run_id={}, node_id={}", run_id, node_id);
@@ -563,11 +584,13 @@ impl WorkflowEngine {
                 }
                 self.update_node_state(run_id, node_id, AgentState::Error, None)?;
                 let _ = app.emit(
-                    "workflow-node-error",
-                    serde_json::json!({
-                        "run_id": run_id,
-                        "node_id": node_id,
-                    }),
+                    "hive://node-state-changed",
+                    NodeStateEvent {
+                        run_id: run_id.to_string(),
+                        node_id: node_id.to_string(),
+                        old_state: "failed".to_string(),
+                        new_state: "error".to_string(),
+                    },
                 );
             }
         }
@@ -649,14 +672,19 @@ impl WorkflowEngine {
             let pty_id = pty_manager.spawn(llm, &[], cwd, app.clone())?;
             runtime.set_pty(&agent_id, &pty_id)?;
             let _ = app.emit(
-                "workflow-node-retrying",
-                serde_json::json!({
-                    "run_id": run_id,
-                    "node_id": node_id,
-                    "retry_count": agent.retry_count + 1,
-                    "pty_id": pty_id,
-                }),
+                "hive://node-state-changed",
+                NodeStateEvent {
+                    run_id: run_id.to_string(),
+                    node_id: node_id.to_string(),
+                    old_state: "failed".to_string(),
+                    new_state: "running".to_string(),
+                },
             );
+            app.emit("hive://agent-output", serde_json::json!({
+                "run_id": run_id,
+                "node_id": node_id,
+                "pty_id": pty_id,
+            })).ok();
             return Ok(true);
         }
 
@@ -688,14 +716,19 @@ impl WorkflowEngine {
                 Some(new_agent_id.clone()),
             )?;
             let _ = app.emit(
-                "workflow-node-fallback",
-                serde_json::json!({
-                    "run_id": run_id,
-                    "node_id": node_id,
-                    "fallback_agent_id": new_agent_id,
-                    "pty_id": pty_id,
-                }),
+                "hive://node-state-changed",
+                NodeStateEvent {
+                    run_id: run_id.to_string(),
+                    node_id: node_id.to_string(),
+                    old_state: "failed".to_string(),
+                    new_state: "running".to_string(),
+                },
             );
+            app.emit("hive://agent-output", serde_json::json!({
+                "run_id": run_id,
+                "node_id": node_id,
+                "pty_id": pty_id,
+            })).ok();
             return Ok(true);
         }
 

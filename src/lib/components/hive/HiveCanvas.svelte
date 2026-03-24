@@ -10,11 +10,12 @@
     useSvelteFlow,
   } from '@xyflow/svelte';
   import '@xyflow/svelte/dist/style.css';
+  import { onMount } from 'svelte';
   import type { Adapter } from '$lib/adapter/index';
   import type { WorkflowNode, WorkflowEdge } from '$lib/adapter/index';
   import { currentWorkflow, currentWorkflowPath, workflowDirty } from '$lib/stores/workflow';
   import { showToast } from '$lib/stores/toast';
-  import { nodeStates } from '$lib/stores/engine';
+  import { nodeStates, setupHiveEventListeners } from '$lib/stores/engine';
   import { selectedNodeId, showHiveCanvas, hiveViewMode } from '$lib/stores/ui';
   import HiveControls from './HiveControls.svelte';
   import HiveInspector from './HiveInspector.svelte';
@@ -28,6 +29,10 @@
   import { tr } from '$lib/i18n/index';
 
   let { adapter, cwd = '.' }: { adapter: Adapter; cwd?: string } = $props();
+
+  onMount(() => {
+    setupHiveEventListeners();
+  });
 
   let wfNodes = $derived<WorkflowNode[]>($currentWorkflow?.nodes ?? []);
   let wfEdges = $derived<WorkflowEdge[]>($currentWorkflow?.edges ?? []);

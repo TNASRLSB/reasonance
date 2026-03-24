@@ -23,8 +23,8 @@ pub fn play_workflow(
         .or_else(|_| store.get(&workflow_path).ok_or("Workflow not loaded".to_string()))?;
     let run_id = engine.create_run(&workflow, &workflow_path)?;
     engine.advance_run(&run_id, &workflow, &runtime, &pty_manager, &app, &cwd, &lock_manager)?;
-    let _ = app.emit("workflow-run-started", serde_json::json!({
-        "run_id": run_id, "workflow_path": workflow_path,
+    let _ = app.emit("hive://run-status-changed", serde_json::json!({
+        "run_id": run_id, "old_status": "idle", "new_status": "running",
     }));
     debug!("cmd::play_workflow started run_id={}", run_id);
     Ok(run_id)
@@ -82,7 +82,7 @@ pub fn stop_workflow(
         }
     }
     engine.stop_run(&run_id)?;
-    let _ = app.emit("workflow-run-stopped", serde_json::json!({ "run_id": run_id }));
+    let _ = app.emit("hive://run-status-changed", serde_json::json!({ "run_id": run_id, "old_status": "running", "new_status": "stopped" }));
     Ok(())
 }
 
