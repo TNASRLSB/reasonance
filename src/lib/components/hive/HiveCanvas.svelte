@@ -11,6 +11,7 @@
   } from '@xyflow/svelte';
   import '@xyflow/svelte/dist/style.css';
   import { onMount } from 'svelte';
+  import type { Connection } from '@xyflow/system';
   import type { Adapter } from '$lib/adapter/index';
   import type { WorkflowNode, WorkflowEdge } from '$lib/adapter/index';
   import { currentWorkflow, currentWorkflowPath, workflowDirty } from '$lib/stores/workflow';
@@ -160,6 +161,53 @@
     }
   }
 
+  function validateConnection(connection: FlowEdge | Connection): boolean {
+    const wf = get(currentWorkflow);
+    if (!wf) return false;
+
+    const sourceNode = wf.nodes.find((n) => n.id === connection.source);
+    const targetNode = wf.nodes.find((n) => n.id === connection.target);
+    if (!sourceNode || !targetNode) return false;
+
+    // Agent → Resource: check write capability
+    if (sourceNode.type === 'agent' && targetNode.type === 'resource') {
+      const resConfig = targetNode.config as Record<string, unknown>;
+      const access = (resConfig.access as string) || 'read';
+      if (access === 'write' || access === 'read_write') {
+        const agentConfig = sourceNode.config as Record<string, unknown>;
+        const caps = (agentConfig.capabilities as string[]) || [];
+        if (!caps.includes('write_file')) {
+          showToast(
+            'error',
+            'Invalid connection',
+            `Agent "${sourceNode.label}" lacks write_file capability required for write access to "${targetNode.label}"`
+          );
+          return false;
+        }
+      }
+    }
+
+    return true;
+  }
+
+  function onConnect(connection: Connection) {
+    if (!validateConnection(connection)) return;
+
+    const wf = get(currentWorkflow);
+    if (!wf) return;
+
+    const edgeId = `e-${connection.source}-${connection.target}-${Date.now()}`;
+    const newEdge: WorkflowEdge = {
+      id: edgeId,
+      from: connection.source,
+      to: connection.target,
+    };
+
+    const updated = { ...wf, edges: [...wf.edges, newEdge] };
+    currentWorkflow.set(updated);
+    workflowDirty.set(true);
+  }
+
   async function saveWorkflow() {
     const path = get(currentWorkflowPath);
     const wf = get(currentWorkflow);
@@ -218,6 +266,8 @@
           edges={flowEdges}
           {nodeTypes}
           fitView
+          isValidConnection={validateConnection}
+          onconnect={onConnect}
           onnodeclick={onNodeClick}
           onnodedragstop={onNodeDragStop}
           colorMode="dark"
