@@ -1,6 +1,6 @@
 <script lang="ts">
   import { open } from '@tauri-apps/plugin-dialog';
-  import { removeProject, updateProjectRoot } from '$lib/stores/projects';
+  import { removeProject, updateProjectContext } from '$lib/stores/projects';
 
   let {
     projectId,
@@ -50,7 +50,7 @@
   async function handleLocate() {
     const selected = await open({ directory: true });
     if (selected) {
-      updateProjectRoot(projectId, selected as string);
+      updateProjectContext(projectId, { rootPath: selected as string });
       onClose();
     }
   }
