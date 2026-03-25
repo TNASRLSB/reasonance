@@ -1,5 +1,30 @@
 # Changelog
 
+## [1.3.2] - 2026-03-25
+
+### Bug Fixes
+
+- fix: resolve production deployment issues across all platforms
+
+### Other
+
+-   install paths instead of relying on relative CWD path. Gracefully start
+-   with empty registry if normalizers are missing (no more panic).
+- - Bundle: add normalizers/* to tauri.conf.json resources so they ship
+-   with macOS .app, Windows MSI, and Linux deb/rpm/AppImage bundles.
+- - AUR: install normalizer configs to /usr/share/reasonance/normalizers/.
+- - AUR-bin: fix .deb extraction (extract ar archive before data.tar.*).
+- - WelcomeScreen: fix theme toggle using new loadBuiltinTheme API.
+- - ProjectSidebar: always visible (not hidden when single project open).
+- - App: add CSS for sidebar container so it renders with correct dimensions.
+- - Fix forge.toml → llms.toml comment in config-bootstrap.ts.
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+
+
+
 ## [1.3.1] - 2026-03-25
 
 ### Bug Fixes
