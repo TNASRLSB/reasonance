@@ -9,7 +9,7 @@ describe('migration verification', () => {
     const vars = extractVariables(darkTheme as ThemeFile);
     // Core colors
     expect(vars['--bg-primary']).toBe('#121212');
-    expect(vars['--accent']).toBe('#3b82f6');
+    expect(vars['--accent']).toBe('#8ab8ff');
     expect(vars['--text-body']).toBe('#d4d4d4');
     // Typography
     expect(vars['--font-size-base']).toBe('1rem');
@@ -19,9 +19,9 @@ describe('migration verification', () => {
     // Borders
     expect(vars['--border-width']).toBe('2px');
     // Layout
-    expect(vars['--toolbar-height']).toBe('44px');
+    expect(vars['--toolbar-height']).toBe('52px');
     // Layers
-    expect(vars['--layer-modal']).toBe(4);
+    expect(vars['--layer-modal']).toBe(2000);
     // Transitions
     expect(vars['--transition-fast']).toBe('0.1s ease');
   });

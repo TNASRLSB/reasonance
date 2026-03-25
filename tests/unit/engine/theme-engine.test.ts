@@ -12,8 +12,8 @@ describe('extractVariables', () => {
   it('extracts all CSS variables from a theme, skipping meta', () => {
     const vars = extractVariables(darkTheme as ThemeFile);
     expect(vars['--bg-primary']).toBe('#121212');
-    expect(vars['--accent']).toBe('#3b82f6');
-    expect(vars['--layer-toast']).toBe(5);
+    expect(vars['--accent']).toBe('#8ab8ff');
+    expect(vars['--layer-toast']).toBe(5000);
     expect(vars['meta']).toBeUndefined();
   });
 
@@ -36,7 +36,7 @@ describe('mergeModifier', () => {
     const base = extractVariables(darkTheme as ThemeFile);
     const merged = mergeModifier(base, enhancedReadability as ThemeFile, 'dark');
     expect(merged['--bg-primary']).toBe('#121212');
-    expect(merged['--accent']).toBe('#3b82f6');
+    expect(merged['--accent']).toBe('#8ab8ff');
   });
 
   it('applies when-dark conditionals for dark colorScheme', () => {
