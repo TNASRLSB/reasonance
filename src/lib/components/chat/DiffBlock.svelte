@@ -35,7 +35,7 @@
       applyState = 'applied';
       // Refresh the open file tab
       const name = filePath.split('/').pop() ?? filePath;
-      addOpenFile({ path: filePath, name, content: patched, isDirty: false, isDeleted: false });
+      addOpenFile(filePath, patched);
       showToast('success', 'Diff applied', filePath);
     } catch (e) {
       applyState = 'idle';

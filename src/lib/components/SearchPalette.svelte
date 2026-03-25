@@ -196,7 +196,7 @@
     } else if (item.type === 'file' && item.path) {
       try {
         const content = await adapter.readFile(item.path);
-        addOpenFile({ path: item.path, name: item.label, content, isDirty: false, isDeleted: false });
+        addOpenFile(item.path, content);
       } catch (e) {
         const msg = (e as Error)?.message ?? String(e);
         if (msg.includes('non-UTF-8') || msg.includes('binary')) {

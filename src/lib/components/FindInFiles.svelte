@@ -67,7 +67,7 @@
     try {
       const content = await adapter.readFile(result.path);
       const name = result.path.split('/').pop() ?? result.path;
-      addOpenFile({ path: result.path, name, content, isDirty: false, isDeleted: false });
+      addOpenFile(result.path, content);
       pendingLine.set(result.line_number);
     } catch {
       // Non-fatal

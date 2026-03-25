@@ -29,7 +29,7 @@ export const projectSummaries: Readable<ProjectSummary[]> = derived(
         activeTerminals: ctx.terminalInstances.length,
         hasRunningAgent: ctx.agentSessionIds.some(sid => {
           const s = $sessions.get(sid);
-          return s?.status === 'streaming' || s?.status === 'active';
+          return s?.status === 'active';
         }),
       }));
   }
@@ -43,7 +43,7 @@ export const projectStatuses: Readable<Map<string, ProjectStatus>> = derived(
       statuses.set(id, {
         hasRunningAgent: ctx.agentSessionIds.some(sid => {
           const s = $sessions.get(sid);
-          return s?.status === 'streaming' || s?.status === 'active';
+          return s?.status === 'active';
         }),
         unsavedCount: ctx.openFiles.filter(f => f.isDirty).length,
         terminalCount: ctx.terminalInstances.length,

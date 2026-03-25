@@ -78,13 +78,7 @@
       clickTimer = null;
       try {
         const content = await adapter.readFile(entry.path);
-        addOpenFile({
-          path: entry.path,
-          name: entry.name,
-          content,
-          isDirty: false,
-          isDeleted: false,
-        });
+        addOpenFile(entry.path, content);
       } catch (err) {
         const msg = (err as Error)?.message ?? String(err);
         // Binary files: open externally instead of showing error
@@ -215,7 +209,7 @@
         await adapter.writeFile(`${fullPath}/.keep`, '');
       } else {
         await adapter.writeFile(fullPath, '');
-        addOpenFile({ path: fullPath, name: inlineValue.trim(), content: '', isDirty: false, isDeleted: false });
+        addOpenFile(fullPath, '');
       }
       // Refresh the parent directory listing
       const parentDir = inlineInput.parentDir;
