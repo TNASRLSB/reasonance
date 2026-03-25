@@ -1,5 +1,43 @@
 # Changelog
 
+## [0.16.0] - 2026-03-25
+
+### Features
+
+- feat(a11y): WCAG Phase 1B-1 — target size, focus, text spacing, link underlines
+
+### Other
+
+- 
+- Target size (2.5.8 AA / 2.5.5 AAA):
+- - Global rule in app.css: button/input/select/textarea get
+-   min-height: var(--interactive-min, 24px) — 44px in default themes
+- - Fix 4 min-height:unset overrides (Toolbar, AnalyticsDashboard ×3)
+- - Add min-width to 6 icon-only buttons (EditorTabs, FileTree, HiveControls,
+-   TerminalToolbar, TerminalManager)
+- - EditorTabs container height now uses var(--interactive-min)
+- - Verify global rule covers HivePanel, HiveInspector, SessionPanel buttons
+- 
+- Focus not obscured (2.4.11):
+- - Add scroll-padding-top to StatusBar .notif-flyout for sticky header
+- 
+- Text spacing (1.4.12):
+- - Replace overflow:hidden → overflow:auto on 23 text truncation selectors
+-   in 19 files, including 3 parent-fix cases (EditorTabs, TerminalManager,
+-   FileTree)
+- 
+- Link underlines (1.4.1):
+- - MarkdownPreview and ResponsePanel: text-decoration: none → underline
+- - App.svelte skip-link:focus: add underline
+- 
+- 0 new svelte-check errors. All verification checks pass.
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: Reasonance <reasonance@users.noreply.github.com>
+
+
+
 ## [0.15.1] - 2026-03-25
 
 ### Bug Fixes
