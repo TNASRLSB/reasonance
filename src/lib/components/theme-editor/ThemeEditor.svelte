@@ -600,7 +600,7 @@
     font-family: var(--font-ui, sans-serif);
     max-width: 300px;
     white-space: nowrap;
-    overflow: hidden;
+    overflow: auto;
     text-overflow: ellipsis;
     flex-shrink: 1;
   }

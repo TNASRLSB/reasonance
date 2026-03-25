@@ -381,7 +381,7 @@
   .item-detail {
     font-size: var(--font-size-tiny);
     color: var(--text-secondary);
-    overflow: hidden;
+    overflow: auto;
     text-overflow: ellipsis;
     white-space: nowrap;
     flex: 1;

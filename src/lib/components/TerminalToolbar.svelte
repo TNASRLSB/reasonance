@@ -163,8 +163,8 @@
   }
 
   .term-tbtn {
-    width: 28px;
-    height: 28px;
+    min-width: var(--interactive-min, 24px);
+    min-height: var(--interactive-min, 24px);
     padding: 0;
     display: flex;
     align-items: center;

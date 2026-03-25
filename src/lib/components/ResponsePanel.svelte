@@ -180,7 +180,7 @@
   .markdown-preview :global(p) { margin: 0.65em 0; }
   .markdown-preview :global(p + p) { margin-top: var(--paragraph-spacing); }
 
-  .markdown-preview :global(a) { color: var(--accent-text); text-decoration: none; }
+  .markdown-preview :global(a) { color: var(--accent-text); text-decoration: underline; }
   .markdown-preview :global(a:hover) { text-decoration: underline; }
 
   .markdown-preview :global(code) {

@@ -1223,7 +1223,7 @@
   .llm-detail {
     font-size: var(--font-size-sm);
     color: var(--text-secondary);
-    overflow: hidden;
+    overflow: auto;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -1480,7 +1480,7 @@
     flex: 1;
     font-size: var(--font-size-sm);
     color: var(--text-secondary);
-    overflow: hidden;
+    overflow: auto;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -1569,7 +1569,7 @@
   .step-detail {
     font-size: var(--font-size-sm);
     color: var(--text-muted);
-    overflow: hidden;
+    overflow: auto;
     text-overflow: ellipsis;
     white-space: nowrap;
     max-width: 200px;
@@ -1637,7 +1637,7 @@
 
   .trust-table { display: flex; flex-direction: column; gap: var(--stack-tight); margin-bottom: var(--space-2); }
   .trust-row { display: flex; align-items: center; gap: var(--space-2); font-size: var(--font-size-small); }
-  .trust-path { flex: 1; font-family: var(--font-mono); overflow: hidden; text-overflow: ellipsis; }
+  .trust-path { flex: 1; font-family: var(--font-mono); overflow: auto; text-overflow: ellipsis; }
   .trust-level { text-transform: uppercase; font-weight: 700; font-size: var(--font-size-tiny); }
   .trust-date { color: var(--text-muted); font-size: var(--font-size-tiny); }
 

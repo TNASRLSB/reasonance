@@ -379,7 +379,7 @@
     text-align: start;
     cursor: pointer;
     white-space: nowrap;
-    overflow: hidden;
+    overflow: auto;
     transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
   }
 
@@ -411,7 +411,7 @@
   }
 
   .name {
-    overflow: hidden;
+    overflow: auto;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -429,6 +429,7 @@
     cursor: pointer;
     padding: 0 var(--space-1);
     line-height: 1;
+    min-width: var(--interactive-min, 24px);
   }
 
   .tree-action-btn:hover {

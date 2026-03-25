@@ -218,6 +218,7 @@
     outline-offset: var(--focus-offset);
     z-index: calc(var(--layer-top) + 1);
     pointer-events: auto;
+    text-decoration: underline;
   }
 
   header,

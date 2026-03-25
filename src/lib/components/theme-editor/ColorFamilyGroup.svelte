@@ -133,7 +133,7 @@
     width: 180px;
     flex-shrink: 0;
     white-space: nowrap;
-    overflow: hidden;
+    overflow: auto;
     text-overflow: ellipsis;
   }
 

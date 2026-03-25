@@ -570,7 +570,7 @@
     cursor: pointer;
     white-space: nowrap;
     max-width: 160px;
-    overflow: hidden;
+    overflow: auto;
     text-overflow: ellipsis;
     min-height: 24px;
     transition: background var(--transition-fast), color var(--transition-fast);
@@ -613,8 +613,8 @@
     opacity: 0;
     cursor: pointer;
     padding: var(--space-1) var(--space-1);
-    min-width: 24px;
-    min-height: 24px;
+    min-width: var(--interactive-min, 24px);
+    min-height: var(--interactive-min, 24px);
     display: inline-flex;
     align-items: center;
     justify-content: center;

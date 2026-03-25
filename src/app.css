@@ -73,6 +73,17 @@
   text-rendering: optimizeLegibility;
 }
 
+/* WCAG 2.5.8 (AA) / 2.5.5 (AAA) — Target size minimum
+   Default themes set --interactive-min: 44px for AAA.
+   Community themes without it fall back to 24px (AA floor). */
+button,
+[role="button"],
+input,
+select,
+textarea {
+  min-height: var(--interactive-min, 24px);
+}
+
 body {
   font-family: var(--font-ui);
   font-size: var(--font-size-base);

@@ -815,7 +815,7 @@
     font-weight: 600;
     color: var(--text-body);
     cursor: pointer;
-    min-height: unset;
+    min-height: var(--interactive-min, 24px);
     text-transform: none;
     letter-spacing: normal;
   }
@@ -1036,7 +1036,7 @@
     cursor: pointer;
     font-size: var(--font-size-sm);
     padding: var(--stack-tight) var(--space-1);
-    min-height: unset;
+    min-height: var(--interactive-min, 24px);
     flex-shrink: 0;
     font-family: var(--font-ui);
     font-weight: 700;
@@ -1116,7 +1116,7 @@
     font-weight: 600;
     cursor: pointer;
     padding: 0;
-    min-height: unset;
+    min-height: var(--interactive-min, 24px);
     text-transform: none;
     letter-spacing: normal;
     width: 100%;

@@ -270,8 +270,8 @@
     font-weight: 700;
     color: var(--text-primary);
     cursor: pointer;
-    padding: 0;
-    overflow: hidden;
+    padding: 0.25rem 0.5rem;
+    overflow: auto;
     text-overflow: ellipsis;
     white-space: nowrap;
   }

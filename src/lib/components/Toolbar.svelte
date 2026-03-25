@@ -163,7 +163,7 @@
     text-transform: uppercase;
     letter-spacing: -0.02em;
     margin-inline-end: var(--space-2);
-    overflow: hidden;
+    overflow: auto;
     text-overflow: ellipsis;
     flex-shrink: 1;
   }
@@ -241,7 +241,7 @@
     text-transform: none;
     letter-spacing: normal;
     cursor: pointer;
-    min-height: unset;
+    min-height: var(--interactive-min, 24px);
   }
 
   .git-dropdown-item:hover {

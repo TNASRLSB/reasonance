@@ -109,7 +109,7 @@
     padding: 6px 12px;
     cursor: pointer;
     white-space: nowrap;
-    overflow: hidden;
+    overflow: auto;
     text-overflow: ellipsis;
     transition: background var(--transition-fast, 100ms), color var(--transition-fast, 100ms);
   }

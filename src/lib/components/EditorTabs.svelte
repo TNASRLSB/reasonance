@@ -98,7 +98,7 @@
     align-items: stretch;
     background: var(--bg-primary);
     border-bottom: var(--border-width) solid var(--border);
-    height: 38px;
+    min-height: var(--interactive-min, 38px);
     flex-shrink: 0;
     font-family: var(--font-ui);
   }
@@ -168,7 +168,7 @@
 
   .tab-name {
     flex: 1;
-    overflow: hidden;
+    overflow: auto;
     text-overflow: ellipsis;
     min-width: 0;
   }
@@ -181,8 +181,8 @@
     font-size: var(--font-size-sm);
     line-height: 1;
     padding: var(--space-1) var(--space-1);
-    min-width: 24px;
-    min-height: 24px;
+    min-width: var(--interactive-min, 24px);
+    min-height: var(--interactive-min, 24px);
     border-radius: var(--radius);
     flex-shrink: 0;
     transition: color var(--transition-fast);
@@ -205,8 +205,8 @@
     font-size: var(--font-size-base);
     line-height: 1;
     padding: var(--space-1) var(--space-1);
-    min-width: 24px;
-    min-height: 24px;
+    min-width: var(--interactive-min, 24px);
+    min-height: var(--interactive-min, 24px);
     border-radius: var(--radius);
     flex-shrink: 0;
     transition: color var(--transition-fast);

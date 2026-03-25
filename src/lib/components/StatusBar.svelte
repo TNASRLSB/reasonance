@@ -376,7 +376,7 @@
   }
 
   .notif-text {
-    overflow: hidden;
+    overflow: auto;
     text-overflow: ellipsis;
     white-space: nowrap;
     font-weight: 600;
@@ -465,6 +465,7 @@
     z-index: calc(var(--layer-sticky) * 2);
     font-family: var(--font-ui);
     animation: flyout-up 0.15s ease-out;
+    scroll-padding-top: calc(var(--font-size-small, 0.875rem) + var(--space-2, 0.5rem) * 2 + 4px);
   }
 
   .notif-flyout-header {

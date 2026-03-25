@@ -168,7 +168,7 @@
     color: var(--text-primary);
     cursor: pointer;
     text-align: start;
-    overflow: hidden;
+    overflow: auto;
     text-overflow: ellipsis;
     white-space: nowrap;
     gap: var(--interactive-gap);

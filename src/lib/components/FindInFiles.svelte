@@ -352,7 +352,7 @@
     font-size: var(--font-size-sm);
     color: var(--text-primary);
     font-family: var(--font-mono);
-    overflow: hidden;
+    overflow: auto;
     text-overflow: ellipsis;
     white-space: nowrap;
   }

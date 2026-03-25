@@ -86,6 +86,7 @@
     font-size: var(--font-size-base);
     cursor: pointer;
     font-family: var(--font-ui);
+    min-width: var(--interactive-min, 24px);
   }
   .ctrl-btn:hover:not(:disabled) {
     background: var(--bg-hover);

@@ -101,7 +101,7 @@
 
   .markdown-preview :global(a) {
     color: var(--accent);
-    text-decoration: none;
+    text-decoration: underline;
   }
 
   .markdown-preview :global(a:hover) {

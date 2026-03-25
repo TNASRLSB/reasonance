@@ -228,7 +228,7 @@
     padding: var(--space-1) var(--space-2);
     background: var(--bg-primary);
     border-top: var(--border-width, 2px) solid var(--border);
-    border-radius: 0;
+    border-radius: var(--radius);
     font-family: var(--font-mono);
     font-size: var(--font-size-sm);
     color: var(--text-secondary);
@@ -291,14 +291,14 @@
     max-width: 120px;
     height: 4px;
     background: var(--bg-tertiary);
-    border-radius: 0;
+    border-radius: var(--radius);
     overflow: visible;
     cursor: default;
   }
 
   .progress-fill {
     height: 100%;
-    border-radius: 0;
+    border-radius: var(--radius);
     min-width: 0;
   }
 
@@ -359,7 +359,7 @@
   .metric.provider {
     font-weight: 600;
     max-width: 100px;
-    overflow: hidden;
+    overflow: auto;
     text-overflow: ellipsis;
   }
 
@@ -390,7 +390,7 @@
     display: inline-block;
     width: 6px;
     height: 6px;
-    border-radius: 0;
+    border-radius: var(--radius);
     flex-shrink: 0;
   }
 
@@ -419,7 +419,7 @@
     justify-content: center;
     min-width: 44px;
     min-height: 44px;
-    border-radius: 0;
+    border-radius: var(--radius);
     color: var(--text-secondary);
     margin-inline-start: auto;
     flex-shrink: 0;
@@ -442,7 +442,7 @@
 
   .skeleton {
     background: var(--bg-tertiary);
-    border-radius: 0;
+    border-radius: var(--radius);
     animation: shimmer 1.5s ease-in-out infinite;
   }
 

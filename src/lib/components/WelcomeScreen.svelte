@@ -292,7 +292,7 @@
     border-radius: var(--radius);
     cursor: pointer;
     transition: background var(--transition-fast), color var(--transition-fast);
-    overflow: hidden;
+    overflow: auto;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
