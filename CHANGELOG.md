@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.1.0] - 2026-03-25
+
+### Features
+
+- feat(a11y): WCAG Phase 1B-3 — new functionality for keyboard trap, drag alternatives, status messages, non-color indicators, and aria-labels
+
+### Other
+
+- 4.1.3 (appAnnouncer for file save/theme/session/workflow events), 1.4.1 (DiffView headings,
+- LogicNode state label), and 4.1.2 (aria-label on 7 title-only elements + permission badge).
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+
+
+
 ## [1.0.2] - 2026-03-25
 
 ### Bug Fixes
