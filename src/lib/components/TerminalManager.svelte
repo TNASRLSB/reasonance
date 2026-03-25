@@ -17,6 +17,8 @@
   import type { TerminalInstance } from '$lib/stores/terminals';
   import { showSettings } from '$lib/stores/ui';
   import { currentWorkflow } from '$lib/stores/workflow';
+  import { activeProjectId, projects } from '$lib/stores/projects';
+  import type { TerminalInstanceMeta } from '$lib/stores/projects';
   import HivePanel from './hive/HivePanel.svelte';
   import { tr } from '$lib/i18n/index';
   import { defaultSlashCommands } from '$lib/data/slash-commands';
@@ -45,6 +47,19 @@
   let showTrustDialog = $state(false);
   let trustFolderInfo = $state<FolderInfo | null>(null);
   let pendingProviderName = $state<string | null>(null);
+
+  // All terminal instances across ALL projects — used for render area so
+  // xterm.js buffers stay mounted (hidden via display:none) when switching projects.
+  let allInstances = $derived.by(() => {
+    const map = $projects;
+    const all: Array<{ instance: TerminalInstanceMeta; projectId: string }> = [];
+    for (const [pid, ctx] of map) {
+      for (const inst of ctx.terminalInstances) {
+        all.push({ instance: inst, projectId: pid });
+      }
+    }
+    return all;
+  });
 
   // Dropdown positions — computed at click time, not via $effect
   let llmDropdownStyle = $state('');
@@ -452,10 +467,10 @@
       {/if}
 
       <div class="terminal-area">
-        {#each $terminalInstances as inst (inst.id)}
+        {#each allInstances as { instance: inst, projectId } (inst.id)}
           <div
             class="terminal-wrap"
-            style="display: {inst.id === $activeInstanceId ? 'flex' : 'none'};"
+            style="display: {projectId === $activeProjectId && inst.id === $activeInstanceId ? 'flex' : 'none'};"
             role="tabpanel"
             aria-label="{$computedLabels.get(inst.id) ?? inst.provider} session"
           >
