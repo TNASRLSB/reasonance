@@ -15,27 +15,27 @@
     "--bg-tertiary": "#e5e5e5",
     "--bg-hover": "rgba(0, 0, 0, 0.04)",
     "--bg-surface": "#ffffff",
-    "--border": "#d4d4d4",
+    "--border": "#808080",
     "--text-primary": "#0a0a0a",
     "--text-body": "#1a1a1a",
     "--text-secondary": "#404040",
-    "--text-muted": "#505050",
-    "--accent": "#3b82f6",
-    "--accent-text": "#1a44c2",
-    "--accent-hover": "#2563eb",
+    "--text-muted": "#484848",
+    "--accent": "#16488e",
+    "--accent-text": "#16488e",
+    "--accent-hover": "#154080",
     "--accent-statusbar": "#1e40af",
-    "--danger": "#b91c1c",
+    "--danger": "#a51a1a",
     "--danger-dark": "#991b1b",
     "--danger-text": "#991b1b",
-    "--success": "#16a34a",
+    "--success": "#096028",
     "--success-text": "#0e5929",
-    "--warning": "#ca8a04",
-    "--warning-text": "#7c4a0d",
+    "--warning": "#6e4c00",
+    "--warning-text": "#5a3c00",
     "--accent-btn": "#1e40af",
     "--danger-btn": "#991b1b",
     "--text-on-accent": "#ffffff",
     "--code-bg": "oklch(0.96 0.01 240)",
-    "--code-accent": "oklch(0.50 0.22 320)"
+    "--code-accent": "oklch(0.42 0.22 320)"
   },
   "hues": {
     "--hue-accent": 220,
@@ -45,8 +45,8 @@
     "--hue-state-retry": 45
   },
   "states": {
-    "--state-idle": "oklch(0.60 0.00 0)",
-    "--state-idle-text": "oklch(0.40 0.00 0)",
+    "--state-idle": "oklch(0.38 0.00 0)",
+    "--state-idle-text": "oklch(0.37 0.00 0)",
     "--state-queued": "var(--warning)",
     "--state-queued-text": "var(--warning-text)",
     "--state-running": "var(--accent)",
@@ -55,17 +55,17 @@
     "--state-success-text": "var(--success-text)",
     "--state-failed": "var(--danger)",
     "--state-failed-text": "var(--danger-text)",
-    "--state-retrying": "oklch(0.55 0.18 var(--hue-state-retry))",
-    "--state-retrying-text": "oklch(0.42 0.15 var(--hue-state-retry))"
+    "--state-retrying": "oklch(0.38 0.18 var(--hue-state-retry))",
+    "--state-retrying-text": "oklch(0.35 0.15 var(--hue-state-retry))"
   },
   "ui-states": {
-    "--text-disabled": "oklch(0.60 0.00 0)",
+    "--text-disabled": "oklch(0.38 0.00 0)",
     "--bg-disabled": "oklch(0.90 0.00 0)",
-    "--border-disabled": "oklch(0.80 0.00 0)",
+    "--border-disabled": "oklch(0.55 0.00 0)",
     "--bg-selected": "oklch(0.90 0.06 var(--hue-accent))",
     "--text-selected": "var(--text-primary)",
-    "--text-placeholder": "oklch(0.60 0.00 0)",
-    "--focus-ring-color": "oklch(0.50 0.22 var(--hue-accent))"
+    "--text-placeholder": "oklch(0.38 0.00 0)",
+    "--focus-ring-color": "oklch(0.40 0.22 var(--hue-accent))"
   },
   "typography": {
     "--font-ui": "'Atkinson Hyperlegible Next', 'Noto Sans SC', 'Noto Sans Devanagari', 'Microsoft YaHei', 'PingFang SC', system-ui, -apple-system, sans-serif",
@@ -132,8 +132,9 @@
     "--toast-duration": "5s"
   },
   "layout": {
-    "--toolbar-height": "44px",
-    "--statusbar-height": "28px"
+    "--toolbar-height": "52px",
+    "--statusbar-height": "52px",
+    "--interactive-min": "44px"
   },
   "layers": {
     "--layer-base": 0,

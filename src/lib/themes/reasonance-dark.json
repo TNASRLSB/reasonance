@@ -15,27 +15,27 @@
     "--bg-tertiary": "#2a2a2a",
     "--bg-hover": "rgba(255, 255, 255, 0.06)",
     "--bg-surface": "#161616",
-    "--border": "#5a5a5a",
+    "--border": "#7a7a7a",
     "--text-primary": "#f0f0f0",
     "--text-body": "#d4d4d4",
-    "--text-secondary": "#a3a3a3",
-    "--text-muted": "#b0b0b0",
-    "--accent": "#3b82f6",
+    "--text-secondary": "#b5b5b5",
+    "--text-muted": "#bababa",
+    "--accent": "#8ab8ff",
     "--accent-text": "#93bbfc",
-    "--accent-hover": "#2563eb",
+    "--accent-hover": "#7aabff",
     "--accent-statusbar": "#1e40af",
-    "--danger": "#ef4444",
+    "--danger": "#fa8080",
     "--danger-dark": "#991b1b",
     "--danger-text": "#fca5a5",
-    "--success": "#16a34a",
+    "--success": "#22c55e",
     "--success-text": "#4ade80",
-    "--warning": "#ca8a04",
+    "--warning": "#d4a020",
     "--warning-text": "#fbbf24",
     "--accent-btn": "#1e40af",
     "--danger-btn": "#991b1b",
     "--text-on-accent": "#ffffff",
     "--code-bg": "oklch(0.18 0.02 240)",
-    "--code-accent": "oklch(0.78 0.18 320)"
+    "--code-accent": "oklch(0.82 0.16 320)"
   },
   "hues": {
     "--hue-accent": 220,
@@ -45,7 +45,7 @@
     "--hue-state-retry": 45
   },
   "states": {
-    "--state-idle": "oklch(0.55 0.00 0)",
+    "--state-idle": "oklch(0.70 0.00 0)",
     "--state-idle-text": "oklch(0.72 0.00 0)",
     "--state-queued": "var(--warning)",
     "--state-queued-text": "var(--warning-text)",
@@ -55,17 +55,17 @@
     "--state-success-text": "var(--success-text)",
     "--state-failed": "var(--danger)",
     "--state-failed-text": "var(--danger-text)",
-    "--state-retrying": "oklch(0.65 0.18 var(--hue-state-retry))",
+    "--state-retrying": "oklch(0.72 0.18 var(--hue-state-retry))",
     "--state-retrying-text": "oklch(0.78 0.15 var(--hue-state-retry))"
   },
   "ui-states": {
-    "--text-disabled": "oklch(0.55 0.00 0)",
+    "--text-disabled": "oklch(0.70 0.00 0)",
     "--bg-disabled": "oklch(0.25 0.00 0)",
-    "--border-disabled": "oklch(0.35 0.00 0)",
+    "--border-disabled": "oklch(0.52 0.00 0)",
     "--bg-selected": "oklch(0.30 0.08 var(--hue-accent))",
     "--text-selected": "var(--text-primary)",
-    "--text-placeholder": "oklch(0.55 0.00 0)",
-    "--focus-ring-color": "oklch(0.70 0.20 var(--hue-accent))"
+    "--text-placeholder": "oklch(0.70 0.00 0)",
+    "--focus-ring-color": "oklch(0.78 0.16 var(--hue-accent))"
   },
   "typography": {
     "--font-ui": "'Atkinson Hyperlegible Next', 'Noto Sans SC', 'Noto Sans Devanagari', 'Microsoft YaHei', 'PingFang SC', system-ui, -apple-system, sans-serif",
@@ -132,8 +132,9 @@
     "--toast-duration": "5s"
   },
   "layout": {
-    "--toolbar-height": "44px",
-    "--statusbar-height": "28px"
+    "--toolbar-height": "52px",
+    "--statusbar-height": "52px",
+    "--interactive-min": "44px"
   },
   "layers": {
     "--layer-base": 0,
