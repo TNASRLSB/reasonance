@@ -1,5 +1,7 @@
 use crate::capability::{CapabilityNegotiator, NegotiatedCapabilities};
-use crate::cli_updater::{CliUpdater, CliVersionInfo};
+use crate::cli_updater::CliVersionInfo;
+use std::sync::Arc;
+use crate::cli_updater::CliUpdater;
 use crate::normalizer_health::{NormalizerHealth, HealthReport};
 use crate::normalizer_version::{NormalizerVersionStore, VersionEntry};
 use log::{info, error, debug};
@@ -31,7 +33,7 @@ pub fn get_provider_capabilities(
 
 #[tauri::command]
 pub fn get_cli_versions(
-    updater: State<'_, CliUpdater>,
+    updater: State<'_, Arc<CliUpdater>>,
 ) -> Vec<CliVersionInfo> {
     info!("cmd::get_cli_versions called");
     updater

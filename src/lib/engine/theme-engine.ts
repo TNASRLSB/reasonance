@@ -67,12 +67,20 @@ export function buildCssString(vars: VariableMap): string {
  */
 export function injectStyles(id: string, css: string): void {
   let el = document.getElementById(id) as HTMLStyleElement | null;
+  const created = !el;
   if (!el) {
     el = document.createElement('style');
     el.id = id;
     document.head.appendChild(el);
   }
   el.textContent = css;
+  // Verify CSS variables are actually taking effect
+  const computed = getComputedStyle(document.documentElement);
+  const bgPrimary = computed.getPropertyValue('--bg-primary').trim();
+  const accent = computed.getPropertyValue('--accent').trim();
+  console.info(`[Theme] injectStyles: id="${id}", ${created ? 'CREATED' : 'UPDATED'}, length=${css.length}`);
+  console.info(`[Theme] computed: --bg-primary="${bgPrimary}", --accent="${accent}"`);
+  console.info(`[Theme] <style> in head: ${document.head.contains(el)}, head children: ${document.head.children.length}`);
 }
 
 /**

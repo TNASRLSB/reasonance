@@ -15,7 +15,8 @@ dist/
 CLAUDE.md
 .superpowers/
 vibe-framework.sh
-docs/
+docs/*
+!docs/compliance/
 references/
 
 # Skill data

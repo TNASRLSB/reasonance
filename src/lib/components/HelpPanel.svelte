@@ -149,7 +149,7 @@
   .help-content :global(mark.help-highlight) {
     background: var(--warning);
     color: var(--text-primary);
-    border-radius: 0;
+    border-radius: var(--radius);
     padding: 0 var(--space-1);
   }
 </style>

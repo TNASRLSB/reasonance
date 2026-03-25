@@ -119,7 +119,7 @@ pub fn run() {
                 .expect("Failed to initialize SessionManager")
         })
         .manage(capability::CapabilityNegotiator::new())
-        .manage(cli_updater::CliUpdater::new())
+        .manage(std::sync::Arc::new(cli_updater::CliUpdater::new()))
         .manage(normalizer_health::NormalizerHealth::new())
         .manage({
             let analytics_dir = dirs::data_dir()
@@ -189,7 +189,7 @@ pub fn run() {
             let _ = negotiator.load_cache(&cache_dir);
 
             // Register CLI providers from normalizer configs
-            let updater: tauri::State<'_, cli_updater::CliUpdater> = app.state();
+            let updater: tauri::State<'_, std::sync::Arc<cli_updater::CliUpdater>> = app.state();
             let registry = transport.registry();
             let registry_guard = registry.lock().unwrap_or_else(|e| e.into_inner());
             let configs: std::collections::HashMap<String, _> = registry_guard.providers()
@@ -226,6 +226,14 @@ pub fn run() {
             // Start theme file watcher
             info!("  ✓ Starting theme file watcher");
             theme_watcher::start_theme_watcher(app.handle().clone());
+
+            // Spawn background CLI update task
+            info!("  ✓ Scheduling background CLI updates");
+            let updater_arc = updater.inner().clone();
+            let app_handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                cli_updater::run_background_updates(app_handle, updater_arc).await;
+            });
 
             info!("🚀 Reasonance setup complete — all systems wired");
             Ok(())
