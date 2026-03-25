@@ -127,6 +127,12 @@
           searchVisible = !searchVisible;
           return false;
         }
+        // Escape exits the terminal when search is not open (WCAG 2.1.2 No Keyboard Trap)
+        if (event.type === 'keydown' && event.key === 'Escape' && !searchVisible) {
+          const wrapper = containerEl?.closest('.terminal-wrapper') as HTMLElement;
+          if (wrapper) wrapper.focus();
+          return false;
+        }
         return true;
       });
 
@@ -280,7 +286,7 @@
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="terminal-wrapper" aria-label={$tr('a11y.terminal')} role="region">
+<div class="terminal-wrapper" aria-label={$tr('a11y.terminal') + ' — press Escape to exit'} role="region" tabindex="-1">
   {#if searchVisible}
     <div class="terminal-search">
       <input

@@ -271,6 +271,8 @@
             class:supervised={$currentWorkflow.settings.permissionLevel === 'supervised'}
             class:trusted={$currentWorkflow.settings.permissionLevel === 'trusted'}
             class:dryrun={$currentWorkflow.settings.permissionLevel === 'dry-run'}
+            role="status"
+            aria-label={"Permission: " + $currentWorkflow.settings.permissionLevel}
             title={$currentWorkflow.settings.permissionLevel}>
         {#if $currentWorkflow.settings.permissionLevel === 'supervised'}
           <span aria-hidden="true">&#x1F512;</span>
@@ -287,7 +289,7 @@
       <button class:active={$hiveViewMode === 'code'} onclick={() => hiveViewMode.set('code')}>Code</button>
       <button class:active={$hiveViewMode === 'split'} onclick={() => hiveViewMode.set('split')}>Split</button>
     </div>
-    <button class="close-btn" onclick={closeCanvas} title={$tr('a11y.closeCanvas')}>&#x2715;</button>
+    <button class="close-btn" onclick={closeCanvas} title={$tr('a11y.closeCanvas')} aria-label={$tr('a11y.closeCanvas')}>&#x2715;</button>
   </div>
 
   <!-- Content area -->

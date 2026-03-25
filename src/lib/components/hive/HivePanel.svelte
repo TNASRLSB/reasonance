@@ -32,7 +32,7 @@
 <div class="hive-panel">
   <div class="panel-header">
     <span class="panel-title">Hive</span>
-    <button class="expand-btn" onclick={openCanvas} title="Open full canvas">&#x2922;</button>
+    <button class="expand-btn" onclick={openCanvas} title="Open full canvas" aria-label="Open full canvas">&#x2922;</button>
   </div>
 
   <!-- Mini-map: colored dots for each node -->

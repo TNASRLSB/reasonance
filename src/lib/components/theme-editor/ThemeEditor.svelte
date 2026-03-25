@@ -32,6 +32,7 @@
   let copyConfirm = $state(false);
   let dragOver = $state(false);
   let importError = $state<string | null>(null);
+  let importFileInput = $state<HTMLInputElement | null>(null);
 
   // Undo/redo stacks
   let undoStack = $state<ThemeFile[]>([]);
@@ -206,6 +207,44 @@
     reader.readAsText(file);
   }
 
+  function handleFileImport(e: Event) {
+    const input = e.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+    if (!file.name.endsWith('.json')) {
+      importError = 'Only .json files are supported';
+      input.value = '';
+      return;
+    }
+    importError = null;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(reader.result as string);
+        const result = validateTheme(parsed);
+        if (!result.valid) {
+          importError = result.errors.join('\n');
+          return;
+        }
+        const theme = parsed as ThemeFile;
+        if (currentTheme) pushUndo(currentTheme);
+        currentTheme = theme;
+        undoStack = [];
+        redoStack = [];
+        editorMode = theme.meta.type === 'modifier' ? 'modifier' : 'theme';
+        activeSection = availableSections[0] ?? 'colors';
+        const vars = extractVariables(theme);
+        for (const [k, v] of Object.entries(vars)) {
+          setPreviewVariable(k, String(v));
+        }
+      } catch {
+        importError = 'Invalid JSON file';
+      }
+    };
+    reader.readAsText(file);
+    input.value = '';
+  }
+
   function handleKeydown(e: KeyboardEvent) {
     if (e.key === 'Escape') handleCancel();
     if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
@@ -275,6 +314,19 @@
             aria-label="Change starting theme"
             title="Change starting theme"
           >⊕</button>
+          <input
+            type="file"
+            accept=".json"
+            class="visually-hidden"
+            bind:this={importFileInput}
+            onchange={handleFileImport}
+          />
+          <button
+            class="icon-btn"
+            onclick={() => importFileInput?.click()}
+            aria-label="Import theme JSON file"
+            title="Import JSON file"
+          >&#128194;</button>
         </div>
 
         {#if currentTheme}
@@ -365,6 +417,18 @@
 />
 
 <style>
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
   .editor-overlay {
     position: fixed;
     inset: 0;

@@ -6,6 +6,7 @@ import { extractVariables, mergeModifier, buildCssString, injectStyles, applyCol
 import { validateTheme } from '$lib/engine/theme-validator';
 import { FALLBACK_THEME } from '$lib/engine/fallback-theme';
 import { editorTheme } from '$lib/stores/ui';
+import { appAnnouncer } from '$lib/utils/a11y-announcer';
 
 // --- Stores ---
 export const activeThemeName = writable<string>('reasonance-dark');
@@ -82,6 +83,10 @@ function reapply(): void {
   injectStyles('reasonance-theme', css);
   applyColorScheme(cs);
   colorScheme.set(cs);
+
+  if (initialized) {
+    appAnnouncer.announce(`Theme changed to ${theme.meta.name}`);
+  }
 
   // Auto-select editor theme from app theme metadata
   const editorThemeName = theme.meta.editorTheme;

@@ -2,6 +2,8 @@
   import type { Adapter } from '$lib/adapter/index';
   import { menuKeyHandler, toolbarKeyHandler } from '$lib/utils/a11y';
   import { tr } from '$lib/i18n/index';
+  import { get } from 'svelte/store';
+  import { llmConfigs } from '$lib/stores/config';
 
   let {
     adapter,
@@ -56,6 +58,44 @@
     showModeMenu = false;
   }
 
+  let imageFileInput = $state<HTMLInputElement | null>(null);
+
+  function getImageMode(): 'path' | 'base64' | 'none' {
+    const configs = get(llmConfigs);
+    const config = configs.find((c) => c.name === llmName);
+    return config?.imageMode ?? 'path';
+  }
+
+  function readFileAsBase64(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        resolve(result.split(',')[1] ?? result);
+      };
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function handleImageSelect(e: Event) {
+    const input = e.target as HTMLInputElement;
+    const files = Array.from(input.files ?? []).filter((f) => f.type.startsWith('image/'));
+    if (files.length === 0) return;
+    const mode = getImageMode();
+    if (mode === 'none') return;
+    for (const file of files) {
+      if (mode === 'path') {
+        const filePath = (file as File & { path?: string }).path ?? file.name;
+        await adapter.writePty(instanceId, filePath + ' ');
+      } else if (mode === 'base64') {
+        const base64 = await readFileAsBase64(file);
+        await adapter.writePty(instanceId, base64 + ' ');
+      }
+    }
+    input.value = '';
+  }
+
   function handleClickOutside(e: MouseEvent) {
     showSlashMenu = false;
     showModeMenu = false;
@@ -86,6 +126,20 @@
       aria-label={$tr('termToolbar.saveOutputTitle')}
       onclick={(e) => { e.stopPropagation(); window.dispatchEvent(new CustomEvent('reasonance:exportTerminal', { detail: { instanceId } })); }}
     ><span class="tbtn-icon" aria-hidden="true">&#8615;</span><span class="tbtn-label" aria-hidden="true">{$tr('termToolbar.saveOutput')}</span></button>
+
+    <input
+      type="file"
+      accept="image/*"
+      class="visually-hidden"
+      bind:this={imageFileInput}
+      onchange={handleImageSelect}
+    />
+    <button
+      class="term-tbtn term-tbtn--labeled"
+      title={$tr('termToolbar.uploadImageTitle') ?? 'Upload image'}
+      aria-label={$tr('termToolbar.uploadImageTitle') ?? 'Upload image'}
+      onclick={(e) => { e.stopPropagation(); imageFileInput?.click(); }}
+    ><span class="tbtn-icon" aria-hidden="true">&#128248;</span><span class="tbtn-label" aria-hidden="true">{$tr('termToolbar.uploadImage') ?? 'Image'}</span></button>
 
     <div class="slash-wrapper">
       <button
@@ -160,6 +214,18 @@
     display: flex;
     align-items: center;
     gap: var(--stack-tight);
+  }
+
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
   }
 
   .term-tbtn {

@@ -13,14 +13,14 @@
 </script>
 
 <div class="node-catalog">
-  <button class="catalog-btn agent" onclick={() => addNode('agent')} title={$tr('a11y.addAgentNode')}>
-    <span class="btn-icon">&#9679;</span> Agent
+  <button class="catalog-btn agent" onclick={() => addNode('agent')} title={$tr('a11y.addAgentNode')} aria-label={$tr('a11y.addAgentNode')}>
+    <span class="btn-icon" aria-hidden="true">&#9679;</span> Agent
   </button>
-  <button class="catalog-btn resource" onclick={() => addNode('resource')} title={$tr('a11y.addResourceNode')}>
-    <span class="btn-icon">&#128196;</span> Resource
+  <button class="catalog-btn resource" onclick={() => addNode('resource')} title={$tr('a11y.addResourceNode')} aria-label={$tr('a11y.addResourceNode')}>
+    <span class="btn-icon" aria-hidden="true">&#128196;</span> Resource
   </button>
-  <button class="catalog-btn logic" onclick={() => addNode('logic')} title={$tr('a11y.addLogicNode')}>
-    <span class="btn-icon">&#9670;</span> Logic
+  <button class="catalog-btn logic" onclick={() => addNode('logic')} title={$tr('a11y.addLogicNode')} aria-label={$tr('a11y.addLogicNode')}>
+    <span class="btn-icon" aria-hidden="true">&#9670;</span> Logic
   </button>
 </div>
 

@@ -3,11 +3,21 @@
   import { currentRun, currentRunId, runStatus } from '$lib/stores/engine';
   import { currentWorkflowPath } from '$lib/stores/workflow';
   import { get } from 'svelte/store';
+  import { appAnnouncer } from '$lib/utils/a11y-announcer';
 
   let { adapter, cwd = '.' }: { adapter: Adapter; cwd?: string } = $props();
 
   let status = $state<string>('idle');
-  const unsubStatus = runStatus.subscribe((val) => { status = val; });
+  let prevStatus = 'idle';
+  const unsubStatus = runStatus.subscribe((val) => {
+    status = val;
+    if (val !== prevStatus) {
+      if (val === 'running' && prevStatus !== 'running') appAnnouncer.announce('Workflow started');
+      else if (val === 'completed') appAnnouncer.announce('Workflow completed');
+      else if (val === 'failed') appAnnouncer.announceUrgent('Workflow failed');
+      prevStatus = val;
+    }
+  });
 
   async function play() {
     const path = get(currentWorkflowPath);

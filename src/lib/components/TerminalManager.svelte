@@ -23,6 +23,7 @@
   import ChatView from './chat/ChatView.svelte';
   import type { ViewMode } from '$lib/types/agent-event';
   import { processAgentEvent } from '$lib/stores/agent-events';
+  import { appAnnouncer } from '$lib/utils/a11y-announcer';
   import WorkspaceTrustDialog from './WorkspaceTrustDialog.svelte';
   import { workspaceTrustLevel } from '$lib/stores/workspace-trust';
   import type { TrustLevel, FolderInfo } from '$lib/stores/workspace-trust';
@@ -192,6 +193,7 @@
 
     addInstanceToStore(instance);
     activeInstanceId.set(instanceId);
+    appAnnouncer.announce(`Terminal session started: ${providerName}`);
   }
 
   async function handleTrustDecision(level: TrustLevel) {
@@ -225,6 +227,7 @@
     }
 
     removeInstance(id);
+    appAnnouncer.announce('Terminal session closed');
 
     const remaining = get(terminalInstances);
     if (remaining.length === 0) {

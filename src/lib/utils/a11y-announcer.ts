@@ -68,3 +68,4 @@ class ScreenReaderAnnouncer {
 }
 
 export const analyticsAnnouncer = new ScreenReaderAnnouncer(5000);
+export const appAnnouncer = new ScreenReaderAnnouncer(2000);

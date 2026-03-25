@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { AgentState } from '$lib/adapter/index';
-  import { getStateColor } from '$lib/utils/state-color';
+  import { getStateColor, stateIcons } from '$lib/utils/state-color';
   import { isDark } from '$lib/stores/theme';
 
   let {
@@ -82,7 +82,7 @@
   role="button"
   tabindex="0"
   aria-pressed={selected}
-  aria-label="{label}{rule ? ': ' + rule : ''}"
+  aria-label="{label}{rule ? ': ' + rule : ''}, state: {nodeState}"
 >
   <div class="node-header">
     <span class="node-icon" aria-hidden="true">&#9670;</span>
@@ -99,6 +99,7 @@
     {:else}
       <span class="node-label" ondblclick={startEditLabel} title="Double-click to rename">{label}</span>
     {/if}
+    <span class="node-state" style="color: {borderColor}" aria-hidden="true">{stateIcons[nodeState] || '\u23F8'} {nodeState}</span>
   </div>
 
   <div class="kind-row">
@@ -175,6 +176,14 @@
     min-width: 0;
     font-family: var(--font-ui, sans-serif);
     outline: none;
+  }
+
+  .node-state {
+    font-weight: 500;
+    text-transform: uppercase;
+    font-size: var(--font-size-xs);
+    white-space: nowrap;
+    flex-shrink: 0;
   }
 
   .kind-row {

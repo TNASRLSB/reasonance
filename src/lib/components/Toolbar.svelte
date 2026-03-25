@@ -74,7 +74,7 @@
 
   <div class="toolbar-right">
     <div class="git-dropdown-wrapper">
-      <button class="git-trigger" onclick={(e) => { e.stopPropagation(); showGitMenu = !showGitMenu; }} title={$tr('toolbar.gitCommands')} aria-haspopup="true" aria-expanded={showGitMenu}>
+      <button class="git-trigger" onclick={(e) => { e.stopPropagation(); showGitMenu = !showGitMenu; }} title={$tr('toolbar.gitCommands')} aria-label={$tr('toolbar.gitCommands')} aria-haspopup="true" aria-expanded={showGitMenu}>
         GIT &#9662;
       </button>
       {#if showGitMenu}

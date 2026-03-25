@@ -21,6 +21,7 @@
   import { registerKeybinding, initKeybindings } from '$lib/utils/keybindings';
   import { sanitizeId } from '$lib/utils/a11y';
   import { showToast } from '$lib/stores/toast';
+  import { appAnnouncer } from '$lib/utils/a11y-announcer';
   import HiveCanvas from '$lib/components/hive/HiveCanvas.svelte';
   import ShortcutsDialog from '$lib/components/ShortcutsDialog.svelte';
   import SessionPanel from '$lib/components/SessionPanel.svelte';
@@ -209,6 +210,9 @@
     // Initialize i18n before restoring session
     await initI18n();
 
+    // Mount app-level screen reader announcer
+    appAnnouncer.mount(document.body);
+
     // Enhanced Readability mode — toggle CSS class on root element
     unsubEnhanced = enhancedReadability.subscribe((on) => {
       document.documentElement.classList.toggle('enhanced-readability', on);
@@ -330,6 +334,7 @@
     unsubEnhanced?.();
     unsubHive();
     unsubRoot();
+    appAnnouncer.destroy();
     cleanups.forEach((fn) => fn());
     if (unwatchFiles) unwatchFiles();
   });
@@ -349,6 +354,8 @@
         diffState = null;
         return;
       }
+      const fileName = path.split('/').pop() ?? path;
+      appAnnouncer.announce(`File ${fileName} saved`);
     }
 
     // Update the open file's content in the store

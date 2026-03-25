@@ -109,6 +109,10 @@
       <button class="btn-accept" onclick={handleAccept}>&#10003; {$tr('diff.accept')}</button>
     </div>
   </div>
+  <div class="diff-header">
+    <span class="diff-label">Original</span>
+    <span class="diff-label">Modified</span>
+  </div>
   <div class="diff-container" bind:this={container}></div>
 </div>
 
@@ -174,6 +178,24 @@
     background: var(--danger);
     color: var(--text-on-accent);
     border-color: var(--danger);
+  }
+
+  .diff-header {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    background: var(--bg-tertiary);
+    border-bottom: var(--border-width) solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .diff-label {
+    padding: var(--space-1) var(--space-3);
+    font-size: var(--font-size-sm);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+    font-family: var(--font-ui);
   }
 
   .diff-container {

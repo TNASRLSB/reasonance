@@ -117,7 +117,7 @@
 <svelte:window onclick={handleWindowClick} />
 
 <div class="workflow-menu">
-  <button class="menu-trigger" onclick={toggle} title="Workflow actions">
+  <button class="menu-trigger" onclick={toggle} title="Workflow actions" aria-label="Workflow actions">
     &#9776; Workflow
   </button>
 
