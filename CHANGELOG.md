@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.3.1] - 2026-03-25
+
+### Bug Fixes
+
+- fix: catch unhandled setTitle promise rejection on early webview init
+
+### Other
+
+- before the webview was ready, silently crashing the renderer and preventing
+- the window from appearing.
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+
+
+
 ## [1.3.0] - 2026-03-25
 
 ### Features
