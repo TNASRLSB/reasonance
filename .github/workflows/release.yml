@@ -33,11 +33,12 @@ jobs:
           COMMITS=$(git log "$LAST_TAG"..HEAD --pretty=format:"%s|%b" --no-merges)
 
           if [ -z "$COMMITS" ]; then
-            echo "should_release=false" >> $GITHUB_OUTPUT
-            exit 0
+            # Force push or no new commits — still release as patch
+            COMMITS="chore: force push rebuild"
           fi
 
-          BUMP="none"
+          # Every push = new version. Analyze commit types for changelog.
+          BUMP="patch"
           FEATURES=""
           FIXES=""
           BREAKING=""
@@ -60,21 +61,16 @@ jobs:
               [ "$BUMP" != "major" ] && BUMP="major"
             elif echo "$SUBJECT" | grep -qE "^feat(\(.+\))?:"; then
               FEATURES="$FEATURES\n- $SUBJECT"
-              [ "$BUMP" = "none" ] || [ "$BUMP" = "patch" ] && BUMP="minor"
+              [ "$BUMP" = "patch" ] && BUMP="minor"
             elif echo "$SUBJECT" | grep -qE "^fix(\(.+\))?:"; then
               FIXES="$FIXES\n- $SUBJECT"
-              [ "$BUMP" = "none" ] && BUMP="patch"
             else
               OTHER="$OTHER\n- $SUBJECT"
             fi
           done <<< "$COMMITS"
 
-          if [ "$BUMP" = "none" ]; then
-            echo "should_release=false" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-
-          # Calculate new version
+          # Always release — every push gets a version
+          # Calculate new version with rollover (patch 9→minor, minor 9→major)
           CURRENT=$(grep '"version"' package.json | head -1 | sed 's/.*"version": "\(.*\)".*/\1/')
           IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
 
@@ -83,6 +79,16 @@ jobs:
             minor) MINOR=$((MINOR + 1)); PATCH=0 ;;
             patch) PATCH=$((PATCH + 1)) ;;
           esac
+
+          # Rollover: 0.0.9+patch → 0.1.0, 0.9.9+patch → 1.0.0
+          if [ "$PATCH" -gt 9 ]; then
+            PATCH=0
+            MINOR=$((MINOR + 1))
+          fi
+          if [ "$MINOR" -gt 9 ]; then
+            MINOR=0
+            MAJOR=$((MAJOR + 1))
+          fi
 
           NEW_VERSION="$MAJOR.$MINOR.$PATCH"
 
