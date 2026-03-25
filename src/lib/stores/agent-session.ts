@@ -14,6 +14,7 @@ export interface AgentSessionState {
   currentSpeed: number;  // tokens/second during active streaming (shown in footer metrics)
   elapsed: number;       // ms since session started (shown in footer metrics)
   turnCount: number;
+  projectId: string;     // which project this session belongs to
 }
 
 // All known sessions (both active and restored)
@@ -106,7 +107,7 @@ export function incrementTurnCount(sessionId: string): void {
 }
 
 // Helper: create session state from summary
-export function sessionFromSummary(summary: SessionSummary): AgentSessionState {
+export function sessionFromSummary(summary: SessionSummary, projectId: string = ''): AgentSessionState {
   return {
     id: summary.id,
     provider: summary.provider,
@@ -120,5 +121,6 @@ export function sessionFromSummary(summary: SessionSummary): AgentSessionState {
     currentSpeed: 0,
     elapsed: 0,
     turnCount: 0,
+    projectId,
   };
 }

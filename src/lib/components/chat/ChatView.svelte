@@ -5,7 +5,7 @@
   import ChatInput from './ChatInput.svelte';
   import { agentEvents, streamingSessionIds, setSessionEvents, setStreaming } from '$lib/stores/agent-events';
   import { agentSessions, upsertSession, incrementTurnCount } from '$lib/stores/agent-session';
-  import { projectRoot } from '$lib/stores/files';
+  import { projectRoot, activeProjectId } from '$lib/stores/projects';
   import { llmConfigs } from '$lib/stores/config';
   import { get } from 'svelte/store';
   import { MODEL_INFO } from '$lib/data/model-info';
@@ -72,6 +72,7 @@
         currentSpeed: 0,
         elapsed: 0,
         turnCount: 0,
+        projectId: get(activeProjectId) ?? '',
       });
     }
   });
