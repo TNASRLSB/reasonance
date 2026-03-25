@@ -168,8 +168,9 @@ jobs:
 
           git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml aur/PKGBUILD CHANGELOG.md
           git commit -m "[release] v${NEW} [skip ci]"
-          git tag "v${NEW}"
-          git push origin main --tags
+          # Force-create tag in case a previous failed run left an orphan
+          git tag -f "v${NEW}"
+          git push origin main --tags --force
 
   build:
     needs: [analyze, version]
