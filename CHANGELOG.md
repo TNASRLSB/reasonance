@@ -1,5 +1,52 @@
 # Changelog
 
+## [0.15.0] - 2026-03-25
+
+### Features
+
+- feat(a11y): upgrade default themes to WCAG 2.2 AAA contrast + 44px target size
+
+### Other
+
+- pair meets 7:1 (AAA normal) or 4.5:1 (AAA large) contrast. Borders and
+- focus indicators meet 3:1 non-text contrast. Add --interactive-min: 44px
+- for AAA target size (2.5.5). Align fallback-theme.ts and fix its var()
+- reference in --overlay-border.
+- 
+- Dark theme: lighter accent (#8ab8ff), success (#22c55e), danger (#fa8080),
+- warning (#d4a020), border (#7a7a7a), secondary/muted text lightened.
+- Light theme: darker accent (#16488e), success (#096028), warning (#6e4c00),
+- danger (#a51a1a), border (#808080), disabled/placeholder darkened.
+- Both: toolbar 52px, statusbar 52px, interactive-min 44px.
+- 
+- 67/67 contrast checks pass. 0 new svelte-check errors.
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: Reasonance <reasonance@users.noreply.github.com>
+- 
+- refactor(theme): separate theme/app CSS — wire all hardcoded values to theme variables
+- and fallback. Replace ~110 hardcoded rgba/hex/z-index values in ~35 components
+- with var() references, making every visual aspect fully themeable.
+- 
+- Changes:
+- - Add shadows (sm/md/lg/overlay), overlays (bg/border), highlights (subtle/hover/diff/terminal-selection) sections
+- - Add --font-size-xs to typography, redesign z-index layers from 0-5 to realistic scale (0-9999)
+- - Replace overlay backgrounds in 8 dialogs with var(--overlay-bg)
+- - Replace box-shadow in 5 components with var(--shadow-*)
+- - Replace highlight/diff rgba in 6 components with var(--highlight-*/--diff-*)
+- - Wire terminal selection to var(--terminal-selection) via getToken()
+- - Replace z-index literals in 21 components with var(--layer-*)
+- - Strip ~165 dead hex fallbacks from var() calls in 20 components
+- - Fix --color-error → --danger, remove --font-size-xs fallbacks
+- - Update theme-types.ts (14 sections), theme-schema.json, all theme JSON files
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: Reasonance <reasonance@users.noreply.github.com>
+
+
+
 ## [0.14.0] - 2026-03-24
 
 ### Features
