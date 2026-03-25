@@ -3,11 +3,15 @@
   import Toolbar from './Toolbar.svelte';
   import StatusBar from './StatusBar.svelte';
   import AnalyticsDashboard from './AnalyticsDashboard.svelte';
+  import ProjectSidebar from './project/ProjectSidebar.svelte';
+  import ProjectQuickSwitcher from './project/ProjectQuickSwitcher.svelte';
   import { get } from 'svelte/store';
   import { fileTreeWidth, terminalWidth, analyticsDashboard } from '$lib/stores/ui';
   import { startUpdateChecker } from '$lib/updater';
   import { startLiveTracking } from '$lib/stores/analytics';
   import { llmConfigs, appSettings } from '$lib/stores/config';
+  import { projectSummaries, switchProject, projectRoot } from '$lib/stores/projects';
+  import { getCurrentWindow } from '@tauri-apps/api/window';
   import type { Snippet } from 'svelte';
   import type { Adapter } from '$lib/adapter/index';
 
@@ -20,6 +24,17 @@
 
   let draggingLeft = $state(false);
   let draggingRight = $state(false);
+  let showQuickSwitcher = $state(false);
+  let sidebarCollapsed = $state(false);
+
+  // Update window title when active project changes
+  $effect(() => {
+    const root = $projectRoot;
+    if (root) {
+      const label = root.split('/').pop() || root;
+      getCurrentWindow().setTitle(`${label} — Reasonance`);
+    }
+  });
 
   onMount(() => {
     startUpdateChecker();
@@ -61,6 +76,30 @@
         appSettings.set({ default: configs[index].name });
       }
     }
+
+    // Alt+1..9 → switch to project N
+    if (e.altKey && !e.ctrlKey && !e.shiftKey && e.key >= '1' && e.key <= '9') {
+      const index = parseInt(e.key) - 1;
+      const summaries = get(projectSummaries);
+      if (index < summaries.length) {
+        e.preventDefault();
+        switchProject(summaries[index].id);
+      }
+    }
+
+    // Ctrl+Shift+E → toggle quick switcher
+    if (e.ctrlKey && e.shiftKey && e.key === 'E') {
+      e.preventDefault();
+      showQuickSwitcher = !showQuickSwitcher;
+      return;
+    }
+
+    // Ctrl+B → toggle sidebar collapsed
+    if (e.ctrlKey && !e.shiftKey && !e.altKey && e.key === 'b') {
+      e.preventDefault();
+      sidebarCollapsed = !sidebarCollapsed;
+      return;
+    }
   }
 
   function onDividerKeydown(e: KeyboardEvent, which: 'left' | 'right') {
@@ -95,6 +134,7 @@
   {/if}
   <!-- Skip links (visually hidden, visible on focus) -->
   <div class="skip-links">
+    <a class="skip-link" href="#project-sidebar">Skip to projects</a>
     <a class="skip-link" href="#file-tree">Skip to file tree</a>
     <a class="skip-link" href="#editor">Skip to editor</a>
     <a class="skip-link" href="#terminal">Skip to terminal</a>
@@ -105,6 +145,12 @@
   </header>
 
   <div class="main-content" data-main-content>
+    {#if !sidebarCollapsed}
+      <div id="project-sidebar">
+        <ProjectSidebar />
+      </div>
+    {/if}
+
     <nav id="file-tree" aria-label="File explorer" class="panel file-tree" style="width: {$fileTreeWidth}px">
       <svelte:boundary>
         {#if fileTree}
@@ -174,6 +220,10 @@
   <footer>
     <StatusBar />
   </footer>
+
+  {#if showQuickSwitcher}
+    <ProjectQuickSwitcher open={showQuickSwitcher} onClose={() => { showQuickSwitcher = false; }} />
+  {/if}
 </div>
 
 <style>
