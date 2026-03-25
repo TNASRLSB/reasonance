@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.0.2] - 2026-03-25
+
+### Bug Fixes
+
+- fix(ci): handle orphan tags from failed runs + force-push tags
+
+### Other
+
+- the next run would fail with "tag already exists". Now uses
+- git tag -f to overwrite orphan tags.
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+
+
+
 ## [1.0.1] - 2026-03-25
 
 ### Bug Fixes
