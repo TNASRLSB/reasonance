@@ -348,4 +348,25 @@ export class TauriAdapter implements Adapter {
   async getNormalizerConfig(provider: string): Promise<{ permission_args?: string[] } | null> {
     return invoke<{ permission_args?: string[] } | null>('get_normalizer_config', { provider });
   }
+
+  // Multi-project
+  async addProject(id: string, rootPath: string, trustLevel: string): Promise<void> {
+    await invoke('add_project', { id, rootPath, trustLevel });
+  }
+
+  async removeProject(id: string): Promise<void> {
+    await invoke('remove_project', { id });
+  }
+
+  async setActiveProject(id: string): Promise<void> {
+    await invoke('set_active_project', { id });
+  }
+
+  async getProjectRoot(projectId: string): Promise<string> {
+    return invoke('get_project_root', { projectId });
+  }
+
+  async killProjectProcesses(id: string): Promise<string[]> {
+    return invoke('kill_project_ptys', { projectId: id });
+  }
 }
