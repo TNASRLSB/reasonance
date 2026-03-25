@@ -14,7 +14,7 @@
   import { TauriAdapter } from '$lib/adapter/tauri';
   import { initThemeEngine } from '$lib/stores/theme';
   import { openFiles, activeFilePath, projectRoot } from '$lib/stores/files';
-  import { addProject, setActiveFile, updateFileContent, updateFileState } from '$lib/stores/projects';
+  import { addProject, removeProject, activeProjectId, setActiveFile, updateFileContent, updateFileState } from '$lib/stores/projects';
   import { showSettings, enhancedReadability, showHiveCanvas, showThemeEditor } from '$lib/stores/ui';
   import { activeInstance } from '$lib/stores/terminals';
   import { llmConfigs } from '$lib/stores/config';
@@ -31,6 +31,7 @@
   import { onMount, onDestroy } from 'svelte';
   import { get } from 'svelte/store';
   import { attachConsole } from '@tauri-apps/plugin-log';
+  import { listen } from '@tauri-apps/api/event';
   import '../app.css';
 
   function isActiveSessionYolo(): boolean {
@@ -134,6 +135,9 @@
   async function openFolder() {
     const selected = await adapter.openFolderDialog();
     if (selected) {
+      addProject(selected);
+      try { await adapter.addProject(get(activeProjectId), selected, 'trusted'); } catch { /* non-fatal */ }
+      try { await adapter.setProjectRoot(selected); } catch { /* non-fatal */ }
       await switchProject(selected);
     }
   }
@@ -261,6 +265,23 @@
     const handleSaveAll = () => saveAllFiles();
     document.addEventListener('reasonance:saveAll', handleSaveAll);
     cleanups.push(() => document.removeEventListener('reasonance:saveAll', handleSaveAll));
+
+    // Listen for close-project custom event
+    const handleCloseProject = async () => {
+      const id = get(activeProjectId);
+      if (!id) return;
+      try { await adapter.killProjectProcesses(id); } catch { /* non-fatal */ }
+      try { await adapter.removeProject(id); } catch { /* non-fatal */ }
+      removeProject(id);
+    };
+    document.addEventListener('reasonance:closeProject', handleCloseProject);
+    cleanups.push(() => document.removeEventListener('reasonance:closeProject', handleCloseProject));
+
+    // Listen for CLI-initiated project open
+    const unlistenCli = await listen<string>('cli-open-project', (event) => {
+      addProject(event.payload);
+    });
+    cleanups.push(unlistenCli);
 
     // Start watching the project directory for external changes
     const root = get(projectRoot);
