@@ -4,7 +4,6 @@
     switchProject,
     removeProject,
     addProject,
-    updateProjectRoot,
   } from '$lib/stores/projects';
   import type { ProjectSummary } from '$lib/stores/projects';
 
