@@ -7,7 +7,7 @@
     "type": "theme",
     "colorScheme": "dark",
     "editorTheme": "one-dark",
-    "schemaVersion": 1
+    "schemaVersion": 2
   },
   "colors": {
     "--bg-primary": "#1b1d23",
