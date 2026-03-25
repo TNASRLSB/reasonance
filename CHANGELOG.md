@@ -1,5 +1,51 @@
 # Changelog
 
+## [0.17.0] - 2026-03-25
+
+### Features
+
+- feat(a11y): WCAG Phase 1B-2 — ARIA attributes, semantic HTML, i18n lang
+
+### Other
+
+- 
+- Icon buttons (4.1.2):
+- - Add aria-labels to 11 icon-only buttons (HiveControls ×5, FileTree ×2,
+-   WelcomeScreen ×4) that only had title attributes
+- 
+- Decorative icons (1.1.1):
+- - Add aria-hidden="true" to StatusBar progress symbols and notification
+-   type icons (6 instances) — adjacent text provides meaning
+- 
+- EditorTabs restructuring (4.1.2, 1.3.1):
+- - CRITICAL: Fix nested interactive violation — buttons (save/close) moved
+-   from inside role="tab" to sibling position (.tab → .tab-wrapper/.tab-label)
+- - Move role="tablist" to .tabs-scroll for correct ARIA ownership
+- - Add tabpanel wrapper with aria-labelledby in +page.svelte
+- - Add sanitizeId() utility for valid HTML IDs from file paths
+- - Fix keyboard handler to use .closest('[role="tablist"]')
+- - Update a11y tests for new structure
+- 
+- Settings (1.3.1, 3.3.1):
+- - Convert 6 sections to fieldset/legend with CSS reset
+- - Add aria-invalid + aria-describedby on command/endpoint inputs
+- - Add role="alert" to import error, aria-hidden to connection test icons
+- - Add aria-pressed to theme selection buttons
+- 
+- ThemeEditor (4.1.2):
+- - Add aria-pressed to mode toggle buttons (theme/modifier)
+- 
+- i18n (3.1.1):
+- - Update document.documentElement.lang on locale change
+- 
+- 0 new svelte-check errors. All verification checks pass.
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: Reasonance <reasonance@users.noreply.github.com>
+
+
+
 ## [0.16.0] - 2026-03-25
 
 ### Features
