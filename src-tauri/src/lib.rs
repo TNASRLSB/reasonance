@@ -43,7 +43,7 @@ use commands::fs::ProjectRootState;
 use fs_watcher::FsWatcherState;
 use pty_manager::PtyManager;
 use shadow_store::ShadowStore;
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 use log::info;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -91,8 +91,13 @@ pub fn run() {
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
-        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-            // Focus the existing window when a second instance is launched
+        .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+            // If a path argument was provided, emit event to frontend
+            if args.len() > 1 {
+                if let Some(path) = args.get(1) {
+                    let _ = app.emit("cli-open-project", path.as_str());
+                }
+            }
             if let Some(w) = app.get_webview_window("main") {
                 let _ = w.set_focus();
             }
