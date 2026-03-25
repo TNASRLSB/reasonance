@@ -62,14 +62,14 @@
 
 <div class="hive-controls">
   {#if status === 'idle' || status === 'stopped' || status === 'completed' || status === 'failed'}
-    <button class="ctrl-btn play" onclick={play} title="Play">&#9654;</button>
+    <button class="ctrl-btn play" onclick={play} title="Play" aria-label="Play workflow">&#9654;</button>
   {:else if status === 'running'}
-    <button class="ctrl-btn pause" onclick={pause} title="Pause">&#9646;&#9646;</button>
+    <button class="ctrl-btn pause" onclick={pause} title="Pause" aria-label="Pause workflow">&#9646;&#9646;</button>
   {:else if status === 'paused'}
-    <button class="ctrl-btn resume" onclick={resume} title="Resume">&#9654;</button>
+    <button class="ctrl-btn resume" onclick={resume} title="Resume" aria-label="Resume workflow">&#9654;</button>
   {/if}
-  <button class="ctrl-btn stop" onclick={stop} title="Stop" disabled={status === 'idle' || status === 'stopped'}>&#9632;</button>
-  <button class="ctrl-btn step" onclick={step} title="Step" disabled={status !== 'paused' && status !== 'running'}>&#9654;|</button>
+  <button class="ctrl-btn stop" onclick={stop} title="Stop" aria-label="Stop workflow" disabled={status === 'idle' || status === 'stopped'}>&#9632;</button>
+  <button class="ctrl-btn step" onclick={step} title="Step" aria-label="Step workflow" disabled={status !== 'paused' && status !== 'running'}>&#9654;|</button>
 </div>
 
 <style>

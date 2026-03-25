@@ -93,3 +93,8 @@ export function toolbarKeyHandler(e: KeyboardEvent, container: HTMLElement, sele
   items.forEach((item, i) => item.tabIndex = i === next ? 0 : -1);
   items[next].focus();
 }
+
+/** Sanitize a string for use as an HTML id attribute */
+export function sanitizeId(path: string): string {
+  return path.replace(/[^a-zA-Z0-9-_]/g, '-');
+}

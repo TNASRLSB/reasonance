@@ -256,8 +256,8 @@
   <div class="tree-header">
     <span>{currentRoot === '.' ? 'FILES' : currentRoot.split('/').pop()}</span>
     <span class="tree-header-actions">
-      <button class="tree-action-btn" title={$tr('a11y.newFile')} onclick={() => { ctxTargetDir = currentRoot; startInlineCreate('file'); }}>+</button>
-      <button class="tree-action-btn" title={$tr('a11y.newFolder')} onclick={() => { ctxTargetDir = currentRoot; startInlineCreate('folder'); }}>&#128193;</button>
+      <button class="tree-action-btn" title={$tr('a11y.newFile')} aria-label={$tr('a11y.newFile')} onclick={() => { ctxTargetDir = currentRoot; startInlineCreate('file'); }}>+</button>
+      <button class="tree-action-btn" title={$tr('a11y.newFolder')} aria-label={$tr('a11y.newFolder')} onclick={() => { ctxTargetDir = currentRoot; startInlineCreate('folder'); }}>&#128193;</button>
     </span>
   </div>
 

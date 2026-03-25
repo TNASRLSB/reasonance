@@ -1,6 +1,7 @@
 <script lang="ts">
   import { get } from 'svelte/store';
   import { openFiles, activeFilePath, closeFile } from '$lib/stores/files';
+  import { sanitizeId } from '$lib/utils/a11y';
   import { tr } from '$lib/i18n/index';
   import type { Snippet } from 'svelte';
 
@@ -40,34 +41,35 @@
       const nextIndex = e.key === 'ArrowRight'
         ? (index + 1) % files.length
         : (index - 1 + files.length) % files.length;
-      const tablist = (e.currentTarget as HTMLElement).parentElement;
+      const tablist = (e.currentTarget as HTMLElement).closest('[role="tablist"]') as HTMLElement;
       const tabs = tablist?.querySelectorAll<HTMLElement>('[role="tab"]');
       tabs?.[nextIndex]?.focus();
     }
   }
 </script>
 
-<div class="editor-tabs" role="tablist">
-  <div class="tabs-scroll">
+<div class="editor-tabs">
+  <div class="tabs-scroll" role="tablist">
     {#each $openFiles as file, i (file.path)}
-      <div
-        class="tab"
-        class:active={$activeFilePath === file.path}
-        class:deleted={file.isDeleted}
-        class:dirty={file.isDirty}
-        role="tab"
-        tabindex={$activeFilePath === file.path ? 0 : -1}
-        aria-selected={$activeFilePath === file.path}
-        onclick={() => switchTab(file.path)}
-        onkeydown={(e) => handleKeyDown(e, file.path, i)}
-      >
-        <span class="tab-name">
-          {#if file.isDeleted}
-            <em>{file.name} {$tr('editor.deleted')}</em>
-          {:else}
-            {file.name}{file.isDirty ? ' ●' : ''}
-          {/if}
-        </span>
+      <div class="tab-wrapper" class:active={$activeFilePath === file.path} class:deleted={file.isDeleted} class:dirty={file.isDirty}>
+        <div
+          class="tab-label"
+          role="tab"
+          id="tab-{sanitizeId(file.path)}"
+          tabindex={$activeFilePath === file.path ? 0 : -1}
+          aria-selected={$activeFilePath === file.path}
+          aria-controls="tabpanel-editor"
+          onclick={() => switchTab(file.path)}
+          onkeydown={(e) => handleKeyDown(e, file.path, i)}
+        >
+          <span class="tab-name">
+            {#if file.isDeleted}
+              <em>{file.name} {$tr('editor.deleted')}</em>
+            {:else}
+              {file.name}{file.isDirty ? ' ●' : ''}
+            {/if}
+          </span>
+        </div>
         {#if file.isDirty && !file.isDeleted}
           <button
             class="tab-save"
@@ -129,7 +131,7 @@
     border-inline-start: 1px solid var(--border);
   }
 
-  .tab {
+  .tab-wrapper {
     display: flex;
     align-items: center;
     gap: var(--interactive-gap);
@@ -148,22 +150,30 @@
     border-bottom: 2px solid transparent;
   }
 
-  .tab:hover {
+  .tab-wrapper:hover {
     background: var(--bg-secondary);
     color: var(--text-primary);
   }
 
-  .tab.active {
+  .tab-wrapper.active {
     background: var(--bg-primary);
     color: var(--text-primary);
     border-bottom: 2px solid var(--accent);
     font-weight: 600;
   }
 
-  .tab.deleted .tab-name {
+  .tab-wrapper.deleted .tab-name {
     color: var(--text-secondary);
     font-style: italic;
     opacity: 0.7;
+  }
+
+  .tab-label {
+    cursor: pointer;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    min-width: 0;
   }
 
   .tab-name {

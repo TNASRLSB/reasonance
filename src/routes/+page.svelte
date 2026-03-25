@@ -19,7 +19,7 @@
   import { llmConfigs } from '$lib/stores/config';
   import { initI18n, tr } from '$lib/i18n/index';
   import { registerKeybinding, initKeybindings } from '$lib/utils/keybindings';
-  import Toast from '$lib/components/Toast.svelte';
+  import { sanitizeId } from '$lib/utils/a11y';
   import { showToast } from '$lib/stores/toast';
   import HiveCanvas from '$lib/components/hive/HiveCanvas.svelte';
   import ShortcutsDialog from '$lib/components/ShortcutsDialog.svelte';
@@ -404,21 +404,23 @@
             {/if}
           {/snippet}
         </EditorTabs>
-        {#if showHelp}
-          <HelpPanel />
-        {:else if diffState}
-          <DiffView
-            original={diffState.original}
-            modified={diffState.modified}
-            filename={diffState.filename}
-            {adapter}
-            filePath={diffState.path}
-            onAccept={handleAccept}
-            onReject={handleReject}
-          />
-        {:else}
-          <Editor {adapter} readOnly={editorReadOnly} {showMarkdownPreview} />
-        {/if}
+        <div role="tabpanel" id="tabpanel-editor" aria-labelledby={$activeFilePath ? `tab-${sanitizeId($activeFilePath)}` : undefined}>
+          {#if showHelp}
+            <HelpPanel />
+          {:else if diffState}
+            <DiffView
+              original={diffState.original}
+              modified={diffState.modified}
+              filename={diffState.filename}
+              {adapter}
+              filePath={diffState.path}
+              onAccept={handleAccept}
+              onReject={handleReject}
+            />
+          {:else}
+            <Editor {adapter} readOnly={editorReadOnly} {showMarkdownPreview} />
+          {/if}
+        </div>
       {/if}
     {/snippet}
 
@@ -484,8 +486,6 @@
   onClose={() => { showSessions = false; }}
   onRestore={(id) => { /* TODO: wire session restore */ }}
 />
-
-<Toast />
 
 <style>
 

@@ -95,7 +95,7 @@
           onmouseenter={() => pauseToastTimer(currentToast!.id)}
           onmouseleave={() => resumeToastTimer(currentToast!.id)}
         >
-          <span class="notif-icon" style="color: {typeColors[currentToast.type] ?? typeColors.info}">
+          <span class="notif-icon" aria-hidden="true" style="color: {typeColors[currentToast.type] ?? typeColors.info}">
             {typeIcons[currentToast.type] ?? typeIcons.info}
           </span>
           <span class="notif-text" title={currentToast.body || currentToast.title}>
@@ -143,13 +143,13 @@
           <span class="msg-status">msg: {activeInstanceData.messagesLeft}</span>
         {/if}
         {#if activeInstanceData.progressState === 1}
-          <span class="progress-status">&#9654; {activeInstanceData.progressValue}%</span>
+          <span class="progress-status"><span aria-hidden="true">&#9654;</span> {activeInstanceData.progressValue}%</span>
         {:else if activeInstanceData.progressState === 2}
-          <span class="progress-status error">&#10007; error</span>
+          <span class="progress-status error"><span aria-hidden="true">&#10007;</span> error</span>
         {:else if activeInstanceData.progressState === 3}
-          <span class="progress-status">&#8943; working</span>
+          <span class="progress-status"><span aria-hidden="true">&#8943;</span> working</span>
         {:else if activeInstanceData.progressState === 4}
-          <span class="progress-status paused">&#10074;&#10074; paused</span>
+          <span class="progress-status paused"><span aria-hidden="true">&#10074;&#10074;</span> paused</span>
         {/if}
       {:else}
         <span class="idle-hint">{$tr('status.noSession')}</span>
@@ -181,7 +181,7 @@
         onmouseenter={() => pauseToastTimer(toast.id)}
         onmouseleave={() => resumeToastTimer(toast.id)}
       >
-        <span class="notif-icon" style="color: {typeColors[toast.type] ?? typeColors.info}">
+        <span class="notif-icon" aria-hidden="true" style="color: {typeColors[toast.type] ?? typeColors.info}">
           {typeIcons[toast.type] ?? typeIcons.info}
         </span>
         <div class="notif-flyout-content">

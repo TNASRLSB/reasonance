@@ -455,8 +455,8 @@
 
       <div class="modal-body">
         <!-- LLM Configuration -->
-        <section>
-          <h3>{$tr('settings.llm.title')}</h3>
+        <fieldset>
+          <legend>{$tr('settings.llm.title')}</legend>
 
           <!-- Default LLM selector -->
           <div class="field-row">
@@ -535,8 +535,10 @@
                 <div class="field-row">
                   <label for="llm-command">{$tr('settings.llm.command')}</label>
                   <input id="llm-command" type="text" bind:value={newLlm.command} placeholder="e.g. claude"
-                    oninput={() => { commandError = validateCommand(newLlm.command ?? ''); }} />
-                  {#if commandError}<span class="field-error">{commandError}</span>{/if}
+                    oninput={() => { commandError = validateCommand(newLlm.command ?? ''); }}
+                    aria-invalid={!!commandError || undefined}
+                    aria-describedby={commandError ? 'llm-command-error' : undefined} />
+                  {#if commandError}<span id="llm-command-error" role="alert" class="field-error">{commandError}</span>{/if}
                 </div>
                 <div class="field-row">
                   <label for="llm-args">{$tr('settings.llm.args')}</label>
@@ -588,8 +590,10 @@
                   <div class="field-row">
                     <label for="llm-endpoint">{$tr('settings.llm.endpoint')}</label>
                     <input id="llm-endpoint" type="text" bind:value={newLlm.endpoint} placeholder="https://api.example.com/v1"
-                      oninput={() => { endpointError = validateEndpoint(newLlm.endpoint ?? ''); }} />
-                    {#if endpointError}<span class="field-error">{endpointError}</span>{/if}
+                      oninput={() => { endpointError = validateEndpoint(newLlm.endpoint ?? ''); }}
+                      aria-invalid={!!endpointError || undefined}
+                      aria-describedby={endpointError ? 'llm-endpoint-error' : undefined} />
+                    {#if endpointError}<span id="llm-endpoint-error" role="alert" class="field-error">{endpointError}</span>{/if}
                   </div>
                 {/if}
               {/if}
@@ -600,11 +604,11 @@
               </div>
             </div>
           {/if}
-        </section>
+        </fieldset>
 
         <!-- Language -->
-        <section>
-          <h3>{$tr('settings.language')}</h3>
+        <fieldset>
+          <legend>{$tr('settings.language')}</legend>
           <div class="field-row">
             <label for="language-select">{$tr('settings.language')}</label>
             <select id="language-select" bind:value={localLocale}>
@@ -613,11 +617,11 @@
               {/each}
             </select>
           </div>
-        </section>
+        </fieldset>
 
         <!-- Terminal Settings -->
-        <section>
-          <h3>{$tr('settings.terminal.title')}</h3>
+        <fieldset>
+          <legend>{$tr('settings.terminal.title')}</legend>
           <div class="field-row">
             <span class="field-label">{$tr('settings.font')}</span>
             <span class="font-preview">Atkinson Hyperlegible Mono</span>
@@ -626,11 +630,11 @@
             <label for="font-size">{$tr('settings.fontSize')}</label>
             <input id="font-size" type="number" min="8" max="32" bind:value={localFontSize} />
           </div>
-        </section>
+        </fieldset>
 
         <!-- Accessibility -->
-        <section>
-          <h3>{$tr('settings.accessibility.title')}</h3>
+        <fieldset>
+          <legend>{$tr('settings.accessibility.title')}</legend>
           <div class="field-row">
             <label for="enhanced-readability">{$tr('settings.readability')}</label>
             <button
@@ -645,7 +649,7 @@
             </button>
           </div>
           <p class="field-hint">{$tr('settings.readability.hint')}</p>
-        </section>
+        </fieldset>
 
         <!-- Theme -->
         <section>
@@ -655,6 +659,7 @@
               class="theme-btn"
               class:active={localActiveTheme === 'reasonance-dark'}
               onclick={() => (localActiveTheme = 'reasonance-dark')}
+              aria-pressed={localActiveTheme === 'reasonance-dark'}
             >
               Dark
             </button>
@@ -662,6 +667,7 @@
               class="theme-btn"
               class:active={localActiveTheme === 'reasonance-light'}
               onclick={() => (localActiveTheme = 'reasonance-light')}
+              aria-pressed={localActiveTheme === 'reasonance-light'}
             >
               Light
             </button>
@@ -670,6 +676,7 @@
                 class="theme-btn"
                 class:active={localActiveTheme === ut}
                 onclick={() => (localActiveTheme = ut)}
+                aria-pressed={localActiveTheme === ut}
               >
                 {ut}
               </button>
@@ -718,13 +725,13 @@
             </button>
           </div>
           {#if importError}
-            <p class="field-error">{importError}</p>
+            <p class="field-error" role="alert">{importError}</p>
           {/if}
         </section>
 
         <!-- Updates -->
-        <section>
-          <h3>{$tr('settings.updates')}</h3>
+        <fieldset>
+          <legend>{$tr('settings.updates')}</legend>
 
           <div class="field-row">
             <label for="auto-update">{$tr('settings.autoUpdate')}</label>
@@ -762,12 +769,12 @@
           <div class="field-row version-label">
             v{__APP_VERSION__}
           </div>
-        </section>
+        </fieldset>
 
         <!-- Provider Settings -->
-        <section>
+        <fieldset>
           <div class="provider-section-header">
-            <h3>{$tr('settings.provider.title')}</h3>
+            <legend>{$tr('settings.provider.title')}</legend>
             <button
               class="scan-cli-btn"
               onclick={async () => { await adapter.discoverLlms(); providerConfigVersion.update(v => v + 1); }}
@@ -906,7 +913,7 @@
                           {@const isFailed = step.status === 'failed'}
                           {@const isChecking = step.status === 'checking'}
                           <div class="connection-step" role="listitem" class:ok={isOk} class:failed={isFailed} class:checking={isChecking}>
-                            <span class="step-icon">
+                            <span class="step-icon" aria-hidden="true">
                               {isOk ? '✓' : isFailed ? '✗' : '…'}
                             </span>
                             <span class="step-label">
@@ -1021,7 +1028,7 @@
               <span class="range-value">{localBudget.notify_at_percent}%</span>
             </div>
           </div>
-        </section>
+        </fieldset>
       </div>
 
       <div class="modal-footer">
@@ -1109,6 +1116,18 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-5);
+  }
+
+  fieldset {
+    border: none;
+    padding: 0;
+    margin: 0;
+    min-inline-size: 0;
+  }
+  legend {
+    font-size: var(--font-size-md);
+    font-weight: var(--font-weight-md);
+    padding: 0;
   }
 
   section h3 {

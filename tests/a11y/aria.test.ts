@@ -183,20 +183,8 @@ describe('EditorTabs accessibility', () => {
         violations.map(v => `${v.id}: ${v.description}`)
       );
     }
-    // Known violation: nested-interactive — the close <button> is nested inside
-    // div[role="tab"][tabindex="0"]. Screen readers may not announce it properly.
-    // This is a real a11y issue in EditorTabs that should be fixed in the component
-    // (e.g. by removing tabindex from the tab div and relying on the button alone,
-    // or restructuring tab/close as sibling elements).
-    const nestedInteractive = violations.filter(v => v.id === 'nested-interactive');
-    const otherViolations = violations.filter(v => v.id !== 'nested-interactive');
-    if (nestedInteractive.length > 0) {
-      console.warn(
-        'KNOWN ISSUE: EditorTabs has nested interactive controls (button inside tab div).',
-        'This is an accessibility defect that requires component refactoring to fix.'
-      );
-    }
-    expect(otherViolations).toHaveLength(0);
+    // nested-interactive was fixed: buttons are now siblings of role="tab", not children
+    expect(violations).toHaveLength(0);
   });
 
   it('tabs are keyboard-accessible (have tabindex)', async () => {

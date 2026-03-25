@@ -72,5 +72,6 @@ export async function initI18n(): Promise<void> {
   locale.set(loc);
   locale.subscribe((l) => {
     document.documentElement.dir = l === 'ar' ? 'rtl' : 'ltr';
+    document.documentElement.lang = l;
   });
 }

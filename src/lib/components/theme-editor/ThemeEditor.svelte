@@ -242,11 +242,13 @@
           <button
             class="mode-btn"
             class:active={editorMode === 'theme'}
+            aria-pressed={editorMode === 'theme'}
             onclick={() => { editorMode = 'theme'; }}
           >Theme</button>
           <button
             class="mode-btn"
             class:active={editorMode === 'modifier'}
+            aria-pressed={editorMode === 'modifier'}
             onclick={() => { editorMode = 'modifier'; }}
           >Modifier</button>
         </div>

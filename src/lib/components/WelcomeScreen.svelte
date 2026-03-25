@@ -59,13 +59,13 @@
   ondragleave={handleDragLeave}
   ondrop={handleDrop}>
   <div class="top-bar" onmousedown={handleWindowDrag}>
-    <button class="theme-toggle" onclick={cycleTheme} title={$tr('a11y.toggleTheme')}>
+    <button class="theme-toggle" onclick={cycleTheme} title={$tr('a11y.toggleTheme')} aria-label={$tr('a11y.toggleTheme')}>
       {$isDark ? '☀' : '☾'}
     </button>
     <div class="window-controls">
-      <button class="win-btn" onclick={() => adapter.minimizeWindow()} title={$tr('toolbar.minimize')}>&#8722;</button>
-      <button class="win-btn" onclick={() => adapter.maximizeWindow()} title={$tr('toolbar.maximize')}>&#9723;</button>
-      <button class="win-btn close" onclick={() => adapter.closeWindow()} title={$tr('toolbar.close')}>&#10005;</button>
+      <button class="win-btn" onclick={() => adapter.minimizeWindow()} title={$tr('toolbar.minimize')} aria-label="Minimize">&#8722;</button>
+      <button class="win-btn" onclick={() => adapter.maximizeWindow()} title={$tr('toolbar.maximize')} aria-label="Maximize">&#9723;</button>
+      <button class="win-btn close" onclick={() => adapter.closeWindow()} title={$tr('toolbar.close')} aria-label="Close">&#10005;</button>
     </div>
   </div>
   <div class="welcome-content">
