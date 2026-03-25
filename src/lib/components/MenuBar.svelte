@@ -4,6 +4,7 @@
   import { activeThemeName, loadBuiltinTheme, toggleModifier } from '$lib/stores/theme';
   import { showThemeEditor } from '$lib/stores/ui';
   import { activeInstanceId } from '$lib/stores/terminals';
+  import { recentProjectsList, addProject, removeProject, activeProjectId } from '$lib/stores/projects';
   import type { Adapter } from '$lib/adapter/index';
   import type { MenuItemDef } from '$lib/types/menu';
   import MenuItem from './MenuItem.svelte';
@@ -54,14 +55,15 @@
         },
         {
           label: $tr('menu.file.recent'),
-          submenu: [
-            { label: '(none)', action: () => {} },
-          ],
+          submenu: $recentProjectsList.length > 0
+            ? $recentProjectsList.map(item => ({ label: item.label, action: () => addProject(item.path) }))
+            : [{ label: '(none)', action: () => {} }],
         },
         { divider: true },
         { label: $tr('menu.file.save'), shortcut: 'Ctrl+S', action: () => document.dispatchEvent(new CustomEvent('reasonance:save')) },
         { label: $tr('menu.file.saveAll'), shortcut: 'Ctrl+Shift+S', action: () => document.dispatchEvent(new CustomEvent('reasonance:saveAll')) },
         { label: $tr('menu.file.closeFile'), shortcut: 'Ctrl+W', action: () => document.dispatchEvent(new CustomEvent('reasonance:closeFile')) },
+        { label: $tr('menu.file.closeProject'), action: () => document.dispatchEvent(new CustomEvent('reasonance:closeProject')) },
         { divider: true },
         { label: $tr('menu.file.exit'), action: () => window.close() },
       ],
