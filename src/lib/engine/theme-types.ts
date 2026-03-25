@@ -33,6 +33,9 @@ export interface ThemeFile {
   transitions?: ThemeSection;
   layout?: ThemeSection;
   layers?: ThemeSection;
+  shadows?: ThemeSection;
+  overlays?: ThemeSection;
+  highlights?: ThemeSection;
   'when-dark'?: ConditionalOverrides;
   'when-light'?: ConditionalOverrides;
 }
@@ -45,7 +48,8 @@ export interface ThemePreferences {
 /** All section keys (excluding meta and when-* conditionals) */
 export const THEME_SECTIONS = [
   'colors', 'hues', 'states', 'ui-states', 'typography',
-  'spacing', 'borders', 'focus', 'transitions', 'layout', 'layers'
+  'spacing', 'borders', 'focus', 'transitions', 'layout', 'layers',
+  'shadows', 'overlays', 'highlights'
 ] as const;
 
 export type ThemeSectionKey = typeof THEME_SECTIONS[number];

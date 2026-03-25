@@ -57,15 +57,15 @@
     flex-direction: column;
     width: 180px;
     flex-shrink: 0;
-    background: var(--bg-surface, #141414);
-    border-right: 1px solid var(--border, #2a2a2a);
+    background: var(--bg-surface);
+    border-right: 1px solid var(--border);
     height: 100%;
     overflow: hidden;
   }
 
   .search-wrap {
     padding: var(--space-2, 8px);
-    border-bottom: 1px solid var(--border, #2a2a2a);
+    border-bottom: 1px solid var(--border);
     flex-shrink: 0;
   }
 
@@ -73,19 +73,19 @@
     width: 100%;
     font-size: 12px;
     font-family: var(--font-ui, sans-serif);
-    background: var(--bg-tertiary, #1a1a1a);
-    border: 1px solid var(--border, #333);
-    color: var(--text-primary, #eee);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
     padding: 4px 8px;
     box-sizing: border-box;
   }
 
   .search-input::placeholder {
-    color: var(--text-muted, #666);
+    color: var(--text-muted);
   }
 
   .search-input:focus {
-    outline: var(--focus-ring, 2px solid #4a9eff);
+    outline: var(--focus-ring);
     outline-offset: 1px;
   }
 
@@ -103,7 +103,7 @@
     text-align: left;
     background: transparent;
     border: none;
-    color: var(--text-secondary, #aaa);
+    color: var(--text-secondary);
     font-size: 12px;
     font-family: var(--font-mono, monospace);
     padding: 6px 12px;
@@ -115,29 +115,29 @@
   }
 
   .section-item:hover {
-    background: var(--bg-hover, #252525);
-    color: var(--text-primary, #eee);
+    background: var(--bg-hover);
+    color: var(--text-primary);
   }
 
   .section-item.active {
-    background: var(--bg-hover, #252525);
-    color: var(--accent-text, #7ac7ff);
+    background: var(--bg-hover);
+    color: var(--accent-text);
     font-weight: 700;
-    border-left: 2px solid var(--accent, #4a9eff);
+    border-left: 2px solid var(--accent);
     padding-left: 10px;
   }
 
   .sidebar-footer {
     padding: var(--space-2, 8px);
-    border-top: 1px solid var(--border, #2a2a2a);
+    border-top: 1px solid var(--border);
     flex-shrink: 0;
   }
 
   .json-toggle-btn {
     width: 100%;
-    background: var(--bg-tertiary, #1a1a1a);
-    border: 1px solid var(--border, #333);
-    color: var(--text-muted, #888);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
     font-size: 11px;
     font-family: var(--font-mono, monospace);
     padding: 4px 8px;
@@ -146,7 +146,7 @@
   }
 
   .json-toggle-btn:hover {
-    background: var(--bg-hover, #252525);
-    color: var(--text-primary, #eee);
+    background: var(--bg-hover);
+    color: var(--text-primary);
   }
 </style>

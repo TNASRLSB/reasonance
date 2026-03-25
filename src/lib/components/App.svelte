@@ -181,7 +181,7 @@
     position: fixed;
     top: 0;
     left: 0;
-    z-index: 9999;
+    z-index: var(--layer-top);
     pointer-events: none;
   }
 
@@ -216,7 +216,7 @@
     border: 2px solid var(--accent);
     outline: var(--focus-ring);
     outline-offset: var(--focus-offset);
-    z-index: 10000;
+    z-index: calc(var(--layer-top) + 1);
     pointer-events: auto;
   }
 
@@ -241,7 +241,7 @@
   .resize-overlay {
     position: fixed;
     inset: 0;
-    z-index: 9998;
+    z-index: calc(var(--layer-top) - 1);
     cursor: col-resize;
   }
 
@@ -286,7 +286,7 @@
     flex-shrink: 0;
     transition: background var(--transition-fast);
     position: relative;
-    z-index: 10;
+    z-index: var(--layer-raised);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -301,7 +301,7 @@
     bottom: 0;
     left: -4px;
     right: -4px;
-    z-index: 11;
+    z-index: calc(var(--layer-raised) + 1);
     cursor: col-resize;
   }
 

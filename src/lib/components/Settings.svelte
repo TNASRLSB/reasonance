@@ -5,9 +5,11 @@
   import type { LlmConfig, AppSettings } from '$lib/stores/config';
   import { llmConfigs, appSettings } from '$lib/stores/config';
   import { fontFamily, fontSize, enhancedReadability } from '$lib/stores/ui';
-  import { themeMode, type ThemeMode, activeThemeName, loadBuiltinTheme, toggleModifier, activeModifierNames } from '$lib/stores/theme';
+  import { themeMode, type ThemeMode, activeThemeName, loadBuiltinTheme, toggleModifier, activeModifierNames, suppressFileWatcher } from '$lib/stores/theme';
   import { validateTheme } from '$lib/engine/theme-validator';
   import { invoke } from '@tauri-apps/api/core';
+  import { open as openFileDialog } from '@tauri-apps/plugin-dialog';
+  import { readTextFile } from '@tauri-apps/plugin-fs';
   import type { ThemeFile } from '$lib/engine/theme-types';
   import { tr, t, locale, loadLocale, type Locale } from '$lib/i18n/index';
   import { get } from 'svelte/store';
@@ -355,10 +357,7 @@
         updateMode: localUpdateMode,
       });
 
-      // Update stores — close modal first to avoid re-render conflicts
-      onClose();
-
-      // Apply immediately - no async, no microtask
+      // Apply stores before closing modal
       llmConfigs.set(effectiveLlms);
       appSettings.set(settings);
       budget.set({ ...localBudget });
@@ -366,14 +365,19 @@
       fontSize.set(localFontSize);
       enhancedReadability.set(localEnhancedReadability);
       themeMode.set(localTheme);
+      console.info(`[Settings] Theme save: local="${localActiveTheme}", active="${get(activeThemeName)}"`);
       if (localActiveTheme !== get(activeThemeName)) {
+        console.info(`[Settings] Loading theme: ${localActiveTheme}`);
         await loadBuiltinTheme(localActiveTheme);
+        console.info(`[Settings] Theme loaded, active now: ${get(activeThemeName)}`);
       }
       if (localLocale !== get(locale)) {
         loadLocale(localLocale).then(() => {
           locale.set(localLocale);
         }).catch((e) => console.warn('Failed to load locale:', e));
       }
+
+      onClose();
     } catch (e) {
       console.error('Settings save error:', e);
       error = t('settings.saveError');
@@ -676,32 +680,38 @@
             <span class="field-label">{$tr('settings.theme.import')}</span>
             <button
               class="import-theme-btn"
-              onclick={() => {
-                const input = document.createElement('input');
-                input.type = 'file';
-                input.accept = '.json';
-                input.onchange = async () => {
-                  const file = input.files?.[0];
-                  if (!file) return;
+              onclick={async () => {
+                try {
+                  const selected = await openFileDialog({
+                    title: 'Import Theme',
+                    filters: [{ name: 'JSON', extensions: ['json'] }],
+                    multiple: false,
+                  });
+                  if (!selected) return;
+                  const filePath = typeof selected === 'string' ? selected : selected.path;
+                  if (!filePath) return;
+                  const text = await readTextFile(filePath);
+                  const parsed = JSON.parse(text);
+                  const validation = validateTheme(parsed);
+                  if (!validation.valid) {
+                    importError = validation.errors.join(', ');
+                    return;
+                  }
+                  const theme = parsed as ThemeFile;
+                  const name = theme.meta.name.toLowerCase().replace(/\s+/g, '-');
+                  suppressFileWatcher(true);
                   try {
-                    const text = await file.text();
-                    const parsed = JSON.parse(text);
-                    const validation = validateTheme(parsed);
-                    if (!validation.valid) {
-                      importError = validation.errors.join(', ');
-                      return;
-                    }
-                    const theme = parsed as ThemeFile;
-                    const name = theme.meta.name.toLowerCase().replace(/\s+/g, '-');
                     await invoke('save_user_theme', { name, content: text });
                     userThemes = await invoke<string[]>('list_user_themes');
                     localActiveTheme = name;
+                    await loadBuiltinTheme(name);
                     importError = '';
-                  } catch (e) {
-                    importError = e instanceof Error ? e.message : String(e);
+                  } finally {
+                    suppressFileWatcher(false);
                   }
-                };
-                input.click();
+                } catch (e) {
+                  importError = e instanceof Error ? e.message : String(e);
+                }
               }}
             >
               {$tr('settings.theme.importBtn')}
@@ -1028,8 +1038,8 @@
   .settings-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.55);
-    z-index: 1000;
+    background: var(--overlay-bg);
+    z-index: var(--layer-modal);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1038,7 +1048,7 @@
   .settings-modal {
     background: var(--bg-primary);
     border: var(--border-width) solid var(--border);
-    border-radius: 0;
+    border-radius: var(--radius);
     width: 580px;
     max-width: 95vw;
     max-height: 85vh;
@@ -1071,7 +1081,7 @@
     font-size: var(--font-size-base);
     cursor: pointer;
     padding: var(--space-1) var(--space-1);
-    border-radius: 0;
+    border-radius: var(--radius);
     min-width: 32px;
     min-height: 32px;
     display: flex;
@@ -1085,7 +1095,7 @@
   }
 
   .error-banner {
-    background: var(--danger, #ef4444);
+    background: var(--danger);
     color: var(--text-on-accent);
     padding: var(--space-2) var(--space-5);
     font-size: var(--font-size-sm);
@@ -1131,7 +1141,7 @@
     flex: 1;
     background: var(--bg-secondary);
     border: var(--border-width) solid var(--border);
-    border-radius: 0;
+    border-radius: var(--radius);
     color: var(--text-primary);
     padding: var(--space-1) var(--space-2);
     font-size: var(--font-size-sm);
@@ -1165,14 +1175,14 @@
     justify-content: space-between;
     background: var(--bg-secondary);
     border: var(--border-width) solid var(--border);
-    border-radius: 0;
+    border-radius: var(--radius);
     padding: var(--space-2) var(--space-2);
     transition: background var(--transition-fast), border-color var(--transition-fast);
   }
 
   .llm-item.pending-delete {
-    background: color-mix(in srgb, var(--danger, #ef4444) 8%, var(--bg-secondary));
-    border-color: var(--danger, #ef4444);
+    background: color-mix(in srgb, var(--danger) 8%, var(--bg-secondary));
+    border-color: var(--danger);
     opacity: 0.75;
   }
 
@@ -1183,7 +1193,7 @@
 
   .pending-delete-label {
     font-size: var(--font-size-sm);
-    color: var(--danger, #ef4444);
+    color: var(--danger);
     font-style: italic;
   }
 
@@ -1205,7 +1215,7 @@
     background: var(--accent);
     color: var(--text-on-accent);
     padding: var(--stack-tight) var(--space-1);
-    border-radius: 0;
+    border-radius: var(--radius);
     text-transform: uppercase;
     letter-spacing: 0.04em;
   }
@@ -1254,7 +1264,7 @@
   .llm-form {
     background: var(--bg-secondary);
     border: var(--border-width) solid var(--border);
-    border-radius: 0;
+    border-radius: var(--radius);
     padding: var(--space-3);
     margin-bottom: var(--space-2);
   }
@@ -1281,7 +1291,7 @@
   .theme-btn {
     padding: var(--space-1) var(--space-4);
     font-size: var(--font-size-sm);
-    border-radius: 0;
+    border-radius: var(--radius);
     border: var(--border-width) solid var(--border);
     background: var(--bg-secondary);
     color: var(--text-primary);
@@ -1314,7 +1324,7 @@
     background: var(--bg-tertiary);
     color: var(--text-primary);
     border: var(--border-width) solid var(--border);
-    border-radius: 0;
+    border-radius: var(--radius);
     padding: var(--space-1) var(--space-3);
     font-size: var(--font-size-sm);
     font-weight: 700;
@@ -1350,14 +1360,14 @@
   }
 
   button.danger {
-    border-color: var(--danger, #ef4444);
-    color: var(--danger, #ef4444);
+    border-color: var(--danger);
+    color: var(--danger);
     background: transparent;
   }
 
   button.danger:hover {
-    background: var(--danger, #ef4444);
-    border-color: var(--danger, #ef4444);
+    background: var(--danger);
+    border-color: var(--danger);
     color: var(--text-on-accent);
   }
 
@@ -1384,7 +1394,7 @@
     text-transform: uppercase;
     letter-spacing: 0.04em;
     border: var(--border-width) solid var(--border);
-    border-radius: 0;
+    border-radius: var(--radius);
     background: var(--bg-tertiary);
     color: var(--text-secondary);
     cursor: pointer;
@@ -1407,7 +1417,7 @@
   .field-error {
     display: block;
     font-size: var(--font-size-tiny);
-    color: var(--danger, #dc2626);
+    color: var(--danger);
     margin: var(--stack-tight) 0 0;
   }
 
@@ -1455,7 +1465,7 @@
     width: 8px;
     height: 8px;
     flex-shrink: 0;
-    border-radius: 0;
+    border-radius: var(--radius);
     display: inline-block;
   }
 

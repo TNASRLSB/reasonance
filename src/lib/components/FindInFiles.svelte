@@ -168,8 +168,8 @@
   .fif-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.5);
-    z-index: 2000;
+    background: var(--overlay-bg);
+    z-index: var(--layer-modal);
     display: flex;
     align-items: flex-start;
     justify-content: center;
@@ -274,7 +274,7 @@
   .fif-error {
     padding: var(--space-2) var(--space-3);
     font-size: var(--font-size-sm);
-    color: var(--danger, #e74c3c);
+    color: var(--danger);
     margin: 0;
     flex-shrink: 0;
   }

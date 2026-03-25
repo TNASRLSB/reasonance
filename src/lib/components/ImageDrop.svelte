@@ -108,12 +108,12 @@
     align-items: center;
     justify-content: center;
     background: rgba(124, 106, 247, 0.15);
-    border: 2px dashed var(--accent, #7c6af7);
-    border-radius: 0;
+    border: 2px dashed var(--accent);
+    border-radius: var(--radius);
     font-size: var(--font-size-base);
     font-weight: 600;
-    color: var(--accent, #7c6af7);
+    color: var(--accent);
     pointer-events: none;
-    z-index: 10;
+    z-index: var(--layer-raised);
   }
 </style>

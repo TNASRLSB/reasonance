@@ -1,0 +1,165 @@
+{
+  "meta": {
+    "name": "Sakura Light",
+    "author": "Reasonance Team",
+    "version": "1.0.0",
+    "description": "Warm, airy light theme inspired by cherry blossoms — soft pinks, warm grays, generous rounding",
+    "type": "theme",
+    "colorScheme": "light",
+    "editorTheme": "one-light",
+    "schemaVersion": 1
+  },
+  "colors": {
+    "--bg-primary": "#faf6f2",
+    "--bg-secondary": "#f2ece6",
+    "--bg-tertiary": "#e8e0d8",
+    "--bg-hover": "rgba(180, 100, 120, 0.07)",
+    "--bg-surface": "#fff9f5",
+    "--border": "rgba(160, 120, 100, 0.18)",
+    "--text-primary": "#2e2226",
+    "--text-body": "#4a3d42",
+    "--text-secondary": "#7a6b70",
+    "--text-muted": "#a0929a",
+    "--accent": "#c4587a",
+    "--accent-text": "#a8405e",
+    "--accent-hover": "#d4688a",
+    "--accent-statusbar": "#e8a0b8",
+    "--danger": "#c44040",
+    "--danger-dark": "#f2d0d0",
+    "--danger-text": "#a02020",
+    "--success": "#3a8a50",
+    "--success-text": "#2a6a3a",
+    "--warning": "#b8862a",
+    "--warning-text": "#8a6420",
+    "--accent-btn": "#c4587a",
+    "--danger-btn": "#e0a0a0",
+    "--text-on-accent": "#ffffff",
+    "--code-bg": "#f0e8e2",
+    "--code-accent": "#8a4a9a"
+  },
+  "hues": {
+    "--hue-accent": 340,
+    "--hue-danger": 0,
+    "--hue-success": 140,
+    "--hue-warning": 38,
+    "--hue-state-retry": 30
+  },
+  "states": {
+    "--state-idle": "#a0929a",
+    "--state-idle-text": "#7a6b70",
+    "--state-queued": "var(--warning)",
+    "--state-queued-text": "var(--warning-text)",
+    "--state-running": "var(--accent)",
+    "--state-running-text": "var(--accent-text)",
+    "--state-success": "var(--success)",
+    "--state-success-text": "var(--success-text)",
+    "--state-failed": "var(--danger)",
+    "--state-failed-text": "var(--danger-text)",
+    "--state-retrying": "#c89040",
+    "--state-retrying-text": "#a07030"
+  },
+  "ui-states": {
+    "--text-disabled": "#c8bec2",
+    "--bg-disabled": "#f0e8e4",
+    "--border-disabled": "rgba(160, 120, 100, 0.1)",
+    "--bg-selected": "rgba(196, 88, 122, 0.12)",
+    "--text-selected": "var(--text-primary)",
+    "--text-placeholder": "#c0b0b8",
+    "--focus-ring-color": "rgba(196, 88, 122, 0.4)"
+  },
+  "typography": {
+    "--font-ui": "'Atkinson Hyperlegible Next', 'Noto Sans SC', 'Noto Sans Devanagari', 'Microsoft YaHei', 'PingFang SC', system-ui, -apple-system, sans-serif",
+    "--font-mono": "'Atkinson Hyperlegible Mono', monospace",
+    "--font-size-sm": "0.8125rem",
+    "--font-size-base": "0.9375rem",
+    "--font-size-md": "1.125rem",
+    "--font-size-lg": "1.375rem",
+    "--font-size-hero": "1.875rem",
+    "--font-size-xs": "0.7rem",
+    "--font-size-small": "var(--font-size-sm)",
+    "--font-size-tiny": "var(--font-size-sm)",
+    "--font-size-code": "var(--font-size-base)",
+    "--line-height-sm": 1.7,
+    "--line-height-base": 1.7,
+    "--line-height-md": 1.6,
+    "--line-height-lg": 1.5,
+    "--line-height-hero": 1.3,
+    "--measure": "64ch",
+    "--font-weight-sm": 400,
+    "--font-weight-base": 400,
+    "--font-weight-ui": 500,
+    "--font-weight-md": 600,
+    "--font-weight-lg": 700,
+    "--font-weight-hero": 800,
+    "--font-weight-body": 400,
+    "--font-weight-heading": 700,
+    "--line-height": "var(--line-height-base)",
+    "--letter-spacing": "0.015em",
+    "--word-spacing": "normal"
+  },
+  "spacing": {
+    "--space-1": "0.3rem",
+    "--space-2": "0.6rem",
+    "--space-3": "1rem",
+    "--space-4": "1.25rem",
+    "--space-5": "1.75rem",
+    "--space-6": "2.5rem",
+    "--inset-component": "var(--space-3)",
+    "--inset-section": "var(--space-5)",
+    "--stack-tight": "var(--space-1)",
+    "--stack-normal": "var(--space-2)",
+    "--stack-loose": "var(--space-4)",
+    "--interactive-gap": "var(--space-2)",
+    "--paragraph-spacing": "1.6em",
+    "--btn-padding": "0.6rem 1.25rem",
+    "--btn-padding-sm": "0.3rem 0.75rem",
+    "--panel-padding": "var(--space-5)"
+  },
+  "borders": {
+    "--border-width": "1px",
+    "--border-style": "solid",
+    "--border-color": "var(--border)",
+    "--radius": "14px",
+    "--radius-full": "50%"
+  },
+  "focus": {
+    "--focus-ring": "2px solid var(--accent)",
+    "--focus-offset": "3px"
+  },
+  "transitions": {
+    "--transition-fast": "0.12s ease-in-out",
+    "--transition-normal": "0.3s ease-in-out",
+    "--toast-duration": "5s"
+  },
+  "layout": {
+    "--toolbar-height": "48px",
+    "--statusbar-height": "30px"
+  },
+  "layers": {
+    "--layer-base": 0,
+    "--layer-raised": 10,
+    "--layer-sticky": 100,
+    "--layer-overlay": 500,
+    "--layer-dropdown": 1000,
+    "--layer-modal": 2000,
+    "--layer-toast": 5000,
+    "--layer-top": 9999
+  },
+  "shadows": {
+    "--shadow-sm": "0 1px 3px rgba(0, 0, 0, 0.08)",
+    "--shadow-md": "0 4px 14px rgba(0, 0, 0, 0.1)",
+    "--shadow-lg": "0 16px 48px rgba(0, 0, 0, 0.12)",
+    "--shadow-overlay": "-4px 0 16px rgba(0, 0, 0, 0.08)"
+  },
+  "overlays": {
+    "--overlay-bg": "rgba(0, 0, 0, 0.35)",
+    "--overlay-border": "var(--border)"
+  },
+  "highlights": {
+    "--highlight-subtle": "rgba(0, 0, 0, 0.02)",
+    "--highlight-hover": "rgba(0, 0, 0, 0.05)",
+    "--diff-add-bg": "rgba(22, 163, 74, 0.07)",
+    "--diff-remove-bg": "rgba(220, 38, 38, 0.07)",
+    "--terminal-selection": "rgba(196, 88, 122, 0.2)"
+  }
+}

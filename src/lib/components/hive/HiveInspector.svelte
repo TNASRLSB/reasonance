@@ -348,8 +348,8 @@
   }
   .delete-btn {
     background: var(--bg-tertiary);
-    color: var(--danger-text, #ef4444);
-    border: 1px solid var(--danger, #ef4444);
+    color: var(--danger-text);
+    border: 1px solid var(--danger);
     padding: var(--space-1) var(--space-2);
     font-size: var(--font-size-sm);
     cursor: pointer;
@@ -357,7 +357,7 @@
     width: 100%;
   }
   .delete-btn:hover {
-    background: var(--danger, #ef4444);
+    background: var(--danger);
     color: white;
   }
 </style>

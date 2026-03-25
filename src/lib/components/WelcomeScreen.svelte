@@ -143,7 +143,7 @@
     justify-content: space-between;
     align-items: center;
     -webkit-app-region: no-drag;
-    z-index: 10;
+    z-index: var(--layer-raised);
   }
 
   .theme-toggle {
@@ -236,7 +236,7 @@
     text-transform: uppercase;
     letter-spacing: 0.04em;
     border: 2px solid var(--accent);
-    border-radius: 0;
+    border-radius: var(--radius);
     background: transparent;
     color: var(--accent-text);
     cursor: pointer;
@@ -289,7 +289,7 @@
     color: var(--text-body);
     background: none;
     border: none;
-    border-radius: 0;
+    border-radius: var(--radius);
     cursor: pointer;
     transition: background var(--transition-fast), color var(--transition-fast);
     overflow: hidden;

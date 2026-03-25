@@ -141,14 +141,14 @@
   .context-menu-backdrop {
     position: fixed;
     inset: 0;
-    z-index: 999;
+    z-index: calc(var(--layer-dropdown) - 1);
   }
 
   .context-menu {
     position: fixed;
-    z-index: 1000;
-    background: var(--bg-secondary, #1e293b);
-    border: var(--border-width) solid var(--border, #334155);
+    z-index: var(--layer-dropdown);
+    background: var(--bg-secondary);
+    border: var(--border-width) solid var(--border);
     border-radius: var(--radius);
     padding: var(--space-1) 0;
     min-width: 200px;
@@ -165,7 +165,7 @@
     padding: var(--space-2) var(--space-3);
     background: none;
     border: none;
-    color: var(--text-primary, #e2e8f0);
+    color: var(--text-primary);
     cursor: pointer;
     text-align: start;
     overflow: hidden;
@@ -188,8 +188,8 @@
   .context-menu-hint {
     padding: var(--space-1) var(--space-3);
     font-size: var(--font-size-sm);
-    color: var(--text-secondary, #94a3b8);
-    border-top: 1px solid var(--border, #334155);
+    color: var(--text-secondary);
+    border-top: 1px solid var(--border);
     margin-top: var(--stack-tight);
     padding-top: var(--space-2);
   }

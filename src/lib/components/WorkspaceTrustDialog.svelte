@@ -80,11 +80,11 @@
   .trust-overlay {
     position: fixed;
     inset: 0;
-    z-index: 9999;
+    z-index: var(--layer-top);
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(0, 0, 0, 0.6);
+    background: var(--overlay-bg);
   }
 
   .trust-dialog {

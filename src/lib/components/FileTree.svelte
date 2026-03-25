@@ -457,14 +457,14 @@
   .ctx-overlay {
     position: fixed;
     inset: 0;
-    z-index: 1000;
+    z-index: var(--layer-dropdown);
   }
 
   .ctx-menu {
     position: fixed;
     background: var(--bg-secondary);
     border: 1px solid var(--border);
-    z-index: 1001;
+    z-index: calc(var(--layer-dropdown) + 1);
     min-width: 140px;
     padding: var(--space-1) 0;
   }

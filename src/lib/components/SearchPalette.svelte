@@ -289,8 +289,8 @@
   .palette-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.5);
-    z-index: 2000;
+    background: var(--overlay-bg);
+    z-index: var(--layer-modal);
     display: flex;
     align-items: flex-start;
     justify-content: center;

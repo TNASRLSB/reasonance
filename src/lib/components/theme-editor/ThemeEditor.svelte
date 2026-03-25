@@ -365,11 +365,11 @@
   .editor-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.5);
+    background: var(--overlay-bg);
     display: flex;
     align-items: stretch;
     justify-content: flex-end;
-    z-index: 500;
+    z-index: var(--layer-overlay);
   }
 
   .editor-shell {
@@ -377,9 +377,9 @@
     flex-direction: column;
     width: min(820px, 90vw);
     height: 100vh;
-    background: var(--bg-primary, #0d0d0d);
-    border-left: 1px solid var(--border, #2a2a2a);
-    box-shadow: -8px 0 40px rgba(0, 0, 0, 0.4);
+    background: var(--bg-primary);
+    border-left: 1px solid var(--border);
+    box-shadow: var(--shadow-overlay);
     overflow: hidden;
   }
 
@@ -389,8 +389,8 @@
     gap: var(--space-3, 12px);
     padding: 0 var(--space-4, 16px);
     height: 40px;
-    background: var(--bg-secondary, #151515);
-    border-bottom: 1px solid var(--border, #2a2a2a);
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
     flex-shrink: 0;
   }
 
@@ -399,7 +399,7 @@
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0.1em;
-    color: var(--text-primary, #eee);
+    color: var(--text-primary);
     white-space: nowrap;
     flex-shrink: 0;
   }
@@ -407,8 +407,8 @@
   .mode-toggle {
     display: flex;
     gap: 1px;
-    background: var(--bg-tertiary, #1a1a1a);
-    border: 1px solid var(--border, #333);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
     padding: 2px;
     flex-shrink: 0;
   }
@@ -416,7 +416,7 @@
   .mode-btn {
     background: transparent;
     border: none;
-    color: var(--text-muted, #888);
+    color: var(--text-muted);
     font-size: 11px;
     font-family: var(--font-ui, sans-serif);
     font-weight: 600;
@@ -427,8 +427,8 @@
   }
 
   .mode-btn.active {
-    background: var(--accent, #4a9eff);
-    color: var(--text-on-accent, #fff);
+    background: var(--accent);
+    color: var(--text-on-accent);
   }
 
   .top-actions {
@@ -439,8 +439,8 @@
 
   .icon-btn {
     background: transparent;
-    border: 1px solid var(--border, #333);
-    color: var(--text-secondary, #aaa);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
     font-size: 14px;
     width: 26px;
     height: 26px;
@@ -452,8 +452,8 @@
   }
 
   .icon-btn:hover:not(:disabled) {
-    background: var(--bg-hover, #252525);
-    color: var(--text-primary, #eee);
+    background: var(--bg-hover);
+    color: var(--text-primary);
   }
 
   .icon-btn:disabled {
@@ -464,9 +464,9 @@
   .theme-name-input {
     flex: 1;
     min-width: 0;
-    background: var(--bg-tertiary, #1a1a1a);
-    border: 1px solid var(--border, #333);
-    color: var(--text-primary, #eee);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
     font-size: 12px;
     font-family: var(--font-ui, sans-serif);
     padding: 3px 8px;
@@ -474,14 +474,14 @@
   }
 
   .theme-name-input:focus {
-    outline: var(--focus-ring, 2px solid #4a9eff);
+    outline: var(--focus-ring);
     outline-offset: 1px;
   }
 
   .close-btn {
     background: transparent;
     border: none;
-    color: var(--text-muted, #888);
+    color: var(--text-muted);
     cursor: pointer;
     font-size: 16px;
     padding: 4px;
@@ -490,7 +490,7 @@
   }
 
   .close-btn:hover {
-    color: var(--text-primary, #eee);
+    color: var(--text-primary);
   }
 
   .editor-body {
@@ -514,15 +514,15 @@
     align-items: center;
     justify-content: center;
     gap: var(--space-4, 16px);
-    color: var(--text-muted, #888);
+    color: var(--text-muted);
     font-size: 14px;
     font-family: var(--font-ui, sans-serif);
   }
 
   .start-btn {
-    background: var(--accent, #4a9eff);
+    background: var(--accent);
     border: none;
-    color: var(--text-on-accent, #fff);
+    color: var(--text-on-accent);
     font-size: 13px;
     font-family: var(--font-ui, sans-serif);
     font-weight: 700;
@@ -535,8 +535,8 @@
     align-items: center;
     gap: var(--space-2, 8px);
     padding: var(--space-2, 8px) var(--space-4, 16px);
-    background: var(--bg-secondary, #151515);
-    border-top: 1px solid var(--border, #2a2a2a);
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--border);
     flex-shrink: 0;
   }
 
@@ -551,7 +551,7 @@
     text-transform: uppercase;
     letter-spacing: 0.06em;
     padding: 5px 16px;
-    border: 1px solid var(--border, #333);
+    border: 1px solid var(--border);
     cursor: pointer;
   }
 
@@ -562,36 +562,36 @@
 
   .cancel-btn {
     background: transparent;
-    color: var(--text-secondary, #aaa);
+    color: var(--text-secondary);
   }
 
   .cancel-btn:hover {
-    background: var(--bg-hover, #252525);
-    color: var(--text-primary, #eee);
+    background: var(--bg-hover);
+    color: var(--text-primary);
   }
 
   .save-btn {
-    background: var(--accent, #4a9eff);
-    border-color: var(--accent, #4a9eff);
-    color: var(--text-on-accent, #fff);
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--text-on-accent);
   }
 
   .save-btn:hover:not(:disabled) {
-    background: var(--accent-hover, #3a8eef);
-    border-color: var(--accent-hover, #3a8eef);
+    background: var(--accent-hover);
+    border-color: var(--accent-hover);
   }
 
   .export-btn {
-    background: var(--bg-tertiary, #1a1a1a);
-    color: var(--text-primary, #eee);
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
   }
 
   .export-btn:hover:not(:disabled) {
-    background: var(--bg-hover, #252525);
+    background: var(--bg-hover);
   }
 
   .editor-shell.drag-over {
-    outline: 2px dashed var(--accent, #4a9eff);
+    outline: 2px dashed var(--accent);
     outline-offset: -4px;
   }
 
@@ -606,6 +606,6 @@
   }
 
   .error-msg {
-    color: var(--color-error, #f87171);
+    color: var(--danger);
   }
 </style>

@@ -132,8 +132,8 @@
 
 <style>
   .resource-node {
-    background: var(--bg-secondary, #1a1a1a);
-    border: 2px solid var(--success, #16a34a);
+    background: var(--bg-secondary);
+    border: 2px solid var(--success);
     padding: var(--space-2) var(--space-3);
     min-width: 220px;
     max-width: 300px;
@@ -146,7 +146,7 @@
     gap: var(--space-1);
   }
   .resource-node.selected {
-    box-shadow: 0 0 0 2px var(--accent, #1d4ed8);
+    box-shadow: 0 0 0 2px var(--accent);
   }
 
   .node-header {
@@ -158,7 +158,7 @@
   .node-label {
     font-weight: 700;
     font-size: var(--font-size-sm);
-    color: var(--text-primary, #f0f0f0);
+    color: var(--text-primary);
     cursor: text;
     flex: 1;
     min-width: 0;
@@ -169,7 +169,7 @@
   .label-edit {
     font-weight: 700;
     font-size: var(--font-size-sm);
-    color: var(--text-primary, #f0f0f0);
+    color: var(--text-primary);
     background: var(--bg-primary);
     border: 1px solid var(--accent);
     padding: 0 var(--space-1);
@@ -179,7 +179,7 @@
     outline: none;
   }
   .access-badge {
-    font-size: var(--font-size-xs, 0.7rem);
+    font-size: var(--font-size-xs);
     font-weight: 700;
     color: var(--text-secondary);
     background: var(--bg-tertiary);
@@ -207,7 +207,7 @@
   }
   .kind-btn.active {
     opacity: 1;
-    border-color: var(--success, #16a34a);
+    border-color: var(--success);
     background: var(--bg-primary);
   }
   .kind-btn:hover {

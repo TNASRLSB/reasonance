@@ -119,19 +119,19 @@
   .overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.6);
+    background: var(--overlay-bg);
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 1000;
+    z-index: var(--layer-modal);
   }
 
   .dialog {
-    background: var(--bg-secondary, #1a1a1a);
-    border: 1px solid var(--border, #2a2a2a);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
     width: 400px;
     max-width: 95vw;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    box-shadow: var(--shadow-lg);
   }
 
   .dialog-header {
@@ -139,13 +139,13 @@
     align-items: center;
     justify-content: space-between;
     padding: var(--space-4, 16px);
-    border-bottom: 1px solid var(--border, #2a2a2a);
+    border-bottom: 1px solid var(--border);
   }
 
   .dialog-title {
     font-size: var(--font-size-base, 14px);
     font-weight: 700;
-    color: var(--text-primary, #eee);
+    color: var(--text-primary);
     margin: 0;
     font-family: var(--font-ui, sans-serif);
   }
@@ -153,7 +153,7 @@
   .close-btn {
     background: transparent;
     border: none;
-    color: var(--text-muted, #888);
+    color: var(--text-muted);
     cursor: pointer;
     font-size: 14px;
     padding: 4px;
@@ -161,7 +161,7 @@
   }
 
   .close-btn:hover {
-    color: var(--text-primary, #eee);
+    color: var(--text-primary);
   }
 
   .options {
@@ -175,9 +175,9 @@
     display: flex;
     align-items: center;
     gap: var(--space-3, 12px);
-    background: var(--bg-tertiary, #1e1e1e);
-    border: 1px solid var(--border, #333);
-    color: var(--text-primary, #eee);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
     padding: var(--space-3, 12px);
     cursor: pointer;
     text-align: left;
@@ -185,8 +185,8 @@
   }
 
   .option-card:hover {
-    border-color: var(--accent, #4a9eff);
-    background: var(--bg-hover, #252525);
+    border-color: var(--accent);
+    background: var(--bg-hover);
   }
 
   .option-swatch {
@@ -199,7 +199,7 @@
     justify-content: center;
     font-size: 18px;
     font-weight: bold;
-    border: 1px solid var(--border, #444);
+    border: 1px solid var(--border);
   }
 
   .dark-swatch {
@@ -211,14 +211,14 @@
   }
 
   .clone-swatch {
-    background: var(--bg-surface, #141414);
-    color: var(--text-secondary, #aaa);
+    background: var(--bg-surface);
+    color: var(--text-secondary);
   }
 
   .empty-swatch {
-    background: var(--bg-surface, #141414);
-    color: var(--accent-text, #7ac7ff);
-    border-color: var(--accent, #4a9eff);
+    background: var(--bg-surface);
+    color: var(--accent-text);
+    border-color: var(--accent);
   }
 
   .option-info {
@@ -235,7 +235,7 @@
 
   .option-desc {
     font-size: 12px;
-    color: var(--text-muted, #888);
+    color: var(--text-muted);
     font-family: var(--font-ui, sans-serif);
   }
 </style>

@@ -190,9 +190,9 @@
     min-width: 220px;
     background: var(--bg-surface);
     border: var(--border-width) solid var(--border);
-    z-index: 1000;
+    z-index: var(--layer-dropdown);
     padding: var(--space-1) 0;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    box-shadow: var(--shadow-md);
   }
 
   .menu-row {
@@ -249,8 +249,8 @@
     min-width: 180px;
     background: var(--bg-surface);
     border: var(--border-width) solid var(--border);
-    z-index: 1001;
+    z-index: calc(var(--layer-dropdown) + 1);
     padding: var(--space-1) 0;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    box-shadow: var(--shadow-md);
   }
 </style>

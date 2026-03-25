@@ -63,7 +63,7 @@
   "oneOf": [
     {
       "title": "Theme",
-      "description": "A complete theme with all 11 required sections",
+      "description": "A complete theme with all 14 required sections",
       "type": "object",
       "required": [
         "meta",
@@ -77,7 +77,10 @@
         "focus",
         "transitions",
         "layout",
-        "layers"
+        "layers",
+        "shadows",
+        "overlays",
+        "highlights"
       ],
       "properties": {
         "meta": {
@@ -101,6 +104,9 @@
         "transitions": { "$ref": "#/definitions/styleSection" },
         "layout": { "$ref": "#/definitions/styleSection" },
         "layers": { "$ref": "#/definitions/styleSection" },
+        "shadows": { "$ref": "#/definitions/styleSection" },
+        "overlays": { "$ref": "#/definitions/styleSection" },
+        "highlights": { "$ref": "#/definitions/styleSection" },
         "when-dark": {
           "type": "object",
           "description": "Optional overrides for dark color scheme",
@@ -141,6 +147,9 @@
         "transitions": { "$ref": "#/definitions/styleSection" },
         "layout": { "$ref": "#/definitions/styleSection" },
         "layers": { "$ref": "#/definitions/styleSection" },
+        "shadows": { "$ref": "#/definitions/styleSection" },
+        "overlays": { "$ref": "#/definitions/styleSection" },
+        "highlights": { "$ref": "#/definitions/styleSection" },
         "when-dark": {
           "type": "object",
           "description": "Optional overrides for dark color scheme",
@@ -167,6 +176,9 @@
           "transitions": { "not": {} },
           "layout": { "not": {} },
           "layers": { "not": {} },
+          "shadows": { "not": {} },
+          "overlays": { "not": {} },
+          "highlights": { "not": {} },
           "when-dark": { "not": {} },
           "when-light": { "not": {} }
         }

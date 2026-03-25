@@ -100,13 +100,13 @@
   .json-textarea {
     flex: 1;
     width: 100%;
-    background: var(--bg-primary, #0d0d0d);
-    color: var(--text-primary, #eee);
+    background: var(--bg-primary);
+    color: var(--text-primary);
     font-family: var(--font-mono, monospace);
     font-size: 12px;
     line-height: 1.6;
     border: none;
-    border-bottom: 1px solid var(--border, #2a2a2a);
+    border-bottom: 1px solid var(--border);
     padding: var(--space-4, 16px);
     resize: none;
     box-sizing: border-box;
@@ -115,18 +115,18 @@
   }
 
   .json-textarea.has-errors {
-    border-bottom-color: var(--danger, #ef4444);
+    border-bottom-color: var(--danger);
   }
 
   .json-textarea:focus {
     outline: none;
-    box-shadow: inset 0 0 0 1px var(--accent, #4a9eff);
+    box-shadow: inset 0 0 0 1px var(--accent);
   }
 
   .error-panel {
     flex-shrink: 0;
-    background: var(--danger, #ef4444)18;
-    border-top: 2px solid var(--danger, #ef4444);
+    background: var(--danger)18;
+    border-top: 2px solid var(--danger);
     padding: var(--space-2, 8px) var(--space-4, 16px);
     max-height: 150px;
     overflow-y: auto;
@@ -137,14 +137,14 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    color: var(--danger-text, #fca5a5);
+    color: var(--danger-text);
     margin-right: var(--space-2, 8px);
   }
 
   .error-text {
     font-size: 12px;
     font-family: var(--font-mono, monospace);
-    color: var(--danger-text, #fca5a5);
+    color: var(--danger-text);
   }
 
   .error-list {
@@ -156,7 +156,7 @@
   .error-list li {
     font-size: 12px;
     font-family: var(--font-mono, monospace);
-    color: var(--danger-text, #fca5a5);
+    color: var(--danger-text);
     padding: 2px 0;
   }
 

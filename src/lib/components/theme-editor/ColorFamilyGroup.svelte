@@ -107,10 +107,10 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    color: var(--text-muted, #888);
+    color: var(--text-muted);
     margin: 0 0 var(--space-2, 8px) 0;
     padding-bottom: var(--space-1, 4px);
-    border-bottom: 1px solid var(--border, #333);
+    border-bottom: 1px solid var(--border);
   }
 
   .variables {
@@ -129,7 +129,7 @@
   .var-label {
     font-size: 11px;
     font-family: var(--font-mono, monospace);
-    color: var(--text-secondary, #aaa);
+    color: var(--text-secondary);
     width: 180px;
     flex-shrink: 0;
     white-space: nowrap;
@@ -148,7 +148,7 @@
   .color-swatch {
     width: 28px;
     height: 28px;
-    border: 1px solid var(--border, #333);
+    border: 1px solid var(--border);
     border-radius: 3px;
     padding: 2px;
     cursor: pointer;
@@ -159,23 +159,23 @@
   .color-text {
     font-size: 12px;
     font-family: var(--font-mono, monospace);
-    background: var(--bg-tertiary, #1a1a1a);
-    border: 1px solid var(--border, #333);
-    color: var(--text-primary, #eee);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
     padding: 3px 6px;
     width: 90px;
     flex-shrink: 0;
   }
 
   .color-text:focus {
-    outline: var(--focus-ring, 2px solid #4a9eff);
+    outline: var(--focus-ring);
     outline-offset: 1px;
   }
 
   .suggestions {
     margin-top: var(--space-3, 12px);
-    background: var(--bg-secondary, #1e1e1e);
-    border: 1px solid var(--accent, #4a9eff);
+    background: var(--bg-secondary);
+    border: 1px solid var(--accent);
     border-radius: 4px;
     padding: var(--space-3, 12px);
   }
@@ -192,13 +192,13 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    color: var(--accent-text, #7ac7ff);
+    color: var(--accent-text);
   }
 
   .dismiss-btn {
     background: transparent;
     border: none;
-    color: var(--text-muted, #888);
+    color: var(--text-muted);
     cursor: pointer;
     padding: 2px 4px;
     font-size: 12px;
@@ -206,7 +206,7 @@
   }
 
   .dismiss-btn:hover {
-    color: var(--text-primary, #eee);
+    color: var(--text-primary);
   }
 
   .suggestion-row {
@@ -219,7 +219,7 @@
 
   .suggestion-key {
     font-family: var(--font-mono, monospace);
-    color: var(--text-secondary, #aaa);
+    color: var(--text-secondary);
     width: 160px;
     flex-shrink: 0;
     font-size: 11px;
@@ -229,21 +229,21 @@
     width: 16px;
     height: 16px;
     border-radius: 2px;
-    border: 1px solid var(--border, #333);
+    border: 1px solid var(--border);
     flex-shrink: 0;
   }
 
   .suggestion-value {
     font-family: var(--font-mono, monospace);
-    color: var(--text-muted, #888);
+    color: var(--text-muted);
     font-size: 11px;
     flex: 1;
   }
 
   .apply-btn {
-    background: var(--bg-tertiary, #1a1a1a);
-    border: 1px solid var(--border, #333);
-    color: var(--text-primary, #eee);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
     padding: 2px 8px;
     font-size: 11px;
     font-family: var(--font-ui, sans-serif);
@@ -252,8 +252,8 @@
   }
 
   .apply-btn:hover {
-    background: var(--accent, #4a9eff);
-    border-color: var(--accent, #4a9eff);
-    color: var(--text-on-accent, #fff);
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--text-on-accent);
   }
 </style>

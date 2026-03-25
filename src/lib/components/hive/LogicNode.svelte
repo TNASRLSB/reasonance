@@ -125,7 +125,7 @@
 
 <style>
   .logic-node {
-    background: var(--bg-secondary, #1a1a1a);
+    background: var(--bg-secondary);
     border: 2px solid var(--state-idle);
     padding: var(--space-2) var(--space-3);
     min-width: 220px;
@@ -139,7 +139,7 @@
     gap: var(--space-1);
   }
   .logic-node.selected {
-    box-shadow: 0 0 0 2px var(--accent, #1d4ed8);
+    box-shadow: 0 0 0 2px var(--accent);
   }
 
   .node-header {
@@ -149,13 +149,13 @@
   }
   .node-icon {
     font-size: var(--font-size-sm);
-    color: var(--warning, #ca8a04);
+    color: var(--warning);
     flex-shrink: 0;
   }
   .node-label {
     font-weight: 700;
     font-size: var(--font-size-sm);
-    color: var(--text-primary, #f0f0f0);
+    color: var(--text-primary);
     cursor: text;
     flex: 1;
     min-width: 0;
@@ -166,7 +166,7 @@
   .label-edit {
     font-weight: 700;
     font-size: var(--font-size-sm);
-    color: var(--text-primary, #f0f0f0);
+    color: var(--text-primary);
     background: var(--bg-primary);
     border: 1px solid var(--accent);
     padding: 0 var(--space-1);
@@ -184,7 +184,7 @@
     background: var(--bg-tertiary);
     border: 1px solid var(--border);
     padding: 2px 6px;
-    font-size: var(--font-size-xs, 0.7rem);
+    font-size: var(--font-size-xs);
     cursor: pointer;
     color: var(--text-secondary);
     font-family: var(--font-ui, sans-serif);
@@ -192,7 +192,7 @@
   }
   .kind-btn.active {
     opacity: 1;
-    border-color: var(--warning, #ca8a04);
+    border-color: var(--warning);
     background: var(--bg-primary);
     color: var(--text-primary);
   }
@@ -214,7 +214,7 @@
     cursor: text;
   }
   .rule-area:focus {
-    border-color: var(--warning, #ca8a04);
+    border-color: var(--warning);
   }
   .rule-area::placeholder {
     color: var(--text-muted);

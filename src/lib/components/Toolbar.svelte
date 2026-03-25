@@ -172,7 +172,7 @@
     background: var(--bg-surface);
     color: var(--text-body);
     border: var(--border-width) solid var(--border);
-    border-radius: 0;
+    border-radius: var(--radius);
     padding: var(--space-1) var(--space-2);
     font-family: var(--font-ui);
     font-size: var(--font-size-small);
@@ -218,7 +218,7 @@
     position: absolute;
     top: 100%;
     right: 0;
-    z-index: 200;
+    z-index: calc(var(--layer-sticky) * 2);
     min-width: 160px;
     background: var(--bg-secondary);
     border: 2px solid var(--border);

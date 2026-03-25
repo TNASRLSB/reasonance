@@ -247,7 +247,7 @@
     position: absolute;
     top: 100%;
     left: 0;
-    z-index: 100;
+    z-index: var(--layer-sticky);
     min-width: 200px;
     max-height: 300px;
     overflow-y: auto;

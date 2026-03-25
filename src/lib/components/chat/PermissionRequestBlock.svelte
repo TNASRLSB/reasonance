@@ -47,7 +47,7 @@
 
 <style>
   .permission-request {
-    border: 2px solid var(--warning, #c59000);
+    border: 2px solid var(--warning);
     background: var(--bg-secondary);
     padding: var(--space-3);
     display: flex;
@@ -66,7 +66,7 @@
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    color: var(--warning, #c59000);
+    color: var(--warning);
   }
 
   .tool-list {

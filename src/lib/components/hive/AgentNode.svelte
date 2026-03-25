@@ -135,7 +135,7 @@
 
 <style>
   .agent-node {
-    background: var(--bg-secondary, #1a1a1a);
+    background: var(--bg-secondary);
     border: 2px solid var(--state-idle);
     padding: var(--space-2) var(--space-3);
     min-width: 240px;
@@ -149,7 +149,7 @@
     gap: var(--space-1);
   }
   .agent-node.selected {
-    box-shadow: 0 0 0 2px var(--accent, #1d4ed8);
+    box-shadow: 0 0 0 2px var(--accent);
   }
   .agent-node.pulsing {
     animation: pulse 1.5s ease-in-out infinite;
@@ -161,8 +161,8 @@
   @media (prefers-reduced-motion: reduce) {
     .agent-node.pulsing {
       animation: none;
-      border-color: var(--accent, #1d4ed8);
-      box-shadow: 0 0 0 2px var(--accent, #1d4ed8);
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px var(--accent);
     }
   }
 
@@ -173,13 +173,13 @@
   }
   .node-icon {
     font-size: var(--font-size-sm);
-    color: var(--accent, #1d4ed8);
+    color: var(--accent);
     flex-shrink: 0;
   }
   .node-label {
     font-weight: 700;
     font-size: var(--font-size-sm);
-    color: var(--text-primary, #f0f0f0);
+    color: var(--text-primary);
     cursor: text;
     flex: 1;
     min-width: 0;
@@ -190,7 +190,7 @@
   .label-edit {
     font-weight: 700;
     font-size: var(--font-size-sm);
-    color: var(--text-primary, #f0f0f0);
+    color: var(--text-primary);
     background: var(--bg-primary);
     border: 1px solid var(--accent);
     padding: 0 var(--space-1);
@@ -202,7 +202,7 @@
   .node-state {
     font-weight: 500;
     text-transform: uppercase;
-    font-size: var(--font-size-xs, 0.7rem);
+    font-size: var(--font-size-xs);
     white-space: nowrap;
     flex-shrink: 0;
   }
@@ -227,7 +227,7 @@
     border-color: var(--accent);
   }
   .memory-badge {
-    font-size: var(--font-size-xs, 0.7rem);
+    font-size: var(--font-size-xs);
     color: var(--text-muted);
     white-space: nowrap;
     flex-shrink: 0;

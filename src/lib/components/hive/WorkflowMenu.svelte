@@ -177,12 +177,12 @@
     position: absolute;
     top: 100%;
     inset-inline-start: 0;
-    z-index: 100;
+    z-index: var(--layer-sticky);
     background: var(--bg-secondary);
     border: 1px solid var(--border);
     min-width: 200px;
     padding: var(--space-1) 0;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    box-shadow: var(--shadow-md);
   }
   .menu-item {
     display: flex;

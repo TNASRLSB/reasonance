@@ -32,7 +32,7 @@
       '.cm-cursor': { borderLeftColor: getToken('--text-primary') },
       '.cm-gutters': { backgroundColor: getToken('--bg-surface'), color: getToken('--text-muted'), borderRight: `2px solid ${getToken('--border-color')}` },
       '.cm-activeLineGutter': { backgroundColor: getToken('--bg-secondary'), color: getToken('--text-secondary') },
-      '.cm-activeLine': { backgroundColor: 'rgba(255, 255, 255, 0.03)' },
+      '.cm-activeLine': { backgroundColor: 'var(--highlight-subtle)' },
       '.cm-selectionBackground': { backgroundColor: `color-mix(in srgb, ${accent} 30%, transparent) !important` },
       '&.cm-focused .cm-selectionBackground': { backgroundColor: `color-mix(in srgb, ${accent} 40%, transparent) !important` },
       '.cm-selectionMatch': { backgroundColor: `color-mix(in srgb, ${accent} 15%, transparent)` },
@@ -51,7 +51,7 @@
       '.cm-cursor': { borderLeftColor: getToken('--text-primary') },
       '.cm-gutters': { backgroundColor: getToken('--bg-secondary'), color: getToken('--text-muted'), borderRight: `2px solid ${getToken('--border-color')}` },
       '.cm-activeLineGutter': { backgroundColor: getToken('--bg-tertiary'), color: getToken('--text-secondary') },
-      '.cm-activeLine': { backgroundColor: 'rgba(0, 0, 0, 0.03)' },
+      '.cm-activeLine': { backgroundColor: 'var(--highlight-subtle)' },
       '.cm-selectionBackground': { backgroundColor: `color-mix(in srgb, ${accent} 20%, transparent) !important` },
       '&.cm-focused .cm-selectionBackground': { backgroundColor: `color-mix(in srgb, ${accent} 30%, transparent) !important` },
       '.cm-selectionMatch': { backgroundColor: `color-mix(in srgb, ${accent} 10%, transparent)` },
@@ -423,7 +423,7 @@
   .editor-cm :global(.cm-modified-marker) {
     width: 3px;
     height: 100%;
-    background: var(--accent, #e5c07b);
+    background: var(--accent);
   }
 
   .editor-empty {

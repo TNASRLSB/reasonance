@@ -173,15 +173,15 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    color: var(--text-secondary, #aaa);
+    color: var(--text-secondary);
     width: 70px;
     flex-shrink: 0;
   }
 
   .trigger-select {
-    background: var(--bg-tertiary, #1a1a1a);
-    border: 1px solid var(--border, #333);
-    color: var(--text-primary, #eee);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
     font-size: 12px;
     font-family: var(--font-ui, sans-serif);
     padding: 4px 8px;
@@ -193,7 +193,7 @@
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    color: var(--text-muted, #888);
+    color: var(--text-muted);
     margin: 0 0 var(--space-2, 8px) 0;
   }
 
@@ -212,18 +212,18 @@
   }
 
   .toggle-checkbox {
-    accent-color: var(--accent, #4a9eff);
+    accent-color: var(--accent);
     cursor: pointer;
   }
 
   .toggle-label {
     font-size: 12px;
     font-family: var(--font-mono, monospace);
-    color: var(--text-secondary, #aaa);
+    color: var(--text-secondary);
   }
 
   .conditionals {
-    border-top: 1px solid var(--border, #2a2a2a);
+    border-top: 1px solid var(--border);
     padding-top: var(--space-4, 16px);
   }
 
@@ -234,9 +234,9 @@
   }
 
   .cond-tab {
-    background: var(--bg-tertiary, #1a1a1a);
-    border: 1px solid var(--border, #333);
-    color: var(--text-secondary, #aaa);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
     font-size: 12px;
     font-family: var(--font-mono, monospace);
     padding: 4px 12px;
@@ -244,9 +244,9 @@
   }
 
   .cond-tab.active {
-    background: var(--bg-hover, #252525);
-    border-color: var(--accent, #4a9eff);
-    color: var(--accent-text, #7ac7ff);
+    background: var(--bg-hover);
+    border-color: var(--accent);
+    color: var(--accent-text);
   }
 
   .cond-section-tabs {
@@ -258,8 +258,8 @@
 
   .cond-section-tab {
     background: transparent;
-    border: 1px solid var(--border, #333);
-    color: var(--text-muted, #888);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
     font-size: 11px;
     font-family: var(--font-mono, monospace);
     padding: 2px 8px;
@@ -267,13 +267,13 @@
   }
 
   .cond-section-tab.active {
-    border-color: var(--accent, #4a9eff);
-    color: var(--accent-text, #7ac7ff);
+    border-color: var(--accent);
+    color: var(--accent-text);
   }
 
   .empty-cond {
     font-size: 12px;
-    color: var(--text-muted, #888);
+    color: var(--text-muted);
     font-style: italic;
     padding: var(--space-3, 12px) 0;
   }

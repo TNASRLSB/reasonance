@@ -24,7 +24,7 @@
     return {
       background: getToken('--bg-surface'), foreground: getToken('--text-body'),
       cursor: getToken('--text-primary'), cursorAccent: getToken('--bg-surface'),
-      selectionBackground: 'rgba(29, 78, 216, 0.4)', selectionForeground: getToken('--text-on-accent'),
+      selectionBackground: getToken('--terminal-selection') || 'rgba(29, 78, 216, 0.4)', selectionForeground: getToken('--text-on-accent'),
       black: '#121212', red: '#dc2626', green: '#16a34a', yellow: '#ca8a04',
       blue: '#1d4ed8', magenta: '#a855f7', cyan: '#06b6d4', white: '#d4d4d4',
       brightBlack: '#333333', brightRed: '#ef4444', brightGreen: '#22c55e',
@@ -37,7 +37,7 @@
     return {
       background: getToken('--bg-surface'), foreground: getToken('--text-body'),
       cursor: getToken('--text-primary'), cursorAccent: getToken('--bg-surface'),
-      selectionBackground: 'rgba(29, 78, 216, 0.25)', selectionForeground: getToken('--text-primary'),
+      selectionBackground: getToken('--terminal-selection') || 'rgba(29, 78, 216, 0.25)', selectionForeground: getToken('--text-primary'),
       black: '#1a1a1a', red: '#b91c1c', green: '#15803d', yellow: '#a16207',
       blue: '#1d4ed8', magenta: '#7e22ce', cyan: '#0e7490', white: '#e5e5e5',
       brightBlack: '#525252', brightRed: '#dc2626', brightGreen: '#16a34a',

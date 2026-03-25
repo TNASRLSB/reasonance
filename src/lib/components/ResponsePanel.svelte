@@ -97,12 +97,12 @@
     inset-inline-end: 0;
     width: 420px;
     height: 100%;
-    background: var(--bg-secondary, #1e293b);
-    border-inline-start: 1px solid var(--border, #334155);
+    background: var(--bg-secondary);
+    border-inline-start: 1px solid var(--border);
     display: flex;
     flex-direction: column;
-    z-index: 50;
-    box-shadow: -4px 0 16px rgba(0, 0, 0, 0.3);
+    z-index: var(--layer-raised);
+    box-shadow: var(--shadow-overlay);
   }
 
   .response-header {
@@ -126,11 +126,11 @@
   .close-btn {
     background: none;
     border: none;
-    color: var(--text-secondary, #94a3b8);
+    color: var(--text-secondary);
     cursor: pointer;
     font-size: var(--font-size-base);
     padding: var(--space-1) var(--space-1);
-    border-radius: 0;
+    border-radius: var(--radius);
     line-height: 1;
     min-width: 32px;
     min-height: 32px;
@@ -141,8 +141,8 @@
   }
 
   .close-btn:hover {
-    color: var(--text-primary, #e2e8f0);
-    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-primary);
+    background: var(--highlight-hover);
   }
 
   .response-body {
@@ -153,7 +153,7 @@
 
   .markdown-preview {
     padding: var(--space-5) var(--space-5);
-    color: var(--text-primary, #e2e8f0);
+    color: var(--text-primary);
     font-family: var(--font-ui);
     font-size: var(--font-size-base);
     line-height: var(--line-height-base);
@@ -166,15 +166,15 @@
   .markdown-preview :global(h4),
   .markdown-preview :global(h5),
   .markdown-preview :global(h6) {
-    color: var(--text-primary, #f1f5f9);
+    color: var(--text-primary);
     margin-top: 1.25em;
     margin-bottom: 0.4em;
     font-weight: 600;
     line-height: 1.3;
   }
 
-  .markdown-preview :global(h1) { font-size: 1.6em; border-bottom: 1px solid var(--border, #334155); padding-bottom: 0.25em; }
-  .markdown-preview :global(h2) { font-size: 1.3em; border-bottom: 1px solid var(--border, #334155); padding-bottom: 0.2em; }
+  .markdown-preview :global(h1) { font-size: 1.6em; border-bottom: 1px solid var(--border); padding-bottom: 0.25em; }
+  .markdown-preview :global(h2) { font-size: 1.3em; border-bottom: 1px solid var(--border); padding-bottom: 0.2em; }
   .markdown-preview :global(h3) { font-size: var(--font-size-md); line-height: var(--line-height-md); }
 
   .markdown-preview :global(p) { margin: 0.65em 0; }
@@ -184,18 +184,18 @@
   .markdown-preview :global(a:hover) { text-decoration: underline; }
 
   .markdown-preview :global(code) {
-    background: var(--bg-primary, #0f172a);
+    background: var(--bg-primary);
     color: var(--code-accent);
     padding: 0.15em 0.4em;
-    border-radius: 0;
+    border-radius: var(--radius);
     font-family: var(--font-mono);
     font-size: var(--font-size-sm);
   }
 
   .markdown-preview :global(pre) {
     background: var(--code-bg);
-    border: 1px solid var(--border, #334155);
-    border-radius: 0;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
     padding: var(--space-3);
     overflow: auto;
     margin: 0.75em 0;
@@ -205,17 +205,17 @@
     background: transparent;
     color: inherit;
     padding: 0;
-    border-radius: 0;
+    border-radius: var(--radius);
     font-size: var(--font-size-sm);
   }
 
   .markdown-preview :global(blockquote) {
-    border-inline-start: 3px solid var(--accent, #6366f1);
+    border-inline-start: 3px solid var(--accent);
     margin: 0.75em 0;
     padding: 0.4em 0.9em;
-    background: var(--bg-primary, #0f172a);
+    background: var(--bg-primary);
     border-radius: 0 4px 4px 0;
-    color: var(--text-secondary, #94a3b8);
+    color: var(--text-secondary);
   }
 
   .markdown-preview :global(blockquote p) { margin: 0; }
@@ -234,19 +234,19 @@
 
   .markdown-preview :global(th),
   .markdown-preview :global(td) {
-    border: 1px solid var(--border, #334155);
+    border: 1px solid var(--border);
     padding: var(--space-1) var(--space-2);
     text-align: start;
   }
 
   .markdown-preview :global(th) {
-    background: var(--bg-primary, #0f172a);
+    background: var(--bg-primary);
     font-weight: 600;
   }
 
   .markdown-preview :global(hr) {
     border: none;
-    border-top: 1px solid var(--border, #334155);
+    border-top: 1px solid var(--border);
     margin: 1.5em 0;
   }
 

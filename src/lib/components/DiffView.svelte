@@ -17,7 +17,7 @@
       '&': { backgroundColor: getToken('--bg-primary'), color: getToken('--text-body') },
       '.cm-gutters': { backgroundColor: getToken('--bg-surface'), color: getToken('--text-muted'), borderRight: `2px solid ${getToken('--border-color')}` },
       '.cm-activeLineGutter': { backgroundColor: getToken('--bg-secondary') },
-      '.cm-activeLine': { backgroundColor: 'rgba(255,255,255,0.03)' },
+      '.cm-activeLine': { backgroundColor: 'var(--highlight-subtle)' },
     }, { dark: true });
   }
 
@@ -26,7 +26,7 @@
       '&': { backgroundColor: getToken('--bg-primary'), color: getToken('--text-body') },
       '.cm-gutters': { backgroundColor: getToken('--bg-secondary'), color: getToken('--text-muted'), borderRight: `2px solid ${getToken('--border-color')}` },
       '.cm-activeLineGutter': { backgroundColor: getToken('--bg-tertiary') },
-      '.cm-activeLine': { backgroundColor: 'rgba(0,0,0,0.03)' },
+      '.cm-activeLine': { backgroundColor: 'var(--highlight-subtle)' },
     }, { dark: false });
   }
 

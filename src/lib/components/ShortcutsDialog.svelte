@@ -85,8 +85,8 @@
   .shortcuts-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.55);
-    z-index: 2000;
+    background: var(--overlay-bg);
+    z-index: var(--layer-modal);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -128,7 +128,7 @@
     font-size: var(--font-size-base);
     cursor: pointer;
     padding: var(--space-1) var(--space-1);
-    border-radius: 0;
+    border-radius: var(--radius);
     font-family: var(--font-ui);
     min-width: 32px;
     min-height: 32px;
@@ -224,7 +224,7 @@
     background: var(--bg-tertiary);
     color: var(--text-primary);
     border: var(--border-width) solid var(--border);
-    border-radius: 0;
+    border-radius: var(--radius);
     padding: var(--space-1) var(--space-4);
     font-family: var(--font-ui);
     font-size: var(--font-size-sm);

@@ -651,7 +651,7 @@
 
 
   .fixed-dropdown {
-    z-index: 200;
+    z-index: calc(var(--layer-sticky) * 2);
     background: var(--bg-surface);
     border: 1px solid var(--border);
     min-width: 120px;
@@ -782,7 +782,7 @@
     padding: var(--space-2) var(--space-3);
     background: var(--bg-secondary);
     border: 2px solid var(--border);
-    border-radius: 0;
+    border-radius: var(--radius);
     color: var(--text-body);
     font-family: var(--font-ui);
     cursor: pointer;
@@ -847,7 +847,7 @@
     text-transform: uppercase;
     letter-spacing: 0.04em;
     border: 2px solid var(--accent);
-    border-radius: 0;
+    border-radius: var(--radius);
     background: var(--accent);
     color: var(--text-on-accent);
     cursor: pointer;

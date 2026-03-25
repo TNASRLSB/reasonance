@@ -63,8 +63,8 @@
   }
 
   .badge--unknown {
-    color: var(--text-muted, #888);
-    border-color: var(--border, #444);
+    color: var(--text-muted);
+    border-color: var(--border);
     background: transparent;
   }
 </style>

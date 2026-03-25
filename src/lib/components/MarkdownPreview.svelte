@@ -46,7 +46,7 @@
     flex: 1;
     overflow: auto;
     padding: var(--space-5) var(--space-6);
-    color: var(--text-primary, #e2e8f0);
+    color: var(--text-primary);
     font-family: var(--font-ui);
     font-size: var(--font-size-base);
     line-height: var(--line-height-base);
@@ -62,7 +62,7 @@
   .markdown-preview :global(h4),
   .markdown-preview :global(h5),
   .markdown-preview :global(h6) {
-    color: var(--text-primary, #f1f5f9);
+    color: var(--text-primary);
     margin-top: 1.5em;
     margin-bottom: 0.5em;
     font-weight: 600;
@@ -73,7 +73,7 @@
     font-size: var(--font-size-hero);
     line-height: var(--line-height-hero);
     font-weight: var(--font-weight-hero);
-    border-bottom: 1px solid var(--border, #334155);
+    border-bottom: 1px solid var(--border);
     padding-bottom: 0.3em;
   }
 
@@ -81,7 +81,7 @@
     font-size: var(--font-size-lg);
     line-height: var(--line-height-lg);
     font-weight: var(--font-weight-lg);
-    border-bottom: 1px solid var(--border, #334155);
+    border-bottom: 1px solid var(--border);
     padding-bottom: 0.2em;
   }
 
@@ -100,7 +100,7 @@
   }
 
   .markdown-preview :global(a) {
-    color: var(--accent, #6366f1);
+    color: var(--accent);
     text-decoration: none;
   }
 
@@ -109,7 +109,7 @@
   }
 
   .markdown-preview :global(code) {
-    background: var(--bg-secondary, #1e293b);
+    background: var(--bg-secondary);
     color: var(--code-accent);
     padding: 0.15em 0.4em;
     border-radius: 0;
@@ -119,7 +119,7 @@
 
   .markdown-preview :global(pre) {
     background: var(--code-bg);
-    border: 1px solid var(--border, #334155);
+    border: 1px solid var(--border);
     border-radius: 0;
     padding: var(--inset-section);
     overflow: auto;
@@ -135,12 +135,12 @@
   }
 
   .markdown-preview :global(blockquote) {
-    border-inline-start: 4px solid var(--accent, #6366f1);
+    border-inline-start: 4px solid var(--accent);
     margin: 1em 0;
     padding: 0.5em 1em;
-    background: var(--bg-secondary, #1e293b);
+    background: var(--bg-secondary);
     border-radius: 0;
-    color: var(--text-secondary, #94a3b8);
+    color: var(--text-secondary);
   }
 
   .markdown-preview :global(blockquote p) {
@@ -156,19 +156,19 @@
 
   .markdown-preview :global(th),
   .markdown-preview :global(td) {
-    border: 1px solid var(--border, #334155);
+    border: 1px solid var(--border);
     padding: var(--space-2) var(--space-3);
     text-align: start;
   }
 
   .markdown-preview :global(th) {
-    background: var(--bg-secondary, #1e293b);
-    color: var(--text-primary, #f1f5f9);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
     font-weight: 600;
   }
 
   .markdown-preview :global(tr:nth-child(even)) {
-    background: rgba(255, 255, 255, 0.02);
+    background: var(--highlight-subtle);
   }
 
   .markdown-preview :global(ul),
@@ -183,7 +183,7 @@
 
   .markdown-preview :global(hr) {
     border: none;
-    border-top: 1px solid var(--border, #334155);
+    border-top: 1px solid var(--border);
     margin: 2em 0;
   }
 

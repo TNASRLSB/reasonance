@@ -184,13 +184,13 @@
   }
 
   .line.removed {
-    background: rgba(220, 38, 38, 0.1);
+    background: var(--diff-remove-bg);
     color: var(--danger-text);
     border-inline-start: 3px solid var(--danger);
   }
 
   .line.added {
-    background: rgba(22, 163, 74, 0.1);
+    background: var(--diff-add-bg);
     color: var(--success-text);
     border-inline-start: 3px solid var(--success);
   }

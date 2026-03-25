@@ -738,7 +738,7 @@
     letter-spacing: 0.04em;
     padding: var(--space-1) var(--space-2);
     cursor: pointer;
-    border-radius: 0;
+    border-radius: var(--radius);
     min-height: 24px;
     transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
   }
@@ -775,7 +775,7 @@
     letter-spacing: 0.04em;
     padding: var(--space-1) var(--space-2);
     cursor: pointer;
-    border-radius: 0;
+    border-radius: var(--radius);
     min-height: 24px;
     text-transform: uppercase;
     transition: background var(--transition-fast), color var(--transition-fast);
@@ -796,7 +796,7 @@
     position: absolute;
     top: 100%;
     right: 0;
-    z-index: 200;
+    z-index: calc(var(--layer-sticky) * 2);
     background: var(--bg-secondary);
     border: var(--border-width, 2px) solid var(--border);
     min-width: 140px;
@@ -808,7 +808,7 @@
     text-align: start;
     background: transparent;
     border: none;
-    border-radius: 0;
+    border-radius: var(--radius);
     padding: var(--space-1) var(--space-3);
     font-family: var(--font-ui);
     font-size: var(--font-size-small);
@@ -926,7 +926,7 @@
 
   .skel-line {
     background: var(--bg-tertiary);
-    border-radius: 0;
+    border-radius: var(--radius);
     animation: pulse 1.5s ease-in-out infinite;
   }
 
@@ -1031,7 +1031,7 @@
   .insight-dismiss {
     background: transparent;
     border: none;
-    border-radius: 0;
+    border-radius: var(--radius);
     color: var(--text-muted);
     cursor: pointer;
     font-size: var(--font-size-sm);
@@ -1109,7 +1109,7 @@
     gap: var(--interactive-gap);
     background: transparent;
     border: none;
-    border-radius: 0;
+    border-radius: var(--radius);
     color: var(--text-primary);
     font-family: var(--font-mono);
     font-size: var(--font-size-small);
@@ -1132,7 +1132,7 @@
   .provider-dot {
     width: 10px;
     height: 10px;
-    border-radius: 0;
+    border-radius: var(--radius);
     flex-shrink: 0;
   }
 

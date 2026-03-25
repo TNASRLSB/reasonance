@@ -162,10 +162,10 @@
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0.1em;
-    color: var(--text-primary, #eee);
+    color: var(--text-primary);
     margin: 0 0 var(--space-4, 16px) 0;
     padding-bottom: var(--space-2, 8px);
-    border-bottom: 2px solid var(--accent, #4a9eff);
+    border-bottom: 2px solid var(--accent);
   }
 
   .generic-vars {
@@ -184,7 +184,7 @@
   .var-label {
     font-size: 11px;
     font-family: var(--font-mono, monospace);
-    color: var(--text-secondary, #aaa);
+    color: var(--text-secondary);
     width: 200px;
     flex-shrink: 0;
     white-space: nowrap;
@@ -203,7 +203,7 @@
   .color-swatch {
     width: 28px;
     height: 28px;
-    border: 1px solid var(--border, #333);
+    border: 1px solid var(--border);
     border-radius: 3px;
     padding: 2px;
     cursor: pointer;
@@ -215,9 +215,9 @@
   .number-input {
     font-size: 12px;
     font-family: var(--font-mono, monospace);
-    background: var(--bg-tertiary, #1a1a1a);
-    border: 1px solid var(--border, #333);
-    color: var(--text-primary, #eee);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
     padding: 3px 6px;
   }
 
@@ -231,7 +231,7 @@
 
   .text-input:focus,
   .number-input:focus {
-    outline: var(--focus-ring, 2px solid #4a9eff);
+    outline: var(--focus-ring);
     outline-offset: 1px;
   }
 </style>
