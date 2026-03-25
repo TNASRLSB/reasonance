@@ -210,10 +210,7 @@ pub async fn run_background_updates(app: AppHandle, updater: Arc<CliUpdater>) {
         };
 
         if success {
-            let changed = match (&old_version, &new_version) {
-                (Some(old), Some(new)) if old != new => true,
-                _ => false,
-            };
+            let changed = matches!((&old_version, &new_version), (Some(old), Some(new)) if old != new);
             if changed {
                 info!("CLI updater: '{provider}' updated {} → {}", old_version.as_deref().unwrap_or("?"), new_version.as_deref().unwrap_or("?"));
             } else {
