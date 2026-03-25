@@ -8,7 +8,8 @@
 
 import { get } from 'svelte/store';
 import { load } from '@tauri-apps/plugin-store';
-import { openFiles, activeFilePath, projectRoot, recentProjects, addOpenFile } from '$lib/stores/files';
+import { openFiles, activeFilePath, projectRoot, recentProjects } from '$lib/stores/files';
+import { addProject, openFile, setActiveFile, recentProjectsList } from '$lib/stores/projects';
 import { themeMode } from '$lib/stores/theme';
 import { fontFamily, fontSize, enhancedReadability } from '$lib/stores/ui';
 import { terminalInstances } from '$lib/stores/terminals';
@@ -96,13 +97,22 @@ export async function restoreSession(
     // Restore project root and recent projects
     const savedRoot = await store.get<string>('projectRoot');
     if (savedRoot) {
-      projectRoot.set(savedRoot);
+      addProject(savedRoot);
       onProjectFound();
       try { await adapter.setProjectRoot(savedRoot); } catch { /* non-fatal */ }
     }
 
-    const savedRecent = await store.get<string[]>('recentProjects');
-    if (savedRecent) recentProjects.set(savedRecent);
+    // recentProjects may be old format (string[]) or new format (RecentProject[])
+    const savedRecent = await store.get<unknown[]>('recentProjects');
+    if (savedRecent && savedRecent.length > 0) {
+      const mapped = savedRecent.map(item => {
+        if (typeof item === 'string') {
+          return { path: item, label: item.split('/').pop() ?? item, color: '#4A9EFF', lastOpened: Date.now() };
+        }
+        return item as { path: string; label: string; color: string; lastOpened: number };
+      });
+      recentProjectsList.set(mapped);
+    }
 
     // Restore open files
     const savedPaths = await store.get<string[]>('openFiles');
@@ -112,8 +122,7 @@ export async function restoreSession(
       for (const path of savedPaths) {
         try {
           const content = await adapter.readFile(path);
-          const name = path.split('/').pop() ?? path;
-          addOpenFile({ path, name, content, isDirty: false, isDeleted: false });
+          openFile(path, content);
         } catch {
           // File may have been deleted since last session — skip silently
         }
@@ -122,7 +131,7 @@ export async function restoreSession(
 
     // Set active file after all are loaded (addOpenFile already sets the last one)
     if (savedActive) {
-      activeFilePath.set(savedActive);
+      setActiveFile(savedActive);
     }
   } catch {
     // Restore failures are non-fatal — start fresh

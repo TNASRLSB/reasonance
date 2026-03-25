@@ -12,6 +12,7 @@
     computedLabels,
     addInstance as addInstanceToStore,
     removeInstance,
+    setActiveTerminal,
   } from '$lib/stores/terminals';
   import type { TerminalInstance } from '$lib/stores/terminals';
   import { showSettings } from '$lib/stores/ui';
@@ -192,7 +193,7 @@
     };
 
     addInstanceToStore(instance);
-    activeInstanceId.set(instanceId);
+    // addInstanceToStore already sets the active terminal via namespace
     appAnnouncer.announce(`Terminal session started: ${providerName}`);
   }
 
@@ -228,13 +229,7 @@
 
     removeInstance(id);
     appAnnouncer.announce('Terminal session closed');
-
-    const remaining = get(terminalInstances);
-    if (remaining.length === 0) {
-      activeInstanceId.set(null);
-    } else if (get(activeInstanceId) === id) {
-      activeInstanceId.set(remaining[0].id);
-    }
+    // removeInstance already handles resetting the active terminal via namespace
   }
 
   // Slash commands are defined in src/lib/data/slash-commands.ts
@@ -254,17 +249,17 @@
     if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
       e.preventDefault();
       const next = (currentIdx + 1) % instances.length;
-      activeInstanceId.set(instances[next].id);
+      setActiveTerminal(instances[next].id);
     } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
       e.preventDefault();
       const prev = (currentIdx - 1 + instances.length) % instances.length;
-      activeInstanceId.set(instances[prev].id);
+      setActiveTerminal(instances[prev].id);
     } else if (e.key === 'Home') {
       e.preventDefault();
-      activeInstanceId.set(instances[0].id);
+      setActiveTerminal(instances[0].id);
     } else if (e.key === 'End') {
       e.preventDefault();
-      activeInstanceId.set(instances[instances.length - 1].id);
+      setActiveTerminal(instances[instances.length - 1].id);
     }
   }
 
@@ -353,7 +348,7 @@
               updateViewModeDropdownPosition();
               showViewModeDropdown = !showViewModeDropdown;
             } else {
-              activeInstanceId.set(inst.id);
+              setActiveTerminal(inst.id);
             }
           }}
           onauxclick={(e) => { if (e.button === 1) closeInstance(inst.id); }}

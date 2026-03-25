@@ -13,7 +13,8 @@
   import WelcomeScreen from '$lib/components/WelcomeScreen.svelte';
   import { TauriAdapter } from '$lib/adapter/tauri';
   import { initThemeEngine } from '$lib/stores/theme';
-  import { openFiles, activeFilePath, projectRoot, addRecentProject } from '$lib/stores/files';
+  import { openFiles, activeFilePath, projectRoot } from '$lib/stores/files';
+  import { addProject, setActiveFile, updateFileContent, updateFileState } from '$lib/stores/projects';
   import { showSettings, enhancedReadability, showHiveCanvas, showThemeEditor } from '$lib/stores/ui';
   import { activeInstance } from '$lib/stores/terminals';
   import { llmConfigs } from '$lib/stores/config';
@@ -99,9 +100,7 @@
 
     if (original === file.content) {
       // No actual change vs saved — just clear dirty flag
-      openFiles.update((all) =>
-        all.map((f) => f.path === path ? { ...f, isDirty: false } : f)
-      );
+      updateFileContent(path, file.content, false);
       return;
     }
 
@@ -125,9 +124,9 @@
         showToast('error', 'Save failed', `${file.name}: ${err}`);
       }
     }
-    openFiles.update((all) =>
-      all.map((f) => ({ ...f, isDirty: false }))
-    );
+    for (const file of files) {
+      updateFileContent(file.path, file.content, false);
+    }
   }
 
   // ── Open Folder / Switch Project ─────────────────────────────────────────
@@ -140,10 +139,7 @@
   }
 
   async function switchProject(path: string) {
-    openFiles.set([]);
-    activeFilePath.set(null);
-    projectRoot.set(path);
-    addRecentProject(path);
+    addProject(path);
     showWelcome = false;
     try { await adapter.setProjectRoot(path); } catch { /* non-fatal */ }
 
@@ -160,9 +156,7 @@
       if (!openFile) return;
 
       if (event.type === 'remove') {
-        openFiles.update((all) =>
-          all.map((f) => (f.path === event.path ? { ...f, isDeleted: true } : f))
-        );
+        updateFileState(event.path, { isDeleted: true });
         showToast('warning', 'File deleted', event.path.split('/').pop() ?? event.path);
         return;
       }
@@ -180,9 +174,7 @@
           if (isActiveSessionYolo()) {
             // AUTO/YOLO: accept changes silently
             await adapter.storeShadow(event.path, newContent);
-            openFiles.update((files) =>
-              files.map((f) => (f.path === event.path ? { ...f, content: newContent, isDirty: false } : f))
-            );
+            updateFileContent(event.path, newContent, false);
           } else {
             diffState = {
               path: event.path,
@@ -190,7 +182,7 @@
               modified: newContent,
               filename: event.path.split('/').pop() ?? event.path,
             };
-            activeFilePath.set(event.path);
+            setActiveFile(event.path);
           }
         } catch { /* non-fatal */ }
       }
@@ -286,9 +278,7 @@
 
       if (event.type === 'remove') {
         // Mark the file as deleted in the store
-        openFiles.update((all) =>
-          all.map((f) => (f.path === event.path ? { ...f, isDeleted: true } : f))
-        );
+        updateFileState(event.path, { isDeleted: true });
         showToast('warning', 'File deleted', event.path.split('/').pop() ?? event.path);
         return;
       }
@@ -309,9 +299,7 @@
           if (isActiveSessionYolo()) {
             // AUTO/YOLO: accept changes silently
             await adapter.storeShadow(event.path, newContent);
-            openFiles.update((files) =>
-              files.map((f) => (f.path === event.path ? { ...f, content: newContent, isDirty: false } : f))
-            );
+            updateFileContent(event.path, newContent, false);
           } else {
             diffState = {
               path: event.path,
@@ -319,7 +307,7 @@
               modified: newContent,
               filename: event.path.split('/').pop() ?? event.path,
             };
-            activeFilePath.set(event.path);
+            setActiveFile(event.path);
           }
         } catch {
           // Read failures are non-fatal
@@ -359,9 +347,7 @@
     }
 
     // Update the open file's content in the store
-    openFiles.update((files) =>
-      files.map((f) => (f.path === path ? { ...f, content: newContent, isDirty: false } : f))
-    );
+    updateFileContent(path, newContent, false);
     diffState = null;
   }
 
@@ -370,9 +356,7 @@
     // File has been reverted on disk by DiffView; update store content to match original
     const path = diffState.path;
     const originalContent = diffState.original;
-    openFiles.update((files) =>
-      files.map((f) => (f.path === path ? { ...f, content: originalContent, isDirty: false } : f))
-    );
+    updateFileContent(path, originalContent, false);
     diffState = null;
   }
 </script>

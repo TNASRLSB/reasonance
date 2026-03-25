@@ -7,6 +7,7 @@
   import { oneDark } from '@codemirror/theme-one-dark';
   import { getLangAsync } from '$lib/editor/languages';
   import { openFiles, activeFilePath, pendingLine, cursorLine, cursorCol } from '$lib/stores/files';
+  import { updateFileContent } from '$lib/stores/projects';
   import { isDark } from '$lib/stores/theme';
   import { editorTheme, fontFamily, fontSize } from '$lib/stores/ui';
   import { editorThemes } from '$lib/editor/themes';
@@ -160,9 +161,7 @@
         suppressEditorReinit = true;
         const newDoc = update.state.doc.toString();
         const path = $activeFilePath;
-        openFiles.update((files) =>
-          files.map((f) => f.path === path ? { ...f, content: newDoc, isDirty: true } : f)
-        );
+        updateFileContent(path, newDoc, true);
         // Force gutter redraw
         if (view) view.requestMeasure();
       }

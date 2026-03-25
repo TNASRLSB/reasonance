@@ -1,6 +1,7 @@
 <script lang="ts">
   import { get } from 'svelte/store';
   import { openFiles, activeFilePath, closeFile } from '$lib/stores/files';
+  import { setActiveFile } from '$lib/stores/projects';
   import { sanitizeId } from '$lib/utils/a11y';
   import { tr } from '$lib/i18n/index';
   import type { Snippet } from 'svelte';
@@ -8,7 +9,7 @@
   let { actions }: { actions?: Snippet } = $props();
 
   function switchTab(path: string) {
-    activeFilePath.set(path);
+    setActiveFile(path);
   }
 
   async function handleClose(e: MouseEvent, path: string) {
