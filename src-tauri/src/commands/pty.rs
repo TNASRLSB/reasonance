@@ -108,6 +108,15 @@ pub fn kill_process(
     })
 }
 
+#[tauri::command]
+pub fn kill_project_ptys(
+    project_id: String,
+    pty_manager: State<'_, PtyManager>,
+) -> Result<Vec<String>, String> {
+    info!("cmd::kill_project_ptys(project_id={})", project_id);
+    Ok(pty_manager.kill_project_ptys(&project_id))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

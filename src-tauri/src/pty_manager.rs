@@ -14,13 +14,43 @@ pub struct PtyInstance {
 
 pub struct PtyManager {
     instances: Arc<Mutex<HashMap<String, PtyInstance>>>,
+    project_map: Arc<Mutex<HashMap<String, String>>>, // pty_id -> project_id
 }
 
 impl PtyManager {
     pub fn new() -> Self {
         Self {
             instances: Arc::new(Mutex::new(HashMap::new())),
+            project_map: Arc::new(Mutex::new(HashMap::new())),
         }
+    }
+
+    /// Associate a PTY instance with a project.
+    pub fn set_project(&self, pty_id: &str, project_id: &str) {
+        debug!("PTY set_project: pty_id={}, project_id={}", pty_id, project_id);
+        let mut map = self.project_map.lock().unwrap_or_else(|e| e.into_inner());
+        map.insert(pty_id.to_string(), project_id.to_string());
+    }
+
+    /// Kill all PTY instances belonging to a project. Returns the IDs of killed PTYs.
+    pub fn kill_project_ptys(&self, project_id: &str) -> Vec<String> {
+        info!("PTY kill_project_ptys: project_id={}", project_id);
+        let map = self.project_map.lock().unwrap_or_else(|e| e.into_inner());
+        let pty_ids: Vec<String> = map
+            .iter()
+            .filter(|(_, pid)| pid.as_str() == project_id)
+            .map(|(id, _)| id.clone())
+            .collect();
+        drop(map);
+
+        let mut killed = Vec::new();
+        for id in pty_ids {
+            if self.kill(&id).is_ok() {
+                killed.push(id);
+            }
+        }
+        info!("PTY kill_project_ptys: project_id={}, killed={}", project_id, killed.len());
+        killed
     }
 
     pub fn spawn(
@@ -138,6 +168,9 @@ impl PtyManager {
                 error!("PTY kill failed: id={} not found", id);
                 "PTY not found".to_string()
             })?;
+        // Clean up project association
+        let mut project_map = self.project_map.lock().unwrap_or_else(|e| e.into_inner());
+        project_map.remove(id);
         Ok(())
     }
 }

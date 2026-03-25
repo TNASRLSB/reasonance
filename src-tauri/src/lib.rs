@@ -37,6 +37,7 @@ mod analytics;
 mod workspace_trust;
 mod theme_manager;
 mod theme_watcher;
+mod project_manager;
 
 use commands::fs::ProjectRootState;
 use fs_watcher::FsWatcherState;
@@ -97,6 +98,8 @@ pub fn run() {
             }
         }))
         .manage(PtyManager::new())
+        .manage(project_manager::ProjectsState::new())
+        .manage(project_manager::ActiveProjectState::new())
         .manage(ShadowStore::new())
         .manage(FsWatcherState::new())
         .manage(ProjectRootState::new())
@@ -253,6 +256,7 @@ pub fn run() {
             commands::pty::write_pty,
             commands::pty::resize_pty,
             commands::pty::kill_process,
+            commands::pty::kill_project_ptys,
             commands::shadow::store_shadow,
             commands::shadow::get_shadow,
             commands::config::read_config,
@@ -328,6 +332,10 @@ pub fn run() {
             theme_manager::delete_user_theme,
             theme_manager::load_theme_preferences,
             theme_manager::save_theme_preferences,
+            project_manager::add_project,
+            project_manager::remove_project,
+            project_manager::set_active_project,
+            project_manager::get_project_root,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
