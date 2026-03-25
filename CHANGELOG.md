@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.2.0] - 2026-03-25
+
+### Features
+
+- feat(ci): add reasonance-bin AUR package + decouple aur-publish from build
+
+### Other
+
+- - aur-publish (source) now runs right after version bump, parallel to build
+- - aur-publish-bin runs after release, when binary artifacts are available
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+
+
+
 ## [1.1.1] - 2026-03-25
 
 ### Other
