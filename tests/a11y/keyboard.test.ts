@@ -9,8 +9,9 @@ import { get } from 'svelte/store';
 
 // Store imports
 import { openFiles, activeFilePath } from '$lib/stores/files';
+import { setupTestProject, resetProjectState } from '../helpers/project-setup';
 
-// Component imports — all at top level to avoid "import inside function" errors
+// Component imports -- all at top level to avoid "import inside function" errors
 import EditorTabs from '$lib/components/EditorTabs.svelte';
 import SearchPalette from '$lib/components/SearchPalette.svelte';
 
@@ -19,15 +20,19 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-// ─── EditorTabs keyboard navigation ───────────────────────────────────────────
+// --- EditorTabs keyboard navigation ---
 
 describe('EditorTabs keyboard navigation', () => {
   beforeEach(() => {
-    openFiles.set([
-      { path: '/project/a.ts', name: 'a.ts', content: '', isDirty: false, isDeleted: false },
-      { path: '/project/b.ts', name: 'b.ts', content: '', isDirty: false, isDeleted: false },
-    ]);
-    activeFilePath.set('/project/a.ts');
+    resetProjectState();
+    setupTestProject({
+      rootPath: '/project',
+      openFiles: [
+        { path: '/project/a.ts' },
+        { path: '/project/b.ts' },
+      ],
+      activeFilePath: '/project/a.ts',
+    });
   });
 
   it('activates tab on Enter key', async () => {
@@ -94,7 +99,7 @@ describe('EditorTabs keyboard navigation', () => {
   });
 });
 
-// ─── SearchPalette keyboard navigation ────────────────────────────────────────
+// --- SearchPalette keyboard navigation ---
 
 const makeMockAdapter = () => ({
   listDir: vi.fn().mockResolvedValue([]),
@@ -219,20 +224,22 @@ describe('SearchPalette keyboard navigation', () => {
   });
 });
 
-// ─── Focus management ─────────────────────────────────────────────────────────
+// --- Focus management ---
 
 describe('Focus management', () => {
   it('EditorTabs close button is reachable by keyboard (not tabindex=-1)', async () => {
-    openFiles.set([
-      { path: '/project/focus.ts', name: 'focus.ts', content: '', isDirty: false, isDeleted: false },
-    ]);
-    activeFilePath.set('/project/focus.ts');
+    resetProjectState();
+    setupTestProject({
+      rootPath: '/project',
+      openFiles: [{ path: '/project/focus.ts' }],
+      activeFilePath: '/project/focus.ts',
+    });
 
     const { container } = render(EditorTabs);
     const closeBtn = container.querySelector('button[aria-label="Close focus.ts"]') as HTMLButtonElement;
 
     expect(closeBtn).not.toBeNull();
-    // Buttons are natively focusable — they should NOT have tabindex="-1"
+    // Buttons are natively focusable -- they should NOT have tabindex="-1"
     const tabindex = closeBtn.getAttribute('tabindex');
     expect(tabindex === null || tabindex !== '-1').toBe(true);
   });

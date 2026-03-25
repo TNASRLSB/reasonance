@@ -10,17 +10,18 @@ import {
   updateInstance,
 } from '$lib/stores/terminals';
 import type { TerminalInstance } from '$lib/stores/terminals';
+import { setupTestProject, resetProjectState, TEST_PROJECT_ID } from '../../helpers/project-setup';
 
 const makeInstance = (id: string, provider: string, label: string): TerminalInstance => ({
   id,
   provider,
   label,
+  projectId: TEST_PROJECT_ID,
 });
 
 describe('terminals store', () => {
   beforeEach(() => {
-    terminalInstances.set([]);
-    activeInstanceId.set(null);
+    resetProjectState();
   });
 
   it('starts empty', () => {
@@ -29,6 +30,7 @@ describe('terminals store', () => {
   });
 
   it('can add a terminal instance', () => {
+    setupTestProject();
     const inst = makeInstance('pty-1', 'claude', 'inst. 1');
     addInstance(inst);
 
@@ -39,30 +41,39 @@ describe('terminals store', () => {
   });
 
   it('can track active instance', () => {
-    activeInstanceId.set('pty-1');
+    setupTestProject({
+      terminalInstances: [makeInstance('pty-1', 'claude', 'inst. 1')],
+      activeTerminalId: 'pty-1',
+    });
     expect(get(activeInstanceId)).toBe('pty-1');
   });
 
   it('activeInstance is null when no active id', () => {
-    terminalInstances.set([makeInstance('pty-1', 'claude', 'inst. 1')]);
-    activeInstanceId.set(null);
+    setupTestProject({
+      terminalInstances: [makeInstance('pty-1', 'claude', 'inst. 1')],
+      activeTerminalId: null,
+    });
     expect(get(activeInstance)).toBeNull();
   });
 
   it('activeInstance resolves to correct instance', () => {
-    terminalInstances.set([
-      makeInstance('pty-1', 'claude', 'inst. 1'),
-      makeInstance('pty-2', 'gemini', 'inst. 1'),
-    ]);
-    activeInstanceId.set('pty-2');
+    setupTestProject({
+      terminalInstances: [
+        makeInstance('pty-1', 'claude', 'inst. 1'),
+        makeInstance('pty-2', 'gemini', 'inst. 1'),
+      ],
+      activeTerminalId: 'pty-2',
+    });
     expect(get(activeInstance)?.provider).toBe('gemini');
   });
 
   it('can add multiple instances for different providers', () => {
-    terminalInstances.set([
-      makeInstance('pty-1', 'claude', 'inst. 1'),
-      makeInstance('pty-2', 'gemini', 'inst. 1'),
-    ]);
+    setupTestProject({
+      terminalInstances: [
+        makeInstance('pty-1', 'claude', 'inst. 1'),
+        makeInstance('pty-2', 'gemini', 'inst. 1'),
+      ],
+    });
 
     const instances = get(terminalInstances);
     expect(instances).toHaveLength(2);
@@ -70,10 +81,12 @@ describe('terminals store', () => {
   });
 
   it('can add multiple instances for the same provider', () => {
-    terminalInstances.set([
-      makeInstance('pty-1', 'claude', 'inst. 1'),
-      makeInstance('pty-2', 'claude', 'inst. 2'),
-    ]);
+    setupTestProject({
+      terminalInstances: [
+        makeInstance('pty-1', 'claude', 'inst. 1'),
+        makeInstance('pty-2', 'claude', 'inst. 2'),
+      ],
+    });
 
     const instances = get(terminalInstances);
     expect(instances).toHaveLength(2);
@@ -82,21 +95,22 @@ describe('terminals store', () => {
   });
 
   it('instance supports optional metadata fields', () => {
-    const instance: TerminalInstance = {
-      id: 'pty-1',
-      provider: 'claude',
-      label: 'inst. 1',
-      contextPercent: 42,
-      tokenCount: '12k',
-      activeMode: 'code',
-      modelName: 'claude-opus-4',
-      messagesLeft: 8,
-      resetTimer: '2h 30m',
-      progressState: 1,
-      progressValue: 65,
-    };
-
-    terminalInstances.set([instance]);
+    setupTestProject({
+      terminalInstances: [{
+        id: 'pty-1',
+        provider: 'claude',
+        label: 'inst. 1',
+        projectId: TEST_PROJECT_ID,
+        contextPercent: 42,
+        tokenCount: '12k',
+        activeMode: 'code',
+        modelName: 'claude-opus-4',
+        messagesLeft: 8,
+        resetTimer: '2h 30m',
+        progressState: 1,
+        progressValue: 65,
+      }],
+    });
 
     const saved = get(terminalInstances)[0];
     expect(saved.contextPercent).toBe(42);
@@ -107,10 +121,12 @@ describe('terminals store', () => {
   });
 
   it('can remove an instance by id', () => {
-    terminalInstances.set([
-      makeInstance('pty-1', 'claude', 'inst. 1'),
-      makeInstance('pty-2', 'gemini', 'inst. 1'),
-    ]);
+    setupTestProject({
+      terminalInstances: [
+        makeInstance('pty-1', 'claude', 'inst. 1'),
+        makeInstance('pty-2', 'gemini', 'inst. 1'),
+      ],
+    });
 
     removeInstance('pty-1');
 
@@ -120,7 +136,9 @@ describe('terminals store', () => {
   });
 
   it('can update an instance by id', () => {
-    terminalInstances.set([makeInstance('pty-1', 'claude', 'inst. 1')]);
+    setupTestProject({
+      terminalInstances: [makeInstance('pty-1', 'claude', 'inst. 1')],
+    });
 
     updateInstance('pty-1', { contextPercent: 75, tokenCount: '20k' });
 
@@ -131,32 +149,44 @@ describe('terminals store', () => {
   });
 
   it('clearing active instance id resets to null', () => {
-    activeInstanceId.set('pty-1');
-    activeInstanceId.set(null);
+    setupTestProject({
+      terminalInstances: [makeInstance('pty-1', 'claude', 'inst. 1')],
+      activeTerminalId: 'pty-1',
+    });
+    expect(get(activeInstanceId)).toBe('pty-1');
+
+    // Remove the instance — activeTerminalId should become null
+    removeInstance('pty-1');
     expect(get(activeInstanceId)).toBeNull();
   });
 
   it('computedLabels uses modelName when resolved', () => {
-    terminalInstances.set([
-      { id: 'pty-1', provider: 'claude', label: '', modelName: 'claude-opus-4' },
-    ]);
+    setupTestProject({
+      terminalInstances: [
+        { id: 'pty-1', provider: 'claude', label: '', modelName: 'claude-opus-4', projectId: TEST_PROJECT_ID },
+      ],
+    });
     const labels = get(computedLabels);
     expect(labels.get('pty-1')).toBe('claude-opus-4');
   });
 
   it('computedLabels appends ... suffix when modelName not yet resolved', () => {
-    terminalInstances.set([
-      { id: 'pty-1', provider: 'claude', label: '' },
-    ]);
+    setupTestProject({
+      terminalInstances: [
+        { id: 'pty-1', provider: 'claude', label: '', projectId: TEST_PROJECT_ID },
+      ],
+    });
     const labels = get(computedLabels);
     expect(labels.get('pty-1')).toBe('claude ...');
   });
 
   it('computedLabels deduplicates by appending index for same model', () => {
-    terminalInstances.set([
-      { id: 'pty-1', provider: 'claude', label: '', modelName: 'claude-opus-4' },
-      { id: 'pty-2', provider: 'claude', label: '', modelName: 'claude-opus-4' },
-    ]);
+    setupTestProject({
+      terminalInstances: [
+        { id: 'pty-1', provider: 'claude', label: '', modelName: 'claude-opus-4', projectId: TEST_PROJECT_ID },
+        { id: 'pty-2', provider: 'claude', label: '', modelName: 'claude-opus-4', projectId: TEST_PROJECT_ID },
+      ],
+    });
     const labels = get(computedLabels);
     expect(labels.get('pty-1')).toBe('claude-opus-4 1');
     expect(labels.get('pty-2')).toBe('claude-opus-4 2');

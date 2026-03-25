@@ -1,12 +1,12 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { render } from '@testing-library/svelte';
 import FileTree from '$lib/components/FileTree.svelte';
-import { projectRoot } from '$lib/stores/files';
 import { createMockAdapter } from '../../mocks/adapter';
+import { setupTestProject, resetProjectState } from '../../helpers/project-setup';
 import type { FileEntry } from '$lib/adapter';
 
 beforeEach(() => {
-  projectRoot.set('');
+  resetProjectState();
 });
 
 describe('FileTree component', () => {
@@ -25,7 +25,7 @@ describe('FileTree component', () => {
   });
 
   it('renders project name in header when projectRoot is set', async () => {
-    projectRoot.set('/home/user/myproject');
+    setupTestProject({ rootPath: '/home/user/myproject' });
     const adapter = createMockAdapter();
     render(FileTree, { props: { adapter } });
     await new Promise((r) => setTimeout(r, 10));
@@ -41,7 +41,7 @@ describe('FileTree component', () => {
     const adapter = createMockAdapter({
       listDir: () => Promise.resolve(files),
     });
-    projectRoot.set('/proj/src');
+    setupTestProject({ rootPath: '/proj/src' });
     render(FileTree, { props: { adapter } });
     await new Promise((r) => setTimeout(r, 20));
     const items = document.querySelectorAll('.tree-item');
@@ -55,7 +55,7 @@ describe('FileTree component', () => {
     const adapter = createMockAdapter({
       listDir: () => Promise.resolve(files),
     });
-    projectRoot.set('/proj');
+    setupTestProject({ rootPath: '/proj' });
     render(FileTree, { props: { adapter } });
     await new Promise((r) => setTimeout(r, 20));
     const nameEl = document.querySelector('.name');
@@ -66,7 +66,7 @@ describe('FileTree component', () => {
     const adapter = createMockAdapter({
       listDir: () => Promise.resolve([]),
     });
-    projectRoot.set('/empty-proj');
+    setupTestProject({ rootPath: '/empty-proj' });
     render(FileTree, { props: { adapter } });
     await new Promise((r) => setTimeout(r, 20));
     const items = document.querySelectorAll('.tree-item');
@@ -80,7 +80,7 @@ describe('FileTree component', () => {
     const adapter = createMockAdapter({
       listDir: () => Promise.resolve(files),
     });
-    projectRoot.set('/proj');
+    setupTestProject({ rootPath: '/proj' });
     render(FileTree, { props: { adapter } });
     await new Promise((r) => setTimeout(r, 20));
     const item = document.querySelector('.tree-item');

@@ -1,15 +1,12 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { render } from '@testing-library/svelte';
 import StatusBar from '$lib/components/StatusBar.svelte';
-import { activeFilePath } from '$lib/stores/files';
 import { llmConfigs } from '$lib/stores/config';
-import { terminalInstances, activeInstanceId } from '$lib/stores/terminals';
+import { setupTestProject, resetProjectState } from '../../helpers/project-setup';
 
 beforeEach(() => {
-  activeFilePath.set(null);
+  resetProjectState();
   llmConfigs.set([]);
-  terminalInstances.set([]);
-  activeInstanceId.set(null);
 });
 
 describe('StatusBar component', () => {
@@ -26,7 +23,11 @@ describe('StatusBar component', () => {
   });
 
   it('shows file name in right panel when a file is active', async () => {
-    activeFilePath.set('/project/src/main.ts');
+    setupTestProject({
+      rootPath: '/project',
+      activeFilePath: '/project/src/main.ts',
+      openFiles: [{ path: '/project/src/main.ts' }],
+    });
     render(StatusBar);
     await new Promise((r) => setTimeout(r, 0));
     const fileName = document.querySelector('.file-name');
@@ -34,7 +35,11 @@ describe('StatusBar component', () => {
   });
 
   it('shows TypeScript language label for .ts files', async () => {
-    activeFilePath.set('/project/src/main.ts');
+    setupTestProject({
+      rootPath: '/project',
+      activeFilePath: '/project/src/main.ts',
+      openFiles: [{ path: '/project/src/main.ts' }],
+    });
     render(StatusBar);
     await new Promise((r) => setTimeout(r, 0));
     const lang = document.querySelector('.file-lang');
@@ -42,7 +47,11 @@ describe('StatusBar component', () => {
   });
 
   it('shows UTF-8 encoding in right panel when a file is active', async () => {
-    activeFilePath.set('/project/src/app.svelte');
+    setupTestProject({
+      rootPath: '/project',
+      activeFilePath: '/project/src/app.svelte',
+      openFiles: [{ path: '/project/src/app.svelte' }],
+    });
     render(StatusBar);
     await new Promise((r) => setTimeout(r, 0));
     const encoding = document.querySelector('.file-encoding');
@@ -50,7 +59,6 @@ describe('StatusBar component', () => {
   });
 
   it('does not render file info when no file is active', () => {
-    activeFilePath.set(null);
     render(StatusBar);
     expect(document.querySelector('.file-name')).toBeNull();
   });

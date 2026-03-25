@@ -8,9 +8,8 @@ import { render, cleanup } from '@testing-library/svelte';
 import axe from 'axe-core';
 
 // Store imports for setup
-import { openFiles, activeFilePath } from '$lib/stores/files';
 import { llmConfigs } from '$lib/stores/config';
-import { terminalInstances, activeInstanceId } from '$lib/stores/terminals';
+import { setupTestProject, resetProjectState } from '../helpers/project-setup';
 
 // Component imports
 import StatusBar from '$lib/components/StatusBar.svelte';
@@ -25,14 +24,12 @@ afterEach(() => {
   cleanup();
 });
 
-// ─── StatusBar ────────────────────────────────────────────────────────────────
+// --- StatusBar ---
 
 describe('StatusBar accessibility', () => {
   beforeEach(() => {
+    resetProjectState();
     llmConfigs.set([]);
-    activeFilePath.set(null);
-    terminalInstances.set([]);
-    activeInstanceId.set(null);
   });
 
   it('renders with no ARIA violations (default state)', async () => {
@@ -55,7 +52,11 @@ describe('StatusBar accessibility', () => {
   });
 
   it('renders with no ARIA violations when file is active', async () => {
-    activeFilePath.set('/project/src/main.ts');
+    setupTestProject({
+      rootPath: '/project',
+      activeFilePath: '/project/src/main.ts',
+      openFiles: [{ path: '/project/src/main.ts' }],
+    });
     llmConfigs.set([{ name: 'claude', type: 'cli', command: 'claude' }]);
 
     const { container } = render(StatusBar);
@@ -78,12 +79,11 @@ describe('StatusBar accessibility', () => {
   });
 });
 
-// ─── EditorTabs ───────────────────────────────────────────────────────────────
+// --- EditorTabs ---
 
 describe('EditorTabs accessibility', () => {
   beforeEach(() => {
-    openFiles.set([]);
-    activeFilePath.set(null);
+    resetProjectState();
   });
 
   it('renders tablist with no ARIA violations when empty', async () => {
@@ -96,16 +96,19 @@ describe('EditorTabs accessibility', () => {
     if (violations.length > 0) {
       console.warn('EditorTabs (empty) ARIA violations:', violations.map(v => `${v.id}: ${v.description}`));
     }
-    // Empty tablist is a known pattern — no tabs means no violations expected
+    // Empty tablist is a known pattern -- no tabs means no violations expected
     expect(violations).toHaveLength(0);
   });
 
   it('renders tabs with proper ARIA roles and attributes', async () => {
-    openFiles.set([
-      { path: '/project/main.ts', name: 'main.ts', content: '', isDirty: false, isDeleted: false },
-      { path: '/project/App.svelte', name: 'App.svelte', content: '', isDirty: true, isDeleted: false },
-    ]);
-    activeFilePath.set('/project/main.ts');
+    setupTestProject({
+      rootPath: '/project',
+      openFiles: [
+        { path: '/project/main.ts', isDirty: false },
+        { path: '/project/App.svelte', isDirty: true },
+      ],
+      activeFilePath: '/project/main.ts',
+    });
 
     const { container } = render(EditorTabs);
 
@@ -136,10 +139,11 @@ describe('EditorTabs accessibility', () => {
   });
 
   it('tabs are keyboard-accessible (have tabindex)', async () => {
-    openFiles.set([
-      { path: '/project/index.ts', name: 'index.ts', content: '', isDirty: false, isDeleted: false },
-    ]);
-    activeFilePath.set('/project/index.ts');
+    setupTestProject({
+      rootPath: '/project',
+      openFiles: [{ path: '/project/index.ts' }],
+      activeFilePath: '/project/index.ts',
+    });
 
     const { container } = render(EditorTabs);
 
@@ -148,12 +152,14 @@ describe('EditorTabs accessibility', () => {
   });
 
   it('dirty files show modified indicator in tab name', async () => {
-    openFiles.set([
-      { path: '/project/dirty.ts', name: 'dirty.ts', content: '', isDirty: true, isDeleted: false },
-    ]);
+    setupTestProject({
+      rootPath: '/project',
+      openFiles: [{ path: '/project/dirty.ts', isDirty: true }],
+      activeFilePath: '/project/dirty.ts',
+    });
 
     const { container } = render(EditorTabs);
     const tabName = container.querySelector('.tab-name');
-    expect(tabName?.textContent).toContain('●');
+    expect(tabName?.textContent).toContain('\u25CF');
   });
 });

@@ -7,36 +7,23 @@ import {
   recentProjects,
   addOpenFile,
   closeFile,
-  addRecentProject,
 } from '$lib/stores/files';
-import type { OpenFile } from '$lib/stores/files';
-
-const makeFile = (path: string): OpenFile => ({
-  path,
-  name: path.split('/').pop() ?? path,
-  content: `// ${path}`,
-  isDirty: false,
-  isDeleted: false,
-});
+import { setupTestProject, resetProjectState } from '../../helpers/project-setup';
 
 describe('files store', () => {
   beforeEach(() => {
-    openFiles.set([]);
-    activeFilePath.set(null);
-    projectRoot.set('');
-    recentProjects.set([]);
+    resetProjectState();
   });
 
   it('has empty default state', () => {
     expect(get(openFiles)).toEqual([]);
     expect(get(activeFilePath)).toBeNull();
     expect(get(projectRoot)).toBe('');
-    expect(get(recentProjects)).toEqual([]);
   });
 
   it('addOpenFile adds a file and sets it active', () => {
-    const file = makeFile('/project/src/main.ts');
-    addOpenFile(file);
+    setupTestProject({ rootPath: '/project' });
+    addOpenFile('/project/src/main.ts', '// /project/src/main.ts');
 
     expect(get(openFiles)).toHaveLength(1);
     expect(get(openFiles)[0].path).toBe('/project/src/main.ts');
@@ -44,29 +31,27 @@ describe('files store', () => {
   });
 
   it('addOpenFile does not duplicate already-open files', () => {
-    const file = makeFile('/project/src/main.ts');
-    addOpenFile(file);
-    addOpenFile(file);
+    setupTestProject({ rootPath: '/project' });
+    addOpenFile('/project/src/main.ts', '// /project/src/main.ts');
+    addOpenFile('/project/src/main.ts', '// /project/src/main.ts');
 
     expect(get(openFiles)).toHaveLength(1);
   });
 
   it('addOpenFile switches active file without duplicating', () => {
-    const fileA = makeFile('/project/a.ts');
-    const fileB = makeFile('/project/b.ts');
-    addOpenFile(fileA);
-    addOpenFile(fileB);
-    addOpenFile(fileA); // re-open already open file
+    setupTestProject({ rootPath: '/project' });
+    addOpenFile('/project/a.ts', '// /project/a.ts');
+    addOpenFile('/project/b.ts', '// /project/b.ts');
+    addOpenFile('/project/a.ts', '// /project/a.ts'); // re-open already open file
 
     expect(get(openFiles)).toHaveLength(2);
     expect(get(activeFilePath)).toBe('/project/a.ts');
   });
 
   it('closeFile removes the file from openFiles', () => {
-    const fileA = makeFile('/project/a.ts');
-    const fileB = makeFile('/project/b.ts');
-    addOpenFile(fileA);
-    addOpenFile(fileB);
+    setupTestProject({ rootPath: '/project' });
+    addOpenFile('/project/a.ts', '// /project/a.ts');
+    addOpenFile('/project/b.ts', '// /project/b.ts');
 
     closeFile('/project/a.ts');
 
@@ -76,8 +61,8 @@ describe('files store', () => {
   });
 
   it('closeFile clears activeFilePath when active file is closed', () => {
-    const file = makeFile('/project/main.ts');
-    addOpenFile(file);
+    setupTestProject({ rootPath: '/project' });
+    addOpenFile('/project/main.ts');
     expect(get(activeFilePath)).toBe('/project/main.ts');
 
     closeFile('/project/main.ts');
@@ -85,35 +70,17 @@ describe('files store', () => {
   });
 
   it('closeFile keeps activeFilePath when a different file is closed', () => {
-    const fileA = makeFile('/project/a.ts');
-    const fileB = makeFile('/project/b.ts');
-    addOpenFile(fileA);
-    addOpenFile(fileB);
+    setupTestProject({ rootPath: '/project' });
+    addOpenFile('/project/a.ts');
+    addOpenFile('/project/b.ts');
     // fileB is now active
     closeFile('/project/a.ts');
 
     expect(get(activeFilePath)).toBe('/project/b.ts');
   });
 
-  it('addRecentProject prepends and deduplicates', () => {
-    addRecentProject('/projects/alpha');
-    addRecentProject('/projects/beta');
-    addRecentProject('/projects/alpha'); // duplicate
-
-    const recent = get(recentProjects);
-    expect(recent[0]).toBe('/projects/alpha');
-    expect(recent).toHaveLength(2);
-  });
-
-  it('addRecentProject keeps at most 10 entries', () => {
-    for (let i = 0; i < 12; i++) {
-      addRecentProject(`/projects/proj-${i}`);
-    }
-    expect(get(recentProjects)).toHaveLength(10);
-  });
-
-  it('projectRoot is settable', () => {
-    projectRoot.set('/home/user/myproject');
+  it('projectRoot reflects the active project rootPath', () => {
+    setupTestProject({ rootPath: '/home/user/myproject' });
     expect(get(projectRoot)).toBe('/home/user/myproject');
   });
 });

@@ -2,13 +2,13 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render } from '@testing-library/svelte';
 import ContextMenu from '$lib/components/ContextMenu.svelte';
 import { llmConfigs, appSettings } from '$lib/stores/config';
-import { activeInstanceId } from '$lib/stores/terminals';
 import { createMockAdapter } from '../../mocks/adapter';
+import { resetProjectState } from '../../helpers/project-setup';
 
 beforeEach(() => {
+  resetProjectState();
   llmConfigs.set([]);
   appSettings.set({});
-  activeInstanceId.set(null);
 });
 
 describe('ContextMenu component', () => {
