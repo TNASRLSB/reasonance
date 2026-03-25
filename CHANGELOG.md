@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.15.1] - 2026-03-25
+
+### Bug Fixes
+
+- fix(a11y): correct oklch contrast values + replace accent backgrounds with accent-btn
+
+### Other
+
+- - Bump dark theme oklch values verified via Playwright browser rendering:
+-   text-disabled/placeholder/state-idle: 0.70→0.73, state-idle-text: 0.72→0.74,
+-   state-retrying: 0.72→0.75, border-disabled: 0.52→0.54
+- - Fix light theme accent from #174990 to #16488e (7.09:1 on tertiary vs 6.97)
+- - Replace background: var(--accent) → var(--accent-btn) in 25 components
+-   where white text appears on accent background (dark theme accent #8ab8ff
+-   is too light for white text at 2.0:1, accent-btn #1e40af gives 8.7:1 AAA)
+- - Keep 4 decorative accent backgrounds (progress bars, markers, divider)
+- - All oklch contrast verified via Playwright canvas pixel extraction
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: Reasonance <reasonance@users.noreply.github.com>
+
+
+
 ## [0.15.0] - 2026-03-25
 
 ### Features
