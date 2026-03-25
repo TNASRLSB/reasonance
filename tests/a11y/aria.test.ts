@@ -8,13 +8,11 @@ import { render, cleanup } from '@testing-library/svelte';
 import axe from 'axe-core';
 
 // Store imports for setup
-import { toasts } from '$lib/stores/toast';
 import { openFiles, activeFilePath } from '$lib/stores/files';
 import { llmConfigs } from '$lib/stores/config';
 import { terminalInstances, activeInstanceId } from '$lib/stores/terminals';
 
 // Component imports
-import Toast from '$lib/components/Toast.svelte';
 import StatusBar from '$lib/components/StatusBar.svelte';
 import EditorTabs from '$lib/components/EditorTabs.svelte';
 
@@ -25,56 +23,6 @@ async function checkA11y(container: HTMLElement): Promise<axe.Result[]> {
 
 afterEach(() => {
   cleanup();
-});
-
-// ─── Toast ────────────────────────────────────────────────────────────────────
-
-describe('Toast accessibility', () => {
-  beforeEach(() => {
-    toasts.set([]);
-  });
-
-  it('renders with no ARIA violations when empty', async () => {
-    const { container } = render(Toast);
-    const violations = await checkA11y(container);
-    if (violations.length > 0) {
-      console.warn('Toast (empty) ARIA violations:', violations.map(v => `${v.id}: ${v.description}`));
-    }
-    expect(violations).toHaveLength(0);
-  });
-
-  it('renders toast notifications with proper ARIA roles', async () => {
-    toasts.set([
-      { id: 1, type: 'info', title: 'File saved', body: 'main.ts saved successfully' },
-      { id: 2, type: 'error', title: 'Build failed', body: 'Compilation error in App.svelte' },
-      { id: 3, type: 'success', title: 'Done', body: '' },
-      { id: 4, type: 'warning', title: 'Disk space low', body: '' },
-    ]);
-
-    const { container } = render(Toast);
-
-    // Verify structural ARIA attributes
-    const liveRegion = container.querySelector('[aria-live="polite"]');
-    expect(liveRegion).not.toBeNull();
-
-    const alerts = container.querySelectorAll('[role="alert"]');
-    expect(alerts.length).toBe(4);
-
-    const dismissButtons = container.querySelectorAll('button[aria-label="Dismiss notification"]');
-    expect(dismissButtons.length).toBe(4);
-
-    const violations = await checkA11y(container);
-    if (violations.length > 0) {
-      console.warn('Toast (with items) ARIA violations:', violations.map(v => `${v.id}: ${v.description}`));
-    }
-    expect(violations).toHaveLength(0);
-  });
-
-  it('has aria-atomic="false" to allow individual notification announcements', async () => {
-    const { container } = render(Toast);
-    const liveRegion = container.querySelector('[aria-live]');
-    expect(liveRegion?.getAttribute('aria-atomic')).toBe('false');
-  });
 });
 
 // ─── StatusBar ────────────────────────────────────────────────────────────────

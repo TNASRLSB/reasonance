@@ -135,8 +135,9 @@
         </label>
         {#if memoryEnabled}
           <div class="field-row">
-            <label class="field-label">Max entries</label>
+            <label class="field-label" for="inspector-max-entries">Max entries</label>
             <input
+              id="inspector-max-entries"
               type="number"
               class="field-input small"
               value={memoryMaxEntries}
@@ -146,8 +147,9 @@
             />
           </div>
           <div class="field-row">
-            <label class="field-label">Persist</label>
+            <label class="field-label" for="inspector-persist">Persist</label>
             <select
+              id="inspector-persist"
               class="field-input"
               value={memoryPersist}
               onchange={(e) => updateNestedConfig('memory', 'persist', (e.target as HTMLSelectElement).value)}
@@ -163,8 +165,9 @@
       <div class="inspector-section">
         <div class="section-label">Error handling</div>
         <div class="field-row">
-          <label class="field-label">Retries</label>
+          <label class="field-label" for="inspector-retries">Retries</label>
           <input
+            id="inspector-retries"
             type="number"
             class="field-input small"
             value={retryCount}
@@ -174,8 +177,9 @@
           />
         </div>
         <div class="field-row">
-          <label class="field-label">Fallback</label>
+          <label class="field-label" for="inspector-fallback">Fallback</label>
           <input
+            id="inspector-fallback"
             type="text"
             class="field-input"
             value={fallbackAgent}

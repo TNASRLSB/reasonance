@@ -695,7 +695,7 @@
                     multiple: false,
                   });
                   if (!selected) return;
-                  const filePath = typeof selected === 'string' ? selected : selected.path;
+                  const filePath = selected;
                   if (!filePath) return;
                   const text = await readTextFile(filePath);
                   const parsed = JSON.parse(text);
@@ -1448,7 +1448,7 @@
     margin-bottom: var(--space-3);
   }
 
-  .provider-section-header h3 {
+  .provider-section-header legend {
     margin: 0;
   }
 

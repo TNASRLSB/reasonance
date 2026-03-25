@@ -10,12 +10,12 @@
     onUpdate: (theme: ThemeFile) => void;
   } = $props();
 
-  let jsonText = $state(JSON.stringify(theme, null, 2));
+  let jsonText = $state('');
   let parseError = $state<string | null>(null);
   let validationErrors = $state<string[]>([]);
 
   // Keep jsonText in sync when theme prop changes externally, but only if not currently editing
-  let lastKnownJson = $state(JSON.stringify(theme, null, 2));
+  let lastKnownJson = $state('');
   $effect(() => {
     const incoming = JSON.stringify(theme, null, 2);
     if (incoming !== lastKnownJson) {
@@ -62,7 +62,6 @@
     aria-label="Raw JSON editor"
     spellcheck="false"
     autocomplete="off"
-    autocorrect="off"
     autocapitalize="off"
   ></textarea>
 

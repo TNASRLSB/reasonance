@@ -31,7 +31,8 @@
   };
 
   let editingLabel = $state(false);
-  let labelInput = $state(label);
+  let labelInput = $state('');
+  $effect(() => { if (!editingLabel) labelInput = label; });
 
   let borderColor = $state('');
   $effect(() => {

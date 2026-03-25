@@ -35,7 +35,19 @@
     setupHiveEventListeners();
     // Initialize empty workflow if none loaded
     if (!get(currentWorkflow)) {
-      currentWorkflow.set({ name: 'Untitled', nodes: [], edges: [], settings: {} });
+      currentWorkflow.set({
+        name: 'Untitled',
+        version: '1.0.0',
+        schemaVersion: 1,
+        nodes: [],
+        edges: [],
+        settings: {
+          max_concurrent_agents: 3,
+          default_retry: 1,
+          timeout: 300,
+          permissionLevel: 'supervised'
+        }
+      });
     }
   });
 

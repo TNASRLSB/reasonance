@@ -45,7 +45,7 @@
   );
 
   // Filtered entries when searching
-  let filteredVariables = $derived<Record<string, string | number>>(() => {
+  let filteredVariables = $derived.by<Record<string, string | number>>(() => {
     if (!currentTheme || !activeSection) return {};
     const section = currentTheme[activeSection as keyof ThemeFile] as Record<string, string | number> | undefined;
     if (!section) return {};
@@ -227,6 +227,7 @@
       class="editor-shell"
       class:drag-over={dragOver}
       role="dialog"
+      tabindex="-1"
       aria-modal="true"
       aria-label="Theme Editor"
       ondragover={handleDragOver}
@@ -319,7 +320,7 @@
             <div class="section-scroll">
               <ThemeEditorSection
                 sectionName={activeSection}
-                variables={filteredVariables()}
+                variables={filteredVariables}
                 onUpdate={(key, value) => updateVariable(activeSection, key, value)}
               />
             </div>

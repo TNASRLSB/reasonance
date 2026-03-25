@@ -68,6 +68,7 @@
     <div
       class="dialog"
       role="dialog"
+      tabindex="-1"
       aria-modal="true"
       aria-label="Choose starting theme"
       onclick={(e) => e.stopPropagation()}
