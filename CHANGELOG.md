@@ -1,5 +1,54 @@
 # Changelog
 
+## [1.0.1] - 2026-03-25
+
+### Bug Fixes
+
+- fix(ci): every push to main triggers a release + AUR update
+- fix(tests): update theme tests for AAA color values and new layer scale
+- fix: resolve all svelte-check errors and warnings (10→0 errors, 15→0 warnings)
+
+### Other
+
+- - Every push = new version (never skip release)
+- - Default bump is patch; feat: → minor; breaking → major
+- - Rollover versioning: patch >9 bumps minor, minor >9 bumps major
+-   (e.g., 0.0.9 → 0.1.0, 0.9.9 → 1.0.0)
+- - Force push with no new commits still triggers patch release
+- - AUR publish now runs on every release (was being skipped)
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- - accent: #3b82f6 → #8ab8ff (AAA contrast)
+- - toolbar-height: 44px → 52px (AAA target size)
+- - layer-modal: 4 → 2000 (realistic z-index scale from Phase 0)
+- - layer-toast: 5 → 5000 (same)
+- 
+- These broke CI builds on all platforms.
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- - Settings: simplify openFileDialog return type (string
+- - HiveCanvas: add required version/schemaVersion to Workflow init
+- - ThemeEditor: $derived → $derived.by, remove () invocation
+- - ThemeJsonView: remove invalid autocorrect HTML attribute
+- - Toast: remove deleted component imports from aria.test.ts, delete Toast.test.ts
+- - theme.test.ts: replace Node.js fs/path with Vite JSON import
+- 
+- Warnings fixed:
+- - HiveInspector: associate 4 labels with controls via for/id
+- - ThemeStartDialog + ThemeEditor: add tabindex="-1" to dialog roles
+- - AgentNode/ResourceNode/LogicNode: fix $state prop capture with $effect sync
+- - ThemeJsonView: initialize $state to empty, let $effect populate
+- - StatusBar: add svelte-ignore for stopPropagation-only click handlers
+- - Settings: fix orphaned CSS selector .provider-section-header h3 → legend
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+
+
+
 ## [0.17.0] - 2026-03-25
 
 ### Features
