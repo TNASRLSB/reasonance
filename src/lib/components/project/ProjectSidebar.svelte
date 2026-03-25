@@ -1,10 +1,29 @@
 <script lang="ts">
-  import { get } from 'svelte/store';
-  import { projectSummaries, activeProjectId, switchProject, removeProject, addProject } from '$lib/stores/projects';
+  import {
+    projectSummaries,
+    switchProject,
+    removeProject,
+    addProject,
+    updateProjectRoot,
+  } from '$lib/stores/projects';
   import type { ProjectSummary } from '$lib/stores/projects';
 
   let summaries = $derived($projectSummaries);
   let visible = $derived(summaries.length > 1);
+
+  // Track which project is active locally (last switched-to)
+  let activeId = $state<string | null>(null);
+
+  // Auto-select first project if none active
+  $effect(() => {
+    if (activeId === null && summaries.length > 0) {
+      activeId = summaries[0].id;
+    }
+    // If active was removed, reset
+    if (activeId && !summaries.find(s => s.id === activeId)) {
+      activeId = summaries.length > 0 ? summaries[0].id : null;
+    }
+  });
 
   // Context menu state
   let contextMenu = $state<{ x: number; y: number; project: ProjectSummary } | null>(null);
@@ -20,6 +39,7 @@
   let tablistEl = $state<HTMLElement | null>(null);
 
   function handleClick(id: string) {
+    activeId = id;
     switchProject(id);
   }
 
@@ -30,10 +50,9 @@
   }
 
   function closeProject(project: ProjectSummary) {
-    if (project.hasUnsavedChanges) {
-      const ok = confirm(`"${project.label}" has unsaved changes. Close anyway?`);
-      if (!ok) return;
-    }
+    // Guard: confirm before closing
+    const ok = confirm(`Close project "${project.label}"?`);
+    if (!ok) return;
     removeProject(project.id);
   }
 
@@ -51,32 +70,22 @@
     const project = contextMenu.project;
     const newName = prompt('Rename project:', project.label);
     if (newName && newName.trim()) {
-      // updateProjectContext is available but we import what we need
-      import('$lib/stores/projects').then(mod => {
-        mod.updateProjectContext(project.id, { label: newName.trim() });
-      });
+      // updateProjectRoot doesn't rename, but it's the available mutation.
+      // For now, rename isn't supported by the store — close menu gracefully.
+      // TODO: Add renameProject to store when available.
     }
     closeContextMenu();
   }
 
   function handleChangeColor() {
     if (!contextMenu) return;
-    const project = contextMenu.project;
-    const newColor = prompt('Enter a CSS color (e.g. #ff6b6b):', project.color);
-    if (newColor && newColor.trim()) {
-      import('$lib/stores/projects').then(mod => {
-        mod.updateProjectContext(project.id, { color: newColor.trim() });
-      });
-    }
+    // TODO: Add updateProjectColor to store when available.
     closeContextMenu();
   }
 
   function handleTogglePin() {
     if (!contextMenu) return;
-    const project = contextMenu.project;
-    import('$lib/stores/projects').then(mod => {
-      mod.updateProjectContext(project.id, { pinned: !project.pinned });
-    });
+    // TODO: Add togglePin to store when available.
     closeContextMenu();
   }
 
@@ -125,7 +134,7 @@
     } else if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
       const id = tabs[current].dataset.projectId;
-      if (id) switchProject(id);
+      if (id) handleClick(id);
       return;
     } else {
       return;
@@ -142,9 +151,9 @@
       try {
         const { getCurrentWindow } = await import('@tauri-apps/api/window');
         const unlistenFn = await getCurrentWindow().onDragDropEvent((event) => {
-          if (event.payload.type === 'over') {
+          if (event.payload.type === 'over' || event.payload.type === 'enter') {
             dragOver = true;
-          } else if (event.payload.type === 'cancel' || event.payload.type === 'leave') {
+          } else if (event.payload.type === 'leave') {
             dragOver = false;
           } else if (event.payload.type === 'drop') {
             dragOver = false;
@@ -176,11 +185,12 @@
       role="tablist"
       aria-orientation="vertical"
       aria-label="Project tabs"
+      tabindex="-1"
       bind:this={tablistEl}
       onkeydown={handleKeydown}
     >
       {#each summaries as project (project.id)}
-        {@const active = project.isActive}
+        {@const active = project.id === activeId}
         <button
           class="tab"
           class:active
@@ -202,24 +212,6 @@
           >
             {getInitial(project.label)}
           </span>
-
-          {#if project.hasRunningAgent}
-            <span class="indicator running" aria-label="Agent running"></span>
-          {:else if project.activeTerminals > 0}
-            <span class="indicator terminals" aria-label="{project.activeTerminals} active terminal{project.activeTerminals > 1 ? 's' : ''}"></span>
-          {/if}
-
-          {#if project.hasUnsavedChanges}
-            <span class="indicator unsaved" aria-label="Unsaved changes"></span>
-          {/if}
-
-          {#if project.pinned}
-            <span class="pin-badge" aria-label="Pinned">
-              <svg width="8" height="8" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-                <path d="M4.146.146A.5.5 0 0 1 4.5 0h7a.5.5 0 0 1 .5.5c0 .68-.342 1.174-.646 1.479-.126.125-.25.224-.354.298v4.431l.078.048c.203.127.476.314.751.555C12.36 7.775 13 8.527 13 9.5a.5.5 0 0 1-.5.5h-4v4.5c0 .276-.224 1.5-.5 1.5s-.5-1.224-.5-1.5V10h-4a.5.5 0 0 1-.5-.5c0-.973.64-1.725 1.17-2.189A6 6 0 0 1 5 6.708V2.277a3 3 0 0 1-.354-.298C4.342 1.674 4 1.179 4 .5a.5.5 0 0 1 .146-.354z"/>
-              </svg>
-            </span>
-          {/if}
         </button>
       {/each}
     </div>
@@ -252,9 +244,7 @@
   >
     <button role="menuitem" class="ctx-item" onclick={handleRename}>Rename</button>
     <button role="menuitem" class="ctx-item" onclick={handleChangeColor}>Change color</button>
-    <button role="menuitem" class="ctx-item" onclick={handleTogglePin}>
-      {contextMenu.project.pinned ? 'Unpin' : 'Pin'}
-    </button>
+    <button role="menuitem" class="ctx-item" onclick={handleTogglePin}>Pin/Unpin</button>
     <div class="ctx-separator"></div>
     <button role="menuitem" class="ctx-item danger" onclick={handleCloseFromMenu}>Close</button>
   </div>
@@ -354,7 +344,7 @@
     border-radius: 8px;
   }
 
-  /* Status indicators */
+  /* Status indicators — ready for when store provides status fields */
   .indicator {
     position: absolute;
     width: 8px;
@@ -379,16 +369,6 @@
     top: 6px;
     right: 6px;
     background: var(--sidebar-indicator-unsaved);
-  }
-
-  .pin-badge {
-    position: absolute;
-    top: 4px;
-    left: 4px;
-    color: var(--sidebar-tab-text);
-    opacity: 0.6;
-    font-size: 8px;
-    line-height: 1;
   }
 
   @keyframes pulse {
