@@ -352,7 +352,7 @@
   }
 
   .terminal-search button:hover {
-    background: var(--accent);
+    background: var(--accent-btn);
     color: var(--text-on-accent);
   }
 

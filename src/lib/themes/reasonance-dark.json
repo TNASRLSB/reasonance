@@ -45,8 +45,8 @@
     "--hue-state-retry": 45
   },
   "states": {
-    "--state-idle": "oklch(0.70 0.00 0)",
-    "--state-idle-text": "oklch(0.72 0.00 0)",
+    "--state-idle": "oklch(0.73 0.00 0)",
+    "--state-idle-text": "oklch(0.74 0.00 0)",
     "--state-queued": "var(--warning)",
     "--state-queued-text": "var(--warning-text)",
     "--state-running": "var(--accent)",
@@ -55,16 +55,16 @@
     "--state-success-text": "var(--success-text)",
     "--state-failed": "var(--danger)",
     "--state-failed-text": "var(--danger-text)",
-    "--state-retrying": "oklch(0.72 0.18 var(--hue-state-retry))",
+    "--state-retrying": "oklch(0.75 0.18 var(--hue-state-retry))",
     "--state-retrying-text": "oklch(0.78 0.15 var(--hue-state-retry))"
   },
   "ui-states": {
-    "--text-disabled": "oklch(0.70 0.00 0)",
+    "--text-disabled": "oklch(0.73 0.00 0)",
     "--bg-disabled": "oklch(0.25 0.00 0)",
-    "--border-disabled": "oklch(0.52 0.00 0)",
+    "--border-disabled": "oklch(0.54 0.00 0)",
     "--bg-selected": "oklch(0.30 0.08 var(--hue-accent))",
     "--text-selected": "var(--text-primary)",
-    "--text-placeholder": "oklch(0.70 0.00 0)",
+    "--text-placeholder": "oklch(0.73 0.00 0)",
     "--focus-ring-color": "oklch(0.78 0.16 var(--hue-accent))"
   },
   "typography": {

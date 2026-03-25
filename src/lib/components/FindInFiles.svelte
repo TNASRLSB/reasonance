@@ -251,7 +251,7 @@
   }
 
   .search-btn {
-    background: var(--accent);
+    background: var(--accent-btn);
     color: var(--text-on-accent);
     border: var(--border-width) solid var(--accent);
     border-radius: var(--radius);
@@ -331,7 +331,7 @@
   }
 
   .fif-result-row:hover {
-    background: var(--accent);
+    background: var(--accent-btn);
   }
 
   .fif-result-row:hover .fif-line-num,

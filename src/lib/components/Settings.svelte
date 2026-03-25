@@ -1212,7 +1212,7 @@
 
   .llm-type-badge {
     font-size: var(--font-size-sm);
-    background: var(--accent);
+    background: var(--accent-btn);
     color: var(--text-on-accent);
     padding: var(--stack-tight) var(--space-1);
     border-radius: var(--radius);
@@ -1304,12 +1304,12 @@
 
   .theme-btn:hover {
     border-color: var(--accent);
-    background: var(--accent);
+    background: var(--accent-btn);
     color: var(--text-on-accent);
   }
 
   .theme-btn.active {
-    background: var(--accent);
+    background: var(--accent-btn);
     border-color: var(--accent);
     color: var(--text-on-accent);
   }
@@ -1335,13 +1335,13 @@
   }
 
   button:hover {
-    background: var(--accent);
+    background: var(--accent-btn);
     border-color: var(--accent);
     color: var(--text-on-accent);
   }
 
   button.primary {
-    background: var(--accent);
+    background: var(--accent-btn);
     border-color: var(--accent);
     color: var(--text-on-accent);
   }
@@ -1403,7 +1403,7 @@
   }
 
   .toggle-btn.active {
-    background: var(--accent);
+    background: var(--accent-btn);
     border-color: var(--accent);
     color: var(--text-on-accent);
   }
@@ -1516,7 +1516,7 @@
   }
 
   .shortcut-capture-btn.capturing {
-    background: var(--accent);
+    background: var(--accent-btn);
     border-color: var(--accent);
     color: var(--text-on-accent);
   }

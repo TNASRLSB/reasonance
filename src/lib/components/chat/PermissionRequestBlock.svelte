@@ -104,7 +104,7 @@
   }
 
   .btn.approve {
-    background: var(--accent);
+    background: var(--accent-btn);
     color: var(--text-on-accent);
     border-color: var(--accent);
   }

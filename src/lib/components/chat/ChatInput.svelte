@@ -275,7 +275,7 @@
     text-transform: uppercase;
     letter-spacing: 0.04em;
     color: var(--text-on-accent);
-    background: var(--accent);
+    background: var(--accent-btn);
     border: var(--border-width) solid var(--accent);
     padding: var(--btn-padding);
     min-height: 2.75rem;
@@ -334,7 +334,7 @@
     letter-spacing: 0.05em;
     padding: var(--stack-tight) var(--space-1);
     border: var(--border-width) solid var(--border);
-    border-radius: 0;
+    border-radius: var(--radius);
     background: transparent;
     color: var(--text-muted);
     cursor: pointer;
@@ -347,7 +347,7 @@
   }
 
   .permission-badge.auto {
-    background: var(--accent);
+    background: var(--accent-btn);
     border-color: var(--accent);
     color: var(--text-on-accent);
   }

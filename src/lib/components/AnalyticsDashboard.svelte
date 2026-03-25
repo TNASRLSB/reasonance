@@ -749,7 +749,7 @@
   }
 
   .period-btn.active {
-    background: var(--accent);
+    background: var(--accent-btn);
     border-color: var(--accent);
     color: var(--text-on-accent);
   }

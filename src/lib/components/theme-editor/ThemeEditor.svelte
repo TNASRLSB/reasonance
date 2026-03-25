@@ -427,7 +427,7 @@
   }
 
   .mode-btn.active {
-    background: var(--accent);
+    background: var(--accent-btn);
     color: var(--text-on-accent);
   }
 
@@ -520,7 +520,7 @@
   }
 
   .start-btn {
-    background: var(--accent);
+    background: var(--accent-btn);
     border: none;
     color: var(--text-on-accent);
     font-size: 13px;
@@ -571,7 +571,7 @@
   }
 
   .save-btn {
-    background: var(--accent);
+    background: var(--accent-btn);
     border-color: var(--accent);
     color: var(--text-on-accent);
   }

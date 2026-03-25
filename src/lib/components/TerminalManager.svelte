@@ -848,7 +848,7 @@
     letter-spacing: 0.04em;
     border: 2px solid var(--accent);
     border-radius: var(--radius);
-    background: var(--accent);
+    background: var(--accent-btn);
     color: var(--text-on-accent);
     cursor: pointer;
     transition: opacity var(--transition-fast);

@@ -170,7 +170,7 @@
   .trust-btn:hover { opacity: 0.85; }
 
   .trust-btn.trust {
-    background: var(--accent);
+    background: var(--accent-btn);
     border-color: var(--accent);
     color: var(--text-on-accent);
   }

@@ -358,7 +358,7 @@
 
   .palette-item:hover,
   .palette-item.selected {
-    background: var(--accent);
+    background: var(--accent-btn);
     color: var(--text-on-accent);
   }
 

@@ -244,7 +244,7 @@
   }
 
   .welcome-btn.primary:hover {
-    background: var(--accent);
+    background: var(--accent-btn);
     color: var(--bg-primary);
   }
 

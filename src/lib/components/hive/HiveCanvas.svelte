@@ -357,7 +357,7 @@
     background: var(--bg-tertiary);
     color: var(--text-secondary);
     border: 2px solid var(--border);
-    border-radius: 0;
+    border-radius: var(--radius);
     padding: var(--space-1) var(--space-2);
     font-size: var(--font-size-sm);
     cursor: pointer;
@@ -366,14 +366,14 @@
     text-transform: uppercase;
   }
   .view-modes button.active {
-    background: var(--accent);
+    background: var(--accent-btn);
     color: var(--text-on-accent);
     border-color: var(--accent);
   }
   .close-btn {
     background: none;
     border: 2px solid var(--border);
-    border-radius: 0;
+    border-radius: var(--radius);
     color: var(--text-secondary);
     padding: var(--space-1) var(--space-2);
     cursor: pointer;
