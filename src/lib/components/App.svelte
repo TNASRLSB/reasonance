@@ -32,7 +32,7 @@
     const root = $projectRoot;
     if (root) {
       const label = root.split('/').pop() || root;
-      getCurrentWindow().setTitle(`${label} — Reasonance`);
+      getCurrentWindow().setTitle(`${label} — Reasonance`).catch(() => {});
     }
   });
 
