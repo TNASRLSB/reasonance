@@ -1,5 +1,158 @@
 # Changelog
 
+## [1.3.0] - 2026-03-25
+
+### Features
+
+- feat(multi-project): scope terminal tabs per project, preserve background buffers
+- feat(multi-project): update page startup for multi-project lifecycle
+- feat(multi-project): wire CLI path argument to open project
+- feat(multi-project): update MenuBar with Recent projects and Close Project
+- feat(multi-project): add ProjectAddMenu, QuickSwitcher, and DisconnectedDialog
+- feat(multi-project): integrate sidebar into App layout with shortcuts
+- feat(multi-project): add ProjectSidebar component
+- feat(multi-project): add sidebar CSS variables to theme system (schema v2)
+- feat(multi-project): extend adapter with project-aware methods
+- feat(multi-project): Rust project manager with multi-project state
+- feat(multi-project): tag agent sessions with projectId
+- feat(multi-project): shim files.ts and terminals.ts to re-export from namespace layer
+- feat(multi-project): add namespace layer with derived stores and action wrappers
+- feat(multi-project): add sidebar summary and status derived stores
+- feat(multi-project): add projects store index with re-exports
+- feat(multi-project): add project registry store with lifecycle actions
+- feat(multi-project): add project context type definitions
+
+### Bug Fixes
+
+- fix(multi-project): resolve remaining type errors in components and sidebar
+- fix(multi-project): update test theme schema version to 2
+- fix(multi-project): migrate test files to new store API
+- fix: use matches! macro instead of match block (clippy)
+- fix(multi-project): resolve source component type errors
+- fix(multi-project): remove re-created conflicting projects.ts
+- fix(multi-project): remove conflicting projects.ts file (shadowed projects/ directory)
+- fix(multi-project): migrate all Writable callers to namespace actions
+
+### Other
+
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- the projects registry). Replaced direct .set() calls with registry-based
+- setup via a shared setupTestProject() helper. Updated addOpenFile calls
+- to use the new openFile(path, content) signature, added projectId to
+- TerminalInstanceMeta objects, and removed addRecentProject tests.
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- docs: update registry with multi-project components and data flows
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- allInstances across all projects so xterm.js buffers stay mounted when
+- switching projects (hidden via display:none). Tab bar remains
+- project-scoped through the existing terminalInstances shim.
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- - Add reasonance:closeProject listener: kills processes, removes from backend + store
+- - Add cli-open-project Tauri event listener to add projects from CLI
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- of the non-existent updateProjectRoot export from the projects/ namespace store.
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- killProjectProcesses methods to TauriAdapter to invoke the new Rust backend commands.
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- roots in the backend. Extend PtyManager with project_map tracking so
+- PTY instances can be associated with and bulk-killed per project.
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- activeFilePath, projectRoot, activeInstanceId) with namespace action
+- functions (updateFileContent, updateFileState, setActiveFile, addProject,
+- setActiveTerminal). Remove addRecentProject usage — handled automatically
+- by addProject. Update session restore to use new project/file APIs.
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- .set() directly must migrate to action functions. addRecentProject removed
+- (handled by registry lifecycle).
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- 
+- 
+- 
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- docs: add multi-project sidebar design spec and implementation plan
+- Covers namespace layer, session persistence v2, theme system updates,
+- and project sidebar component.
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+
+
+
 ## [1.2.0] - 2026-03-25
 
 ### Features
