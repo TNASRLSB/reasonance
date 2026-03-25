@@ -5,7 +5,7 @@ export interface ValidationResult {
   errors: string[];
 }
 
-const CURRENT_SCHEMA_VERSION = 1;
+const CURRENT_SCHEMA_VERSION = 2;
 
 export function validateTheme(data: unknown): ValidationResult {
   const errors: string[] = [];

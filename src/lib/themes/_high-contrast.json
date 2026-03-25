@@ -3,7 +3,7 @@
     "name": "High Contrast",
     "type": "modifier",
     "trigger": "prefers-contrast: more",
-    "schemaVersion": 1
+    "schemaVersion": 2
   },
   "when-dark": {
     "colors": {
@@ -11,7 +11,13 @@
       "--text-secondary": "#e0e0e0",
       "--bg-primary": "#000000",
       "--border": "#ffffff",
-      "--border-color": "#ffffff"
+      "--border-color": "#ffffff",
+      "--sidebar-bg": "#000000",
+      "--sidebar-border": "#ffffff",
+      "--sidebar-tab-text": "#e0e0e0",
+      "--sidebar-tab-text-active": "#ffffff",
+      "--sidebar-separator": "rgba(255, 255, 255, 0.3)",
+      "--sidebar-dropzone-border": "#ffffff"
     },
     "borders": { "--border-width": "3px" }
   },
@@ -21,7 +27,13 @@
       "--text-secondary": "#1a1a1a",
       "--bg-primary": "#ffffff",
       "--border": "#000000",
-      "--border-color": "#000000"
+      "--border-color": "#000000",
+      "--sidebar-bg": "#ffffff",
+      "--sidebar-border": "#000000",
+      "--sidebar-tab-text": "#1a1a1a",
+      "--sidebar-tab-text-active": "#000000",
+      "--sidebar-separator": "rgba(0, 0, 0, 0.3)",
+      "--sidebar-dropzone-border": "#000000"
     }
   }
 }

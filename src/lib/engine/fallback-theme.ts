@@ -15,7 +15,7 @@ export const FALLBACK_THEME: ThemeFile = {
     type: 'theme',
     colorScheme: 'dark',
     editorTheme: 'forge-dark',
-    schemaVersion: 1,
+    schemaVersion: 2,
   },
   colors: {
     '--bg-primary': '#121212',
@@ -44,6 +44,13 @@ export const FALLBACK_THEME: ThemeFile = {
     '--text-on-accent': '#ffffff',
     '--code-bg': 'oklch(0.18 0.02 240)',
     '--code-accent': 'oklch(0.82 0.16 320)',
+    '--sidebar-bg': '#0e0e0e',
+    '--sidebar-bg-hover': 'rgba(255, 255, 255, 0.08)',
+    '--sidebar-border': '#7a7a7a',
+    '--sidebar-tab-active-accent': '#8ab8ff',
+    '--sidebar-tab-active-bg': 'rgba(255, 255, 255, 0.06)',
+    '--sidebar-tab-text': '#bababa',
+    '--sidebar-tab-text-active': '#f0f0f0',
   },
   hues: {
     '--hue-accent': 220,
@@ -65,6 +72,11 @@ export const FALLBACK_THEME: ThemeFile = {
     '--state-failed-text': '#fca5a5',
     '--state-retrying': 'oklch(0.75 0.18 45)',
     '--state-retrying-text': 'oklch(0.78 0.15 45)',
+    '--sidebar-indicator-running': '#22c55e',
+    '--sidebar-indicator-idle': 'oklch(0.55 0.00 0)',
+    '--sidebar-indicator-unsaved': '#d4a020',
+    '--sidebar-indicator-error': '#fa8080',
+    '--sidebar-indicator-pulse': 'pulse 2s ease-in-out infinite',
   },
   'ui-states': {
     '--text-disabled': 'oklch(0.73 0.00 0)',
@@ -74,6 +86,11 @@ export const FALLBACK_THEME: ThemeFile = {
     '--text-selected': '#f0f0f0',
     '--text-placeholder': 'oklch(0.73 0.00 0)',
     '--focus-ring-color': 'oklch(0.78 0.16 220)',
+    '--sidebar-dropzone-bg': 'rgba(138, 184, 255, 0.08)',
+    '--sidebar-dropzone-border': '#8ab8ff',
+    '--sidebar-separator': 'rgba(255, 255, 255, 0.08)',
+    '--sidebar-badge-bg': '#8ab8ff',
+    '--sidebar-badge-text': '#ffffff',
   },
   typography: {
     '--font-ui':
@@ -139,11 +156,13 @@ export const FALLBACK_THEME: ThemeFile = {
     '--transition-fast': '0.1s ease',
     '--transition-normal': '0.2s ease',
     '--toast-duration': '5s',
+    '--sidebar-transition-speed': '150ms',
   },
   layout: {
     '--toolbar-height': '52px',
     '--statusbar-height': '52px',
     '--interactive-min': '44px',
+    '--sidebar-width': '48px',
   },
   layers: {
     '--layer-base': 0,

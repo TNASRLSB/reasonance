@@ -3,10 +3,14 @@
     "name": "Reduced Motion",
     "type": "modifier",
     "trigger": "prefers-reduced-motion: reduce",
-    "schemaVersion": 1
+    "schemaVersion": 2
   },
   "transitions": {
     "--transition-fast": "0.01ms ease",
-    "--transition-normal": "0.01ms ease"
+    "--transition-normal": "0.01ms ease",
+    "--sidebar-transition-speed": "0ms"
+  },
+  "states": {
+    "--sidebar-indicator-pulse": "none"
   }
 }

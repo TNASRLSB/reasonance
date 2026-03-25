@@ -4,7 +4,7 @@
     "type": "modifier",
     "trigger": "manual",
     "description": "Larger text, wider spacing for extended reading",
-    "schemaVersion": 1
+    "schemaVersion": 2
   },
   "typography": {
     "--font-size-sm": "0.875rem",
@@ -29,7 +29,11 @@
   },
   "transitions": {
     "--transition-fast": "0.15s ease",
-    "--transition-normal": "0.3s ease"
+    "--transition-normal": "0.3s ease",
+    "--sidebar-transition-speed": "200ms"
+  },
+  "layout": {
+    "--sidebar-width": "56px"
   },
   "when-dark": {
     "typography": {
