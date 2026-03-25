@@ -1,6 +1,6 @@
 use crate::transport::StructuredAgentTransport;
+use crate::NormalizersDir;
 use log::{info, error, debug};
-use std::path::Path;
 use tauri::{AppHandle, Emitter, State};
 
 #[derive(Clone, serde::Serialize)]
@@ -122,10 +122,10 @@ pub async fn test_provider_connection(
 #[tauri::command]
 pub fn reload_normalizers(
     transport: State<'_, StructuredAgentTransport>,
+    norm_dir: State<'_, NormalizersDir>,
 ) -> Result<(), String> {
     info!("cmd::reload_normalizers called");
-    let normalizers_dir = Path::new("normalizers");
-    let new_registry = crate::normalizer::NormalizerRegistry::load_from_dir(normalizers_dir).map_err(|e| {
+    let new_registry = crate::normalizer::NormalizerRegistry::load_from_dir(&norm_dir.0).map_err(|e| {
         error!("cmd::reload_normalizers failed to load from dir: {}", e);
         e
     })?;

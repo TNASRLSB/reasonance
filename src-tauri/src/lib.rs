@@ -46,6 +46,39 @@ use shadow_store::ShadowStore;
 use tauri::{Emitter, Manager};
 use log::info;
 
+/// Shared state for the resolved normalizers directory path.
+pub struct NormalizersDir(pub std::path::PathBuf);
+
+/// Resolve the normalizers directory.
+/// Search order:
+///   1. `normalizers/` relative to CWD (dev mode)
+///   2. Next to the executable (Linux AUR / Windows MSI)
+///   3. `../Resources/normalizers/` relative to exe (macOS .app bundle)
+///   4. `/usr/share/reasonance/normalizers/` (Linux system install)
+fn resolve_normalizers_dir() -> std::path::PathBuf {
+    let candidates: Vec<std::path::PathBuf> = {
+        let mut v = vec![std::path::PathBuf::from("normalizers")];
+        if let Ok(exe) = std::env::current_exe() {
+            if let Some(dir) = exe.parent() {
+                v.push(dir.join("normalizers"));
+                // macOS: exe is in Contents/MacOS/, resources in Contents/Resources/
+                v.push(dir.join("../Resources/normalizers"));
+            }
+        }
+        v.push(std::path::PathBuf::from("/usr/share/reasonance/normalizers"));
+        v
+    };
+    for c in &candidates {
+        if c.is_dir() {
+            info!("Normalizers found at: {}", c.display());
+            return c.clone();
+        }
+    }
+    // Return the most likely candidate so the error message is useful
+    log::warn!("Normalizers directory not found in any candidate: {:?}", candidates);
+    candidates.into_iter().next().unwrap_or_else(|| std::path::PathBuf::from("normalizers"))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // Fix blurry rendering on Linux with fractional scaling (WebKitGTK)
@@ -113,11 +146,17 @@ pub fn run() {
         .manage(agent_runtime::AgentRuntime::new())
         .manage(workflow_engine::WorkflowEngine::new())
         .manage(resource_lock::ResourceLockManager::new())
-        .manage(
-            transport::StructuredAgentTransport::new(
-                std::path::Path::new("normalizers")
-            ).expect("Failed to load normalizers")
-        )
+        .manage(NormalizersDir(resolve_normalizers_dir()))
+        .manage({
+            let dir = resolve_normalizers_dir();
+            match transport::StructuredAgentTransport::new(&dir) {
+                Ok(t) => t,
+                Err(e) => {
+                    log::error!("Failed to load normalizers from {}: {}. Starting with empty registry.", dir.display(), e);
+                    transport::StructuredAgentTransport::empty()
+                }
+            }
+        })
         .manage({
             let sessions_dir = dirs::data_dir()
                 .unwrap_or_else(|| std::path::PathBuf::from("."))

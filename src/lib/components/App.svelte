@@ -303,6 +303,11 @@
     min-height: 0;
   }
 
+  #project-sidebar {
+    height: 100%;
+    flex-shrink: 0;
+  }
+
   .panel {
     overflow: hidden;
     background: var(--bg-primary);

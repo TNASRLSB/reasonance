@@ -8,7 +8,7 @@
   import type { ProjectSummary } from '$lib/stores/projects';
 
   let summaries = $derived($projectSummaries);
-  let visible = $derived(summaries.length > 1);
+  let visible = true;
 
   // Track which project is active locally (last switched-to)
   let activeId = $state<string | null>(null);

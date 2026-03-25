@@ -141,6 +141,7 @@ impl TomlConfig {
     }
 }
 
+#[derive(Default)]
 pub struct NormalizerRegistry {
     pipelines: HashMap<String, NormalizerPipeline>,
     configs: HashMap<String, TomlConfig>,

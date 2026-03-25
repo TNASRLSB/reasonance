@@ -35,6 +35,30 @@ pub struct StructuredAgentTransport {
 }
 
 impl StructuredAgentTransport {
+    /// Create a transport with an empty registry (no providers).
+    /// Used as fallback when normalizer configs are missing.
+    pub fn empty() -> Self {
+        warn!("StructuredAgentTransport: starting with empty registry (no normalizers found)");
+        let event_bus = Arc::new(AgentEventBus::new());
+        let history = Arc::new(HistoryRecorder::new());
+
+        struct HistoryWrapper(Arc<HistoryRecorder>);
+        impl AgentEventSubscriber for HistoryWrapper {
+            fn on_event(&self, session_id: &str, event: &AgentEvent) {
+                self.0.on_event(session_id, event);
+            }
+        }
+        event_bus.subscribe(Box::new(HistoryWrapper(history.clone())));
+
+        Self {
+            registry: Arc::new(Mutex::new(NormalizerRegistry::default())),
+            sessions: Arc::new(Mutex::new(HashMap::new())),
+            event_bus,
+            history,
+            retry_policies: Arc::new(Mutex::new(HashMap::new())),
+        }
+    }
+
     pub fn new(normalizers_dir: &Path) -> Result<Self, String> {
         info!("StructuredAgentTransport: initializing from {}", normalizers_dir.display());
         let registry = NormalizerRegistry::load_from_dir(normalizers_dir)?;

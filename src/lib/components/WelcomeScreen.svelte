@@ -1,7 +1,8 @@
 <script lang="ts">
   import { tr } from '$lib/i18n/index';
   import { recentProjects } from '$lib/stores/files';
-  import { themeMode, isDark } from '$lib/stores/theme';
+  import { get } from 'svelte/store';
+  import { isDark, activeThemeName, loadBuiltinTheme } from '$lib/stores/theme';
   import { llmConfigs } from '$lib/stores/config';
   import { showSettings } from '$lib/stores/ui';
   import type { Adapter } from '$lib/adapter/index';
@@ -13,7 +14,8 @@
   } = $props();
 
   function cycleTheme() {
-    themeMode.update((m) => m === 'dark' ? 'light' : 'dark');
+    const next = get(activeThemeName) === 'reasonance-dark' ? 'reasonance-light' : 'reasonance-dark';
+    loadBuiltinTheme(next);
   }
 
   function openLlmSettings() {

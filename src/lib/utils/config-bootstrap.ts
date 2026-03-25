@@ -2,7 +2,7 @@
  * config-bootstrap.ts — TOML config loading and LLM auto-discovery for
  * Reasonance IDE.
  *
- * loadInitialConfig  — Reads forge.toml, parses LLM entries and app settings.
+ * loadInitialConfig  — Reads llms.toml, parses LLM entries and app settings.
  * discoverAndApplyLlms — Auto-discovers installed LLM CLIs and merges new ones.
  */
 
