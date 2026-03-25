@@ -136,7 +136,8 @@
     const selected = await adapter.openFolderDialog();
     if (selected) {
       addProject(selected);
-      try { await adapter.addProject(get(activeProjectId), selected, 'trusted'); } catch { /* non-fatal */ }
+      const currentId = get(activeProjectId);
+      if (currentId) { try { await adapter.addProject(currentId, selected, 'trusted'); } catch { /* non-fatal */ } }
       try { await adapter.setProjectRoot(selected); } catch { /* non-fatal */ }
       await switchProject(selected);
     }

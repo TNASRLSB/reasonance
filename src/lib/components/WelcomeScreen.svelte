@@ -104,8 +104,8 @@
         <ul class="recent-list">
           {#each $recentProjects as project}
             <li>
-              <button class="recent-item" onclick={() => onSelectProject(project)}>
-                {project}
+              <button class="recent-item" onclick={() => onSelectProject(project.path)}>
+                {project.label}
               </button>
             </li>
           {/each}

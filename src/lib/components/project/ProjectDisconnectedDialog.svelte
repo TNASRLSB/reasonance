@@ -33,7 +33,7 @@
     if (e.key === 'Tab' && dialogEl) {
       const focusable = Array.from(
         dialogEl.querySelectorAll<HTMLElement>('button')
-      ).filter((el) => !el.disabled);
+      ).filter((el) => !(el as HTMLButtonElement).disabled);
       if (focusable.length === 0) return;
       const first = focusable[0];
       const last = focusable[focusable.length - 1];

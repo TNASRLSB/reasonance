@@ -205,6 +205,7 @@
       label: `${providerName} ...`,
       modelName: config.model ?? undefined,
       apiOnly: isApiOnly || undefined,
+      projectId: '',
     };
 
     addInstanceToStore(instance);
