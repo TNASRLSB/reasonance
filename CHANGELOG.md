@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.1.1] - 2026-03-25
+
+### Other
+
+- docs: bump compliance docs version to 1.1.0
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- docs: update README, VPAT, EN 301 549 to v1.0.2 + add docs/compliance
+-   find in files, help panel, session management, provider health,
+-   image drop, welcome screen) and dedicated accessibility section
+- - Update VPAT 2.4 and EN 301 549 from v0.11.0 to v1.0.2
+- - Resolve TerminalManager "+" button known issue (now has i18n aria-label)
+- - Upgrade EN 301 549 Chapter 12 to "Supports" (in-app help panel)
+- - Move compliance docs to docs/compliance/ (tracked in git)
+- - Keep docs/audit/ in .gitignore (generated artifacts)
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+
+
+
 ## [1.1.0] - 2026-03-25
 
 ### Features
