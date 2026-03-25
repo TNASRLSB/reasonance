@@ -3,7 +3,7 @@
 ## WCAG 2.1 Edition
 
 **Product:** Reasonance IDE
-**Version:** 1.0.2
+**Version:** 1.1.0
 **Date:** 2026-03-25
 **Contact:** https://github.com/TNASRLSB/reasonance/issues
 **Evaluation methods:** Source code review, component-level WCAG 2.1 matrix audit, manual testing
@@ -94,4 +94,4 @@ All previously blocking issues have been resolved. Remaining minor items:
 
 ## Legal Disclaimer
 
-This VPAT is provided for informational purposes and represents a self-assessment of accessibility conformance based on internal code review, component-level WCAG 2.1 matrix audit, and manual testing. It is not a certification of accessibility. Third-party testing is recommended before making formal conformance claims. This document reflects the state of Reasonance IDE version 1.0.2 as of 2026-03-25 and may not reflect subsequent updates.
+This VPAT is provided for informational purposes and represents a self-assessment of accessibility conformance based on internal code review, component-level WCAG 2.1 matrix audit, and manual testing. It is not a certification of accessibility. Third-party testing is recommended before making formal conformance claims. This document reflects the state of Reasonance IDE version 1.1.0 as of 2026-03-25 and may not reflect subsequent updates.

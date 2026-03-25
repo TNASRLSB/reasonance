@@ -1,7 +1,7 @@
 # WCAG 2.1 Compliance Matrix
 
 **Date:** 2026-03-25
-**Product:** Reasonance IDE v1.0.2
+**Product:** Reasonance IDE v1.1.0
 **Application:** Reasonance IDE (Svelte 5 + Tauri 2)
 **Standard:** WCAG 2.1 Level AA (with AAA target size noted)
 **Sources:** `docs/audit/uxui-report.md`, `docs/audit/i18n-report.md`, component source review
@@ -10,7 +10,7 @@
 
 ## Executive Summary
 
-**Overall verdict: AA conformant (self-assessed 2026-03-25, v1.0.2).**
+**Overall verdict: AA conformant (self-assessed 2026-03-25, v1.1.0).**
 
 The application demonstrates strong accessibility foundations (skip links, focus traps, ARIA tree widget, semantic landmarks, Atkinson Hyperlegible font, `prefers-reduced-motion` blanket override) and has resolved all previously identified blocking issues. Contrast failures with `--accent` color are fixed (`--accent-statusbar: #1e40af`, 8.59:1; `--accent-text` at 7.1:1 AAA for links). DiffBlock, Terminal container, and ResponsePanel now carry correct ARIA roles and labels. All close/dismiss buttons meet the 24x24px minimum target size. Keyboard navigation is complete across FileTree, MenuItem, Toast, EditorTabs, TerminalManager, and ResponsePanel. All 60+ hardcoded English ARIA strings are replaced with i18n keys across 9 languages.
 
