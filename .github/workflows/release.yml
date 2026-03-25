@@ -132,8 +132,9 @@ jobs:
           # Cargo.toml (only first occurrence)
           sed -i "0,/^version = \".*\"/s//version = \"$NEW\"/" src-tauri/Cargo.toml
 
-          # PKGBUILD
+          # PKGBUILDs
           sed -i "s/^pkgver=.*/pkgver=$NEW/" aur/PKGBUILD
+          sed -i "s/^pkgver=.*/pkgver=$NEW/" aur/PKGBUILD-bin
 
       - name: Update CHANGELOG.md
         env:
@@ -166,7 +167,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml aur/PKGBUILD CHANGELOG.md
+          git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml aur/PKGBUILD aur/PKGBUILD-bin CHANGELOG.md
           git commit -m "[release] v${NEW} [skip ci]"
           # Force-create tag in case a previous failed run left an orphan
           git tag -f "v${NEW}"
@@ -352,7 +353,7 @@ jobs:
             release/*
 
   aur-publish:
-    needs: [analyze, release]
+    needs: [analyze, version]
     if: needs.analyze.outputs.should_release == 'true'
     runs-on: ubuntu-latest
 
@@ -383,6 +384,49 @@ jobs:
           cd aur-repo
 
           # Install and run makepkg to generate .SRCINFO
+          docker run --rm -v "$PWD":/pkg -w /pkg archlinux:base-devel bash -c "
+            useradd -m builder && chown -R builder: /pkg &&
+            su builder -c 'makepkg --printsrcinfo > .SRCINFO'
+          "
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add PKGBUILD .SRCINFO
+          git commit -m "Update to v${NEW}"
+          git push
+
+  aur-publish-bin:
+    needs: [analyze, release]
+    if: needs.analyze.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: v${{ needs.analyze.outputs.new_version }}
+
+      - name: Setup SSH for AUR
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.AUR_SSH_KEY }}" > ~/.ssh/aur
+          chmod 600 ~/.ssh/aur
+          ssh-keyscan -t ed25519 aur.archlinux.org >> ~/.ssh/known_hosts
+          cat >> ~/.ssh/config <<EOF
+          Host aur.archlinux.org
+            User aur
+            IdentityFile ~/.ssh/aur
+          EOF
+
+      - name: Clone AUR repo and update
+        run: |
+          NEW="${{ needs.analyze.outputs.new_version }}"
+
+          git clone ssh://aur@aur.archlinux.org/reasonance-bin.git aur-repo
+          cp aur/PKGBUILD-bin aur-repo/PKGBUILD
+
+          cd aur-repo
+
+          # Generate .SRCINFO
           docker run --rm -v "$PWD":/pkg -w /pkg archlinux:base-devel bash -c "
             useradd -m builder && chown -R builder: /pkg &&
             su builder -c 'makepkg --printsrcinfo > .SRCINFO'
