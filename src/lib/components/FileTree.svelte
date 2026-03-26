@@ -26,10 +26,39 @@
 
   // --- Flat tree representation for virtual scrolling ---
   interface FlatItem {
-    entry: FileEntry;
+    entry: FileEntry;      // the first (display) entry — used for name, gitignored, icon
+    foldedEntry: FileEntry; // the last entry in the fold chain — used for expand/collapse
+    displayName: string;   // folded path like "src/main/java" or just entry.name
     depth: number;
     expanded: boolean;
     isDir: boolean;
+  }
+
+  // Directories that break the auto-fold chain
+  const FOLD_BREAK_DIRS = new Set(['.git', '.svn', '.hg', 'node_modules', '.yarn', '.pnpm']);
+
+  /**
+   * Walk a single-child directory chain and return the final entry + joined display path.
+   * Stops when a dir has != 1 child, the child is a file, or the child is a hidden/break dir.
+   */
+  function getFoldedPath(
+    entry: FileEntry,
+    cache: Map<string, FileEntry[]>
+  ): { displayName: string; foldedEntry: FileEntry } {
+    let current = entry;
+    const parts = [current.name];
+
+    while (true) {
+      const children = cache.get(current.path);
+      if (!children || children.length !== 1 || !children[0].isDir) break;
+      const child = children[0];
+      // Don't fold through hidden / special dirs
+      if (FOLD_BREAK_DIRS.has(child.name) || child.name.startsWith('.')) break;
+      current = child;
+      parts.push(current.name);
+    }
+
+    return { displayName: parts.join('/'), foldedEntry: current };
   }
 
   function flattenTree(
@@ -40,10 +69,19 @@
   ): FlatItem[] {
     const result: FlatItem[] = [];
     for (const entry of items) {
-      const isExpanded = entry.isDir && expanded.has(entry.path);
-      result.push({ entry, depth, expanded: isExpanded, isDir: entry.isDir });
+      if (!entry.isDir) {
+        result.push({ entry, foldedEntry: entry, displayName: entry.name, depth, expanded: false, isDir: false });
+        continue;
+      }
+
+      // Attempt to fold single-child directory chains
+      const { displayName, foldedEntry } = getFoldedPath(entry, cache);
+      const isExpanded = expanded.has(foldedEntry.path);
+
+      result.push({ entry, foldedEntry, displayName, depth, expanded: isExpanded, isDir: true });
+
       if (isExpanded) {
-        const children = cache.get(entry.path) || [];
+        const children = cache.get(foldedEntry.path) || [];
         result.push(...flattenTree(children, expanded, cache, depth + 1));
       }
     }
@@ -102,7 +140,7 @@
     tick().then(() => {
       const item = flatItems[idx];
       if (!item) return;
-      const el = document.querySelector(`[data-path="${CSS.escape(item.entry.path)}"]`) as HTMLElement | null;
+      const el = document.querySelector(`[data-path="${CSS.escape(item.foldedEntry.path)}"]`) as HTMLElement | null;
       el?.scrollIntoView({ block: 'nearest' });
       el?.focus();
     });
@@ -113,19 +151,33 @@
       expandedDirs.delete(entry.path);
       expandedDirs = new Set(expandedDirs);
     } else {
-      if (!childrenCache.has(entry.path)) {
-        const children = await adapter.listDir(entry.path);
-        childrenCache.set(entry.path, children);
-        childrenCache = new Map(childrenCache);
+      // Load and walk the single-child chain so getFoldedPath can fold correctly
+      let current = entry;
+      const newCache = new Map(childrenCache);
+      while (true) {
+        if (!newCache.has(current.path)) {
+          const children = await adapter.listDir(current.path);
+          newCache.set(current.path, children);
+        }
+        const children = newCache.get(current.path)!;
+        // Stop walking if: not a single-child dir, child is a file, or child is a hidden/break dir
+        if (
+          children.length !== 1 ||
+          !children[0].isDir ||
+          FOLD_BREAK_DIRS.has(children[0].name) ||
+          children[0].name.startsWith('.')
+        ) break;
+        current = children[0];
       }
-      expandedDirs.add(entry.path);
+      childrenCache = newCache;
+      expandedDirs.add(current.path);
       expandedDirs = new Set(expandedDirs);
     }
   }
 
-  function handleClick(entry: FileEntry) {
+  function handleClick(entry: FileEntry, foldedEntry?: FileEntry) {
     if (entry.isDir) {
-      toggleDir(entry);
+      toggleDir(foldedEntry ?? entry);
       return;
     }
     if (clickTimer) {
@@ -171,7 +223,7 @@
         e.preventDefault();
         const item = flatItems[flatIndex];
         if (item?.isDir && !item.expanded) {
-          toggleDir(item.entry);
+          toggleDir(item.foldedEntry);
         }
         break;
       }
@@ -179,14 +231,14 @@
         e.preventDefault();
         const item = flatItems[flatIndex];
         if (item?.isDir && item.expanded) {
-          toggleDir(item.entry);
+          toggleDir(item.foldedEntry);
         }
         break;
       }
       case 'Enter':
       case ' ':
         e.preventDefault();
-        if (flatItems[flatIndex]) handleClick(flatItems[flatIndex].entry);
+        if (flatItems[flatIndex]) handleClick(flatItems[flatIndex].entry, flatItems[flatIndex].foldedEntry);
         break;
       case 'Home':
         e.preventDefault();
@@ -291,9 +343,9 @@
       // After the last root-level item (and all its children)
       return flatItems.length - 1;
     }
-    // Find the parent dir in the flat list
+    // Find the parent dir in the flat list (match against foldedEntry.path for folded dirs)
     for (let i = 0; i < flatItems.length; i++) {
-      if (flatItems[i].entry.path === inlineInput.parentDir) {
+      if (flatItems[i].foldedEntry.path === inlineInput.parentDir) {
         // Find the last child of this directory
         const parentDepth = flatItems[i].depth;
         let lastChild = i;
@@ -340,21 +392,21 @@
             class:gitignored={item.entry.isGitignored}
             class:active={!item.isDir && $activeFilePath === item.entry.path}
             style="padding-inline-start: {14 + item.depth * 16}px; height: {ROW_HEIGHT}px;"
-            onclick={() => handleClick(item.entry)}
-            oncontextmenu={(e) => handleContextMenu(e, item.entry)}
+            onclick={() => handleClick(item.entry, item.foldedEntry)}
+            oncontextmenu={(e) => handleContextMenu(e, item.foldedEntry)}
             onkeydown={(e) => handleItemKeydown(e, flatIndex)}
             role="treeitem"
             tabindex={flatIndex === focusedIndex ? 0 : -1}
             aria-selected={!item.isDir && $activeFilePath === item.entry.path}
             aria-expanded={item.isDir ? item.expanded : undefined}
             aria-level={item.depth + 1}
-            data-path={item.entry.path}
+            data-path={item.foldedEntry.path}
           >
             <span class="icon">{getFileIcon(item.entry.name, item.isDir)}</span>
-            <span class="name">{item.entry.name}</span>
+            <span class="name">{item.displayName}</span>
           </button>
           {#if inlineInput && inlineIdx === flatIndex}
-            <div class="inline-input-row" style="padding-inline-start: {14 + (item.depth + (inlineInput.parentDir === item.entry.path ? 1 : 0)) * 16}px; height: {ROW_HEIGHT}px;">
+            <div class="inline-input-row" style="padding-inline-start: {14 + (item.depth + (inlineInput.parentDir === item.foldedEntry.path ? 1 : 0)) * 16}px; height: {ROW_HEIGHT}px;">
               <span class="icon">{inlineInput.type === 'folder' ? '\ud83d\udcc1' : '\ud83d\udcc4'}</span>
               <input
                 class="inline-input"
