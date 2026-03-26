@@ -7,7 +7,7 @@ mod in_memory;
 mod json_file;
 
 pub use in_memory::InMemoryBackend;
-pub use json_file::JsonFileBackend;
+pub use json_file::{atomic_write, JsonFileBackend};
 
 use async_trait::async_trait;
 use serde::{de::DeserializeOwned, Serialize};

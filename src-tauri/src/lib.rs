@@ -48,6 +48,7 @@ mod theme_manager;
 mod theme_watcher;
 mod project_manager;
 pub mod node_registry;
+pub mod app_state_store;
 
 use commands::fs::ProjectRootState;
 use fs_watcher::FsWatcherState;
@@ -212,6 +213,14 @@ pub fn run() {
                 .unwrap_or_else(|| std::path::PathBuf::from("."))
                 .join("reasonance");
             workspace_trust::TrustStore::new(config_dir.join("trusted-workspaces.json"))
+        })
+        .manage({
+            let state_dir = dirs::data_dir()
+                .unwrap_or_else(|| std::path::PathBuf::from("."))
+                .join("reasonance")
+                .join("state");
+            app_state_store::AppStateStore::new(&state_dir)
+                .expect("Failed to initialize app state store")
         })
         .manage({
             let bus = event_bus_v2::EventBus::new();
@@ -435,6 +444,10 @@ pub fn run() {
             commands::agent_comms::agent_sweep_messages,
             commands::agent_comms::agent_clear_workflow_messages,
             node_registry::get_node_types,
+            commands::app_state::get_app_state,
+            commands::app_state::save_app_state,
+            commands::app_state::get_project_state,
+            commands::app_state::save_project_state,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
