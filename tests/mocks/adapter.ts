@@ -330,7 +330,7 @@ export function createMockAdapter(overrides?: Partial<Adapter>): Adapter {
     },
 
     // Structured Transport
-    agentSend(_prompt: string, _provider: string, _model?: string, _sessionId?: string): Promise<string> {
+    agentSend(_prompt: string, _provider: string, _model?: string, _sessionId?: string, _cwd?: string, _yolo?: boolean, _allowedTools?: string[]): Promise<string> {
       return Promise.resolve('mock-session-id');
     },
     agentStop(_sessionId: string): Promise<void> {
