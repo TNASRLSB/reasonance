@@ -100,6 +100,65 @@ fi
 
 // ── Path validation helpers ───────────────────────────────────────────────────
 
+/// Resolve a path and verify it stays within the given root after symlink resolution.
+/// Uses `canonicalize()` which follows all symlinks to the final target.
+/// Returns the canonicalized path if safe, or a `Security::PathTraversal` error.
+pub fn resolve_safe_path(path: &Path, project_root: &Path) -> Result<PathBuf, ReasonanceError> {
+    let resolved = path.canonicalize().map_err(|e| {
+        ReasonanceError::io(format!("Cannot resolve path '{}'", path.display()), e)
+    })?;
+
+    let root_resolved = project_root.canonicalize().map_err(|e| {
+        ReasonanceError::io(format!("Cannot resolve project root '{}'", project_root.display()), e)
+    })?;
+
+    if !resolved.starts_with(&root_resolved) {
+        return Err(ReasonanceError::Security {
+            message: format!(
+                "Path '{}' resolves to '{}' which is outside project root '{}'",
+                path.display(),
+                resolved.display(),
+                root_resolved.display()
+            ),
+            code: crate::error::SecurityErrorCode::PathTraversal,
+        });
+    }
+
+    Ok(resolved)
+}
+
+/// Resolve a path for writing (file may not exist yet).
+/// Canonicalizes the parent directory and checks the result is within root.
+pub fn resolve_safe_write_path(path: &Path, project_root: &Path) -> Result<PathBuf, ReasonanceError> {
+    if path.exists() {
+        return resolve_safe_path(path, project_root);
+    }
+
+    let parent = path
+        .parent()
+        .ok_or_else(|| ReasonanceError::validation("path", format!("No parent directory for '{}'", path.display())))?;
+    let canon_parent = parent.canonicalize().map_err(|e| {
+        ReasonanceError::io(format!("Cannot resolve parent '{}'", parent.display()), e)
+    })?;
+    let root_resolved = project_root.canonicalize().map_err(|e| {
+        ReasonanceError::io(format!("Cannot resolve project root '{}'", project_root.display()), e)
+    })?;
+
+    if !canon_parent.starts_with(&root_resolved) {
+        return Err(ReasonanceError::Security {
+            message: format!(
+                "Path '{}' (parent '{}') resolves outside project root '{}'",
+                path.display(),
+                canon_parent.display(),
+                root_resolved.display()
+            ),
+            code: crate::error::SecurityErrorCode::PathTraversal,
+        });
+    }
+
+    Ok(canon_parent.join(path.file_name().unwrap_or_default()))
+}
+
 /// Returns the user config directory for Reasonance (used for reading config files).
 fn reasonance_config_dir() -> Option<PathBuf> {
     dirs::config_dir().map(|d| d.join("reasonance"))
@@ -152,13 +211,9 @@ fn validate_read_path(path: &Path, state: &ProjectRootState) -> Result<(), Reaso
 
     let root_lock = state.0.lock().unwrap_or_else(|e| e.into_inner());
     if let Some(root) = root_lock.as_ref() {
-        if canonical.starts_with(root) {
-            return Ok(());
-        }
-        return Err(ReasonanceError::PermissionDenied {
-            action: format!("read '{}'", path.display()),
-            tool: None,
-        });
+        // Use resolve_safe_path for the actual bounds check (follows symlinks)
+        resolve_safe_path(path, root)?;
+        return Ok(());
     }
 
     // No project root set yet — only config dir was allowed (already checked above)
@@ -198,13 +253,9 @@ fn validate_write_path(path: &Path, state: &ProjectRootState) -> Result<(), Reas
 
     let root_lock = state.0.lock().unwrap_or_else(|e| e.into_inner());
     if let Some(root) = root_lock.as_ref() {
-        if canonical.starts_with(root) {
-            return Ok(());
-        }
-        return Err(ReasonanceError::PermissionDenied {
-            action: format!("write '{}'", path.display()),
-            tool: None,
-        });
+        // Use resolve_safe_write_path for the actual bounds check (follows symlinks)
+        resolve_safe_write_path(path, root)?;
+        return Ok(());
     }
 
     Err(ReasonanceError::PermissionDenied {
@@ -412,7 +463,6 @@ pub fn start_watching(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::Write;
     use tempfile::TempDir;
 
     fn setup_temp_dir() -> TempDir {
@@ -630,6 +680,103 @@ mod tests {
             }
         }
         assert!(results.is_empty());
+    }
+
+    // ── resolve_safe_path tests (symlink escape detection) ─────────────
+
+    #[test]
+    fn path_safety_within_project_ok() {
+        let dir = setup_temp_dir();
+        let file = dir.path().join("test.txt");
+        std::fs::write(&file, "hello").unwrap();
+        let result = resolve_safe_path(&file, dir.path());
+        assert!(result.is_ok());
+        // Returned path should be canonicalized
+        assert!(result.unwrap().is_absolute());
+    }
+
+    #[test]
+    fn path_safety_outside_project_denied() {
+        let dir = setup_temp_dir();
+        let other = setup_temp_dir();
+        let file = other.path().join("secret.txt");
+        std::fs::write(&file, "secret").unwrap();
+        let result = resolve_safe_path(&file, dir.path());
+        assert!(result.is_err());
+        // Should be a Security error with PathTraversal code
+        match result.unwrap_err() {
+            ReasonanceError::Security { code, .. } => {
+                assert!(matches!(code, crate::error::SecurityErrorCode::PathTraversal));
+            }
+            other => panic!("Expected Security::PathTraversal, got: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn path_safety_relative_traversal_denied() {
+        let dir = setup_temp_dir();
+        let traversal = dir.path().join("../../etc/passwd");
+        // This may or may not exist, but if it resolves outside root → denied
+        let result = resolve_safe_path(&traversal, dir.path());
+        // Either Err (file doesn't exist → IO) or Err (path traversal → Security)
+        assert!(result.is_err());
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn path_safety_symlink_escape_denied() {
+        let dir = setup_temp_dir();
+        let target = std::env::temp_dir().join("reasonance_symlink_test_target");
+        std::fs::write(&target, "secret data").unwrap();
+        let link = dir.path().join("escape_link");
+        std::os::unix::fs::symlink(&target, &link).unwrap();
+
+        let result = resolve_safe_path(&link, dir.path());
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            ReasonanceError::Security { code, .. } => {
+                assert!(matches!(code, crate::error::SecurityErrorCode::PathTraversal));
+            }
+            other => panic!("Expected Security::PathTraversal, got: {:?}", other),
+        }
+        let _ = std::fs::remove_file(&target);
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn path_safety_symlink_within_project_ok() {
+        let dir = setup_temp_dir();
+        let target = dir.path().join("real_file.txt");
+        std::fs::write(&target, "legit").unwrap();
+        let link = dir.path().join("internal_link");
+        std::os::unix::fs::symlink(&target, &link).unwrap();
+
+        let result = resolve_safe_path(&link, dir.path());
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn path_safety_write_new_file_in_project_ok() {
+        let dir = setup_temp_dir();
+        let new_file = dir.path().join("new_file.txt");
+        // File doesn't exist yet
+        let result = resolve_safe_write_path(&new_file, dir.path());
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn path_safety_write_outside_project_denied() {
+        let dir = setup_temp_dir();
+        let other = setup_temp_dir();
+        let file = other.path().join("bad_write.txt");
+        let result = resolve_safe_write_path(&file, dir.path());
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            ReasonanceError::Security { code, .. } => {
+                assert!(matches!(code, crate::error::SecurityErrorCode::PathTraversal));
+            }
+            other => panic!("Expected Security::PathTraversal, got: {:?}", other),
+        }
     }
 
     #[test]
