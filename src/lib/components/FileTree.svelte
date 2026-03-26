@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import type { Adapter, FileEntry } from '$lib/adapter';
   import { getFileIcon } from '$lib/utils/icons';
   import { addOpenFile, projectRoot, activeFilePath } from '$lib/stores/files';
@@ -15,10 +15,57 @@
 
   let currentRoot = $derived($projectRoot || '.');
 
+  // --- Virtual scroll constants ---
+  const ROW_HEIGHT = 28;
+  const BUFFER_ITEMS = 20;
+
+  // --- Virtual scroll state ---
+  let scrollTop = $state(0);
+  let containerHeight = $state(400);
+  let focusedIndex = $state(0);
+
+  // --- Flat tree representation for virtual scrolling ---
+  interface FlatItem {
+    entry: FileEntry;
+    depth: number;
+    expanded: boolean;
+    isDir: boolean;
+  }
+
+  function flattenTree(
+    items: FileEntry[],
+    expanded: Set<string>,
+    cache: Map<string, FileEntry[]>,
+    depth: number = 0
+  ): FlatItem[] {
+    const result: FlatItem[] = [];
+    for (const entry of items) {
+      const isExpanded = entry.isDir && expanded.has(entry.path);
+      result.push({ entry, depth, expanded: isExpanded, isDir: entry.isDir });
+      if (isExpanded) {
+        const children = cache.get(entry.path) || [];
+        result.push(...flattenTree(children, expanded, cache, depth + 1));
+      }
+    }
+    return result;
+  }
+
+  let flatItems = $derived(flattenTree(entries, expandedDirs, childrenCache));
+  let totalHeight = $derived(flatItems.length * ROW_HEIGHT);
+
+  let visibleStart = $derived(Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - BUFFER_ITEMS));
+  let visibleEnd = $derived(Math.min(flatItems.length, Math.ceil((scrollTop + containerHeight) / ROW_HEIGHT) + BUFFER_ITEMS));
+  let visibleItems = $derived(flatItems.slice(visibleStart, visibleEnd));
+  let offsetY = $derived(visibleStart * ROW_HEIGHT);
+
   // Reload entries when project root changes
   $effect(() => {
     const root = $projectRoot;
     if (root) {
+      // Reset caches on project switch
+      childrenCache = new Map();
+      expandedDirs = new Set();
+      focusedIndex = 0;
       adapter.listDir(root).then((e) => { entries = e; });
     }
   });
@@ -46,6 +93,19 @@
     }
     document.addEventListener('reasonance:fsChange', handleFsChange);
     return () => document.removeEventListener('reasonance:fsChange', handleFsChange);
+  });
+
+  // Scroll focused item into view on keyboard navigation
+  $effect(() => {
+    const idx = focusedIndex;
+    void idx; // track reactivity
+    tick().then(() => {
+      const item = flatItems[idx];
+      if (!item) return;
+      const el = document.querySelector(`[data-path="${CSS.escape(item.entry.path)}"]`) as HTMLElement | null;
+      el?.scrollIntoView({ block: 'nearest' });
+      el?.focus();
+    });
   });
 
   async function toggleDir(entry: FileEntry) {
@@ -97,64 +157,44 @@
     adapter.openExternal(entry.path);
   }
 
-  function handleTreeKeydown(e: KeyboardEvent) {
-    const tree = e.currentTarget as HTMLElement;
-    const items = Array.from(tree.querySelectorAll<HTMLElement>('[role="treeitem"]')).filter(el => el.offsetParent !== null);
-    const currentIndex = items.indexOf(document.activeElement as HTMLElement);
-
+  function handleItemKeydown(e: KeyboardEvent, flatIndex: number) {
     switch (e.key) {
       case 'ArrowDown':
         e.preventDefault();
-        if (currentIndex < items.length - 1) items[currentIndex + 1].focus();
+        focusedIndex = Math.min(flatIndex + 1, flatItems.length - 1);
         break;
       case 'ArrowUp':
         e.preventDefault();
-        if (currentIndex > 0) items[currentIndex - 1].focus();
+        focusedIndex = Math.max(flatIndex - 1, 0);
         break;
       case 'ArrowRight': {
         e.preventDefault();
-        const btn = items[currentIndex];
-        if (btn) {
-          const path = btn.dataset.path;
-          if (path && !expandedDirs.has(path)) {
-            const entry = findEntry(path);
-            if (entry?.isDir) toggleDir(entry);
-          }
+        const item = flatItems[flatIndex];
+        if (item?.isDir && !item.expanded) {
+          toggleDir(item.entry);
         }
         break;
       }
       case 'ArrowLeft': {
         e.preventDefault();
-        const btn = items[currentIndex];
-        if (btn) {
-          const path = btn.dataset.path;
-          if (path && expandedDirs.has(path)) {
-            const entry = findEntry(path);
-            if (entry?.isDir) toggleDir(entry);
-          }
+        const item = flatItems[flatIndex];
+        if (item?.isDir && item.expanded) {
+          toggleDir(item.entry);
         }
         break;
       }
       case 'Enter':
-      case ' ': {
+      case ' ':
         e.preventDefault();
-        const btn = items[currentIndex];
-        if (btn) {
-          const path = btn.dataset.path;
-          if (path) {
-            const entry = findEntry(path);
-            if (entry) handleClick(entry);
-          }
-        }
+        if (flatItems[flatIndex]) handleClick(flatItems[flatIndex].entry);
         break;
-      }
       case 'Home':
         e.preventDefault();
-        if (items.length > 0) items[0].focus();
+        focusedIndex = 0;
         break;
       case 'End':
         e.preventDefault();
-        if (items.length > 0) items[items.length - 1].focus();
+        focusedIndex = flatItems.length - 1;
         break;
     }
   }
@@ -203,9 +243,6 @@
     const fullPath = `${inlineInput.parentDir}/${inlineValue.trim()}`;
     try {
       if (inlineInput.type === 'folder') {
-        // Create folder by writing a placeholder and relying on the backend
-        // The adapter has no createDir, so we write a file inside the dir
-        // Actually, we can use writeFile to create the directory path
         await adapter.writeFile(`${fullPath}/.keep`, '');
       } else {
         await adapter.writeFile(fullPath, '');
@@ -243,6 +280,36 @@
     return search(entries);
   }
 
+  /**
+   * Determine the inline input insert position within the flat list.
+   * Returns the flat index AFTER which the inline input should appear,
+   * or -1 if it should appear at the end of the root list.
+   */
+  function getInlineInputFlatIndex(): number | null {
+    if (!inlineInput) return null;
+    if (inlineInput.parentDir === currentRoot) {
+      // After the last root-level item (and all its children)
+      return flatItems.length - 1;
+    }
+    // Find the parent dir in the flat list
+    for (let i = 0; i < flatItems.length; i++) {
+      if (flatItems[i].entry.path === inlineInput.parentDir) {
+        // Find the last child of this directory
+        const parentDepth = flatItems[i].depth;
+        let lastChild = i;
+        for (let j = i + 1; j < flatItems.length; j++) {
+          if (flatItems[j].depth > parentDepth) {
+            lastChild = j;
+          } else {
+            break;
+          }
+        }
+        return lastChild;
+      }
+    }
+    return null;
+  }
+
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -255,61 +322,66 @@
     </span>
   </div>
 
-  <div class="tree-scroll" role="tree" tabindex="-1" aria-label={$tr('a11y.fileExplorer')} onkeydown={handleTreeKeydown}>
-    {#snippet renderEntries(items: FileEntry[], depth: number)}
-      {#each items as entry, idx (entry.path)}
-        <button
-          class="tree-item"
-          class:gitignored={entry.isGitignored}
-          class:active={!entry.isDir && $activeFilePath === entry.path}
-          style="padding-inline-start: {14 + depth * 16}px"
-          onclick={() => handleClick(entry)}
-          oncontextmenu={(e) => handleContextMenu(e, entry)}
-          role="treeitem"
-          tabindex={depth === 0 && idx === 0 ? 0 : -1}
-          aria-selected={!entry.isDir && $activeFilePath === entry.path}
-          aria-expanded={entry.isDir ? expandedDirs.has(entry.path) : undefined}
-          data-path={entry.path}
-        >
-          <span class="icon">{getFileIcon(entry.name, entry.isDir)}</span>
-          <span class="name">{entry.name}</span>
-        </button>
-        {#if entry.isDir && expandedDirs.has(entry.path)}
-          <div role="group">
-            {@render renderEntries(childrenCache.get(entry.path) ?? [], depth + 1)}
-            {#if inlineInput && inlineInput.parentDir === entry.path}
-              <div class="inline-input-row" style="padding-inline-start: {14 + (depth + 1) * 16}px">
-                <span class="icon">{inlineInput.type === 'folder' ? '\ud83d\udcc1' : '\ud83d\udcc4'}</span>
-                <input
-                  class="inline-input"
-                  type="text"
-                  bind:value={inlineValue}
-                  placeholder={inlineInput.type === 'folder' ? 'folder name' : 'file name'}
-                  onkeydown={(e) => { if (e.key === 'Enter') commitInlineCreate(); if (e.key === 'Escape') cancelInlineCreate(); }}
-                  onblur={commitInlineCreate}
-                />
-              </div>
-            {/if}
+  <div
+    class="tree-scroll"
+    role="tree"
+    tabindex="-1"
+    aria-label={$tr('a11y.fileExplorer')}
+    onscroll={(e) => { scrollTop = e.currentTarget.scrollTop; }}
+    bind:clientHeight={containerHeight}
+  >
+    <div class="filetree-spacer" style="height: {totalHeight}px; position: relative;">
+      <div class="filetree-viewport" style="transform: translateY({offsetY}px); will-change: transform;">
+        {#each visibleItems as item, i (item.entry.path)}
+          {@const flatIndex = visibleStart + i}
+          {@const inlineIdx = getInlineInputFlatIndex()}
+          <button
+            class="tree-item"
+            class:gitignored={item.entry.isGitignored}
+            class:active={!item.isDir && $activeFilePath === item.entry.path}
+            style="padding-inline-start: {14 + item.depth * 16}px; height: {ROW_HEIGHT}px;"
+            onclick={() => handleClick(item.entry)}
+            oncontextmenu={(e) => handleContextMenu(e, item.entry)}
+            onkeydown={(e) => handleItemKeydown(e, flatIndex)}
+            role="treeitem"
+            tabindex={flatIndex === focusedIndex ? 0 : -1}
+            aria-selected={!item.isDir && $activeFilePath === item.entry.path}
+            aria-expanded={item.isDir ? item.expanded : undefined}
+            aria-level={item.depth + 1}
+            data-path={item.entry.path}
+          >
+            <span class="icon">{getFileIcon(item.entry.name, item.isDir)}</span>
+            <span class="name">{item.entry.name}</span>
+          </button>
+          {#if inlineInput && inlineIdx === flatIndex}
+            <div class="inline-input-row" style="padding-inline-start: {14 + (item.depth + (inlineInput.parentDir === item.entry.path ? 1 : 0)) * 16}px; height: {ROW_HEIGHT}px;">
+              <span class="icon">{inlineInput.type === 'folder' ? '\ud83d\udcc1' : '\ud83d\udcc4'}</span>
+              <input
+                class="inline-input"
+                type="text"
+                bind:value={inlineValue}
+                placeholder={inlineInput.type === 'folder' ? 'folder name' : 'file name'}
+                onkeydown={(e) => { if (e.key === 'Enter') commitInlineCreate(); if (e.key === 'Escape') cancelInlineCreate(); }}
+                onblur={commitInlineCreate}
+              />
+            </div>
+          {/if}
+        {/each}
+        {#if inlineInput && inlineInput.parentDir === currentRoot && flatItems.length === 0}
+          <div class="inline-input-row" style="padding-inline-start: 14px; height: {ROW_HEIGHT}px;">
+            <span class="icon">{inlineInput.type === 'folder' ? '\ud83d\udcc1' : '\ud83d\udcc4'}</span>
+            <input
+              class="inline-input"
+              type="text"
+              bind:value={inlineValue}
+              placeholder={inlineInput.type === 'folder' ? 'folder name' : 'file name'}
+              onkeydown={(e) => { if (e.key === 'Enter') commitInlineCreate(); if (e.key === 'Escape') cancelInlineCreate(); }}
+              onblur={commitInlineCreate}
+            />
           </div>
         {/if}
-      {/each}
-    {/snippet}
-
-    {@render renderEntries(entries, 0)}
-
-    {#if inlineInput && inlineInput.parentDir === currentRoot}
-      <div class="inline-input-row" style="padding-inline-start: 14px">
-        <span class="icon">{inlineInput.type === 'folder' ? '\ud83d\udcc1' : '\ud83d\udcc4'}</span>
-        <input
-          class="inline-input"
-          type="text"
-          bind:value={inlineValue}
-          placeholder={inlineInput.type === 'folder' ? 'folder name' : 'file name'}
-          onkeydown={(e) => { if (e.key === 'Enter') commitInlineCreate(); if (e.key === 'Escape') cancelInlineCreate(); }}
-          onblur={commitInlineCreate}
-        />
       </div>
-    {/if}
+    </div>
   </div>
 </div>
 
@@ -356,6 +428,14 @@
     min-height: 0;
   }
 
+  .filetree-spacer {
+    overflow: hidden;
+  }
+
+  .filetree-viewport {
+    will-change: transform;
+  }
+
   .tree-item {
     display: flex;
     flex-direction: row;
@@ -369,11 +449,12 @@
     font-family: var(--font-ui);
     font-size: var(--font-size-base);
     font-weight: 500;
-    padding: var(--space-1) var(--space-3);
+    padding: 0 var(--space-3);
     text-align: start;
     cursor: pointer;
     white-space: nowrap;
-    overflow: auto;
+    overflow: hidden;
+    box-sizing: border-box;
     transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
   }
 
