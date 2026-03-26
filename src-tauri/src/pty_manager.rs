@@ -7,6 +7,41 @@ use std::thread;
 use tauri::{AppHandle, Emitter};
 use uuid::Uuid;
 
+/// Configuration for PTY reconnection with exponential backoff.
+#[derive(Debug, Clone)]
+pub struct ReconnectConfig {
+    /// Maximum number of reconnection attempts before giving up.
+    pub max_attempts: u32,
+    /// Initial delay in milliseconds before the first retry.
+    pub initial_delay_ms: u64,
+    /// Maximum delay in milliseconds (cap for exponential growth).
+    pub max_delay_ms: u64,
+    /// Multiplicative factor applied per attempt.
+    pub backoff_factor: f64,
+}
+
+impl Default for ReconnectConfig {
+    fn default() -> Self {
+        Self {
+            max_attempts: 10,
+            initial_delay_ms: 1000,
+            max_delay_ms: 30000,
+            backoff_factor: 2.0,
+        }
+    }
+}
+
+impl ReconnectConfig {
+    /// Calculate the wait duration before attempt `attempt` (0-indexed).
+    ///
+    /// Attempt 0 → `initial_delay_ms`, doubling each time, capped at `max_delay_ms`.
+    pub fn delay_for_attempt(&self, attempt: u32) -> std::time::Duration {
+        let delay = self.initial_delay_ms as f64 * self.backoff_factor.powi(attempt as i32);
+        let capped = delay.min(self.max_delay_ms as f64) as u64;
+        std::time::Duration::from_millis(capped)
+    }
+}
+
 pub struct PtyInstance {
     master: Box<dyn MasterPty + Send>,
     writer: Box<dyn Write + Send>,
@@ -163,6 +198,11 @@ impl PtyManager {
             .map_err(|e| crate::error::ReasonanceError::internal(e.to_string()))
     }
 
+    /// Kill a PTY by ID — alias kept for call sites that use `kill_process` naming.
+    pub fn kill_process(&self, id: &str) -> Result<(), crate::error::ReasonanceError> {
+        self.kill(id)
+    }
+
     pub fn kill(&self, id: &str) -> Result<(), crate::error::ReasonanceError> {
         info!("PTY kill: id={}", id);
         let mut instances = self.instances.lock().unwrap_or_else(|e| e.into_inner());
@@ -176,5 +216,42 @@ impl PtyManager {
         let mut project_map = self.project_map.lock().unwrap_or_else(|e| e.into_inner());
         project_map.remove(id);
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_backoff_timing() {
+        let config = ReconnectConfig::default();
+        assert_eq!(config.delay_for_attempt(0).as_millis(), 1000);  // 1s
+        assert_eq!(config.delay_for_attempt(1).as_millis(), 2000);  // 2s
+        assert_eq!(config.delay_for_attempt(2).as_millis(), 4000);  // 4s
+        assert_eq!(config.delay_for_attempt(3).as_millis(), 8000);  // 8s
+        assert_eq!(config.delay_for_attempt(4).as_millis(), 16000); // 16s
+        assert_eq!(config.delay_for_attempt(5).as_millis(), 30000); // capped at 30s
+        assert_eq!(config.delay_for_attempt(10).as_millis(), 30000); // still capped
+    }
+
+    #[test]
+    fn test_max_attempts() {
+        let config = ReconnectConfig::default();
+        assert_eq!(config.max_attempts, 10);
+    }
+
+    #[test]
+    fn test_custom_config() {
+        let config = ReconnectConfig {
+            max_attempts: 5,
+            initial_delay_ms: 500,
+            max_delay_ms: 10000,
+            backoff_factor: 3.0,
+        };
+        assert_eq!(config.delay_for_attempt(0).as_millis(), 500);   // 500ms
+        assert_eq!(config.delay_for_attempt(1).as_millis(), 1500);  // 1.5s
+        assert_eq!(config.delay_for_attempt(2).as_millis(), 4500);  // 4.5s
+        assert_eq!(config.delay_for_attempt(3).as_millis(), 10000); // capped at 10s
     }
 }

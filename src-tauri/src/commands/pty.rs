@@ -121,6 +121,46 @@ pub fn kill_project_ptys(
     Ok(pty_manager.kill_project_ptys(&project_id))
 }
 
+/// Reconnect a dead PTY by killing the old one (if still around) and spawning a
+/// fresh process with the same shell and working directory.
+///
+/// Returns the new PTY ID. The frontend is responsible for calling this command
+/// with exponential backoff delays between attempts (see `ReconnectConfig`).
+#[tauri::command]
+pub fn reconnect_pty(
+    pty_id: String,
+    command: String,
+    args: Vec<String>,
+    cwd: String,
+    app: AppHandle,
+    pty_manager: State<'_, PtyManager>,
+) -> Result<String, ReasonanceError> {
+    info!(
+        "cmd::reconnect_pty(pty_id={}, command={}, cwd={})",
+        pty_id, command, cwd
+    );
+
+    if !is_allowed_command(&command) {
+        error!("cmd::reconnect_pty rejected disallowed command: {}", command);
+        return Err(ReasonanceError::Security {
+            message: format!(
+                "Command '{}' is not allowed. Only configured LLM commands and known shells are permitted.",
+                command
+            ),
+            code: crate::error::SecurityErrorCode::DisallowedCommand,
+        });
+    }
+
+    // Best-effort cleanup of the old PTY — ignore not-found errors.
+    if let Err(e) = pty_manager.kill_process(&pty_id) {
+        debug!("cmd::reconnect_pty: kill old pty_id={} ({})", pty_id, e);
+    }
+
+    let new_id = pty_manager.spawn(&command, &args, &cwd, app)?;
+    info!("cmd::reconnect_pty: new pty_id={}", new_id);
+    Ok(new_id)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -324,6 +324,7 @@ pub fn run() {
             commands::pty::resize_pty,
             commands::pty::kill_process,
             commands::pty::kill_project_ptys,
+            commands::pty::reconnect_pty,
             commands::shadow::store_shadow,
             commands::shadow::get_shadow,
             commands::config::read_config,
