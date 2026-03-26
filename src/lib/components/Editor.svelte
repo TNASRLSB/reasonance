@@ -122,19 +122,31 @@
   }
   const modifiedMarkerInstance = new ModifiedMarker();
 
-  // Track original content per file to compare for modified lines
-  let originalContents: Record<string, string> = {};
+  // Track original content per file (pre-split) for modified-line gutter comparison
+  let originalContentLines: Record<string, string[]> = {};
+  // LRU access order for eviction when > MAX_ORIGINAL_CONTENTS entries
+  let contentAccessOrder: string[] = [];
+  const MAX_ORIGINAL_CONTENTS = 100;
+
+  function touchAccessOrder(path: string) {
+    const idx = contentAccessOrder.indexOf(path);
+    if (idx !== -1) contentAccessOrder.splice(idx, 1);
+    contentAccessOrder.push(path);
+  }
 
   function buildModifiedLineGutter(): Extension {
     const modifiedGutter = gutter({
       class: 'cm-modified-gutter',
       markers(view: EditorView) {
         const path = $activeFilePath;
-        if (!path || !(path in originalContents)) return RangeSet.empty;
-        const original = originalContents[path];
-        const originalLines = original.split('\n');
+        if (!path || !(path in originalContentLines)) return RangeSet.empty;
+        const originalLines = originalContentLines[path];
+        // Only compare visible lines — O(viewport) instead of O(file_length)
+        const viewport = view.viewport;
+        const startLine = view.state.doc.lineAt(viewport.from).number;
+        const endLine = view.state.doc.lineAt(viewport.to).number;
         const builder = new RangeSetBuilder<GutterMarker>();
-        for (let i = 1; i <= view.state.doc.lines; i++) {
+        for (let i = startLine; i <= endLine && i <= view.state.doc.lines; i++) {
           const line = view.state.doc.line(i);
           const origLine = originalLines[i - 1];
           if (origLine === undefined || line.text !== origLine) {
@@ -215,10 +227,18 @@
     if (!container) return;
     destroyView();
     currentLangExts = [];
-    // Store original content for modified-line tracking
+    // Store original content (pre-split) for modified-line tracking
     const path = $activeFilePath;
-    if (path && !(path in originalContents)) {
-      originalContents[path] = content;
+    if (path && !(path in originalContentLines)) {
+      originalContentLines[path] = content.split('\n');
+      touchAccessOrder(path);
+      // LRU eviction: keep at most MAX_ORIGINAL_CONTENTS entries
+      while (contentAccessOrder.length > MAX_ORIGINAL_CONTENTS) {
+        const evict = contentAccessOrder.shift()!;
+        delete originalContentLines[evict];
+      }
+    } else if (path) {
+      touchAccessOrder(path);
     }
     // Start with no language highlighting so the editor shows immediately
     const baseState = buildState(content, [], readOnly);
@@ -264,12 +284,24 @@
     }, 75);
   });
 
-  // Reset original content when file is saved (isDirty goes false) to clear gutter markers
+  // Reset original content when file is saved (isDirty goes false) to clear gutter markers.
+  // Also clean up closed files to prevent unbounded memory growth.
   $effect(() => {
+    const openPaths = new Set($openFiles.map((f) => f.path));
+    // Remove entries for files no longer open
+    for (const path of Object.keys(originalContentLines)) {
+      if (!openPaths.has(path)) {
+        delete originalContentLines[path];
+        const idx = contentAccessOrder.indexOf(path);
+        if (idx !== -1) contentAccessOrder.splice(idx, 1);
+      }
+    }
+    // Reset baseline when file is saved so markers clear
     if (!$activeFilePath) return;
     const file = $openFiles.find((f) => f.path === $activeFilePath);
-    if (file && !file.isDirty && $activeFilePath in originalContents) {
-      originalContents[$activeFilePath] = file.content;
+    if (file && !file.isDirty && $activeFilePath in originalContentLines) {
+      originalContentLines[$activeFilePath] = file.content.split('\n');
+      touchAccessOrder($activeFilePath);
       if (view) view.requestMeasure();
     }
   });
