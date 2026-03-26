@@ -25,10 +25,6 @@ export const completedNodeCount = derived(nodeStates, ($states) =>
   $states.filter(s => s.state === 'success' || s.state === 'skipped').length
 );
 
-export const skippedNodeCount = derived(nodeStates, ($states) =>
-  $states.filter(s => s.state === 'skipped').length
-);
-
 export const totalNodeCount = derived(nodeStates, ($states) => $states.length);
 
 export const activeNodeCount = derived(nodeStates, ($states) =>
@@ -50,8 +46,11 @@ export const statusSummary = derived(
   }
 );
 
-export async function setupHiveEventListeners() {
-  await listen<{ run_id: string; node_id: string; old_state: string; new_state: string }>(
+export async function setupHiveEventListeners(): Promise<() => void> {
+  const unlisteners: Array<() => void> = [];
+  const ptyListeners = new Map<string, () => void>();
+
+  unlisteners.push(await listen<{ run_id: string; node_id: string; old_state: string; new_state: string }>(
     'hive://node-state-changed',
     (event) => {
       currentRun.update(run => {
@@ -66,9 +65,9 @@ export async function setupHiveEventListeners() {
         return { ...run, node_states: ns };
       });
     }
-  );
+  ));
 
-  await listen<{ run_id: string; old_status: string; new_status: string }>(
+  unlisteners.push(await listen<{ run_id: string; old_status: string; new_status: string }>(
     'hive://run-status-changed',
     (event) => {
       currentRun.update(run => {
@@ -76,16 +75,16 @@ export async function setupHiveEventListeners() {
         return { ...run, status: event.payload.new_status as RunStatus };
       });
     }
-  );
+  ));
 
-  await listen<{ run_id: string; node_id: string; agent_label: string }>(
+  unlisteners.push(await listen<{ run_id: string; node_id: string; agent_label: string }>(
     'hive://permission-request',
     (event) => {
       pendingApprovals.update(list => [...list, event.payload]);
     }
-  );
+  ));
 
-  await listen<{ run_id: string; status: string }>(
+  unlisteners.push(await listen<{ run_id: string; status: string }>(
     'hive://run-completed',
     (event) => {
       currentRun.update(run => {
@@ -93,18 +92,26 @@ export async function setupHiveEventListeners() {
         return { ...run, status: event.payload.status as RunStatus };
       });
     }
-  );
+  ));
 
-  await listen<{ run_id: string; node_id: string; pty_id: string }>(
+  unlisteners.push(await listen<{ run_id: string; node_id: string; pty_id: string }>(
     'hive://agent-output',
     (event) => {
       const { node_id, pty_id } = event.payload;
-      listen<string>(`pty-data-${pty_id}`, (ptyEvent) => {
-        agentOutputLog.update(log => {
-          const newLog = [...log, { node_id, line: ptyEvent.payload, timestamp: Date.now() }];
-          return newLog.slice(-MAX_LOG_LINES);
-        });
-      });
+      if (!ptyListeners.has(pty_id)) {
+        listen<string>(`pty-data-${pty_id}`, (ptyEvent) => {
+          agentOutputLog.update(log => {
+            const newLog = [...log, { node_id, line: ptyEvent.payload, timestamp: Date.now() }];
+            return newLog.slice(-MAX_LOG_LINES);
+          });
+        }).then(unlisten => ptyListeners.set(pty_id, unlisten));
+      }
     }
-  );
+  ));
+
+  return () => {
+    unlisteners.forEach(fn => fn());
+    ptyListeners.forEach(fn => fn());
+    ptyListeners.clear();
+  };
 }

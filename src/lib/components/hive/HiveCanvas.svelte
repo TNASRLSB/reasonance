@@ -10,7 +10,7 @@
     useSvelteFlow,
   } from '@xyflow/svelte';
   import '@xyflow/svelte/dist/style.css';
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import type { Connection } from '@xyflow/system';
   import type { Adapter } from '$lib/adapter/index';
   import type { WorkflowNode, WorkflowEdge } from '$lib/adapter/index';
@@ -31,8 +31,12 @@
 
   let { adapter, cwd = '.' }: { adapter: Adapter; cwd?: string } = $props();
 
+  let cleanupListeners: (() => void) | undefined;
+
   onMount(() => {
-    setupHiveEventListeners();
+    setupHiveEventListeners().then(cleanup => {
+      cleanupListeners = cleanup;
+    });
     // Initialize empty workflow if none loaded
     if (!get(currentWorkflow)) {
       currentWorkflow.set({
@@ -49,6 +53,10 @@
         }
       });
     }
+  });
+
+  onDestroy(() => {
+    cleanupListeners?.();
   });
 
   let wfNodes = $derived<WorkflowNode[]>($currentWorkflow?.nodes ?? []);
