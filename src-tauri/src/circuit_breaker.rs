@@ -65,6 +65,12 @@ pub struct CircuitBreaker {
     fingerprint_window: Duration,
 }
 
+impl Default for CircuitBreaker {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CircuitBreaker {
     pub fn new() -> Self {
         Self {
@@ -354,7 +360,7 @@ mod tests {
         let err = make_retryable_error("rate limited");
 
         assert!(!cb.is_duplicate(&err)); // first time
-        // With 0ms window, the entry is already expired
+                                         // With 0ms window, the entry is already expired
         assert!(!cb.is_duplicate(&err)); // should NOT be a dup
     }
 

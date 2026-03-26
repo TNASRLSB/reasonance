@@ -36,6 +36,12 @@ pub struct LayeredSettings {
     workspace_path: Option<PathBuf>,
 }
 
+impl Default for LayeredSettings {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl LayeredSettings {
     /// Create a new LayeredSettings with builtin defaults and user layer loaded.
     pub fn new() -> Self {

@@ -8,6 +8,8 @@ use tauri::{AppHandle, Emitter};
 use uuid::Uuid;
 
 /// Configuration for PTY reconnection with exponential backoff.
+/// Roadmap: used when PTY reconnection is wired from frontend (Phase 2)
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct ReconnectConfig {
     /// Maximum number of reconnection attempts before giving up.
@@ -35,6 +37,8 @@ impl ReconnectConfig {
     /// Calculate the wait duration before attempt `attempt` (0-indexed).
     ///
     /// Attempt 0 → `initial_delay_ms`, doubling each time, capped at `max_delay_ms`.
+    /// Roadmap: used when PTY reconnection is wired from frontend (Phase 2)
+    #[allow(dead_code)]
     pub fn delay_for_attempt(&self, attempt: u32) -> std::time::Duration {
         let delay = self.initial_delay_ms as f64 * self.backoff_factor.powi(attempt as i32);
         let capped = delay.min(self.max_delay_ms as f64) as u64;
@@ -63,7 +67,10 @@ impl PtyManager {
     /// Associate a PTY instance with a project.
     #[allow(dead_code)] // Used by project management PTY lifecycle
     pub fn set_project(&self, pty_id: &str, project_id: &str) {
-        debug!("PTY set_project: pty_id={}, project_id={}", pty_id, project_id);
+        debug!(
+            "PTY set_project: pty_id={}, project_id={}",
+            pty_id, project_id
+        );
         let mut map = self.project_map.lock().unwrap_or_else(|e| e.into_inner());
         map.insert(pty_id.to_string(), project_id.to_string());
     }
@@ -85,7 +92,11 @@ impl PtyManager {
                 killed.push(id);
             }
         }
-        info!("PTY kill_project_ptys: project_id={}, killed={}", project_id, killed.len());
+        info!(
+            "PTY kill_project_ptys: project_id={}, killed={}",
+            project_id,
+            killed.len()
+        );
         killed
     }
 
@@ -113,7 +124,10 @@ impl PtyManager {
         cmd.cwd(cwd);
 
         let _child = pair.slave.spawn_command(cmd).map_err(|e| {
-            error!("Failed to spawn PTY command '{}' in cwd '{}': {}", command, cwd, e);
+            error!(
+                "Failed to spawn PTY command '{}' in cwd '{}': {}",
+                command, cwd, e
+            );
             crate::error::ReasonanceError::Transport {
                 provider: command.to_string(),
                 message: e.to_string(),
@@ -123,9 +137,18 @@ impl PtyManager {
         drop(pair.slave);
 
         let id = Uuid::new_v4().to_string();
-        info!("PTY spawned: id={}, command='{}', cwd='{}'", id, command, cwd);
-        let writer = pair.master.take_writer().map_err(|e| crate::error::ReasonanceError::internal(e.to_string()))?;
-        let mut reader = pair.master.try_clone_reader().map_err(|e| crate::error::ReasonanceError::internal(e.to_string()))?;
+        info!(
+            "PTY spawned: id={}, command='{}', cwd='{}'",
+            id, command, cwd
+        );
+        let writer = pair
+            .master
+            .take_writer()
+            .map_err(|e| crate::error::ReasonanceError::internal(e.to_string()))?;
+        let mut reader = pair
+            .master
+            .try_clone_reader()
+            .map_err(|e| crate::error::ReasonanceError::internal(e.to_string()))?;
 
         let read_id = id.clone();
         thread::spawn(move || {
@@ -155,17 +178,29 @@ impl PtyManager {
             master: pair.master,
             writer,
         };
-        self.instances.lock().unwrap_or_else(|e| e.into_inner()).insert(id.clone(), instance);
+        self.instances
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .insert(id.clone(), instance);
         Ok(id)
     }
 
     pub fn write(&self, id: &str, data: &str) -> Result<(), crate::error::ReasonanceError> {
         const MAX_PAYLOAD: usize = 65_536; // 64 KB
         if data.len() > MAX_PAYLOAD {
-            warn!("PTY write payload too large: id={}, size={} bytes (max {})", id, data.len(), MAX_PAYLOAD);
+            warn!(
+                "PTY write payload too large: id={}, size={} bytes (max {})",
+                id,
+                data.len(),
+                MAX_PAYLOAD
+            );
             return Err(crate::error::ReasonanceError::validation(
                 "data",
-                format!("PTY write payload too large: {} bytes (max {})", data.len(), MAX_PAYLOAD),
+                format!(
+                    "PTY write payload too large: {} bytes (max {})",
+                    data.len(),
+                    MAX_PAYLOAD
+                ),
             ));
         }
         trace!("PTY write: id={}, bytes={}", id, data.len());
@@ -174,19 +209,23 @@ impl PtyManager {
             error!("PTY write failed: id={} not found", id);
             crate::error::ReasonanceError::not_found("pty", id)
         })?;
-        instance
-            .writer
-            .write_all(data.as_bytes())
-            .map_err(|e| {
-                error!("PTY write I/O error: id={}, error={}", id, e);
-                crate::error::ReasonanceError::io(format!("PTY write id={}", id), e)
-            })
+        instance.writer.write_all(data.as_bytes()).map_err(|e| {
+            error!("PTY write I/O error: id={}, error={}", id, e);
+            crate::error::ReasonanceError::io(format!("PTY write id={}", id), e)
+        })
     }
 
-    pub fn resize(&self, id: &str, cols: u16, rows: u16) -> Result<(), crate::error::ReasonanceError> {
+    pub fn resize(
+        &self,
+        id: &str,
+        cols: u16,
+        rows: u16,
+    ) -> Result<(), crate::error::ReasonanceError> {
         debug!("PTY resize: id={}, cols={}, rows={}", id, cols, rows);
         let instances = self.instances.lock().unwrap_or_else(|e| e.into_inner());
-        let instance = instances.get(id).ok_or_else(|| crate::error::ReasonanceError::not_found("pty", id))?;
+        let instance = instances
+            .get(id)
+            .ok_or_else(|| crate::error::ReasonanceError::not_found("pty", id))?;
         instance
             .master
             .resize(PtySize {
@@ -206,12 +245,10 @@ impl PtyManager {
     pub fn kill(&self, id: &str) -> Result<(), crate::error::ReasonanceError> {
         info!("PTY kill: id={}", id);
         let mut instances = self.instances.lock().unwrap_or_else(|e| e.into_inner());
-        instances
-            .remove(id)
-            .ok_or_else(|| {
-                error!("PTY kill failed: id={} not found", id);
-                crate::error::ReasonanceError::not_found("pty", id)
-            })?;
+        instances.remove(id).ok_or_else(|| {
+            error!("PTY kill failed: id={} not found", id);
+            crate::error::ReasonanceError::not_found("pty", id)
+        })?;
         // Clean up project association
         let mut project_map = self.project_map.lock().unwrap_or_else(|e| e.into_inner());
         project_map.remove(id);
@@ -219,6 +256,8 @@ impl PtyManager {
     }
 
     /// Returns the IDs of all currently tracked PTY instances.
+    /// Roadmap: used when PTY status dashboard is wired from frontend (Phase 2)
+    #[allow(dead_code)]
     pub fn list_active_ptys(&self) -> Vec<String> {
         let instances = self.instances.lock().unwrap_or_else(|e| e.into_inner());
         instances.keys().cloned().collect()
@@ -250,7 +289,11 @@ impl PtyManager {
                         pixel_width: 0,
                         pixel_height: 0,
                     });
-                    if probe.is_err() { Some(id.clone()) } else { None }
+                    if probe.is_err() {
+                        Some(id.clone())
+                    } else {
+                        None
+                    }
                 })
                 .collect()
         };
@@ -267,7 +310,11 @@ impl PtyManager {
         }
 
         if !swept.is_empty() {
-            info!("PTY sweep_dead_ptys: removed {} dead entries: {:?}", swept.len(), swept);
+            info!(
+                "PTY sweep_dead_ptys: removed {} dead entries: {:?}",
+                swept.len(),
+                swept
+            );
         } else {
             debug!("PTY sweep_dead_ptys: no dead PTYs found");
         }
@@ -302,10 +349,10 @@ mod tests {
     #[test]
     fn test_backoff_timing() {
         let config = ReconnectConfig::default();
-        assert_eq!(config.delay_for_attempt(0).as_millis(), 1000);  // 1s
-        assert_eq!(config.delay_for_attempt(1).as_millis(), 2000);  // 2s
-        assert_eq!(config.delay_for_attempt(2).as_millis(), 4000);  // 4s
-        assert_eq!(config.delay_for_attempt(3).as_millis(), 8000);  // 8s
+        assert_eq!(config.delay_for_attempt(0).as_millis(), 1000); // 1s
+        assert_eq!(config.delay_for_attempt(1).as_millis(), 2000); // 2s
+        assert_eq!(config.delay_for_attempt(2).as_millis(), 4000); // 4s
+        assert_eq!(config.delay_for_attempt(3).as_millis(), 8000); // 8s
         assert_eq!(config.delay_for_attempt(4).as_millis(), 16000); // 16s
         assert_eq!(config.delay_for_attempt(5).as_millis(), 30000); // capped at 30s
         assert_eq!(config.delay_for_attempt(10).as_millis(), 30000); // still capped
@@ -325,9 +372,9 @@ mod tests {
             max_delay_ms: 10000,
             backoff_factor: 3.0,
         };
-        assert_eq!(config.delay_for_attempt(0).as_millis(), 500);   // 500ms
-        assert_eq!(config.delay_for_attempt(1).as_millis(), 1500);  // 1.5s
-        assert_eq!(config.delay_for_attempt(2).as_millis(), 4500);  // 4.5s
+        assert_eq!(config.delay_for_attempt(0).as_millis(), 500); // 500ms
+        assert_eq!(config.delay_for_attempt(1).as_millis(), 1500); // 1.5s
+        assert_eq!(config.delay_for_attempt(2).as_millis(), 4500); // 4.5s
         assert_eq!(config.delay_for_attempt(3).as_millis(), 10000); // capped at 10s
     }
 

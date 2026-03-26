@@ -52,8 +52,7 @@ impl JsonFileBackend {
 fn sanitize_path_component(s: &str) -> String {
     let sanitized = s
         .replace("..", "_")
-        .replace('/', "_")
-        .replace('\\', "_");
+        .replace(['/', '\\'], "_");
     // Strip leading dots
     let trimmed = sanitized.trim_start_matches('.');
     if trimmed.is_empty() {

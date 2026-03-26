@@ -36,13 +36,19 @@ pub struct PermissionContext {
     pub tool_args: Option<serde_json::Value>,
     pub provider: String,
     pub permission_level: String, // "yolo", "ask", "locked"
-    pub trust_level: String,     // "untrusted", "trusted", "full"
+    pub trust_level: String,      // "untrusted", "trusted", "full"
     pub project_root: Option<String>,
 }
 
 /// Read-only tools that are safe even in untrusted workspaces
 const READ_ONLY_TOOLS: &[&str] = &[
-    "Read", "Grep", "Glob", "WebSearch", "WebFetch", "ListDir", "Bash",
+    "Read",
+    "Grep",
+    "Glob",
+    "WebSearch",
+    "WebFetch",
+    "ListDir",
+    "Bash",
 ];
 
 /// Hardcoded destructive patterns that are ALWAYS denied
@@ -100,10 +106,7 @@ impl PermissionEngine {
             for pattern in DESTRUCTIVE_PATTERNS {
                 if args_str.contains(pattern) {
                     return Some(PermissionDecision::Deny {
-                        reason: format!(
-                            "Hardcoded safety rule: '{}' is always denied",
-                            pattern
-                        ),
+                        reason: format!("Hardcoded safety rule: '{}' is always denied", pattern),
                     });
                 }
             }
@@ -115,10 +118,7 @@ impl PermissionEngine {
                         for branch in PROTECTED_BRANCHES {
                             if cmd.contains(branch) {
                                 return Some(PermissionDecision::Deny {
-                                    reason: format!(
-                                        "Force-push to {} is always denied",
-                                        branch
-                                    ),
+                                    reason: format!("Force-push to {} is always denied", branch),
                                 });
                             }
                         }
@@ -133,10 +133,7 @@ impl PermissionEngine {
                 if let Some(path) = args.get("file_path").and_then(|v| v.as_str()) {
                     if !path.starts_with(root) {
                         return Some(PermissionDecision::Deny {
-                            reason: format!(
-                                "Write outside project root denied: {}",
-                                path
-                            ),
+                            reason: format!("Write outside project root denied: {}", path),
                         });
                     }
                 }
@@ -211,6 +208,12 @@ pub struct StoredDecision {
 /// Key: (session_id, tool_name).
 pub struct PermissionMemory {
     decisions: Mutex<HashMap<(String, String), StoredDecision>>,
+}
+
+impl Default for PermissionMemory {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl PermissionMemory {
@@ -473,7 +476,12 @@ mod tests {
     #[test]
     fn test_memory_record_and_lookup_allow() {
         let mem = PermissionMemory::new();
-        mem.record("s1", "Write", PermissionDecision::Allow, DecisionScope::Session);
+        mem.record(
+            "s1",
+            "Write",
+            PermissionDecision::Allow,
+            DecisionScope::Session,
+        );
         assert_eq!(mem.lookup("s1", "Write"), Some(PermissionDecision::Allow));
     }
 
@@ -483,7 +491,9 @@ mod tests {
         mem.record(
             "s1",
             "Bash",
-            PermissionDecision::Deny { reason: "User denied".to_string() },
+            PermissionDecision::Deny {
+                reason: "User denied".to_string(),
+            },
             DecisionScope::Session,
         );
         let result = mem.lookup("s1", "Bash");
@@ -504,7 +514,12 @@ mod tests {
     #[test]
     fn test_memory_session_scope_persists() {
         let mem = PermissionMemory::new();
-        mem.record("s1", "Write", PermissionDecision::Allow, DecisionScope::Session);
+        mem.record(
+            "s1",
+            "Write",
+            PermissionDecision::Allow,
+            DecisionScope::Session,
+        );
 
         assert_eq!(mem.lookup("s1", "Write"), Some(PermissionDecision::Allow));
         assert_eq!(mem.lookup("s1", "Write"), Some(PermissionDecision::Allow));
@@ -521,9 +536,24 @@ mod tests {
     #[test]
     fn test_memory_clear_session() {
         let mem = PermissionMemory::new();
-        mem.record("s1", "Write", PermissionDecision::Allow, DecisionScope::Session);
-        mem.record("s1", "Edit", PermissionDecision::Allow, DecisionScope::Session);
-        mem.record("s2", "Write", PermissionDecision::Allow, DecisionScope::Session);
+        mem.record(
+            "s1",
+            "Write",
+            PermissionDecision::Allow,
+            DecisionScope::Session,
+        );
+        mem.record(
+            "s1",
+            "Edit",
+            PermissionDecision::Allow,
+            DecisionScope::Session,
+        );
+        mem.record(
+            "s2",
+            "Write",
+            PermissionDecision::Allow,
+            DecisionScope::Session,
+        );
 
         mem.clear_session("s1");
 
@@ -536,8 +566,18 @@ mod tests {
     #[test]
     fn test_memory_clear_all() {
         let mem = PermissionMemory::new();
-        mem.record("s1", "Write", PermissionDecision::Allow, DecisionScope::Session);
-        mem.record("s2", "Edit", PermissionDecision::Allow, DecisionScope::Project);
+        mem.record(
+            "s1",
+            "Write",
+            PermissionDecision::Allow,
+            DecisionScope::Session,
+        );
+        mem.record(
+            "s2",
+            "Edit",
+            PermissionDecision::Allow,
+            DecisionScope::Project,
+        );
 
         mem.clear_all();
 
@@ -548,9 +588,26 @@ mod tests {
     #[test]
     fn test_memory_list_decisions() {
         let mem = PermissionMemory::new();
-        mem.record("s1", "Write", PermissionDecision::Allow, DecisionScope::Session);
-        mem.record("s1", "Edit", PermissionDecision::Deny { reason: "no".to_string() }, DecisionScope::Once);
-        mem.record("s2", "Bash", PermissionDecision::Allow, DecisionScope::Session);
+        mem.record(
+            "s1",
+            "Write",
+            PermissionDecision::Allow,
+            DecisionScope::Session,
+        );
+        mem.record(
+            "s1",
+            "Edit",
+            PermissionDecision::Deny {
+                reason: "no".to_string(),
+            },
+            DecisionScope::Once,
+        );
+        mem.record(
+            "s2",
+            "Bash",
+            PermissionDecision::Allow,
+            DecisionScope::Session,
+        );
 
         let list = mem.list_decisions("s1");
         assert_eq!(list.len(), 2);
@@ -563,7 +620,12 @@ mod tests {
     #[test]
     fn test_memory_project_scope_persists_in_memory() {
         let mem = PermissionMemory::new();
-        mem.record("s1", "Bash", PermissionDecision::Allow, DecisionScope::Project);
+        mem.record(
+            "s1",
+            "Bash",
+            PermissionDecision::Allow,
+            DecisionScope::Project,
+        );
 
         // Project scope persists like Session (in-memory for now)
         assert_eq!(mem.lookup("s1", "Bash"), Some(PermissionDecision::Allow));
@@ -573,8 +635,20 @@ mod tests {
     #[test]
     fn test_memory_overwrite_decision() {
         let mem = PermissionMemory::new();
-        mem.record("s1", "Write", PermissionDecision::Allow, DecisionScope::Session);
-        mem.record("s1", "Write", PermissionDecision::Deny { reason: "changed mind".to_string() }, DecisionScope::Session);
+        mem.record(
+            "s1",
+            "Write",
+            PermissionDecision::Allow,
+            DecisionScope::Session,
+        );
+        mem.record(
+            "s1",
+            "Write",
+            PermissionDecision::Deny {
+                reason: "changed mind".to_string(),
+            },
+            DecisionScope::Session,
+        );
 
         let result = mem.lookup("s1", "Write");
         assert!(matches!(result, Some(PermissionDecision::Deny { .. })));
