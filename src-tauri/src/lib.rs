@@ -141,6 +141,7 @@ pub fn run() {
                 let _ = w.set_focus();
             }
         }))
+        .manage(permission_engine::PermissionMemory::new())
         .manage(PtyManager::new())
         .manage(project_manager::ProjectsState::new())
         .manage(project_manager::ActiveProjectState::new())
@@ -391,6 +392,10 @@ pub fn run() {
             commands::workspace_trust::set_workspace_trust,
             commands::workspace_trust::revoke_workspace_trust,
             commands::workspace_trust::list_workspace_trust,
+            commands::permission::record_permission_decision,
+            commands::permission::lookup_permission_decision,
+            commands::permission::list_permission_decisions,
+            commands::permission::clear_permission_session,
             theme_manager::list_user_themes,
             theme_manager::load_user_theme,
             theme_manager::save_user_theme,

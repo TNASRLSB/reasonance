@@ -14,3 +14,4 @@ pub mod capability;
 pub mod analytics;
 pub mod provider;
 pub mod workspace_trust;
+pub mod permission;

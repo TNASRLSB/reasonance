@@ -1,7 +1,9 @@
 use log::debug;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::sync::Mutex;
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum PermissionDecision {
     Allow,
     Deny { reason: String },
@@ -162,6 +164,98 @@ impl PermissionEngine {
     /// Check if a tool is in the read-only set
     pub fn is_read_only_tool(tool_name: &str) -> bool {
         READ_ONLY_TOOLS.contains(&tool_name)
+    }
+}
+
+// ── Per-Tool Approval Memory ──────────────────────────────────────────────────
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum DecisionScope {
+    /// Expires after single use
+    Once,
+    /// Persists for session duration (in-memory only)
+    Session,
+    /// Persists to disk (future: .reasonance/permissions.toml) — for now, in-memory
+    Project,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StoredDecision {
+    pub action: PermissionDecision,
+    pub scope: DecisionScope,
+    pub timestamp: String,
+}
+
+/// Stateful memory for per-tool permission decisions.
+///
+/// Thread-safe (Send + Sync via Mutex) — suitable as Tauri managed state.
+/// Key: (session_id, tool_name).
+pub struct PermissionMemory {
+    decisions: Mutex<HashMap<(String, String), StoredDecision>>,
+}
+
+impl PermissionMemory {
+    pub fn new() -> Self {
+        Self {
+            decisions: Mutex::new(HashMap::new()),
+        }
+    }
+
+    /// Record a decision for a (session, tool) pair.
+    pub fn record(
+        &self,
+        session_id: &str,
+        tool_name: &str,
+        action: PermissionDecision,
+        scope: DecisionScope,
+    ) {
+        let key = (session_id.to_string(), tool_name.to_string());
+        let decision = StoredDecision {
+            action,
+            scope,
+            timestamp: chrono::Utc::now().to_rfc3339(),
+        };
+        self.decisions.lock().unwrap().insert(key, decision);
+    }
+
+    /// Look up a prior decision. Returns None if no decision exists.
+    /// If scope is `Once`, the decision is consumed (removed) atomically.
+    pub fn lookup(&self, session_id: &str, tool_name: &str) -> Option<PermissionDecision> {
+        let key = (session_id.to_string(), tool_name.to_string());
+        let mut decisions = self.decisions.lock().unwrap();
+
+        match decisions.get(&key) {
+            Some(stored) => {
+                let result = stored.action.clone();
+                if stored.scope == DecisionScope::Once {
+                    decisions.remove(&key);
+                }
+                Some(result)
+            }
+            None => None,
+        }
+    }
+
+    /// Clear all decisions for a given session.
+    pub fn clear_session(&self, session_id: &str) {
+        let mut decisions = self.decisions.lock().unwrap();
+        decisions.retain(|(sid, _), _| sid != session_id);
+    }
+
+    /// Clear all decisions across all sessions.
+    pub fn clear_all(&self) {
+        self.decisions.lock().unwrap().clear();
+    }
+
+    /// List all decisions for a session (for debugging / UI).
+    pub fn list_decisions(&self, session_id: &str) -> Vec<(String, StoredDecision)> {
+        self.decisions
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|((sid, _), _)| sid == session_id)
+            .map(|((_, tool), decision)| (tool.clone(), decision.clone()))
+            .collect()
     }
 }
 
@@ -353,5 +447,117 @@ mod tests {
         assert!(PermissionEngine::is_read_only_tool("Glob"));
         assert!(!PermissionEngine::is_read_only_tool("Write"));
         assert!(!PermissionEngine::is_read_only_tool("Edit"));
+    }
+
+    // ── PermissionMemory tests ────────────────────────────────────────
+
+    #[test]
+    fn test_memory_record_and_lookup_allow() {
+        let mem = PermissionMemory::new();
+        mem.record("s1", "Write", PermissionDecision::Allow, DecisionScope::Session);
+        assert_eq!(mem.lookup("s1", "Write"), Some(PermissionDecision::Allow));
+    }
+
+    #[test]
+    fn test_memory_record_and_lookup_deny() {
+        let mem = PermissionMemory::new();
+        mem.record(
+            "s1",
+            "Bash",
+            PermissionDecision::Deny { reason: "User denied".to_string() },
+            DecisionScope::Session,
+        );
+        let result = mem.lookup("s1", "Bash");
+        assert!(matches!(result, Some(PermissionDecision::Deny { .. })));
+    }
+
+    #[test]
+    fn test_memory_once_scope_consumed_after_use() {
+        let mem = PermissionMemory::new();
+        mem.record("s1", "Edit", PermissionDecision::Allow, DecisionScope::Once);
+
+        // First lookup returns the decision
+        assert_eq!(mem.lookup("s1", "Edit"), Some(PermissionDecision::Allow));
+        // Second lookup returns None — consumed
+        assert_eq!(mem.lookup("s1", "Edit"), None);
+    }
+
+    #[test]
+    fn test_memory_session_scope_persists() {
+        let mem = PermissionMemory::new();
+        mem.record("s1", "Write", PermissionDecision::Allow, DecisionScope::Session);
+
+        assert_eq!(mem.lookup("s1", "Write"), Some(PermissionDecision::Allow));
+        assert_eq!(mem.lookup("s1", "Write"), Some(PermissionDecision::Allow));
+        assert_eq!(mem.lookup("s1", "Write"), Some(PermissionDecision::Allow));
+    }
+
+    #[test]
+    fn test_memory_lookup_nonexistent_returns_none() {
+        let mem = PermissionMemory::new();
+        assert_eq!(mem.lookup("s1", "Write"), None);
+        assert_eq!(mem.lookup("nonexistent", "anything"), None);
+    }
+
+    #[test]
+    fn test_memory_clear_session() {
+        let mem = PermissionMemory::new();
+        mem.record("s1", "Write", PermissionDecision::Allow, DecisionScope::Session);
+        mem.record("s1", "Edit", PermissionDecision::Allow, DecisionScope::Session);
+        mem.record("s2", "Write", PermissionDecision::Allow, DecisionScope::Session);
+
+        mem.clear_session("s1");
+
+        assert_eq!(mem.lookup("s1", "Write"), None);
+        assert_eq!(mem.lookup("s1", "Edit"), None);
+        // s2 untouched
+        assert_eq!(mem.lookup("s2", "Write"), Some(PermissionDecision::Allow));
+    }
+
+    #[test]
+    fn test_memory_clear_all() {
+        let mem = PermissionMemory::new();
+        mem.record("s1", "Write", PermissionDecision::Allow, DecisionScope::Session);
+        mem.record("s2", "Edit", PermissionDecision::Allow, DecisionScope::Project);
+
+        mem.clear_all();
+
+        assert_eq!(mem.lookup("s1", "Write"), None);
+        assert_eq!(mem.lookup("s2", "Edit"), None);
+    }
+
+    #[test]
+    fn test_memory_list_decisions() {
+        let mem = PermissionMemory::new();
+        mem.record("s1", "Write", PermissionDecision::Allow, DecisionScope::Session);
+        mem.record("s1", "Edit", PermissionDecision::Deny { reason: "no".to_string() }, DecisionScope::Once);
+        mem.record("s2", "Bash", PermissionDecision::Allow, DecisionScope::Session);
+
+        let list = mem.list_decisions("s1");
+        assert_eq!(list.len(), 2);
+
+        let tool_names: Vec<&str> = list.iter().map(|(t, _)| t.as_str()).collect();
+        assert!(tool_names.contains(&"Write"));
+        assert!(tool_names.contains(&"Edit"));
+    }
+
+    #[test]
+    fn test_memory_project_scope_persists_in_memory() {
+        let mem = PermissionMemory::new();
+        mem.record("s1", "Bash", PermissionDecision::Allow, DecisionScope::Project);
+
+        // Project scope persists like Session (in-memory for now)
+        assert_eq!(mem.lookup("s1", "Bash"), Some(PermissionDecision::Allow));
+        assert_eq!(mem.lookup("s1", "Bash"), Some(PermissionDecision::Allow));
+    }
+
+    #[test]
+    fn test_memory_overwrite_decision() {
+        let mem = PermissionMemory::new();
+        mem.record("s1", "Write", PermissionDecision::Allow, DecisionScope::Session);
+        mem.record("s1", "Write", PermissionDecision::Deny { reason: "changed mind".to_string() }, DecisionScope::Session);
+
+        let result = mem.lookup("s1", "Write");
+        assert!(matches!(result, Some(PermissionDecision::Deny { .. })));
     }
 }
