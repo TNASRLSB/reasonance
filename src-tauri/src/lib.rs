@@ -33,6 +33,7 @@ mod agent_runtime;
 mod workflow_engine;
 mod resource_lock;
 mod agent_memory;
+pub mod agent_memory_v2;
 mod logic_eval;
 mod cli_updater;
 mod normalizer_version;
@@ -193,6 +194,14 @@ pub fn run() {
                 .join("reasonance")
                 .join("normalizer-versions");
             normalizer_version::NormalizerVersionStore::new(&versions_dir)
+        })
+        .manage({
+            let memory_dir = dirs::data_dir()
+                .unwrap_or_else(|| std::path::PathBuf::from("."))
+                .join("reasonance");
+            let db_path = memory_dir.join("agent-memory.db");
+            agent_memory_v2::AgentMemoryV2::new(&db_path)
+                .expect("Failed to initialize agent memory database")
         })
         .manage({
             let config_dir = dirs::config_dir()
@@ -401,6 +410,10 @@ pub fn run() {
             commands::permission::list_permission_decisions,
             commands::permission::clear_permission_session,
             commands::permission::wait_for_permission_decision,
+            commands::memory::memory_add_entry,
+            commands::memory::memory_search,
+            commands::memory::memory_list,
+            commands::memory::memory_get,
             theme_manager::list_user_themes,
             theme_manager::load_user_theme,
             theme_manager::save_user_theme,
