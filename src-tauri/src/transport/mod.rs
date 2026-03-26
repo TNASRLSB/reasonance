@@ -139,29 +139,12 @@ impl StructuredAgentTransport {
         let session_id = request.session_id.clone()
             .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
 
-        // Look up existing session for CLI session ID (for resume) and validate state
-        // Use a single lock scope to avoid TOCTOU race
-        let cli_session_id = {
-            let mut sessions = self.sessions.lock().unwrap_or_else(|e| e.into_inner());
-            if let Some(existing) = sessions.get_mut(&session_id) {
-                if existing.status == SessionStatus::Active {
-                    // The frontend already received the done event (which re-enabled input),
-                    // but the async task that updates session status hasn't completed yet.
-                    // Force-stop the stale session so the user can send a follow-up message.
-                    if let Some(handle) = existing.abort_handle.take() {
-                        handle.abort();
-                    }
-                    existing.set_status(SessionStatus::Terminated);
-                    warn!("Transport: force-stopped stale active session={} to allow new message", session_id);
-                }
-                debug!("Transport: reusing session={} cli_session_id={:?}", session_id, existing.cli_session_id);
-                existing.cli_session_id.clone()
-            } else {
-                None
-            }
-        };
-
-        let args = Self::build_cli_args(config, &request, cli_session_id.as_deref());
+        // Build CLI args and pipeline config while holding only the registry lock
+        // (before touching sessions) so we don't hold two locks simultaneously.
+        // Pre-capture resume_args template so we can build resume args later without
+        // needing the config reference (which is tied to the registry lock).
+        let resume_args_template = config.cli.resume_args.clone();
+        let args_for_new_session = Self::build_cli_args(config, &request, None);
         let permission_args = Self::build_permission_args_with_trust(config, request.cwd.as_deref(), request.yolo, trust_level);
         info!("Transport: permission_args={:?}", permission_args);
         let allowed_tools_args = if matches!(trust_level, Some(crate::workspace_trust::TrustLevel::ReadOnly)) {
@@ -185,21 +168,49 @@ impl StructuredAgentTransport {
             crate::normalizer::pipeline::NormalizerPipeline::new(rules, state_machine, provider.clone())
         ));
 
-        // Create or reactivate session
-        {
+        // Atomic check-and-activate: single lock scope eliminates TOCTOU window.
+        // Between checking session state and setting it to Active, no other thread
+        // can observe the session as non-Active and also proceed to spawn.
+        let args = {
             let mut sessions = self.sessions.lock().unwrap_or_else(|e| e.into_inner());
             if let Some(existing) = sessions.get_mut(&session_id) {
+                if existing.status == SessionStatus::Active {
+                    // The frontend already received the done event (which re-enabled input),
+                    // but the async task that updates session status hasn't completed yet.
+                    // Force-stop the stale session so the user can send a follow-up message.
+                    if let Some(handle) = existing.abort_handle.take() {
+                        handle.abort();
+                    }
+                    warn!("Transport: force-stopped stale active session={} to allow new message", session_id);
+                }
+                debug!("Transport: reusing session={} cli_session_id={:?}", session_id, existing.cli_session_id);
+                let cli_session_id = existing.cli_session_id.clone();
+                // Set to Active immediately — while we still hold the lock
                 existing.set_status(SessionStatus::Active);
                 existing.request = request.clone();
                 debug!("Transport: reactivated agent session={}", session_id);
+                // Build args using pre-captured resume template if CLI session ID exists,
+                // otherwise use the pre-built new-session args (programmatic_args).
+                if let Some(ref cli_sid) = cli_session_id {
+                    resume_args_template.iter().map(|arg| {
+                        arg.replace("{prompt}", &request.prompt)
+                            .replace("{session_id}", cli_sid)
+                            .replace("{model}", request.model.as_deref().unwrap_or(""))
+                    }).collect()
+                } else {
+                    args_for_new_session
+                }
             } else {
                 let mut session = AgentSession::new(request.clone(), CliMode::Structured);
                 // Ensure session ID matches (AgentSession::new may generate a new one if request.session_id is None)
                 session.id = session_id.clone();
+                // Session starts as Active (set by AgentSession::new)
                 debug!("Transport: created agent session={}", session_id);
                 sessions.insert(session_id.clone(), session);
+                // New session — use pre-built args (no CLI session ID)
+                args_for_new_session
             }
-        }
+        };
 
         let mut cmd = Command::new(&binary);
         cmd.args(&args);
@@ -222,6 +233,11 @@ impl StructuredAgentTransport {
         info!("Transport: spawning CLI binary={} args={:?} permission_args={:?} allowed_tools_args={:?}", binary, args, permission_args, allowed_tools_args);
         let mut child = cmd.spawn().map_err(|e| {
             error!("Transport: failed to spawn {}: {}", binary, e);
+            // Restore session status since we set it to Active but spawn failed
+            let mut sessions = self.sessions.lock().unwrap_or_else(|e| e.into_inner());
+            if let Some(sess) = sessions.get_mut(&session_id) {
+                sess.set_status(SessionStatus::Error { severity: ErrorSeverity::Fatal });
+            }
             crate::error::ReasonanceError::Transport {
                 provider: provider.clone(),
                 message: format!("Failed to spawn {}: {}", binary, e),
