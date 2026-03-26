@@ -40,6 +40,7 @@ mod capability;
 mod self_heal;
 mod analytics;
 mod workspace_trust;
+pub mod permission_engine;
 mod theme_manager;
 mod theme_watcher;
 mod project_manager;
