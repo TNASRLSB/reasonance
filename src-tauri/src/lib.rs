@@ -14,6 +14,7 @@
 )]
 
 pub mod error;
+pub mod event_bus_v2;
 mod agent_event;
 mod normalizer;
 mod transport;
@@ -192,6 +193,21 @@ pub fn run() {
                 .unwrap_or_else(|| std::path::PathBuf::from("."))
                 .join("reasonance");
             workspace_trust::TrustStore::new(config_dir.join("trusted-workspaces.json"))
+        })
+        .manage({
+            let bus = event_bus_v2::EventBus::new();
+            bus.register_channel("transport:send", true);
+            bus.register_channel("transport:complete", true);
+            bus.register_channel("transport:error", true);
+            bus.register_channel("session:create", true);
+            bus.register_channel("session:delete", true);
+            bus.register_channel("file:open", true);
+            bus.register_channel("file:close", true);
+            bus.register_channel("file:save", true);
+            bus.register_channel("workflow:node-state", true);
+            bus.register_channel("workflow:run-status", true);
+            bus.register_channel("lifecycle:sweep", false);
+            bus
         })
         .setup(|app| {
             info!("🚀 Reasonance setup starting");
