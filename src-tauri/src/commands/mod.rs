@@ -18,3 +18,4 @@ pub mod permission;
 pub mod memory;
 pub mod agent_comms;
 pub mod app_state;
+pub mod file_ops;

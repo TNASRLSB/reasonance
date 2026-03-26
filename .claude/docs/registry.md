@@ -73,6 +73,16 @@ This is my memory. I update it as I learn. I check it before making claims.
 | `addTerminalInstance` | `src/lib/stores/projects/namespace.ts` | — | Adds terminal to active project, tags with projectId |
 | `ProjectsState` | `src-tauri/src/project_manager.rs` | — | Rust-side HashMap of project ID → ProjectState |
 | `PtyManager::kill_project_ptys` | `src-tauri/src/pty_manager.rs` | — | Kills all PTY processes for a given project |
+| `deep_merge` | `src-tauri/src/settings/mod.rs` | — | Deep merge two TOML values (tables recurse, scalars replace) |
+| `LayeredSettings::new` | `src-tauri/src/settings/mod.rs` | — | Creates 4-layer settings (builtin → user → project → workspace) |
+| `LayeredSettings::set_project_root` | `src-tauri/src/settings/mod.rs` | — | Loads project + workspace layers from project root |
+| `LayeredSettings::get` | `src-tauri/src/settings/mod.rs` | — | Typed value by dotted path (e.g., "editor.font_size") |
+| `builtin_defaults` | `src-tauri/src/settings/defaults.rs` | — | Returns hardcoded builtin default settings as TOML Value |
+| `FileOpsManager::new` | `src-tauri/src/file_ops.rs` | — | Creates undo manager with trash dir at {root}/.reasonance/.trash/ |
+| `FileOpsManager::delete_file` | `src-tauri/src/file_ops.rs` | — | Moves file to trash, pushes Delete op to undo stack |
+| `FileOpsManager::undo` | `src-tauri/src/file_ops.rs` | — | Undoes last file op (restore/remove/rename-back) |
+| `FileOpsManager::record_create` | `src-tauri/src/file_ops.rs` | — | Records create op for undo |
+| `FileOpsManager::record_rename` | `src-tauri/src/file_ops.rs` | — | Records rename op for undo |
 
 ---
 

@@ -43,6 +43,7 @@ mod capability;
 mod self_heal;
 mod analytics;
 mod workspace_trust;
+mod file_ops;
 pub mod permission_engine;
 mod theme_manager;
 mod theme_watcher;
@@ -224,6 +225,7 @@ pub fn run() {
                 .expect("Failed to initialize app state store")
         })
         .manage(std::sync::Mutex::new(model_slots::ModelSlotRegistry::new()))
+        .manage(commands::file_ops::FileOpsState::new())
         .manage({
             let bus = event_bus_v2::EventBus::new();
             bus.register_channel("transport:send", true);
@@ -454,6 +456,11 @@ pub fn run() {
             model_slots::get_model_for_slot,
             model_slots::set_model_slot,
             model_slots::list_model_slots,
+            commands::file_ops::file_ops_set_project,
+            commands::file_ops::file_ops_delete,
+            commands::file_ops::file_ops_undo,
+            commands::file_ops::file_ops_record_create,
+            commands::file_ops::file_ops_record_rename,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
