@@ -47,6 +47,7 @@ pub mod permission_engine;
 mod theme_manager;
 mod theme_watcher;
 mod project_manager;
+pub mod node_registry;
 
 use commands::fs::ProjectRootState;
 use fs_watcher::FsWatcherState;
@@ -152,6 +153,7 @@ pub fn run() {
         .manage(FsWatcherState::new())
         .manage(ProjectRootState::new())
         .manage(discovery::DiscoveryEngine::new())
+        .manage(node_registry::HiveNodeRegistry::new())
         .manage(workflow_store::WorkflowStore::new())
         .manage(agent_runtime::AgentRuntime::new())
         .manage(agent_comms::AgentCommsBus::new(1000))
@@ -432,6 +434,7 @@ pub fn run() {
             commands::agent_comms::agent_get_broadcast_messages,
             commands::agent_comms::agent_sweep_messages,
             commands::agent_comms::agent_clear_workflow_messages,
+            node_registry::get_node_types,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
