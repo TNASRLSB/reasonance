@@ -341,5 +341,29 @@
   "a11y.addLogicNode": "लॉजिक नोड जोड़ें",
   "a11y.timePeriod": "समय अवधि",
   "a11y.keyMetrics": "मुख्य मेट्रिक्स",
-  "a11y.dismissInsight": "अंतर्दृष्टि खारिज करें"
+  "a11y.dismissInsight": "अंतर्दृष्टि खारिज करें",
+  "diff.hunkCount": {
+    "one": "{count} खंड",
+    "other": "{count} खंड"
+  },
+  "files.count": {
+    "one": "{count} फ़ाइल",
+    "other": "{count} फ़ाइलें"
+  },
+  "sessions.count": {
+    "one": "{count} सत्र",
+    "other": "{count} सत्र"
+  },
+  "messages.earlier": {
+    "one": "{count} पुराना संदेश दिखाएं",
+    "other": "{count} पुराने संदेश दिखाएं"
+  },
+  "items.count": {
+    "one": "{count} आइटम",
+    "other": "{count} आइटम"
+  },
+  "results.count": {
+    "one": "{count} परिणाम",
+    "other": "{count} परिणाम"
+  }
 }

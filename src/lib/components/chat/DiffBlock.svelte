@@ -3,6 +3,7 @@
   import type { Adapter } from '$lib/adapter/index';
   import { addOpenFile } from '$lib/stores/files';
   import { showToast } from '$lib/stores/toast';
+  import { tr } from '$lib/i18n';
 
   let { filePath, hunks, adapter }: {
     filePath: string;
@@ -98,7 +99,7 @@
     <span class="diff-icon">±</span>
     <span class="diff-file">{filePath}</span>
     <span class="diff-stats">
-      {hunks.length} hunk{hunks.length !== 1 ? 's' : ''}
+      {$tr('diff.hunkCount', { count: hunks.length })}
     </span>
     <span class="diff-toggle">{expanded ? '▾' : '▸'}</span>
   </button>

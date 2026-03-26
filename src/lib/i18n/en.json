@@ -341,5 +341,29 @@
   "a11y.addLogicNode": "Add Logic Node",
   "a11y.timePeriod": "Time period",
   "a11y.keyMetrics": "Key metrics",
-  "a11y.dismissInsight": "Dismiss insight"
+  "a11y.dismissInsight": "Dismiss insight",
+  "diff.hunkCount": {
+    "one": "{count} hunk",
+    "other": "{count} hunks"
+  },
+  "files.count": {
+    "one": "{count} file",
+    "other": "{count} files"
+  },
+  "sessions.count": {
+    "one": "{count} session",
+    "other": "{count} sessions"
+  },
+  "messages.earlier": {
+    "one": "Show {count} earlier message",
+    "other": "Show {count} earlier messages"
+  },
+  "items.count": {
+    "one": "{count} item",
+    "other": "{count} items"
+  },
+  "results.count": {
+    "one": "{count} result",
+    "other": "{count} results"
+  }
 }

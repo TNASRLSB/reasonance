@@ -341,5 +341,29 @@
   "a11y.addLogicNode": "Añadir nodo de lógica",
   "a11y.timePeriod": "Período de tiempo",
   "a11y.keyMetrics": "Métricas clave",
-  "a11y.dismissInsight": "Descartar sugerencia"
+  "a11y.dismissInsight": "Descartar sugerencia",
+  "diff.hunkCount": {
+    "one": "{count} sección",
+    "other": "{count} secciones"
+  },
+  "files.count": {
+    "one": "{count} archivo",
+    "other": "{count} archivos"
+  },
+  "sessions.count": {
+    "one": "{count} sesión",
+    "other": "{count} sesiones"
+  },
+  "messages.earlier": {
+    "one": "Mostrar {count} mensaje anterior",
+    "other": "Mostrar {count} mensajes anteriores"
+  },
+  "items.count": {
+    "one": "{count} elemento",
+    "other": "{count} elementos"
+  },
+  "results.count": {
+    "one": "{count} resultado",
+    "other": "{count} resultados"
+  }
 }

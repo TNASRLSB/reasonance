@@ -7,18 +7,24 @@ export const isRTL = derived(locale, ($l) => $l === 'ar');
 
 import en from './en.json';
 
-const translations: Record<string, Record<string, string>> = { en };
+type PluralEntry = { zero?: string; one?: string; two?: string; few?: string; many?: string; other: string };
+type TranslationValue = string | PluralEntry;
+type TranslationDict = Record<string, TranslationValue>;
 
-const localeLoaders: Record<string, () => Promise<{ default: Record<string, string> }>> = {
-  it: () => import('./it.json'),
-  de: () => import('./de.json'),
-  es: () => import('./es.json'),
-  fr: () => import('./fr.json'),
-  pt: () => import('./pt.json'),
-  zh: () => import('./zh.json'),
-  hi: () => import('./hi.json'),
-  ar: () => import('./ar.json'),
+const translations: Record<string, TranslationDict> = { en: en as TranslationDict };
+
+const localeLoaders: Record<string, () => Promise<{ default: TranslationDict }>> = {
+  it: () => import('./it.json') as Promise<{ default: TranslationDict }>,
+  de: () => import('./de.json') as Promise<{ default: TranslationDict }>,
+  es: () => import('./es.json') as Promise<{ default: TranslationDict }>,
+  fr: () => import('./fr.json') as Promise<{ default: TranslationDict }>,
+  pt: () => import('./pt.json') as Promise<{ default: TranslationDict }>,
+  zh: () => import('./zh.json') as Promise<{ default: TranslationDict }>,
+  hi: () => import('./hi.json') as Promise<{ default: TranslationDict }>,
+  ar: () => import('./ar.json') as Promise<{ default: TranslationDict }>,
 };
+
+let pluralRules = new Intl.PluralRules('en');
 
 export async function loadLocale(loc: Locale): Promise<void> {
   if (translations[loc]) return;
@@ -35,28 +41,42 @@ export async function loadLocale(loc: Locale): Promise<void> {
   }
 }
 
-export function t(key: string, params?: Record<string, string>): string {
+function substitute(template: string, params?: Record<string, string | number>): string {
+  if (!params) return template;
+  let result = template;
+  for (const [k, v] of Object.entries(params)) {
+    result = result.replace(`{${k}}`, String(v));
+  }
+  return result;
+}
+
+function resolveEntry(entry: TranslationValue, params?: Record<string, string | number>): string {
+  if (typeof entry === 'string') {
+    return substitute(entry, params);
+  }
+  if (typeof entry === 'object' && entry !== null && params?.count !== undefined) {
+    const count = Number(params.count);
+    const form = pluralRules.select(count) as keyof PluralEntry;
+    const template = entry[form] ?? entry['other'];
+    return substitute(template, params);
+  }
+  return substitute(entry['other'] ?? '', params);
+}
+
+export function t(key: string, params?: Record<string, string | number>): string {
   const loc = get(locale);
   const dict = translations[loc] ?? translations['en'];
-  let text = dict[key] ?? translations['en'][key] ?? key;
-  if (params) {
-    for (const [k, v] of Object.entries(params)) {
-      text = text.replace(`{${k}}`, v);
-    }
-  }
-  return text;
+  const entry = dict[key] ?? translations['en'][key];
+  if (entry === undefined) return key;
+  return resolveEntry(entry, params);
 }
 
 export const tr = derived(locale, ($loc) => {
-  return (key: string, params?: Record<string, string>): string => {
+  return (key: string, params?: Record<string, string | number>): string => {
     const dict = translations[$loc] ?? translations['en'];
-    let text = dict[key] ?? translations['en'][key] ?? key;
-    if (params) {
-      for (const [k, v] of Object.entries(params)) {
-        text = text.replace(`{${k}}`, v);
-      }
-    }
-    return text;
+    const entry = dict[key] ?? translations['en'][key];
+    if (entry === undefined) return key;
+    return resolveEntry(entry, params);
   };
 });
 
@@ -70,8 +90,10 @@ export async function initI18n(): Promise<void> {
   const loc = detectLocale();
   await loadLocale(loc);
   locale.set(loc);
+  pluralRules = new Intl.PluralRules(loc);
   locale.subscribe((l) => {
     document.documentElement.dir = l === 'ar' ? 'rtl' : 'ltr';
     document.documentElement.lang = l;
+    pluralRules = new Intl.PluralRules(l);
   });
 }

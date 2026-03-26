@@ -341,5 +341,23 @@
   "a11y.addLogicNode": "添加逻辑节点",
   "a11y.timePeriod": "时间段",
   "a11y.keyMetrics": "关键指标",
-  "a11y.dismissInsight": "忽略洞察"
+  "a11y.dismissInsight": "忽略洞察",
+  "diff.hunkCount": {
+    "other": "{count} 个块"
+  },
+  "files.count": {
+    "other": "{count} 个文件"
+  },
+  "sessions.count": {
+    "other": "{count} 个会话"
+  },
+  "messages.earlier": {
+    "other": "显示 {count} 条早期消息"
+  },
+  "items.count": {
+    "other": "{count} 个项目"
+  },
+  "results.count": {
+    "other": "{count} 个结果"
+  }
 }

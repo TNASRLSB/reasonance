@@ -9,6 +9,7 @@
   import PermissionDenialBlock from './PermissionDenialBlock.svelte';
   import StreamingIndicator from './StreamingIndicator.svelte';
   import ActionableMessage from './ActionableMessage.svelte';
+  import { tr } from '$lib/i18n';
 
   let { events = [], streaming = false, adapter, onFork, permissionLevel = 'ask', onApproveTools }: {
     events: AgentEvent[];
@@ -107,7 +108,7 @@
   {/if}
   {#if hiddenCount > 0}
     <button class="load-more" onclick={() => showAll = true}>
-      Show {hiddenCount} earlier message{hiddenCount !== 1 ? 's' : ''}
+      {$tr('messages.earlier', { count: hiddenCount })}
     </button>
   {/if}
   {#each messageGroups as group, gi (gi)}

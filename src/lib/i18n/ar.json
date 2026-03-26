@@ -341,5 +341,53 @@
   "a11y.addLogicNode": "إضافة عقدة منطق",
   "a11y.timePeriod": "الفترة الزمنية",
   "a11y.keyMetrics": "المقاييس الرئيسية",
-  "a11y.dismissInsight": "تجاهل الملاحظة"
+  "a11y.dismissInsight": "تجاهل الملاحظة",
+  "diff.hunkCount": {
+    "zero": "لا توجد أقسام",
+    "one": "قسم واحد",
+    "two": "قسمان",
+    "few": "{count} أقسام",
+    "many": "{count} قسمًا",
+    "other": "{count} قسم"
+  },
+  "files.count": {
+    "zero": "لا توجد ملفات",
+    "one": "ملف واحد",
+    "two": "ملفان",
+    "few": "{count} ملفات",
+    "many": "{count} ملفًا",
+    "other": "{count} ملف"
+  },
+  "sessions.count": {
+    "zero": "لا توجد جلسات",
+    "one": "جلسة واحدة",
+    "two": "جلستان",
+    "few": "{count} جلسات",
+    "many": "{count} جلسةً",
+    "other": "{count} جلسة"
+  },
+  "messages.earlier": {
+    "zero": "لا توجد رسائل سابقة",
+    "one": "عرض رسالة سابقة واحدة",
+    "two": "عرض رسالتين سابقتين",
+    "few": "عرض {count} رسائل سابقة",
+    "many": "عرض {count} رسالةً سابقةً",
+    "other": "عرض {count} رسالة سابقة"
+  },
+  "items.count": {
+    "zero": "لا توجد عناصر",
+    "one": "عنصر واحد",
+    "two": "عنصران",
+    "few": "{count} عناصر",
+    "many": "{count} عنصرًا",
+    "other": "{count} عنصر"
+  },
+  "results.count": {
+    "zero": "لا توجد نتائج",
+    "one": "نتيجة واحدة",
+    "two": "نتيجتان",
+    "few": "{count} نتائج",
+    "many": "{count} نتيجةً",
+    "other": "{count} نتيجة"
+  }
 }
