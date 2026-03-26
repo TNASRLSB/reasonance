@@ -396,6 +396,7 @@ pub fn run() {
             commands::permission::lookup_permission_decision,
             commands::permission::list_permission_decisions,
             commands::permission::clear_permission_session,
+            commands::permission::wait_for_permission_decision,
             theme_manager::list_user_themes,
             theme_manager::load_user_theme,
             theme_manager::save_user_theme,

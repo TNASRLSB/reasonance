@@ -3,6 +3,25 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Mutex;
 
+/// Default permission request timeout in seconds (5 minutes).
+pub const DEFAULT_PERMISSION_TIMEOUT_SECS: u64 = 300;
+
+/// Configuration for permission request timeouts.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PermissionTimeoutConfig {
+    pub timeout_secs: u64,
+    pub auto_deny_on_timeout: bool,
+}
+
+impl Default for PermissionTimeoutConfig {
+    fn default() -> Self {
+        Self {
+            timeout_secs: DEFAULT_PERMISSION_TIMEOUT_SECS,
+            auto_deny_on_timeout: true,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum PermissionDecision {
     Allow,
