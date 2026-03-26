@@ -1,5 +1,120 @@
 # Changelog
 
+## [1.4.0] - 2026-03-26
+
+### Features
+
+- feat(phase-0): add ErrorBoundary component for panel isolation
+- feat(phase-0): add 4-layer settings (builtin > user > project > workspace)
+- feat(phase-0): add Zod runtime validation at adapter boundary
+- feat(phase-0): add atomic writes, safe JSONL append, and crash recovery
+- feat(phase-0): add StorageBackend trait with InMemory and JsonFile backends
+- feat(phase-0): add TrackedMap with WeakHandle for lifecycle tracking
+- feat(phase-0): add Signal<T> wrapper for watch-based updates
+- feat(phase-0): add general-purpose EventBus with deferred queue
+- feat(phase-0): add performance baseline infrastructure
+- feat(phase-0): add structured error types (ReasonanceError)
+
+### Bug Fixes
+
+- fix(phase-0): dead code cleanup — remove #![allow(dead_code)]
+- fix(phase-0): eliminate TOCTOU window in transport session locking
+
+### Other
+
+- Delete truly dead RunStatusEvent struct from workflow_engine.
+- Add targeted #[allow(dead_code)] with comments for:
+- - Serde-deserialized struct fields (populated by TOML parsing)
+- - Test-only convenience constructors on AgentEvent
+- - Public API methods not yet called from production code
+- - Roadmap features (retry, self-heal, capability cache)
+- 
+- All 428 tests pass, zero warnings remain.
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- 3-strike persistent error detection. ARIA role=alert.
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- 13 test cases covering merge semantics, layer precedence, and error handling.
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- Foundation for migrating all invoke() calls to validated versions.
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- (truncates partial lines). 5 new test cases, 416 total passing.
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- InMemoryBackend for tests, JsonFileBackend with atomic writes. 24 tests.
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- Merged the two separate lock scopes (check-status + set-active) into a
+- single atomic block. Pre-capture resume_args template before dropping
+- registry lock so CLI args can be built inside the session lock scope.
+- Restore session status to Error on spawn failure.
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- 4 test cases. Replaces raw Arc<Mutex<HashMap>> pattern.
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- Replaces polling patterns. 4 test cases.
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- recursion prevention, frontend visibility flag. 8 test cases.
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- baselines.json for tracking metrics across phases.
+- 
+- Benchmark results (median):
+- - json_serialize_event: 966 ns
+- - json_deserialize_event: 931 ns
+- - toml_parse_config: 6,110 ns
+- - uuid_v4_generate: 78 ns
+- - sha256_10kb: 4,704 ns
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- with a typed ReasonanceError enum. Adds thiserror derive, tagged JSON
+- serialization, is_retryable(), severity(), From impls for io/serde/toml
+- errors, and 11 unit tests. Migrated 29 files (16 commands, 8 core
+- modules, theme_manager, project_manager, fs_watcher) with zero business
+- logic changes.
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+
+
+
 ## [1.3.2] - 2026-03-25
 
 ### Bug Fixes
