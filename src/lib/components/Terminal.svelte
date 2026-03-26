@@ -13,6 +13,7 @@
   import { enhancedReadability, fontFamily, fontSize } from '$lib/stores/ui';
   import { isDark } from '$lib/stores/theme';
   import { tr } from '$lib/i18n/index';
+  import { showToast } from '$lib/stores/toast';
 
   function getToken(name: string): string {
     return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -55,6 +56,7 @@
   let cleanups: Array<() => void> = [];
   let searchVisible = $state(false);
   let searchQuery = $state('');
+  let webglLost = $state(false);
 
   onMount(() => {
     // xterm.js canvas/WebGL renderers do NOT trigger @font-face loading.
@@ -94,17 +96,58 @@
       term.loadAddon(imageAddon);
       term.open(containerEl);
 
-      // Try WebGL renderer for GPU-accelerated rendering, fall back to DOM
+      // Try WebGL renderer for GPU-accelerated rendering, fall back to canvas renderer
+      let webglAddon: import('@xterm/addon-webgl').WebglAddon | null = null;
+      let restoreTimeout: ReturnType<typeof setTimeout> | null = null;
+
+      const fallbackToCanvas = () => {
+        webglAddon?.dispose();
+        webglAddon = null;
+        webglLost = false;
+        if (restoreTimeout !== null) { clearTimeout(restoreTimeout); restoreTimeout = null; }
+        showToast('warning', 'Terminal rendering', 'Switched to software rendering. Restart app to try GPU rendering again.');
+      };
+
       try {
         const { WebglAddon } = await import('@xterm/addon-webgl');
-        const webglAddon = new WebglAddon();
+        webglAddon = new WebglAddon();
         webglAddon.onContextLoss(() => {
-          webglAddon.dispose();
+          webglLost = true;
+          restoreTimeout = setTimeout(() => {
+            if (webglLost) fallbackToCanvas();
+          }, 5000);
         });
         term.loadAddon(webglAddon);
       } catch {
-        // WebGL not available, DOM renderer is fine
+        // WebGL not available, canvas renderer is fine
       }
+
+      // Proactive check on window re-focus after >30s blur
+      let lastBlurTime = 0;
+      const onWindowBlur = () => { lastBlurTime = Date.now(); };
+      const onWindowFocus = () => {
+        if (webglAddon === null) return; // already on canvas renderer
+        if (Date.now() - lastBlurTime > 30000) {
+          const canvas = containerEl?.querySelector('canvas') as HTMLCanvasElement | null;
+          if (canvas) {
+            const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
+            if (gl?.isContextLost()) {
+              webglLost = true;
+              restoreTimeout = setTimeout(() => {
+                if (webglLost) fallbackToCanvas();
+              }, 5000);
+            }
+          }
+        }
+      };
+      window.addEventListener('blur', onWindowBlur);
+      window.addEventListener('focus', onWindowFocus);
+
+      cleanups.push(() => {
+        if (restoreTimeout !== null) clearTimeout(restoreTimeout);
+        window.removeEventListener('blur', onWindowBlur);
+        window.removeEventListener('focus', onWindowFocus);
+      });
 
       fitAddon.fit();
       term.focus();
@@ -287,6 +330,9 @@
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="terminal-wrapper" aria-label={$tr('a11y.terminal') + ' — press Escape to exit'} role="region" tabindex="-1">
+  {#if webglLost}
+    <div class="terminal-webgl-overlay" role="status" aria-live="polite">Restoring display...</div>
+  {/if}
   {#if searchVisible}
     <div class="terminal-search">
       <input
@@ -313,11 +359,26 @@
 
 <style>
   .terminal-wrapper {
+    position: relative;
     width: 100%;
     height: 100%;
     display: flex;
     flex-direction: column;
     overflow: hidden;
+  }
+
+  .terminal-webgl-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: color-mix(in srgb, var(--bg-surface) 85%, transparent);
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    font-size: var(--font-size-small);
+    z-index: 10;
+    pointer-events: none;
   }
 
   .terminal-search {
