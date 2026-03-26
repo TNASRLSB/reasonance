@@ -1,5 +1,6 @@
 <script lang="ts">
   import { get } from 'svelte/store';
+  import { onMount } from 'svelte';
   import Terminal from './Terminal.svelte';
   import ImageDrop from './ImageDrop.svelte';
   import TerminalToolbar from './TerminalToolbar.svelte';
@@ -32,6 +33,15 @@
   import type { TrustLevel, FolderInfo } from '$lib/stores/workspace-trust';
 
   let { adapter, cwd = '.' }: { adapter: Adapter; cwd?: string } = $props();
+
+  // Periodic orphan sweep: ask the backend to remove PTY entries for processes
+  // that have already exited but were never explicitly killed. Runs every 60 s.
+  onMount(() => {
+    const sweepInterval = setInterval(() => {
+      adapter.sweepPtys().catch(() => {});
+    }, 60_000);
+    return () => clearInterval(sweepInterval);
+  });
 
   let showLLMDropdown = $state(false);
   let llmMenuEl = $state<HTMLElement | null>(null);

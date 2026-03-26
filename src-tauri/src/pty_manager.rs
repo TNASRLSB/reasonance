@@ -217,6 +217,82 @@ impl PtyManager {
         project_map.remove(id);
         Ok(())
     }
+
+    /// Returns the IDs of all currently tracked PTY instances.
+    pub fn list_active_ptys(&self) -> Vec<String> {
+        let instances = self.instances.lock().unwrap_or_else(|e| e.into_inner());
+        instances.keys().cloned().collect()
+    }
+
+    /// Removes entries for PTYs whose master PTY has been closed (EOF reached).
+    ///
+    /// The reader thread emits `pty-exit-{id}` and terminates when the process
+    /// exits, but the `PtyInstance` entry is only removed when the frontend
+    /// explicitly calls `kill_process`. This method proactively sweeps entries
+    /// whose master has become unresponsive (resize returns an error), freeing
+    /// the associated handles.
+    ///
+    /// Note: this is a best-effort heuristic. A resize error is the only
+    /// portable indicator of a dead master without storing the child handle.
+    /// Active PTYs are never killed — only dead ones are removed.
+    pub fn sweep_dead_ptys(&self) -> Vec<String> {
+        let dead_ids: Vec<String> = {
+            let instances = self.instances.lock().unwrap_or_else(|e| e.into_inner());
+            instances
+                .iter()
+                .filter_map(|(id, inst)| {
+                    // Try a no-op resize to check if the master is still alive.
+                    // We re-use the current size (24×80 default) — an error means the
+                    // process has already exited and the master fd is closed.
+                    let probe = inst.master.resize(portable_pty::PtySize {
+                        rows: 24,
+                        cols: 80,
+                        pixel_width: 0,
+                        pixel_height: 0,
+                    });
+                    if probe.is_err() { Some(id.clone()) } else { None }
+                })
+                .collect()
+        };
+
+        let mut swept = Vec::new();
+        for id in &dead_ids {
+            let mut instances = self.instances.lock().unwrap_or_else(|e| e.into_inner());
+            if instances.remove(id).is_some() {
+                swept.push(id.clone());
+            }
+            drop(instances);
+            let mut project_map = self.project_map.lock().unwrap_or_else(|e| e.into_inner());
+            project_map.remove(id);
+        }
+
+        if !swept.is_empty() {
+            info!("PTY sweep_dead_ptys: removed {} dead entries: {:?}", swept.len(), swept);
+        } else {
+            debug!("PTY sweep_dead_ptys: no dead PTYs found");
+        }
+        swept
+    }
+
+    /// Kills all active PTY instances. Intended for app shutdown only.
+    ///
+    /// Errors from individual kills are logged and ignored — the goal is
+    /// best-effort cleanup, not hard guarantees.
+    pub fn kill_all(&self) -> usize {
+        info!("PTY kill_all: killing all active PTY instances");
+        let ids: Vec<String> = {
+            let instances = self.instances.lock().unwrap_or_else(|e| e.into_inner());
+            instances.keys().cloned().collect()
+        };
+        let count = ids.len();
+        for id in &ids {
+            if let Err(e) = self.kill(id) {
+                warn!("PTY kill_all: failed to kill id={}: {}", id, e);
+            }
+        }
+        info!("PTY kill_all: killed {} instances", count);
+        count
+    }
 }
 
 #[cfg(test)]
@@ -253,5 +329,26 @@ mod tests {
         assert_eq!(config.delay_for_attempt(1).as_millis(), 1500);  // 1.5s
         assert_eq!(config.delay_for_attempt(2).as_millis(), 4500);  // 4.5s
         assert_eq!(config.delay_for_attempt(3).as_millis(), 10000); // capped at 10s
+    }
+
+    #[test]
+    fn test_list_active_ptys_empty() {
+        let manager = PtyManager::new();
+        assert!(manager.list_active_ptys().is_empty());
+    }
+
+    #[test]
+    fn test_kill_all_empty() {
+        let manager = PtyManager::new();
+        // kill_all on an empty manager should return 0 and not panic
+        assert_eq!(manager.kill_all(), 0);
+    }
+
+    #[test]
+    fn test_sweep_dead_ptys_empty() {
+        let manager = PtyManager::new();
+        // sweep on empty manager should return empty vec and not panic
+        let swept = manager.sweep_dead_ptys();
+        assert!(swept.is_empty());
     }
 }

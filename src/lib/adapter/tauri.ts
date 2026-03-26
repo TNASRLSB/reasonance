@@ -120,6 +120,9 @@ export class TauriAdapter implements Adapter {
     const unlisten = await listen<number>(`pty-exit-${id}`, (event) => { callback(event.payload); });
     return unlisten;
   }
+  async sweepPtys(): Promise<string[]> {
+    return invoke<string[]>('sweep_ptys');
+  }
   async readConfig(): Promise<string> {
     return invoke<string>('read_config');
   }

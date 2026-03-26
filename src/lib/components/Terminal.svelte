@@ -288,6 +288,10 @@
       for (const cleanup of cleanups) {
         try { cleanup(); } catch { /* ignore */ }
       }
+      // Best-effort PTY kill on component destroy so the backend doesn't
+      // accumulate orphaned processes when terminal tabs are closed or
+      // the component is unmounted during project switches.
+      adapter.killProcess(ptyId).catch(() => {});
     };
   });
 

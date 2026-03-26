@@ -161,6 +161,30 @@ pub fn reconnect_pty(
     Ok(new_id)
 }
 
+/// Remove PTY entries for processes that have already exited.
+///
+/// Called periodically by the frontend (every 60 s) to keep the PTY table
+/// clean without requiring the terminal component to explicitly kill each PTY
+/// on unmount. Returns the list of swept PTY IDs.
+#[tauri::command]
+pub fn sweep_ptys(
+    pty_manager: State<'_, PtyManager>,
+) -> Vec<String> {
+    debug!("cmd::sweep_ptys");
+    pty_manager.sweep_dead_ptys()
+}
+
+/// Kill all active PTY processes. Intended for app shutdown only.
+///
+/// Returns the number of PTYs that were killed.
+#[tauri::command]
+pub fn kill_all_ptys(
+    pty_manager: State<'_, PtyManager>,
+) -> usize {
+    info!("cmd::kill_all_ptys");
+    pty_manager.kill_all()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

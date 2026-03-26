@@ -124,6 +124,9 @@ export function createMockAdapter(overrides?: Partial<Adapter>): Adapter {
     onPtyExit(_id: string, _callback: (code: number) => void) {
       return Promise.resolve(() => {});
     },
+    sweepPtys() {
+      return Promise.resolve([]);
+    },
 
     // Config
     readConfig() {

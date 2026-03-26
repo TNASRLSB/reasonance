@@ -51,6 +51,8 @@ export interface Adapter {
   writePty(id: string, data: string): Promise<void>;
   onPtyData(id: string, callback: (data: string) => void): Promise<() => void>;
   onPtyExit(id: string, callback: (code: number) => void): Promise<() => void>;
+  /** Remove backend entries for PTYs whose process has already exited. Returns swept IDs. */
+  sweepPtys(): Promise<string[]>;
 
   // Config
   readConfig(): Promise<string>;
