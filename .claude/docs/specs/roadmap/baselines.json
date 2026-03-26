@@ -1,0 +1,26 @@
+{
+  "timestamp": "2026-03-26T00:00:00Z",
+  "commit": "phase-0-task-2",
+  "note": "Initial baselines — values to be filled from benchmark runs and build measurements",
+  "rust_benchmarks": {
+    "json_serialize_event_ns": 966,
+    "json_deserialize_event_ns": 931,
+    "toml_parse_config_ns": 6110,
+    "uuid_v4_generate_ns": 78,
+    "sha256_10kb_ns": 4704
+  },
+  "frontend_metrics": {
+    "startup_ms": null,
+    "idle_memory_mb": null,
+    "chat_render_ms": null,
+    "filetree_render_ms": null,
+    "editor_open_ms": null
+  },
+  "bundle_size_kb": {
+    "total": null,
+    "vendor_codemirror": null,
+    "vendor_xterm": null,
+    "vendor_xyflow": null,
+    "vendor_markdown": null
+  }
+}
