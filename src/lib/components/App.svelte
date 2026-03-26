@@ -5,6 +5,7 @@
   import AnalyticsDashboard from './AnalyticsDashboard.svelte';
   import ProjectSidebar from './project/ProjectSidebar.svelte';
   import ProjectQuickSwitcher from './project/ProjectQuickSwitcher.svelte';
+  import ErrorBoundary from './ErrorBoundary.svelte';
   import { get } from 'svelte/store';
   import { fileTreeWidth, terminalWidth, analyticsDashboard } from '$lib/stores/ui';
   import { startUpdateChecker } from '$lib/updater';
@@ -147,25 +148,20 @@
   <div class="main-content" data-main-content>
     {#if !sidebarCollapsed}
       <div id="project-sidebar">
-        <ProjectSidebar />
+        <ErrorBoundary name="ProjectSidebar">
+          <ProjectSidebar />
+        </ErrorBoundary>
       </div>
     {/if}
 
     <nav id="file-tree" aria-label="File explorer" class="panel file-tree" style="width: {$fileTreeWidth}px">
-      <svelte:boundary>
+      <ErrorBoundary name="FileTree">
         {#if fileTree}
           {@render fileTree()}
         {:else}
           <p class="placeholder">File Tree</p>
         {/if}
-        {#snippet failed(error, reset)}
-          <div class="panel-error">
-            <p class="error-title">FILE TREE ERROR</p>
-            <p class="error-msg">{(error as any)?.message ?? 'Unknown error'}</p>
-            <button class="error-retry" onclick={reset}>RETRY</button>
-          </div>
-        {/snippet}
-      </svelte:boundary>
+      </ErrorBoundary>
     </nav>
 
     <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
@@ -175,7 +171,7 @@
     </div>
 
     <main id="editor" class="panel editor">
-      <svelte:boundary>
+      <ErrorBoundary name="Editor">
         {#if $analyticsDashboard.open}
           <AnalyticsDashboard {adapter} />
         {:else if editor}
@@ -183,14 +179,7 @@
         {:else}
           <p class="placeholder">Editor</p>
         {/if}
-        {#snippet failed(error, reset)}
-          <div class="panel-error">
-            <p class="error-title">EDITOR ERROR</p>
-            <p class="error-msg">{(error as any)?.message ?? 'Unknown error'}</p>
-            <button class="error-retry" onclick={reset}>RETRY</button>
-          </div>
-        {/snippet}
-      </svelte:boundary>
+      </ErrorBoundary>
     </main>
 
     <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
@@ -200,20 +189,13 @@
     </div>
 
     <aside id="terminal" aria-label="Terminal" class="panel terminal" style="width: {$terminalWidth}px">
-      <svelte:boundary>
+      <ErrorBoundary name="Terminal">
         {#if terminal}
           {@render terminal()}
         {:else}
           <p class="placeholder">Terminal</p>
         {/if}
-        {#snippet failed(error, reset)}
-          <div class="panel-error">
-            <p class="error-title">TERMINAL ERROR</p>
-            <p class="error-msg">{(error as any)?.message ?? 'Unknown error'}</p>
-            <button class="error-retry" onclick={reset}>RETRY</button>
-          </div>
-        {/snippet}
-      </svelte:boundary>
+      </ErrorBoundary>
     </aside>
   </div>
 
@@ -222,7 +204,9 @@
   </footer>
 
   {#if showQuickSwitcher}
-    <ProjectQuickSwitcher open={showQuickSwitcher} onClose={() => { showQuickSwitcher = false; }} />
+    <ErrorBoundary name="ProjectQuickSwitcher">
+      <ProjectQuickSwitcher open={showQuickSwitcher} onClose={() => { showQuickSwitcher = false; }} />
+    </ErrorBoundary>
   {/if}
 </div>
 
@@ -393,54 +377,5 @@
     justify-content: center;
   }
 
-  .panel-error {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: var(--stack-normal);
-    flex: 1;
-    padding: var(--space-5);
-    font-family: var(--font-ui);
-  }
 
-  .error-title {
-    font-size: var(--font-size-small);
-    font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--danger-text);
-    margin: 0;
-  }
-
-  .error-msg {
-    font-size: var(--font-size-small);
-    color: var(--text-muted);
-    margin: 0;
-    font-family: var(--font-mono);
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    word-break: break-all;
-  }
-
-  .error-retry {
-    background: var(--bg-tertiary);
-    border: 2px solid var(--border);
-    border-radius: 0;
-    color: var(--text-primary);
-    font-family: var(--font-ui);
-    font-size: var(--font-size-small);
-    font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    padding: var(--space-1) var(--space-4);
-    cursor: pointer;
-  }
-
-  .error-retry:hover {
-    background: var(--accent-btn);
-    border-color: var(--accent);
-    color: var(--text-on-accent);
-  }
 </style>
