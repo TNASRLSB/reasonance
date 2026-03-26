@@ -4,7 +4,7 @@ binary = "gemini"
 programmatic_args = ["-p", "{prompt}", "--output-format", "stream-json"]
 resume_args = ["--resume", "latest", "-p", "{prompt}", "--output-format", "stream-json"]
 version_command = ["gemini", "--version"]
-update_command = ["npm", "install", "-g", "@FIXME/gemini-cli@latest"]
+update_command = ["gemini", "update"]
 api_key_env = "GEMINI_API_KEY"
 permission_args = ["--sandbox=none"]
 read_only_tools = ["Read", "Grep", "Glob"]

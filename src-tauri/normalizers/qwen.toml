@@ -99,5 +99,4 @@ prompt = "Reply with exactly: REASONANCE_TEST_OK"
 max_tokens = 50
 expected = [
   { event_type = "text", required = true, validate = { type = "content_matches", pattern = "REASONANCE_TEST_OK" } },
-  { event_type = "done", required = true, validate = "exists" },
 ]

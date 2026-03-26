@@ -483,7 +483,7 @@
       </svg>
       <div class="about-logo">REASONANCE</div>
       <div class="about-subtitle">{$tr('about.subtitle')}</div>
-      <div class="about-version">v0.1.0</div>
+      <div class="about-version">v{__APP_VERSION__}</div>
       <div class="about-stack">{$tr('about.stack')}</div>
       <div class="about-license">{$tr('about.license')}</div>
       <button class="about-close" onclick={() => showAbout = false}>OK</button>
