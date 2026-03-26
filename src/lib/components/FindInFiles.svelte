@@ -1,8 +1,12 @@
 <script lang="ts">
   import type { Adapter, GrepResult } from '$lib/adapter/index';
-  import { addOpenFile, activeFilePath, pendingLine } from '$lib/stores/files';
+  import { addOpenFile, pendingLine } from '$lib/stores/files';
   import { tr } from '$lib/i18n/index';
   import { trapFocus } from '$lib/utils/a11y';
+
+  interface AnchoredResult extends GrepResult {
+    stale: boolean;
+  }
 
   let {
     adapter,
@@ -15,12 +19,15 @@
   } = $props();
 
   let pattern = $state('');
-  let results = $state<GrepResult[]>([]);
+  let results = $state<AnchoredResult[]>([]);
   let searching = $state(false);
   let error = $state('');
   let searched = $state(false);
   let inputEl = $state<HTMLInputElement | null>(null);
   let dialogEl = $state<HTMLElement | null>(null);
+
+  // Tracks the mtime (ms) of each file at search time: path → mtime
+  let searchMtimes = $state<Record<string, number>>({});
 
   $effect(() => {
     if (visible && dialogEl) {
@@ -35,6 +42,7 @@
       results = [];
       error = '';
       searched = false;
+      searchMtimes = {};
     } else {
       pattern = '';
     }
@@ -46,14 +54,54 @@
     }
   });
 
+  /**
+   * For each unique parent directory in the result paths, call listDir once
+   * and return a map of filePath → mtime (ms). Falls back silently on error.
+   */
+  async function fetchMtimes(paths: string[]): Promise<Record<string, number>> {
+    const mtimeMap: Record<string, number> = {};
+    // Group paths by parent directory to batch listDir calls
+    const byDir = new Map<string, string[]>();
+    for (const p of paths) {
+      const slash = p.lastIndexOf('/');
+      const dir = slash > 0 ? p.slice(0, slash) : '.';
+      let arr = byDir.get(dir);
+      if (!arr) { arr = []; byDir.set(dir, arr); }
+      arr.push(p);
+    }
+    await Promise.all(
+      [...byDir.entries()].map(async ([dir, filePaths]) => {
+        try {
+          const entries = await adapter.listDir(dir, false);
+          for (const entry of entries) {
+            if (filePaths.includes(entry.path)) {
+              mtimeMap[entry.path] = entry.modified;
+            }
+          }
+        } catch {
+          // Non-fatal — leave those files without mtime data
+        }
+      })
+    );
+    return mtimeMap;
+  }
+
   async function runSearch() {
     const q = pattern.trim();
     if (!q) return;
     searching = true;
     error = '';
     searched = false;
+    results = [];
+    searchMtimes = {};
     try {
-      results = await adapter.grepFiles('.', q, true);
+      const raw = await adapter.grepFiles('.', q, true);
+      // Collect unique paths and fetch their mtimes before storing results
+      const uniquePaths = [...new Set(raw.map((r) => r.path))];
+      const mtimes = await fetchMtimes(uniquePaths);
+      searchMtimes = mtimes;
+      // All results start as fresh; stale state is derived on click or lazily
+      results = raw.map((r) => ({ ...r, stale: false }));
       searched = true;
     } catch (e) {
       console.error('Find in files error:', e);
@@ -63,10 +111,30 @@
     }
   }
 
-  async function openResult(result: GrepResult) {
+  async function openResult(result: AnchoredResult) {
+    // Before opening, do a fresh mtime check to update stale state
+    try {
+      const slash = result.path.lastIndexOf('/');
+      const dir = slash > 0 ? result.path.slice(0, slash) : '.';
+      const entries = await adapter.listDir(dir, false);
+      const entry = entries.find((e) => e.path === result.path);
+      if (entry) {
+        const searchMtime = searchMtimes[result.path];
+        if (searchMtime !== undefined && entry.modified > searchMtime) {
+          // Mark all results for this file as stale
+          results = results.map((r) =>
+            r.path === result.path ? { ...r, stale: true } : r
+          );
+          // Don't navigate — let user see the stale state
+          return;
+        }
+      }
+    } catch {
+      // Non-fatal — proceed with navigation
+    }
+
     try {
       const content = await adapter.readFile(result.path);
-      const name = result.path.split('/').pop() ?? result.path;
       addOpenFile(result.path, content);
       pendingLine.set(result.line_number);
     } catch {
@@ -90,8 +158,8 @@
   }
 
   // Group results by file for display
-  function groupByFile(list: GrepResult[]): Map<string, GrepResult[]> {
-    const map = new Map<string, GrepResult[]>();
+  function groupByFile(list: AnchoredResult[]): Map<string, AnchoredResult[]> {
+    const map = new Map<string, AnchoredResult[]>();
     for (const r of list) {
       let arr = map.get(r.path);
       if (!arr) { arr = []; map.set(r.path, arr); }
@@ -102,6 +170,7 @@
 
   let grouped = $derived(groupByFile(results));
   let fileCount = $derived(grouped.size);
+  let hasStaleResults = $derived(results.some((r) => r.stale));
 </script>
 
 {#if visible}
@@ -140,6 +209,11 @@
       {#if results.length > 0}
         <div class="fif-summary">
           {$tr('fif.summary', { count: String(results.length), files: String(fileCount) })}
+          {#if hasStaleResults}
+            <button class="re-search" onclick={runSearch} disabled={searching}>
+              Re-search to refresh
+            </button>
+          {/if}
         </div>
 
         <div class="fif-results">
@@ -149,9 +223,13 @@
               {#each fileResults as result}
                 <button
                   class="fif-result-row"
+                  class:stale={result.stale}
                   onclick={() => openResult(result)}
-                  aria-label="Line {result.line_number}: {result.line.trim()}"
+                  aria-label="Line {result.line_number}: {result.line.trim()}{result.stale ? ' (stale — file modified since search)' : ''}"
                 >
+                  {#if result.stale}
+                    <span class="stale-badge" aria-hidden="true" title="File modified since search">stale</span>
+                  {/if}
                   <span class="fif-line-num" aria-hidden="true">{result.line_number}</span>
                   <span class="fif-line-text" aria-hidden="true">{result.line.trim()}</span>
                 </button>
@@ -288,6 +366,9 @@
   }
 
   .fif-summary {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
     padding: var(--space-1) var(--space-3);
     font-size: var(--font-size-sm);
     color: var(--text-secondary);
@@ -355,5 +436,45 @@
     overflow: auto;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .fif-result-row.stale {
+    opacity: 0.5;
+  }
+
+  .stale-badge {
+    font-size: 0.65rem;
+    color: var(--warning-text, #c8902a);
+    background: var(--warning-bg, rgba(240, 173, 78, 0.1));
+    padding: 0 4px;
+    border-radius: 2px;
+    margin-right: 4px;
+    flex-shrink: 0;
+    font-family: var(--font-ui);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .re-search {
+    background: none;
+    border: var(--border-width) solid var(--warning-text, #c8902a);
+    border-radius: var(--radius);
+    color: var(--warning-text, #c8902a);
+    font-size: var(--font-size-tiny, 0.7rem);
+    padding: 2px var(--space-2);
+    cursor: pointer;
+    transition: opacity var(--transition-fast);
+    flex-shrink: 0;
+    font-family: var(--font-ui);
+  }
+
+  .re-search:hover:not(:disabled) {
+    opacity: 0.75;
+  }
+
+  .re-search:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
   }
 </style>
