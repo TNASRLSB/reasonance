@@ -42,6 +42,34 @@
     : 'safe'
   );
 
+  // Pace delta: how fast quota is consumed relative to the reset window
+  const paceMetrics = $derived((() => {
+    if (!metrics?.duration_ms || !metrics?.context_percent) return null;
+
+    // Assume 5-hour window (configurable later via settings)
+    const windowSecs = 5 * 3600;
+    const elapsedSecs = metrics.duration_ms / 1000;
+    const remainingSecs = Math.max(0, windowSecs - elapsedSecs);
+    const usagePercent = metrics.context_percent;
+
+    const timeUsedPercent = ((windowSecs - remainingSecs) * 100) / windowSecs;
+    const paceDelta = timeUsedPercent - usagePercent;
+
+    // Projected exhaustion time
+    const burnRate = usagePercent / Math.max(elapsedSecs, 1); // % per second
+    const projectedExhaustionSecs = burnRate > 0 ? (100 - usagePercent) / burnRate : null;
+
+    const resetMinutes = Math.ceil(remainingSecs / 60);
+    const resetHours = Math.floor(resetMinutes / 60);
+    const resetMins = resetMinutes % 60;
+
+    return {
+      paceDelta: Math.round(paceDelta),
+      resetCountdown: resetHours > 0 ? `${resetHours}h ${resetMins}m` : `${resetMins}m`,
+      projectedExhaustionSecs,
+    };
+  })());
+
   // Cost velocity direction arrow
   const velocityArrow = $derived(
     !metrics?.cost_velocity_usd_per_min ? null
@@ -147,6 +175,17 @@
       {#if metrics.cost_projection_usd != null && metrics.num_turns >= 2}
         <span class="metric projection" use:tooltip={"Projected session total"}>
           → {formatCurrency(metrics.cost_projection_usd)}
+        </span>
+      {/if}
+
+      {#if paceMetrics}
+        <span
+          class="metric pace"
+          class:pace-warning={paceMetrics.paceDelta > 25}
+          class:pace-danger={paceMetrics.paceDelta > 50}
+          use:tooltip={`Pace relative to quota window. ${paceMetrics.paceDelta > 0 ? 'Consuming faster than sustainable' : 'On pace or below'}`}
+        >
+          ⟳ {paceMetrics.paceDelta > 0 ? '+' : ''}{paceMetrics.paceDelta}%
         </span>
       {/if}
 
@@ -356,6 +395,20 @@
     font-size: var(--font-size-sm);
   }
 
+  .metric.pace {
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+  }
+
+  .metric.pace.pace-warning {
+    color: var(--warning-text, #f0ad4e);
+  }
+
+  .metric.pace.pace-danger {
+    color: var(--danger);
+    font-weight: 600;
+  }
+
   .metric.provider {
     font-weight: 600;
     max-width: 100px;
@@ -479,7 +532,8 @@
     }
 
     .metric.velocity,
-    .metric.projection {
+    .metric.projection,
+    .metric.pace {
       display: none;
     }
 
