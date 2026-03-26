@@ -26,6 +26,7 @@ impl ShadowStore {
         self.copies.lock().unwrap_or_else(|e| e.into_inner()).get(path).cloned()
     }
 
+    #[allow(dead_code)] // CRUD API for shadow store
     pub fn remove(&self, path: &str) {
         debug!("Shadow store: removing path='{}'", path);
         self.copies.lock().unwrap_or_else(|e| e.into_inner()).remove(path);

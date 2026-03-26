@@ -52,6 +52,7 @@ impl AnalyticsStore {
         Ok(())
     }
 
+    #[allow(dead_code)] // Used in tests; with_completed preferred in production
     pub fn all_completed(&self) -> Vec<SessionMetrics> {
         self.completed.lock().unwrap_or_else(|e| e.into_inner()).clone()
     }

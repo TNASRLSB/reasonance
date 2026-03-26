@@ -26,6 +26,7 @@ impl PtyManager {
     }
 
     /// Associate a PTY instance with a project.
+    #[allow(dead_code)] // Used by project management PTY lifecycle
     pub fn set_project(&self, pty_id: &str, project_id: &str) {
         debug!("PTY set_project: pty_id={}, project_id={}", pty_id, project_id);
         let mut map = self.project_map.lock().unwrap_or_else(|e| e.into_inner());

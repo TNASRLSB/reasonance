@@ -17,13 +17,6 @@ struct NodeStateEvent {
     new_state: String,
 }
 
-#[derive(Serialize, Clone)]
-struct RunStatusEvent {
-    run_id: String,
-    old_status: String,
-    new_status: String,
-}
-
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum RunStatus {

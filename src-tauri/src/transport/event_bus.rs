@@ -75,6 +75,7 @@ impl AgentEventBus {
         trace!("EventBus: event delivered to {}/{} subscribers", delivered, sub_count);
     }
 
+    #[allow(dead_code)] // Public API for batch publishing
     pub fn publish_batch(&self, session_id: &str, events: &[AgentEvent]) {
         info!("EventBus: publishing batch of {} events to session={}", events.len(), session_id);
         for event in events {
@@ -103,6 +104,7 @@ impl HistoryRecorder {
             .unwrap_or_default()
     }
 
+    #[allow(dead_code)] // Public API for direct history access
     pub fn history_ref(&self) -> Arc<Mutex<std::collections::HashMap<String, Vec<AgentEvent>>>> {
         self.history.clone()
     }
@@ -236,6 +238,7 @@ impl SessionHistoryRecorder {
     }
 
     /// Get a reference to the handles map for the SessionManager.
+    #[allow(dead_code)] // Used by SessionManager for session tracking
     pub fn handles_ref(&self) -> Arc<Mutex<std::collections::HashMap<String, SessionHandle>>> {
         self.handles.clone()
     }

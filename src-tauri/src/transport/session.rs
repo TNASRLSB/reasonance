@@ -3,6 +3,7 @@ use crate::transport::request::{AgentRequest, CliMode, SessionStatus};
 use uuid::Uuid;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+#[allow(dead_code)] // Fields accessed in tests and via session management
 pub struct AgentSession {
     pub id: String,
     pub provider: String,
@@ -41,6 +42,7 @@ impl AgentSession {
         self.abort_handle = Some(handle);
     }
 
+    #[allow(dead_code)] // Used in tests
     pub fn add_event(&mut self, event: AgentEvent) {
         self.events.push(event);
     }
@@ -53,6 +55,7 @@ impl AgentSession {
         self.cli_session_id = Some(id);
     }
 
+    #[allow(dead_code)] // Used in tests
     pub fn event_count(&self) -> usize {
         self.events.len()
     }

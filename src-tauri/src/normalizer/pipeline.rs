@@ -61,6 +61,7 @@ impl NormalizerPipeline {
     }
 
     /// Reset the pipeline state (e.g., new session).
+    #[allow(dead_code)] // Public API for session reset
     pub fn reset(&mut self) {
         self.state_machine.reset();
     }

@@ -28,6 +28,7 @@ impl NormalizerVersionStore {
         }
     }
 
+    #[allow(dead_code)] // Used in tests and by normalizer rollback commands
     pub fn backup(&self, provider: &str, toml_content: &str) -> Result<String, String> {
         let timestamp = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -76,6 +77,7 @@ impl NormalizerVersionStore {
         index.get(provider).cloned().unwrap_or_default()
     }
 
+    #[allow(dead_code)] // Used in tests
     pub fn current(&self, provider: &str) -> Option<VersionEntry> {
         let index = self.index.lock().unwrap_or_else(|e| e.into_inner());
         index.get(provider).and_then(|v| v.last().cloned())
@@ -90,6 +92,7 @@ impl NormalizerVersionStore {
         }
     }
 
+    #[allow(dead_code)] // Called by backup()
     fn save_index(&self, index: &HashMap<String, Vec<VersionEntry>>) -> Result<(), String> {
         let index_path = self.base_dir.join("index.json");
         let json = serde_json::to_string_pretty(index).map_err(|e| e.to_string())?;
@@ -98,6 +101,7 @@ impl NormalizerVersionStore {
 }
 
 /// Simple hash for checksums (not cryptographic — just for dedup)
+#[allow(dead_code)] // Called by backup()
 fn content_hash(input: &str) -> u64 {
     use std::collections::hash_map::DefaultHasher;
     use std::hash::{Hash, Hasher};

@@ -12,6 +12,7 @@ use std::path::Path;
 use serde::Deserialize;
 
 #[derive(Debug, Clone, Deserialize)]
+#[allow(dead_code)] // Fields populated by serde deserialization from TOML configs
 pub struct TomlConfig {
     pub cli: CliConfig,
     #[serde(default)]
@@ -74,6 +75,7 @@ pub struct TomlRule {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[allow(dead_code)] // Fields populated by serde from TOML
 pub struct ContextConfig {
     pub mode: Option<String>,
     pub flag: Option<String>,
@@ -89,12 +91,14 @@ pub struct RetryConfig {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[allow(dead_code)] // Fields populated by serde from TOML
 pub struct SessionConfig {
     pub session_id_path: Option<String>,
     pub model_path: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[allow(dead_code)] // Fields populated by serde from TOML
 pub struct CommandsConfig {
     pub cancel: Option<toml::Value>,
     pub pause: Option<toml::Value>,
@@ -102,6 +106,7 @@ pub struct CommandsConfig {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[allow(dead_code)] // Fields populated by serde from TOML
 pub struct TomlTest {
     pub name: String,
     pub prompt: String,
@@ -111,6 +116,7 @@ pub struct TomlTest {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[allow(dead_code)] // Fields populated by serde from TOML
 pub struct DirectApiConfig {
     pub endpoint: Option<String>,
     pub auth_header: Option<String>,
@@ -194,6 +200,7 @@ impl NormalizerRegistry {
         self.pipelines.contains_key(name)
     }
 
+    #[allow(dead_code)] // Called via Mutex<NormalizerRegistry> in transport
     pub fn process(&mut self, provider: &str, raw_json: &str) -> Vec<AgentEvent> {
         match self.pipelines.get_mut(provider) {
             Some(pipeline) => pipeline.process(raw_json),
@@ -209,6 +216,7 @@ impl NormalizerRegistry {
         self.pipelines.keys().cloned().collect()
     }
 
+    #[allow(dead_code)] // Used by normalizer reload/version commands
     pub fn get_toml_source(&self, provider: &str) -> Option<String> {
         self.toml_sources.get(provider).cloned()
     }

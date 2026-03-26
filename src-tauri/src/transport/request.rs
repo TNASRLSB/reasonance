@@ -68,6 +68,7 @@ pub enum SessionStatus {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[allow(dead_code)] // Roadmap: used for agent command protocol
 pub enum AgentCommand {
     Stop,
     Cancel,

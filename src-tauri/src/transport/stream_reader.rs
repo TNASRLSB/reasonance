@@ -6,6 +6,7 @@ use tokio::process::ChildStdout;
 use tokio::sync::oneshot;
 use tokio::time::{timeout, Duration};
 
+#[allow(dead_code)] // Fields read by transport send completion handler
 pub struct StreamResult {
     pub events_count: u32,
     pub error: Option<String>,

@@ -158,6 +158,7 @@ impl SessionManager {
 
     /// Finalize a session — flush metadata with final status and update index.
     /// Called when the transport's CLI process ends.
+    #[allow(dead_code)] // Roadmap: wired when transport completion triggers finalization
     pub fn finalize_session(&self, session_id: &str, final_status: SessionStatus) -> Result<(), crate::error::ReasonanceError> {
         info!("SessionManager: finalizing session={} with status={:?}", session_id, final_status);
         // Collect data under recorder lock, then release before acquiring index lock

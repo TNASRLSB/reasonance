@@ -138,8 +138,10 @@ impl AgentRuntime {
         self.messages.lock().unwrap_or_else(|e| e.into_inner()).push(msg);
     }
 
+    #[allow(dead_code)] // Used by HIVE workflow engine
     const MAX_OUTPUT_LINES: usize = 200;
 
+    #[allow(dead_code)] // Used by HIVE workflow engine
     pub fn append_output(&self, agent_id: &str, line: &str) -> Result<(), crate::error::ReasonanceError> {
         let mut agents = self.agents.lock().unwrap_or_else(|e| e.into_inner());
         let agent = agents.get_mut(agent_id).ok_or_else(|| crate::error::ReasonanceError::not_found("agent", agent_id))?;
