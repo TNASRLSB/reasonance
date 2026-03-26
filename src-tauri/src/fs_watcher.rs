@@ -46,14 +46,15 @@ pub fn start_watching(
     path: &str,
     app: AppHandle,
     state: &FsWatcherState,
-) -> Result<(), String> {
+) -> Result<(), crate::error::ReasonanceError> {
     info!("Starting filesystem watcher on path='{}'", path);
     let handler = AppEventHandler { app };
     let mut watcher =
-        RecommendedWatcher::new(handler, notify::Config::default()).map_err(|e| e.to_string())?;
+        RecommendedWatcher::new(handler, notify::Config::default())
+            .map_err(|e| crate::error::ReasonanceError::internal(e.to_string()))?;
     watcher
         .watch(Path::new(path), RecursiveMode::Recursive)
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| crate::error::ReasonanceError::io(format!("watch '{}'", path), std::io::Error::other(e.to_string())))?;
 
     debug!("Filesystem watcher active on path='{}'", path);
     *state.watcher.lock().unwrap_or_else(|e| e.into_inner()) = Some(watcher);

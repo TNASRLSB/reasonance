@@ -1,5 +1,6 @@
 use crate::capability::{CapabilityNegotiator, NegotiatedCapabilities};
 use crate::cli_updater::CliVersionInfo;
+use crate::error::ReasonanceError;
 use std::sync::Arc;
 use crate::cli_updater::CliUpdater;
 use crate::normalizer_health::{NormalizerHealth, HealthReport};
@@ -21,13 +22,13 @@ pub fn get_capabilities(
 pub fn get_provider_capabilities(
     negotiator: State<'_, CapabilityNegotiator>,
     provider: String,
-) -> Result<NegotiatedCapabilities, String> {
+) -> Result<NegotiatedCapabilities, ReasonanceError> {
     info!("cmd::get_provider_capabilities(provider={})", provider);
     negotiator
         .get_capabilities(&provider)
         .ok_or_else(|| {
             error!("cmd::get_provider_capabilities no capabilities for provider: {}", provider);
-            format!("No capabilities for provider: {}", provider)
+            ReasonanceError::not_found("provider capabilities", &provider)
         })
 }
 
@@ -58,14 +59,16 @@ pub fn rollback_normalizer(
     transport: State<'_, crate::transport::StructuredAgentTransport>,
     provider: String,
     version_id: String,
-) -> Result<String, String> {
+) -> Result<String, ReasonanceError> {
     info!("cmd::rollback_normalizer(provider={}, version_id={})", provider, version_id);
-    let toml_content = version_store.restore(&provider, &version_id)?;
+    let toml_content = version_store.restore(&provider, &version_id)
+        .map_err(ReasonanceError::config)?;
 
     // Hot-reload the normalizer in the transport's registry
     let registry = transport.registry();
     let mut registry = registry.lock().unwrap_or_else(|e| e.into_inner());
-    registry.reload_provider(&provider, &toml_content)?;
+    registry.reload_provider(&provider, &toml_content)
+        .map_err(ReasonanceError::config)?;
 
     Ok(format!("Rolled back {} to version {}", provider, version_id))
 }
@@ -74,11 +77,11 @@ pub fn rollback_normalizer(
 pub fn get_health_report(
     health: State<'_, NormalizerHealth>,
     provider: String,
-) -> Result<HealthReport, String> {
+) -> Result<HealthReport, ReasonanceError> {
     debug!("cmd::get_health_report(provider={})", provider);
     health
         .get_report(&provider)
-        .ok_or_else(|| format!("No health report for provider: {}", provider))
+        .ok_or_else(|| ReasonanceError::not_found("health report", &provider))
 }
 
 #[tauri::command]

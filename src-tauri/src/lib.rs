@@ -13,6 +13,7 @@
     clippy::needless_borrows_for_generic_args,
 )]
 
+pub mod error;
 mod agent_event;
 mod normalizer;
 mod transport;

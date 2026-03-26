@@ -1,3 +1,4 @@
+use crate::error::ReasonanceError;
 use crate::transport::StructuredAgentTransport;
 use crate::NormalizersDir;
 use log::{info, error, debug};
@@ -15,13 +16,13 @@ pub async fn test_provider_connection(
     provider: String,
     transport: State<'_, StructuredAgentTransport>,
     app: AppHandle,
-) -> Result<(), String> {
+) -> Result<(), ReasonanceError> {
     info!("cmd::test_provider_connection(provider={})", provider);
     let (binary, api_key_env, version_cmd) = {
         let registry = transport.registry();
         let reg = registry.lock().unwrap_or_else(|e| e.into_inner());
         let config = reg.get_config(&provider)
-            .ok_or_else(|| format!("Unknown provider: {}", provider))?;
+            .ok_or_else(|| ReasonanceError::not_found("provider", &provider))?;
         (
             config.cli.binary.clone(),
             config.cli.api_key_env.clone(),
@@ -123,11 +124,11 @@ pub async fn test_provider_connection(
 pub fn reload_normalizers(
     transport: State<'_, StructuredAgentTransport>,
     norm_dir: State<'_, NormalizersDir>,
-) -> Result<(), String> {
+) -> Result<(), ReasonanceError> {
     info!("cmd::reload_normalizers called");
     let new_registry = crate::normalizer::NormalizerRegistry::load_from_dir(&norm_dir.0).map_err(|e| {
         error!("cmd::reload_normalizers failed to load from dir: {}", e);
-        e
+        ReasonanceError::config(e)
     })?;
     let registry = transport.registry();
     *registry.lock().unwrap_or_else(|e| e.into_inner()) = new_registry;

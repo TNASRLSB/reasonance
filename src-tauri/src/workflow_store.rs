@@ -187,11 +187,10 @@ impl WorkflowStore {
         PathBuf::from(project_root).join(".reasonance").join("workflows")
     }
 
-    pub fn load(&self, file_path: &str) -> Result<Workflow, String> {
+    pub fn load(&self, file_path: &str) -> Result<Workflow, crate::error::ReasonanceError> {
         let content = std::fs::read_to_string(file_path)
-            .map_err(|e| format!("Failed to read {}: {}", file_path, e))?;
-        let mut workflow: Workflow = serde_json::from_str(&content)
-            .map_err(|e| format!("Invalid workflow JSON: {}", e))?;
+            .map_err(|e| crate::error::ReasonanceError::io(format!("read workflow {}", file_path), e))?;
+        let mut workflow: Workflow = serde_json::from_str(&content)?;
         migrate(&mut workflow);
         self.workflows
             .lock()
@@ -200,16 +199,15 @@ impl WorkflowStore {
         Ok(workflow)
     }
 
-    pub fn save(&self, file_path: &str, workflow: &Workflow) -> Result<(), String> {
+    pub fn save(&self, file_path: &str, workflow: &Workflow) -> Result<(), crate::error::ReasonanceError> {
         let parent = std::path::Path::new(file_path)
             .parent()
-            .ok_or("Invalid file path")?;
+            .ok_or_else(|| crate::error::ReasonanceError::validation("file_path", "Invalid file path"))?;
         std::fs::create_dir_all(parent)
-            .map_err(|e| format!("Failed to create directory: {}", e))?;
-        let json = serde_json::to_string_pretty(workflow)
-            .map_err(|e| format!("Failed to serialize: {}", e))?;
+            .map_err(|e| crate::error::ReasonanceError::io("create workflow directory", e))?;
+        let json = serde_json::to_string_pretty(workflow)?;
         std::fs::write(file_path, json)
-            .map_err(|e| format!("Failed to write {}: {}", file_path, e))?;
+            .map_err(|e| crate::error::ReasonanceError::io(format!("write workflow {}", file_path), e))?;
         self.workflows
             .lock()
             .unwrap()
@@ -217,13 +215,13 @@ impl WorkflowStore {
         Ok(())
     }
 
-    pub fn list_workflows(dir: &str) -> Result<Vec<String>, String> {
+    pub fn list_workflows(dir: &str) -> Result<Vec<String>, crate::error::ReasonanceError> {
         let path = std::path::Path::new(dir);
         if !path.exists() {
             return Ok(vec![]);
         }
         let entries =
-            std::fs::read_dir(path).map_err(|e| format!("Failed to read dir: {}", e))?;
+            std::fs::read_dir(path).map_err(|e| crate::error::ReasonanceError::io(format!("read workflow dir {}", dir), e))?;
         let mut workflows = Vec::new();
         for entry in entries.flatten() {
             let p = entry.path();
@@ -237,10 +235,10 @@ impl WorkflowStore {
         Ok(workflows)
     }
 
-    pub fn delete(&self, file_path: &str) -> Result<(), String> {
+    pub fn delete(&self, file_path: &str) -> Result<(), crate::error::ReasonanceError> {
         if std::path::Path::new(file_path).exists() {
             std::fs::remove_file(file_path)
-                .map_err(|e| format!("Failed to delete: {}", e))?;
+                .map_err(|e| crate::error::ReasonanceError::io(format!("delete workflow {}", file_path), e))?;
         }
         self.workflows.lock().unwrap_or_else(|e| e.into_inner()).remove(file_path);
         Ok(())

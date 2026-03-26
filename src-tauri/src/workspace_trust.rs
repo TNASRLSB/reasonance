@@ -166,13 +166,16 @@ impl TrustStore {
         }
     }
 
-    pub fn set_trust(&self, path: &str, level: TrustLevel) -> Result<(), String> {
+    pub fn set_trust(&self, path: &str, level: TrustLevel) -> Result<(), crate::error::ReasonanceError> {
         let canonical = fs::canonicalize(path)
-            .map_err(|e| format!("Cannot canonicalize '{}': {}", path, e))?;
+            .map_err(|e| crate::error::ReasonanceError::io(format!("canonicalize '{}'", path), e))?;
         let canonical_str = canonical.to_string_lossy().to_string();
 
         if Self::is_blocked_broad_dir(&canonical_str) {
-            return Err("This directory is too broad to trust. Please trust specific project folders instead.".to_string());
+            return Err(crate::error::ReasonanceError::Security {
+                message: "This directory is too broad to trust. Please trust specific project folders instead.".to_string(),
+                code: crate::error::SecurityErrorCode::BlockedWorkspace,
+            });
         }
 
         let hash = Self::hash_path(&canonical_str);
@@ -194,7 +197,7 @@ impl TrustStore {
         self.save(&entries)
     }
 
-    pub fn revoke_trust(&self, hash: &str) -> Result<(), String> {
+    pub fn revoke_trust(&self, hash: &str) -> Result<(), crate::error::ReasonanceError> {
         let mut entries = self.entries.lock().unwrap_or_else(|e| e.into_inner());
         entries.retain(|e| e.hash != hash);
         self.save(&entries)
@@ -221,14 +224,13 @@ impl TrustStore {
         })
     }
 
-    fn save(&self, entries: &[TrustEntry]) -> Result<(), String> {
-        let json = serde_json::to_string_pretty(entries)
-            .map_err(|e| format!("Failed to serialize trust store: {}", e))?;
+    fn save(&self, entries: &[TrustEntry]) -> Result<(), crate::error::ReasonanceError> {
+        let json = serde_json::to_string_pretty(entries)?;
         if let Some(parent) = self.store_path.parent() {
             let _ = fs::create_dir_all(parent);
         }
         fs::write(&self.store_path, json)
-            .map_err(|e| format!("Failed to write trust store: {}", e))
+            .map_err(|e| crate::error::ReasonanceError::io("write trust store", e))
     }
 }
 

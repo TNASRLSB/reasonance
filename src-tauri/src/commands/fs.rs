@@ -1,3 +1,4 @@
+use crate::error::ReasonanceError;
 use crate::fs_watcher::FsWatcherState;
 use log::{info, error, debug};
 use serde::Serialize;
@@ -19,14 +20,14 @@ impl ProjectRootState {
 
 /// Set (or clear) the project root. Called by the frontend whenever a folder is opened.
 #[tauri::command]
-pub fn set_project_root(path: String, state: State<'_, ProjectRootState>) -> Result<(), String> {
+pub fn set_project_root(path: String, state: State<'_, ProjectRootState>) -> Result<(), ReasonanceError> {
     info!("cmd::set_project_root(path={})", path);
     let canonical = if path.is_empty() {
         None
     } else {
         Some(
             std::fs::canonicalize(&path)
-                .map_err(|e| format!("Cannot canonicalize project root '{}': {}", path, e))?,
+                .map_err(|e| ReasonanceError::io(format!("canonicalize project root '{}'", path), e))?,
         )
     };
     *state.0.lock().unwrap_or_else(|e| e.into_inner()) = canonical.clone();
@@ -127,9 +128,9 @@ fn cli_local_dirs() -> Vec<PathBuf> {
 /// - Inside the project root, OR
 /// - Inside the user's Reasonance config directory.
 /// If no project root is set yet, only config-dir reads are allowed.
-fn validate_read_path(path: &Path, state: &ProjectRootState) -> Result<(), String> {
+fn validate_read_path(path: &Path, state: &ProjectRootState) -> Result<(), ReasonanceError> {
     let canonical = std::fs::canonicalize(path)
-        .map_err(|e| format!("Cannot resolve path '{}': {}", path.display(), e))?;
+        .map_err(|e| ReasonanceError::io(format!("resolve path '{}'", path.display()), e))?;
 
     // Allow reads from Reasonance config dir (e.g. llms.toml)
     if let Some(config_dir) = reasonance_config_dir() {
@@ -154,33 +155,33 @@ fn validate_read_path(path: &Path, state: &ProjectRootState) -> Result<(), Strin
         if canonical.starts_with(root) {
             return Ok(());
         }
-        return Err(format!(
-            "Access denied: '{}' is outside the project root",
-            path.display()
-        ));
+        return Err(ReasonanceError::PermissionDenied {
+            action: format!("read '{}'", path.display()),
+            tool: None,
+        });
     }
 
     // No project root set yet — only config dir was allowed (already checked above)
-    Err(format!(
-        "Access denied: no project root is set and '{}' is not in the config directory",
-        path.display()
-    ))
+    Err(ReasonanceError::PermissionDenied {
+        action: format!("read '{}' (no project root set)", path.display()),
+        tool: None,
+    })
 }
 
 /// Validate that `path` is safe for writing:
 /// - Must be inside the project root.
-fn validate_write_path(path: &Path, state: &ProjectRootState) -> Result<(), String> {
+fn validate_write_path(path: &Path, state: &ProjectRootState) -> Result<(), ReasonanceError> {
     // For write we require the parent to exist to canonicalize;
     // if the file itself doesn't exist yet, canonicalize the parent.
     let canonical = if path.exists() {
         std::fs::canonicalize(path)
-            .map_err(|e| format!("Cannot resolve path '{}': {}", path.display(), e))?
+            .map_err(|e| ReasonanceError::io(format!("resolve path '{}'", path.display()), e))?
     } else {
         let parent = path
             .parent()
-            .ok_or_else(|| format!("No parent directory for '{}'", path.display()))?;
+            .ok_or_else(|| ReasonanceError::validation("path", format!("No parent directory for '{}'", path.display())))?;
         let canon_parent = std::fs::canonicalize(parent)
-            .map_err(|e| format!("Cannot resolve parent '{}': {}", parent.display(), e))?;
+            .map_err(|e| ReasonanceError::io(format!("resolve parent '{}'", parent.display()), e))?;
         canon_parent.join(path.file_name().unwrap_or_default())
     };
 
@@ -200,13 +201,16 @@ fn validate_write_path(path: &Path, state: &ProjectRootState) -> Result<(), Stri
         if canonical.starts_with(root) {
             return Ok(());
         }
-        return Err(format!(
-            "Access denied: '{}' is outside the project root",
-            path.display()
-        ));
+        return Err(ReasonanceError::PermissionDenied {
+            action: format!("write '{}'", path.display()),
+            tool: None,
+        });
     }
 
-    Err("Access denied: no project root is set".to_string())
+    Err(ReasonanceError::PermissionDenied {
+        action: "write (no project root set)".to_string(),
+        tool: None,
+    })
 }
 
 // ── File commands ─────────────────────────────────────────────────────────────
@@ -226,28 +230,32 @@ pub struct FileEntry {
 const MAX_READ_FILE_SIZE: u64 = 10 * 1024 * 1024;
 
 #[tauri::command]
-pub fn read_file(path: String, state: State<'_, ProjectRootState>) -> Result<String, String> {
+pub fn read_file(path: String, state: State<'_, ProjectRootState>) -> Result<String, ReasonanceError> {
     info!("cmd::read_file(path={})", path);
     validate_read_path(Path::new(&path), &state)?;
 
-    let metadata = fs::metadata(&path).map_err(|e| e.to_string())?;
+    let metadata = fs::metadata(&path)
+        .map_err(|e| ReasonanceError::io(format!("stat '{}'", path), e))?;
     if metadata.len() > MAX_READ_FILE_SIZE {
         error!("cmd::read_file file too large: {} bytes at {}", metadata.len(), path);
-        return Err(format!(
-            "File too large ({:.1} MB). Maximum allowed size is {:.0} MB.",
-            metadata.len() as f64 / (1024.0 * 1024.0),
-            MAX_READ_FILE_SIZE as f64 / (1024.0 * 1024.0),
+        return Err(ReasonanceError::validation(
+            "file_size",
+            format!(
+                "File too large ({:.1} MB). Maximum allowed size is {:.0} MB.",
+                metadata.len() as f64 / (1024.0 * 1024.0),
+                MAX_READ_FILE_SIZE as f64 / (1024.0 * 1024.0),
+            ),
         ));
     }
 
     fs::read_to_string(&path).map_err(|e| {
-        let msg = if e.kind() == std::io::ErrorKind::InvalidData {
-            "Cannot open binary file: the file contains non-UTF-8 data.".to_string()
+        if e.kind() == std::io::ErrorKind::InvalidData {
+            error!("cmd::read_file error for {}: binary file", path);
+            ReasonanceError::validation("file_content", "Cannot open binary file: the file contains non-UTF-8 data.")
         } else {
-            e.to_string()
-        };
-        error!("cmd::read_file error for {}: {}", path, msg);
-        msg
+            error!("cmd::read_file error for {}: {}", path, e);
+            ReasonanceError::io(format!("read '{}'", path), e)
+        }
     })
 }
 
@@ -256,7 +264,7 @@ pub fn write_file(
     path: String,
     content: String,
     state: State<'_, ProjectRootState>,
-) -> Result<(), String> {
+) -> Result<(), ReasonanceError> {
     info!("cmd::write_file(path={})", path);
     validate_write_path(Path::new(&path), &state)?;
 
@@ -265,10 +273,10 @@ pub fn write_file(
     let target = Path::new(&path);
     let parent = target
         .parent()
-        .ok_or_else(|| format!("No parent directory for '{}'", path))?;
+        .ok_or_else(|| ReasonanceError::validation("path", format!("No parent directory for '{}'", path)))?;
     let file_name = target
         .file_name()
-        .ok_or_else(|| format!("No file name for '{}'", path))?;
+        .ok_or_else(|| ReasonanceError::validation("path", format!("No file name for '{}'", path)))?;
 
     let tmp_name = format!(".{}.tmp", file_name.to_string_lossy());
     let tmp_path = parent.join(&tmp_name);
@@ -276,22 +284,23 @@ pub fn write_file(
     fs::write(&tmp_path, &content)
         .map_err(|e| {
             error!("cmd::write_file failed to write temp file {}: {}", tmp_path.display(), e);
-            format!("Failed to write temp file '{}': {}", tmp_path.display(), e)
+            ReasonanceError::io(format!("write temp file '{}'", tmp_path.display()), e)
         })?;
     fs::rename(&tmp_path, target)
         .map_err(|e| {
             // Clean up temp file on rename failure
             let _ = fs::remove_file(&tmp_path);
             error!("cmd::write_file failed to rename temp file to {}: {}", path, e);
-            format!("Failed to rename temp file to '{}': {}", path, e)
+            ReasonanceError::io(format!("rename temp file to '{}'", path), e)
         })
 }
 
 #[tauri::command]
-pub fn list_dir(path: String, respect_gitignore: bool, state: State<'_, ProjectRootState>) -> Result<Vec<FileEntry>, String> {
+pub fn list_dir(path: String, respect_gitignore: bool, state: State<'_, ProjectRootState>) -> Result<Vec<FileEntry>, ReasonanceError> {
     info!("cmd::list_dir(path={})", path);
     validate_read_path(Path::new(&path), &state)?;
-    let entries = fs::read_dir(&path).map_err(|e| e.to_string())?;
+    let entries = fs::read_dir(&path)
+        .map_err(|e| ReasonanceError::io(format!("read dir '{}'", path), e))?;
 
     let gitignore = if respect_gitignore {
         ignore::gitignore::Gitignore::new(Path::new(&path).join(".gitignore")).0
@@ -301,8 +310,8 @@ pub fn list_dir(path: String, respect_gitignore: bool, state: State<'_, ProjectR
 
     let mut result = Vec::new();
     for entry in entries {
-        let entry = entry.map_err(|e| e.to_string())?;
-        let metadata = entry.metadata().map_err(|e| e.to_string())?;
+        let entry = entry.map_err(|e| ReasonanceError::io("read dir entry", e))?;
+        let metadata = entry.metadata().map_err(|e| ReasonanceError::io("read entry metadata", e))?;
 
         let is_ignored = if respect_gitignore {
             let matched = gitignore.matched_path_or_any_parents(&entry.path(), metadata.is_dir());
@@ -313,7 +322,7 @@ pub fn list_dir(path: String, respect_gitignore: bool, state: State<'_, ProjectR
 
         let modified = metadata
             .modified()
-            .map_err(|e| e.to_string())?
+            .map_err(|e| ReasonanceError::io("read modified time", e))?
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
             .as_millis() as u64;
@@ -349,7 +358,7 @@ pub fn grep_files(
     pattern: String,
     respect_gitignore: bool,
     state: State<'_, ProjectRootState>,
-) -> Result<Vec<GrepResult>, String> {
+) -> Result<Vec<GrepResult>, ReasonanceError> {
     info!("cmd::grep_files(path={}, pattern={})", path, pattern);
     validate_read_path(Path::new(&path), &state)?;
     use ignore::WalkBuilder;
@@ -394,7 +403,7 @@ pub fn start_watching(
     app: AppHandle,
     state: State<'_, FsWatcherState>,
     root_state: State<'_, ProjectRootState>,
-) -> Result<(), String> {
+) -> Result<(), ReasonanceError> {
     info!("cmd::start_watching(path={})", path);
     validate_read_path(Path::new(&path), &root_state)?;
     crate::fs_watcher::start_watching(&path, app, &state)

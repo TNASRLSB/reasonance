@@ -1,8 +1,9 @@
 use crate::config;
+use crate::error::ReasonanceError;
 use log::{info, error, debug};
 
 #[tauri::command]
-pub fn read_config() -> Result<String, String> {
+pub fn read_config() -> Result<String, ReasonanceError> {
     info!("cmd::read_config called");
     let path = config::config_path();
     if !path.exists() {
@@ -11,18 +12,21 @@ pub fn read_config() -> Result<String, String> {
     }
     std::fs::read_to_string(&path).map_err(|e| {
         error!("cmd::read_config failed to read {:?}: {}", path, e);
-        e.to_string()
+        ReasonanceError::io(format!("read config {:?}", path), e)
     })
 }
 
 #[tauri::command]
-pub fn write_config(content: String) -> Result<(), String> {
+pub fn write_config(content: String) -> Result<(), ReasonanceError> {
     info!("cmd::write_config called");
     // Validate TOML parses correctly
     let parsed: config::AppConfig = toml::from_str(&content)
         .map_err(|e| {
             error!("cmd::write_config invalid TOML format: {}", e);
-            format!("Invalid config format: {}", e)
+            ReasonanceError::Serialization {
+                context: "config TOML".to_string(),
+                message: format!("Invalid config format: {}", e),
+            }
         })?;
 
     // Validate command fields in LLM entries
@@ -44,10 +48,13 @@ pub fn write_config(content: String) -> Result<(), String> {
 
                 if !KNOWN_LLM_BINARIES.contains(&binary) {
                     error!("cmd::write_config unrecognized LLM command: {}", cmd);
-                    return Err(format!(
-                        "Unrecognized LLM command '{}'. Allowed: {}",
-                        cmd,
-                        KNOWN_LLM_BINARIES.join(", ")
+                    return Err(ReasonanceError::validation(
+                        "command",
+                        format!(
+                            "Unrecognized LLM command '{}'. Allowed: {}",
+                            cmd,
+                            KNOWN_LLM_BINARIES.join(", ")
+                        ),
                     ));
                 }
             }
@@ -56,7 +63,9 @@ pub fn write_config(content: String) -> Result<(), String> {
 
     let path = config::config_path();
     if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+        std::fs::create_dir_all(parent)
+            .map_err(|e| ReasonanceError::io("create config dir", e))?;
     }
-    std::fs::write(&path, content).map_err(|e| e.to_string())
+    std::fs::write(&path, content)
+        .map_err(|e| ReasonanceError::io("write config", e))
 }

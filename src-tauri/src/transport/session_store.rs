@@ -19,11 +19,11 @@ pub struct SessionStore {
 }
 
 impl SessionStore {
-    pub fn new(base_dir: &Path) -> Result<Self, String> {
+    pub fn new(base_dir: &Path) -> Result<Self, crate::error::ReasonanceError> {
         debug!("SessionStore: initializing at {}", base_dir.display());
         fs::create_dir_all(base_dir).map_err(|e| {
             error!("SessionStore: failed to create sessions dir {}: {}", base_dir.display(), e);
-            format!("Failed to create sessions dir: {}", e)
+            crate::error::ReasonanceError::io("create sessions dir", e)
         })?;
         Ok(Self {
             base_dir: base_dir.to_path_buf(),
@@ -31,13 +31,13 @@ impl SessionStore {
     }
 
     /// Create the directory structure for a new session and write initial metadata.
-    pub fn create_session(&self, handle: &SessionHandle) -> Result<(), String> {
+    pub fn create_session(&self, handle: &SessionHandle) -> Result<(), crate::error::ReasonanceError> {
         let session_dir = self.session_dir(&handle.id);
         debug!("SessionStore: creating session dir at {}", session_dir.display());
         fs::create_dir_all(&session_dir)
             .map_err(|e| {
                 error!("SessionStore: failed to create session dir {}: {}", session_dir.display(), e);
-                format!("Failed to create session dir: {}", e)
+                crate::error::ReasonanceError::io("create session dir", e)
             })?;
 
         self.write_metadata(handle)?;
@@ -47,7 +47,7 @@ impl SessionStore {
         fs::File::create(&events_path)
             .map_err(|e| {
                 error!("SessionStore: failed to create events file {}: {}", events_path.display(), e);
-                format!("Failed to create events file: {}", e)
+                crate::error::ReasonanceError::io("create events file", e)
             })?;
 
         debug!("SessionStore: session={} created on disk", handle.id);
@@ -55,12 +55,12 @@ impl SessionStore {
     }
 
     /// Append a single event to the session's JSONL file.
-    pub fn append_event(&self, session_id: &str, event: &AgentEvent) -> Result<(), String> {
+    pub fn append_event(&self, session_id: &str, event: &AgentEvent) -> Result<(), crate::error::ReasonanceError> {
         let session_dir = self.session_dir(session_id);
         if !session_dir.exists() {
             fs::create_dir_all(&session_dir).map_err(|e| {
                 error!("SessionStore: failed to create session dir {}: {}", session_dir.display(), e);
-                format!("Failed to create session dir: {}", e)
+                crate::error::ReasonanceError::io("create session dir", e)
             })?;
         }
         let events_path = session_dir.join("events.jsonl");
@@ -70,27 +70,23 @@ impl SessionStore {
             .open(&events_path)
             .map_err(|e| {
                 error!("SessionStore: failed to open events file for session={}: {}", session_id, e);
-                format!("Failed to open events file: {}", e)
+                crate::error::ReasonanceError::io(format!("open events file for session {}", session_id), e)
             })?;
 
-        let mut line = serde_json::to_string(event)
-            .map_err(|e| {
-                error!("SessionStore: failed to serialize event for session={}: {}", session_id, e);
-                format!("Failed to serialize event: {}", e)
-            })?;
+        let mut line = serde_json::to_string(event)?;
         line.push('\n');
         trace!("SessionStore: appending event to session={}: {}", session_id, line.trim());
         file.write_all(line.as_bytes())
             .map_err(|e| {
                 error!("SessionStore: failed to write event for session={}: {}", session_id, e);
-                format!("Failed to write event: {}", e)
+                crate::error::ReasonanceError::io(format!("write event for session {}", session_id), e)
             })?;
 
         Ok(())
     }
 
     /// Read all events from a session's JSONL file.
-    pub fn read_events(&self, session_id: &str) -> Result<Vec<AgentEvent>, String> {
+    pub fn read_events(&self, session_id: &str) -> Result<Vec<AgentEvent>, crate::error::ReasonanceError> {
         let events_path = self.session_dir(session_id).join("events.jsonl");
         if !events_path.exists() {
             debug!("SessionStore: no events file for session={}, returning empty", session_id);
@@ -101,7 +97,7 @@ impl SessionStore {
         let file = fs::File::open(&events_path)
             .map_err(|e| {
                 error!("SessionStore: failed to open events file for session={}: {}", session_id, e);
-                format!("Failed to open events file: {}", e)
+                crate::error::ReasonanceError::io(format!("open events file for session {}", session_id), e)
             })?;
         let reader = std::io::BufReader::new(file);
 
@@ -109,17 +105,13 @@ impl SessionStore {
         for line in reader.lines() {
             let line = line.map_err(|e| {
                 error!("SessionStore: failed to read line from events file for session={}: {}", session_id, e);
-                format!("Failed to read line: {}", e)
+                crate::error::ReasonanceError::io(format!("read events for session {}", session_id), e)
             })?;
             let trimmed = line.trim();
             if trimmed.is_empty() {
                 continue;
             }
-            let event: AgentEvent = serde_json::from_str(trimmed)
-                .map_err(|e| {
-                    error!("SessionStore: failed to parse event for session={}: {}", session_id, e);
-                    format!("Failed to parse event: {}", e)
-                })?;
+            let event: AgentEvent = serde_json::from_str(trimmed)?;
             events.push(event);
         }
 
@@ -128,57 +120,45 @@ impl SessionStore {
     }
 
     /// Atomic write: write to .tmp then rename, so a crash mid-write doesn't corrupt the file.
-    fn write_atomic(&self, path: &Path, content: &[u8]) -> Result<(), String> {
+    fn write_atomic(&self, path: &Path, content: &[u8]) -> Result<(), crate::error::ReasonanceError> {
         let tmp_path = path.with_extension("json.tmp");
         fs::write(&tmp_path, content)
-            .map_err(|e| format!("Failed to write tmp file: {}", e))?;
+            .map_err(|e| crate::error::ReasonanceError::io("write tmp file", e))?;
         fs::rename(&tmp_path, path)
-            .map_err(|e| format!("Failed to rename tmp file: {}", e))?;
+            .map_err(|e| crate::error::ReasonanceError::io("rename tmp file", e))?;
         Ok(())
     }
 
     /// Write session metadata to disk (atomic write).
-    pub fn write_metadata(&self, handle: &SessionHandle) -> Result<(), String> {
+    pub fn write_metadata(&self, handle: &SessionHandle) -> Result<(), crate::error::ReasonanceError> {
         let metadata_path = self.session_dir(&handle.id).join("metadata.json");
         debug!("SessionStore: writing metadata for session={}", handle.id);
-        let json = serde_json::to_string_pretty(handle)
-            .map_err(|e| {
-                error!("SessionStore: failed to serialize metadata for session={}: {}", handle.id, e);
-                format!("Failed to serialize metadata: {}", e)
-            })?;
+        let json = serde_json::to_string_pretty(handle)?;
         self.write_atomic(&metadata_path, json.as_bytes())
     }
 
     /// Read session metadata from disk.
-    pub fn read_metadata(&self, session_id: &str) -> Result<SessionHandle, String> {
+    pub fn read_metadata(&self, session_id: &str) -> Result<SessionHandle, crate::error::ReasonanceError> {
         let metadata_path = self.session_dir(session_id).join("metadata.json");
         debug!("SessionStore: reading metadata for session={}", session_id);
         let json = fs::read_to_string(&metadata_path)
             .map_err(|e| {
                 error!("SessionStore: failed to read metadata for session={}: {}", session_id, e);
-                format!("Failed to read metadata: {}", e)
+                crate::error::ReasonanceError::io(format!("read metadata for session {}", session_id), e)
             })?;
-        serde_json::from_str(&json)
-            .map_err(|e| {
-                error!("SessionStore: failed to parse metadata for session={}: {}", session_id, e);
-                format!("Failed to parse metadata: {}", e)
-            })
+        Ok(serde_json::from_str(&json)?)
     }
 
     /// Write the session index (list of summaries) to disk (atomic write).
-    pub fn write_index(&self, summaries: &[SessionSummary]) -> Result<(), String> {
+    pub fn write_index(&self, summaries: &[SessionSummary]) -> Result<(), crate::error::ReasonanceError> {
         let index_path = self.base_dir.join("index.json");
         debug!("SessionStore: writing index with {} entries", summaries.len());
-        let json = serde_json::to_string_pretty(summaries)
-            .map_err(|e| {
-                error!("SessionStore: failed to serialize index: {}", e);
-                format!("Failed to serialize index: {}", e)
-            })?;
+        let json = serde_json::to_string_pretty(summaries)?;
         self.write_atomic(&index_path, json.as_bytes())
     }
 
     /// Read the session index from disk.
-    pub fn read_index(&self) -> Result<Vec<SessionSummary>, String> {
+    pub fn read_index(&self) -> Result<Vec<SessionSummary>, crate::error::ReasonanceError> {
         let index_path = self.base_dir.join("index.json");
         if !index_path.exists() {
             debug!("SessionStore: no index file found, returning empty");
@@ -188,24 +168,20 @@ impl SessionStore {
         let json = fs::read_to_string(&index_path)
             .map_err(|e| {
                 error!("SessionStore: failed to read index: {}", e);
-                format!("Failed to read index: {}", e)
+                crate::error::ReasonanceError::io("read session index", e)
             })?;
-        serde_json::from_str(&json)
-            .map_err(|e| {
-                error!("SessionStore: failed to parse index: {}", e);
-                format!("Failed to parse index: {}", e)
-            })
+        Ok(serde_json::from_str(&json)?)
     }
 
     /// Delete a session directory.
-    pub fn delete_session(&self, session_id: &str) -> Result<(), String> {
+    pub fn delete_session(&self, session_id: &str) -> Result<(), crate::error::ReasonanceError> {
         let session_dir = self.session_dir(session_id);
         if session_dir.exists() {
             debug!("SessionStore: deleting session dir {}", session_dir.display());
             fs::remove_dir_all(&session_dir)
                 .map_err(|e| {
                     error!("SessionStore: failed to delete session dir for session={}: {}", session_id, e);
-                    format!("Failed to delete session: {}", e)
+                    crate::error::ReasonanceError::io(format!("delete session {}", session_id), e)
                 })?;
         } else {
             warn!("SessionStore: attempted to delete non-existent session={}", session_id);

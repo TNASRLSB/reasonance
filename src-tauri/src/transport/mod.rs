@@ -59,9 +59,10 @@ impl StructuredAgentTransport {
         }
     }
 
-    pub fn new(normalizers_dir: &Path) -> Result<Self, String> {
+    pub fn new(normalizers_dir: &Path) -> Result<Self, crate::error::ReasonanceError> {
         info!("StructuredAgentTransport: initializing from {}", normalizers_dir.display());
-        let registry = NormalizerRegistry::load_from_dir(normalizers_dir)?;
+        let registry = NormalizerRegistry::load_from_dir(normalizers_dir)
+            .map_err(crate::error::ReasonanceError::config)?;
 
         let mut retry_policies = HashMap::new();
         for provider in registry.providers() {
@@ -92,7 +93,7 @@ impl StructuredAgentTransport {
         })
     }
 
-    pub fn send(&self, request: AgentRequest, trust_store: &crate::workspace_trust::TrustStore) -> Result<String, String> {
+    pub fn send(&self, request: AgentRequest, trust_store: &crate::workspace_trust::TrustStore) -> Result<String, crate::error::ReasonanceError> {
         let provider = request.provider.to_lowercase();
         info!("Transport: send request provider={} model={:?} session_id={:?} yolo={} cwd={:?}", provider, request.model, request.session_id, request.yolo, request.cwd);
 
@@ -105,12 +106,18 @@ impl StructuredAgentTransport {
 
         if matches!(trust_level, Some(crate::workspace_trust::TrustLevel::Blocked)) {
             warn!("Transport: send blocked — workspace is not trusted cwd={:?}", request.cwd);
-            return Err("Workspace is not trusted".to_string());
+            return Err(crate::error::ReasonanceError::Security {
+                message: "Workspace is not trusted".to_string(),
+                code: crate::error::SecurityErrorCode::BlockedWorkspace,
+            });
         }
         // When yolo=true, skip the trust gate — user has explicitly opted into full permissions
         if !request.yolo && trust_level.is_none() && request.cwd.is_some() {
             warn!("Transport: send blocked — workspace trust not established cwd={:?}", request.cwd);
-            return Err("Workspace trust has not been established".to_string());
+            return Err(crate::error::ReasonanceError::Security {
+                message: "Workspace trust has not been established".to_string(),
+                code: crate::error::SecurityErrorCode::UnauthorizedAccess,
+            });
         }
 
         let registry = self.registry.lock().unwrap_or_else(|e| {
@@ -120,11 +127,11 @@ impl StructuredAgentTransport {
 
         if !registry.has_provider(&provider) {
             warn!("Transport: unknown provider={}", provider);
-            return Err(format!("Unknown provider: {}", provider));
+            return Err(crate::error::ReasonanceError::not_found("provider", &provider));
         }
 
         let config = registry.get_config(&provider)
-            .ok_or_else(|| format!("No config for provider: {}", provider))?;
+            .ok_or_else(|| crate::error::ReasonanceError::not_found("provider config", &provider))?;
 
         let binary = config.cli.binary.clone();
 
@@ -215,9 +222,17 @@ impl StructuredAgentTransport {
         info!("Transport: spawning CLI binary={} args={:?} permission_args={:?} allowed_tools_args={:?}", binary, args, permission_args, allowed_tools_args);
         let mut child = cmd.spawn().map_err(|e| {
             error!("Transport: failed to spawn {}: {}", binary, e);
-            format!("Failed to spawn {}: {}", binary, e)
+            crate::error::ReasonanceError::Transport {
+                provider: provider.clone(),
+                message: format!("Failed to spawn {}: {}", binary, e),
+                retryable: false,
+            }
         })?;
-        let stdout = child.stdout.take().ok_or("Failed to capture stdout")?;
+        let stdout = child.stdout.take().ok_or_else(|| crate::error::ReasonanceError::Transport {
+            provider: provider.clone(),
+            message: "Failed to capture stdout".to_string(),
+            retryable: false,
+        })?;
 
         // Capture stderr and emit as warning events
         if let Some(stderr) = child.stderr.take() {
@@ -285,13 +300,13 @@ impl StructuredAgentTransport {
         Ok(session_id)
     }
 
-    pub fn stop(&self, session_id: &str) -> Result<(), String> {
+    pub fn stop(&self, session_id: &str) -> Result<(), crate::error::ReasonanceError> {
         info!("Transport: stopping session={}", session_id);
         let mut sessions = self.sessions.lock().unwrap_or_else(|e| e.into_inner());
         let session = sessions.get_mut(session_id)
             .ok_or_else(|| {
                 warn!("Transport: stop requested for unknown session={}", session_id);
-                format!("Session {} not found", session_id)
+                crate::error::ReasonanceError::not_found("session", session_id)
             })?;
         if let Some(handle) = session.abort_handle.take() {
             handle.abort();
@@ -301,12 +316,12 @@ impl StructuredAgentTransport {
         Ok(())
     }
 
-    pub fn get_status(&self, session_id: &str) -> Result<SessionStatus, String> {
+    pub fn get_status(&self, session_id: &str) -> Result<SessionStatus, crate::error::ReasonanceError> {
         let sessions = self.sessions.lock().unwrap_or_else(|e| e.into_inner());
         let session = sessions.get(session_id)
             .ok_or_else(|| {
                 warn!("Transport: get_status for unknown session={}", session_id);
-                format!("Session {} not found", session_id)
+                crate::error::ReasonanceError::not_found("session", session_id)
             })?;
         let status = session.status.clone();
         debug!("Transport: session={} status={:?}", session_id, status);
@@ -459,7 +474,7 @@ mod tests {
         };
         let result = transport.send(request, &trust_store);
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("Unknown provider"));
+        assert!(result.unwrap_err().to_string().contains("not found"));
     }
 
     #[test]

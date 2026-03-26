@@ -59,7 +59,7 @@ impl PtyManager {
         args: &[String],
         cwd: &str,
         app: AppHandle,
-    ) -> Result<String, String> {
+    ) -> Result<String, crate::error::ReasonanceError> {
         let pty_system = native_pty_system();
         let pair = pty_system
             .openpty(PtySize {
@@ -68,7 +68,7 @@ impl PtyManager {
                 pixel_width: 0,
                 pixel_height: 0,
             })
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| crate::error::ReasonanceError::internal(e.to_string()))?;
 
         let mut cmd = CommandBuilder::new(command);
         for arg in args {
@@ -78,14 +78,18 @@ impl PtyManager {
 
         let _child = pair.slave.spawn_command(cmd).map_err(|e| {
             error!("Failed to spawn PTY command '{}' in cwd '{}': {}", command, cwd, e);
-            e.to_string()
+            crate::error::ReasonanceError::Transport {
+                provider: command.to_string(),
+                message: e.to_string(),
+                retryable: false,
+            }
         })?;
         drop(pair.slave);
 
         let id = Uuid::new_v4().to_string();
         info!("PTY spawned: id={}, command='{}', cwd='{}'", id, command, cwd);
-        let writer = pair.master.take_writer().map_err(|e| e.to_string())?;
-        let mut reader = pair.master.try_clone_reader().map_err(|e| e.to_string())?;
+        let writer = pair.master.take_writer().map_err(|e| crate::error::ReasonanceError::internal(e.to_string()))?;
+        let mut reader = pair.master.try_clone_reader().map_err(|e| crate::error::ReasonanceError::internal(e.to_string()))?;
 
         let read_id = id.clone();
         thread::spawn(move || {
@@ -119,35 +123,34 @@ impl PtyManager {
         Ok(id)
     }
 
-    pub fn write(&self, id: &str, data: &str) -> Result<(), String> {
+    pub fn write(&self, id: &str, data: &str) -> Result<(), crate::error::ReasonanceError> {
         const MAX_PAYLOAD: usize = 65_536; // 64 KB
         if data.len() > MAX_PAYLOAD {
             warn!("PTY write payload too large: id={}, size={} bytes (max {})", id, data.len(), MAX_PAYLOAD);
-            return Err(format!(
-                "PTY write payload too large: {} bytes (max {})",
-                data.len(),
-                MAX_PAYLOAD
+            return Err(crate::error::ReasonanceError::validation(
+                "data",
+                format!("PTY write payload too large: {} bytes (max {})", data.len(), MAX_PAYLOAD),
             ));
         }
         trace!("PTY write: id={}, bytes={}", id, data.len());
         let mut instances = self.instances.lock().unwrap_or_else(|e| e.into_inner());
         let instance = instances.get_mut(id).ok_or_else(|| {
             error!("PTY write failed: id={} not found", id);
-            "PTY not found".to_string()
+            crate::error::ReasonanceError::not_found("pty", id)
         })?;
         instance
             .writer
             .write_all(data.as_bytes())
             .map_err(|e| {
                 error!("PTY write I/O error: id={}, error={}", id, e);
-                e.to_string()
+                crate::error::ReasonanceError::io(format!("PTY write id={}", id), e)
             })
     }
 
-    pub fn resize(&self, id: &str, cols: u16, rows: u16) -> Result<(), String> {
+    pub fn resize(&self, id: &str, cols: u16, rows: u16) -> Result<(), crate::error::ReasonanceError> {
         debug!("PTY resize: id={}, cols={}, rows={}", id, cols, rows);
         let instances = self.instances.lock().unwrap_or_else(|e| e.into_inner());
-        let instance = instances.get(id).ok_or("PTY not found")?;
+        let instance = instances.get(id).ok_or_else(|| crate::error::ReasonanceError::not_found("pty", id))?;
         instance
             .master
             .resize(PtySize {
@@ -156,17 +159,17 @@ impl PtyManager {
                 pixel_width: 0,
                 pixel_height: 0,
             })
-            .map_err(|e| e.to_string())
+            .map_err(|e| crate::error::ReasonanceError::internal(e.to_string()))
     }
 
-    pub fn kill(&self, id: &str) -> Result<(), String> {
+    pub fn kill(&self, id: &str) -> Result<(), crate::error::ReasonanceError> {
         info!("PTY kill: id={}", id);
         let mut instances = self.instances.lock().unwrap_or_else(|e| e.into_inner());
         instances
             .remove(id)
             .ok_or_else(|| {
                 error!("PTY kill failed: id={} not found", id);
-                "PTY not found".to_string()
+                crate::error::ReasonanceError::not_found("pty", id)
             })?;
         // Clean up project association
         let mut project_map = self.project_map.lock().unwrap_or_else(|e| e.into_inner());

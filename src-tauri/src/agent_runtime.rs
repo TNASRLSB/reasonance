@@ -57,11 +57,11 @@ impl AgentRuntime {
         id
     }
 
-    pub fn transition(&self, agent_id: &str, new_state: AgentState) -> Result<AgentState, String> {
+    pub fn transition(&self, agent_id: &str, new_state: AgentState) -> Result<AgentState, crate::error::ReasonanceError> {
         let mut agents = self.agents.lock().unwrap_or_else(|e| e.into_inner());
         let agent = agents.get_mut(agent_id).ok_or_else(|| {
             error!("Agent state transition failed: agent {} not found", agent_id);
-            format!("Agent {} not found", agent_id)
+            crate::error::ReasonanceError::not_found("agent", agent_id)
         })?;
         let valid = match (&agent.state, &new_state) {
             (AgentState::Idle, AgentState::Queued) => true,
@@ -78,7 +78,10 @@ impl AgentRuntime {
         };
         if !valid {
             warn!("Invalid state transition: {:?} -> {:?} for agent {}", agent.state, new_state, agent_id);
-            return Err(format!("Invalid transition: {:?} -> {:?} for agent {}", agent.state, new_state, agent_id));
+            return Err(crate::error::ReasonanceError::validation(
+                "agent_state",
+                format!("Invalid transition: {:?} -> {:?} for agent {}", agent.state, new_state, agent_id),
+            ));
         }
         info!("Agent state transition: id={}, {:?} -> {:?}", agent_id, agent.state, new_state);
         let now = chrono::Utc::now().to_rfc3339();
@@ -92,17 +95,17 @@ impl AgentRuntime {
         Ok(new_state)
     }
 
-    pub fn set_pty(&self, agent_id: &str, pty_id: &str) -> Result<(), String> {
+    pub fn set_pty(&self, agent_id: &str, pty_id: &str) -> Result<(), crate::error::ReasonanceError> {
         let mut agents = self.agents.lock().unwrap_or_else(|e| e.into_inner());
-        let agent = agents.get_mut(agent_id).ok_or_else(|| format!("Agent {} not found", agent_id))?;
+        let agent = agents.get_mut(agent_id).ok_or_else(|| crate::error::ReasonanceError::not_found("agent", agent_id))?;
         agent.pty_id = Some(pty_id.to_string());
         Ok(())
     }
 
-    pub fn set_error(&self, agent_id: &str, message: &str) -> Result<(), String> {
+    pub fn set_error(&self, agent_id: &str, message: &str) -> Result<(), crate::error::ReasonanceError> {
         error!("Agent error set: id={}, message='{}'", agent_id, message);
         let mut agents = self.agents.lock().unwrap_or_else(|e| e.into_inner());
-        let agent = agents.get_mut(agent_id).ok_or_else(|| format!("Agent {} not found", agent_id))?;
+        let agent = agents.get_mut(agent_id).ok_or_else(|| crate::error::ReasonanceError::not_found("agent", agent_id))?;
         agent.error_message = Some(message.to_string());
         Ok(())
     }
@@ -115,9 +118,9 @@ impl AgentRuntime {
         self.agents.lock().unwrap_or_else(|e| e.into_inner()).values().filter(|a| a.workflow_path == workflow_path).cloned().collect()
     }
 
-    pub fn remove_agent(&self, agent_id: &str) -> Result<(), String> {
+    pub fn remove_agent(&self, agent_id: &str) -> Result<(), crate::error::ReasonanceError> {
         info!("Agent removed: id={}", agent_id);
-        self.agents.lock().unwrap_or_else(|e| e.into_inner()).remove(agent_id).ok_or_else(|| format!("Agent {} not found", agent_id))?;
+        self.agents.lock().unwrap_or_else(|e| e.into_inner()).remove(agent_id).ok_or_else(|| crate::error::ReasonanceError::not_found("agent", agent_id))?;
         Ok(())
     }
 
@@ -137,9 +140,9 @@ impl AgentRuntime {
 
     const MAX_OUTPUT_LINES: usize = 200;
 
-    pub fn append_output(&self, agent_id: &str, line: &str) -> Result<(), String> {
+    pub fn append_output(&self, agent_id: &str, line: &str) -> Result<(), crate::error::ReasonanceError> {
         let mut agents = self.agents.lock().unwrap_or_else(|e| e.into_inner());
-        let agent = agents.get_mut(agent_id).ok_or_else(|| format!("Agent {} not found", agent_id))?;
+        let agent = agents.get_mut(agent_id).ok_or_else(|| crate::error::ReasonanceError::not_found("agent", agent_id))?;
         agent.output_buffer.push(line.to_string());
         if agent.output_buffer.len() > Self::MAX_OUTPUT_LINES {
             let drain_count = agent.output_buffer.len() - Self::MAX_OUTPUT_LINES;
@@ -148,9 +151,9 @@ impl AgentRuntime {
         Ok(())
     }
 
-    pub fn get_output(&self, agent_id: &str) -> Result<Vec<String>, String> {
+    pub fn get_output(&self, agent_id: &str) -> Result<Vec<String>, crate::error::ReasonanceError> {
         let agents = self.agents.lock().unwrap_or_else(|e| e.into_inner());
-        let agent = agents.get(agent_id).ok_or_else(|| format!("Agent {} not found", agent_id))?;
+        let agent = agents.get(agent_id).ok_or_else(|| crate::error::ReasonanceError::not_found("agent", agent_id))?;
         Ok(agent.output_buffer.clone())
     }
 

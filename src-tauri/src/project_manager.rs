@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Mutex;
 
+use crate::error::ReasonanceError;
 use log::{debug, error, info};
 use serde::{Deserialize, Serialize};
 
@@ -33,12 +34,9 @@ pub fn add_project(
     root_path: String,
     trust_level: String,
     state: tauri::State<'_, ProjectsState>,
-) -> Result<(), String> {
+) -> Result<(), ReasonanceError> {
     info!("cmd::add_project(id={}, root_path={}, trust_level={})", id, root_path, trust_level);
-    let mut projects = state.0.lock().map_err(|e| {
-        error!("cmd::add_project failed to acquire lock: {}", e);
-        e.to_string()
-    })?;
+    let mut projects = state.0.lock().unwrap_or_else(|e| e.into_inner());
     projects.insert(
         id.clone(),
         ProjectState {
@@ -54,12 +52,9 @@ pub fn add_project(
 pub fn remove_project(
     id: String,
     state: tauri::State<'_, ProjectsState>,
-) -> Result<(), String> {
+) -> Result<(), ReasonanceError> {
     info!("cmd::remove_project(id={})", id);
-    let mut projects = state.0.lock().map_err(|e| {
-        error!("cmd::remove_project failed to acquire lock: {}", e);
-        e.to_string()
-    })?;
+    let mut projects = state.0.lock().unwrap_or_else(|e| e.into_inner());
     projects.remove(&id);
     debug!("cmd::remove_project removed project id={}", id);
     Ok(())
@@ -70,23 +65,17 @@ pub fn set_active_project(
     id: String,
     projects_state: tauri::State<'_, ProjectsState>,
     active_state: tauri::State<'_, ActiveProjectState>,
-) -> Result<(), String> {
+) -> Result<(), ReasonanceError> {
     info!("cmd::set_active_project(id={})", id);
     // Verify project exists
-    let projects = projects_state.0.lock().map_err(|e| {
-        error!("cmd::set_active_project failed to acquire projects lock: {}", e);
-        e.to_string()
-    })?;
+    let projects = projects_state.0.lock().unwrap_or_else(|e| e.into_inner());
     if !projects.contains_key(&id) {
         error!("cmd::set_active_project failed: project {} not found", id);
-        return Err(format!("Project {} not found", id));
+        return Err(ReasonanceError::not_found("project", &id));
     }
     drop(projects);
 
-    let mut active = active_state.0.lock().map_err(|e| {
-        error!("cmd::set_active_project failed to acquire active lock: {}", e);
-        e.to_string()
-    })?;
+    let mut active = active_state.0.lock().unwrap_or_else(|e| e.into_inner());
     *active = Some(id.clone());
     debug!("cmd::set_active_project set active to id={}", id);
     Ok(())
@@ -96,15 +85,12 @@ pub fn set_active_project(
 pub fn get_project_root(
     project_id: String,
     state: tauri::State<'_, ProjectsState>,
-) -> Result<String, String> {
+) -> Result<String, ReasonanceError> {
     debug!("cmd::get_project_root(project_id={})", project_id);
-    let projects = state.0.lock().map_err(|e| {
-        error!("cmd::get_project_root failed to acquire lock: {}", e);
-        e.to_string()
-    })?;
+    let projects = state.0.lock().unwrap_or_else(|e| e.into_inner());
     let project = projects.get(&project_id).ok_or_else(|| {
         error!("cmd::get_project_root failed: project {} not found", project_id);
-        format!("Project {} not found", project_id)
+        ReasonanceError::not_found("project", &project_id)
     })?;
     Ok(project.root_path.to_string_lossy().to_string())
 }

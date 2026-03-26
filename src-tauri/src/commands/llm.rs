@@ -1,3 +1,4 @@
+use crate::error::ReasonanceError;
 use log::{info, error, debug};
 use serde::Serialize;
 
@@ -24,7 +25,7 @@ pub async fn call_llm_api(
     prompt: String,
     api_key_env: String,
     endpoint: String,
-) -> Result<String, String> {
+) -> Result<String, ReasonanceError> {
     info!("cmd::call_llm_api(provider={}, model={})", provider, model);
     // Read the API key from environment — it never leaves the backend
     let api_key = if api_key_env.is_empty() {

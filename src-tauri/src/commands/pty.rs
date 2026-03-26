@@ -1,4 +1,5 @@
 use crate::config;
+use crate::error::ReasonanceError;
 use crate::pty_manager::PtyManager;
 use log::{info, error, debug};
 use tauri::{AppHandle, State};
@@ -58,14 +59,17 @@ pub fn spawn_process(
     cwd: String,
     app: AppHandle,
     pty_manager: State<'_, PtyManager>,
-) -> Result<String, String> {
+) -> Result<String, ReasonanceError> {
     info!("cmd::spawn_process(command={}, cwd={})", command, cwd);
     if !is_allowed_command(&command) {
         error!("cmd::spawn_process rejected disallowed command: {}", command);
-        return Err(format!(
-            "Command '{}' is not allowed. Only configured LLM commands and known shells are permitted.",
-            command
-        ));
+        return Err(ReasonanceError::Security {
+            message: format!(
+                "Command '{}' is not allowed. Only configured LLM commands and known shells are permitted.",
+                command
+            ),
+            code: crate::error::SecurityErrorCode::DisallowedCommand,
+        });
     }
     let result = pty_manager.spawn(&command, &args, &cwd, app);
     match &result {
@@ -80,7 +84,7 @@ pub fn write_pty(
     id: String,
     data: String,
     pty_manager: State<'_, PtyManager>,
-) -> Result<(), String> {
+) -> Result<(), ReasonanceError> {
     debug!("cmd::write_pty(id={}, len={})", id, data.len());
     pty_manager.write(&id, &data)
 }
@@ -91,7 +95,7 @@ pub fn resize_pty(
     cols: u16,
     rows: u16,
     pty_manager: State<'_, PtyManager>,
-) -> Result<(), String> {
+) -> Result<(), ReasonanceError> {
     debug!("cmd::resize_pty(id={}, cols={}, rows={})", id, cols, rows);
     pty_manager.resize(&id, cols, rows)
 }
@@ -100,7 +104,7 @@ pub fn resize_pty(
 pub fn kill_process(
     id: String,
     pty_manager: State<'_, PtyManager>,
-) -> Result<(), String> {
+) -> Result<(), ReasonanceError> {
     info!("cmd::kill_process(id={})", id);
     pty_manager.kill(&id).map_err(|e| {
         error!("cmd::kill_process failed for id={}: {}", id, e);
@@ -112,7 +116,7 @@ pub fn kill_process(
 pub fn kill_project_ptys(
     project_id: String,
     pty_manager: State<'_, PtyManager>,
-) -> Result<Vec<String>, String> {
+) -> Result<Vec<String>, ReasonanceError> {
     info!("cmd::kill_project_ptys(project_id={})", project_id);
     Ok(pty_manager.kill_project_ptys(&project_id))
 }

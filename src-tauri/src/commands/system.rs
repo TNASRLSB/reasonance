@@ -1,3 +1,4 @@
+use crate::error::ReasonanceError;
 use log::{info, warn, error, debug};
 use std::process::Command;
 use std::path::PathBuf;
@@ -139,16 +140,19 @@ pub fn discover_llms() -> Vec<DiscoveredLlm> {
 }
 
 #[tauri::command]
-pub fn open_external(path: String) -> Result<(), String> {
+pub fn open_external(path: String) -> Result<(), ReasonanceError> {
     info!("cmd::open_external(path={})", path);
     // SEC-06: only allow http:// and https:// schemes to prevent file:// and app:// abuse
     if !path.starts_with("https://") && !path.starts_with("http://") {
         error!("cmd::open_external rejected URL with disallowed scheme: {}", path);
-        return Err(format!("Rejected URL with disallowed scheme: {}", path));
+        return Err(ReasonanceError::Security {
+            message: format!("Rejected URL with disallowed scheme: {}", path),
+            code: crate::error::SecurityErrorCode::InvalidScheme,
+        });
     }
     open::that(&path).map_err(|e| {
         error!("cmd::open_external failed to open {}: {}", path, e);
-        e.to_string()
+        ReasonanceError::io(format!("open external '{}'", path), e)
     })
 }
 
@@ -174,17 +178,20 @@ const ENV_VAR_ALLOWLIST: &[&str] = &[
 ];
 
 #[tauri::command]
-pub fn get_env_var(name: String) -> Result<Option<String>, String> {
+pub fn get_env_var(name: String) -> Result<Option<String>, ReasonanceError> {
     info!("cmd::get_env_var(name={})", name);
     if !ENV_VAR_ALLOWLIST.contains(&name.as_str()) {
         warn!("cmd::get_env_var rejected non-allowlisted var: {}", name);
-        return Err(format!("Environment variable '{}' is not in the allowed list", name));
+        return Err(ReasonanceError::Security {
+            message: format!("Environment variable '{}' is not in the allowed list", name),
+            code: crate::error::SecurityErrorCode::DisallowedEnvVar,
+        });
     }
     Ok(std::env::var(&name).ok())
 }
 
 #[tauri::command]
-pub fn get_system_colors() -> Result<std::collections::HashMap<String, String>, String> {
+pub fn get_system_colors() -> Result<std::collections::HashMap<String, String>, ReasonanceError> {
     info!("cmd::get_system_colors called");
     let mut colors = std::collections::HashMap::new();
 

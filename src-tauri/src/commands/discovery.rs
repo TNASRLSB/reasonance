@@ -1,11 +1,12 @@
 use crate::discovery::DiscoveryEngine;
+use crate::error::ReasonanceError;
 use log::{info, debug};
 use tauri::State;
 
 #[tauri::command]
 pub async fn discover_agents(
     engine: State<'_, DiscoveryEngine>,
-) -> Result<Vec<crate::discovery::DiscoveredAgent>, String> {
+) -> Result<Vec<crate::discovery::DiscoveredAgent>, ReasonanceError> {
     info!("cmd::discover_agents called");
     let result = engine.discover_all().await;
     debug!("cmd::discover_agents found {} agents", result.len());
@@ -24,7 +25,7 @@ pub fn get_discovered_agents(
 pub fn register_custom_agent(
     agent: crate::discovery::DiscoveredAgent,
     engine: State<'_, DiscoveryEngine>,
-) -> Result<(), String> {
+) -> Result<(), ReasonanceError> {
     info!("cmd::register_custom_agent called for '{}'", agent.name);
     engine.register_custom_agent(agent);
     Ok(())

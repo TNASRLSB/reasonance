@@ -17,7 +17,7 @@ pub struct SessionManager {
 }
 
 impl SessionManager {
-    pub fn new(sessions_dir: &Path) -> Result<Self, String> {
+    pub fn new(sessions_dir: &Path) -> Result<Self, crate::error::ReasonanceError> {
         info!("SessionManager: initializing with sessions_dir={}", sessions_dir.display());
         let store = Arc::new(SessionStore::new(sessions_dir)?);
         let index = store.read_index().unwrap_or_default();
@@ -32,7 +32,7 @@ impl SessionManager {
     }
 
     /// Create a new session. Returns the session ID.
-    pub fn create_session(&self, provider: &str, model: &str) -> Result<String, String> {
+    pub fn create_session(&self, provider: &str, model: &str) -> Result<String, crate::error::ReasonanceError> {
         info!("SessionManager: creating session provider={} model={}", provider, model);
         let handle = SessionHandle::new(provider, model);
         let session_id = handle.id.clone();
@@ -50,11 +50,11 @@ impl SessionManager {
     }
 
     /// Restore a session from disk. Returns the handle and its events.
-    pub fn restore_session(&self, session_id: &str) -> Result<(SessionHandle, Vec<AgentEvent>), String> {
+    pub fn restore_session(&self, session_id: &str) -> Result<(SessionHandle, Vec<AgentEvent>), crate::error::ReasonanceError> {
         info!("SessionManager: restoring session={}", session_id);
         if !self.store.session_exists(session_id) {
             warn!("SessionManager: session={} not found on disk", session_id);
-            return Err(format!("Session {} not found", session_id));
+            return Err(crate::error::ReasonanceError::not_found("session", session_id));
         }
 
         let mut handle = self.store.read_metadata(session_id)?;
@@ -74,7 +74,7 @@ impl SessionManager {
     }
 
     /// Fork a session at a given event index. Returns the new session ID.
-    pub fn fork_session(&self, parent_session_id: &str, fork_event_index: u32) -> Result<String, String> {
+    pub fn fork_session(&self, parent_session_id: &str, fork_event_index: u32) -> Result<String, crate::error::ReasonanceError> {
         info!("SessionManager: forking session={} at event_index={}", parent_session_id, fork_event_index);
         let parent = self.store.read_metadata(parent_session_id)?;
         let parent_events = self.store.read_events(parent_session_id)?;
@@ -82,9 +82,9 @@ impl SessionManager {
         let idx = fork_event_index as usize;
         if idx > parent_events.len() {
             warn!("SessionManager: fork index {} exceeds event count {} for session={}", fork_event_index, parent_events.len(), parent_session_id);
-            return Err(format!(
-                "Fork index {} exceeds event count {}",
-                fork_event_index, parent_events.len()
+            return Err(crate::error::ReasonanceError::validation(
+                "fork_event_index",
+                format!("Fork index {} exceeds event count {}", fork_event_index, parent_events.len()),
             ));
         }
 
@@ -126,7 +126,7 @@ impl SessionManager {
     }
 
     /// Delete a session.
-    pub fn delete_session(&self, session_id: &str) -> Result<(), String> {
+    pub fn delete_session(&self, session_id: &str) -> Result<(), crate::error::ReasonanceError> {
         info!("SessionManager: deleting session={}", session_id);
         self.store.delete_session(session_id)?;
 
@@ -139,7 +139,7 @@ impl SessionManager {
     }
 
     /// Rename a session.
-    pub fn rename_session(&self, session_id: &str, title: &str) -> Result<(), String> {
+    pub fn rename_session(&self, session_id: &str, title: &str) -> Result<(), crate::error::ReasonanceError> {
         info!("SessionManager: renaming session={} to {:?}", session_id, title);
         let mut handle = self.store.read_metadata(session_id)?;
         handle.title = title.to_string();
@@ -158,7 +158,7 @@ impl SessionManager {
 
     /// Finalize a session — flush metadata with final status and update index.
     /// Called when the transport's CLI process ends.
-    pub fn finalize_session(&self, session_id: &str, final_status: SessionStatus) -> Result<(), String> {
+    pub fn finalize_session(&self, session_id: &str, final_status: SessionStatus) -> Result<(), crate::error::ReasonanceError> {
         info!("SessionManager: finalizing session={} with status={:?}", session_id, final_status);
         // Collect data under recorder lock, then release before acquiring index lock
         let event_count = {
@@ -204,7 +204,7 @@ impl SessionManager {
     }
 
     /// Set view mode for a session.
-    pub fn set_view_mode(&self, session_id: &str, mode: ViewMode) -> Result<(), String> {
+    pub fn set_view_mode(&self, session_id: &str, mode: ViewMode) -> Result<(), crate::error::ReasonanceError> {
         debug!("SessionManager: setting view_mode={:?} for session={}", mode, session_id);
         let mut handle = self.store.read_metadata(session_id)?;
         handle.view_mode = mode;
