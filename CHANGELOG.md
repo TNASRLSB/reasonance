@@ -1,5 +1,52 @@
 # Changelog
 
+## [1.6.0] - 2026-03-26
+
+### Features
+
+- feat(phase-3): add multi-slot model selection with fallback chain
+- feat(phase-3): add app state persistence across restart
+- feat(phase-3): add HiveNodeHandler trait and node registry
+- feat(phase-3): add channel-based inter-agent communication
+- feat(phase-3): add SQLite + FTS5 agent memory with scoped search
+
+### Other
+
+- Per-provider configs. Tauri commands for frontend. 10 tests.
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- Per-project state isolation. JSON file persistence. 8 tests.
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- NodeDescriptor for frontend palette. get_node_types Tauri command.
+- 17 tests passing (all green).
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- since_id filtering. Replaces Vec mailbox. 10 tests.
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- Features: importance-based eviction, 3-level scoping (node/project/global),
+- FTS5 full-text keyword search, WAL mode for concurrent reads. Old
+- agent_memory.rs retained for backward compat. 16 tests.
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+
+
+
 ## [1.5.0] - 2026-03-26
 
 ### Features
