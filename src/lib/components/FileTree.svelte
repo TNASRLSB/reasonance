@@ -288,6 +288,14 @@
         e.preventDefault();
         focusedIndex = flatItems.length - 1;
         break;
+      case 'Delete': {
+        e.preventDefault();
+        const item = flatItems[flatIndex];
+        if (item && !item.entry.isDir) {
+          deleteFile(item.entry);
+        }
+        break;
+      }
     }
   }
 
@@ -296,6 +304,7 @@
   let ctxX = $state(0);
   let ctxY = $state(0);
   let ctxTargetDir = $state('');
+  let ctxEntry = $state<FileEntry | null>(null);
   let inlineInput = $state<{ parentDir: string; type: 'file' | 'folder' } | null>(null);
   let inlineValue = $state('');
 
@@ -305,6 +314,7 @@
     ctxX = e.clientX;
     ctxY = e.clientY;
     ctxTargetDir = entry.isDir ? entry.path : entry.path.substring(0, entry.path.lastIndexOf('/'));
+    ctxEntry = entry;
     ctxVisible = true;
   }
 
@@ -357,6 +367,32 @@
 
   function cancelInlineCreate() {
     inlineInput = null;
+  }
+
+  async function deleteFile(entry: FileEntry) {
+    if (entry.isDir) return;
+    const name = entry.name;
+    try {
+      await adapter.fileOpsDelete(entry.path);
+      const { closeFile } = await import('$lib/stores/projects/namespace');
+      closeFile(entry.path);
+      showToast('info', $tr('fileTree.deleted', { name }), '', 8000, {
+        actions: [{
+          label: $tr('fileTree.undo'),
+          onClick: async () => {
+            try {
+              await adapter.fileOpsUndo();
+              showToast('success', $tr('fileTree.undone', { name }));
+            } catch (e) {
+              showToast('error', 'Undo failed', String(e));
+            }
+          },
+        }],
+      });
+    } catch (e) {
+      showToast('error', 'Delete failed', String(e));
+    }
+    ctxVisible = false;
   }
 
   function findEntry(path: string): FileEntry | undefined {
@@ -485,8 +521,11 @@
   <div class="ctx-overlay" onclick={() => { ctxVisible = false; }} onkeydown={(e) => { if (e.key === 'Escape') ctxVisible = false; }} oncontextmenu={(e) => { e.preventDefault(); ctxVisible = false; }}>
     <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
     <div class="ctx-menu" role="menu" tabindex="-1" style="left: {ctxX}px; top: {ctxY}px" onclick={(e) => e.stopPropagation()}>
-      <button class="ctx-item" onclick={() => startInlineCreate('file')}>New File</button>
-      <button class="ctx-item" onclick={() => startInlineCreate('folder')}>New Folder</button>
+      <button class="ctx-item" onclick={() => startInlineCreate('file')}>{$tr('fileTree.newFile')}</button>
+      <button class="ctx-item" onclick={() => startInlineCreate('folder')}>{$tr('fileTree.newFolder')}</button>
+      {#if ctxEntry && !ctxEntry.isDir}
+        <button class="ctx-item ctx-item--danger" onclick={() => ctxEntry && deleteFile(ctxEntry)}>{$tr('fileTree.delete')}</button>
+      {/if}
     </div>
   </div>
 {/if}
@@ -688,5 +727,14 @@
   .ctx-item:hover {
     background: var(--bg-hover);
     color: var(--text-primary);
+  }
+
+  .ctx-item--danger {
+    color: var(--error);
+  }
+
+  .ctx-item--danger:hover {
+    background: var(--error);
+    color: var(--bg-surface);
   }
 </style>

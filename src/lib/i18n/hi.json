@@ -366,5 +366,11 @@
   "results.count": {
     "one": "{count} परिणाम",
     "other": "{count} परिणाम"
-  }
+  },
+  "fileTree.delete": "हटाएं",
+  "fileTree.deleted": "{name} हटाया गया",
+  "fileTree.undo": "पूर्ववत करें",
+  "fileTree.undone": "{name} पुनर्स्थापित",
+  "fileTree.newFile": "नई फ़ाइल",
+  "fileTree.newFolder": "नया फ़ोल्डर"
 }

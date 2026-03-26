@@ -390,5 +390,11 @@
     "few": "{count} نتائج",
     "many": "{count} نتيجةً",
     "other": "{count} نتيجة"
-  }
+  },
+  "fileTree.delete": "حذف",
+  "fileTree.deleted": "تم حذف {name}",
+  "fileTree.undo": "تراجع",
+  "fileTree.undone": "تم استعادة {name}",
+  "fileTree.newFile": "ملف جديد",
+  "fileTree.newFolder": "مجلد جديد"
 }

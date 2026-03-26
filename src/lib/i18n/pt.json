@@ -366,5 +366,11 @@
   "results.count": {
     "one": "{count} resultado",
     "other": "{count} resultados"
-  }
+  },
+  "fileTree.delete": "Excluir",
+  "fileTree.deleted": "{name} excluído",
+  "fileTree.undo": "Desfazer",
+  "fileTree.undone": "{name} restaurado",
+  "fileTree.newFile": "Novo arquivo",
+  "fileTree.newFolder": "Nova pasta"
 }

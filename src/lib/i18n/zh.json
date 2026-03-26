@@ -360,5 +360,11 @@
   },
   "results.count": {
     "other": "{count} 个结果"
-  }
+  },
+  "fileTree.delete": "删除",
+  "fileTree.deleted": "已删除 {name}",
+  "fileTree.undo": "撤销",
+  "fileTree.undone": "已恢复 {name}",
+  "fileTree.newFile": "新建文件",
+  "fileTree.newFolder": "新建文件夹"
 }

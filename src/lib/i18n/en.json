@@ -366,5 +366,11 @@
   "results.count": {
     "one": "{count} result",
     "other": "{count} results"
-  }
+  },
+  "fileTree.delete": "Delete",
+  "fileTree.deleted": "Deleted {name}",
+  "fileTree.undo": "Undo",
+  "fileTree.undone": "Restored {name}",
+  "fileTree.newFile": "New File",
+  "fileTree.newFolder": "New Folder"
 }
