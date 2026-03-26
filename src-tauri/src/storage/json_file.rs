@@ -1,7 +1,7 @@
 //! JSON file storage backend with atomic writes.
 
 use async_trait::async_trait;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use crate::error::ReasonanceError;
 use super::StorageBackend;
@@ -61,6 +61,83 @@ fn sanitize_path_component(s: &str) -> String {
     } else {
         trimmed.to_string()
     }
+}
+
+/// Atomic file write: write to `.tmp`, then rename.
+///
+/// Rename is atomic on most local filesystems, ensuring the destination
+/// file is never seen in a partial state.
+pub fn atomic_write(path: &Path, content: &[u8]) -> Result<(), ReasonanceError> {
+    let tmp = path.with_extension("tmp");
+    std::fs::write(&tmp, content)
+        .map_err(|e| ReasonanceError::io("atomic write temp file", e))?;
+    std::fs::rename(&tmp, path)
+        .map_err(|e| ReasonanceError::io("atomic write rename", e))?;
+    Ok(())
+}
+
+/// Append a complete line to a JSONL file with fsync.
+///
+/// Creates the file if it does not exist. Each call appends exactly one
+/// newline-terminated line and flushes to disk before returning.
+pub fn safe_append(path: &Path, line: &str) -> Result<(), ReasonanceError> {
+    use std::io::Write;
+    let mut file = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)
+        .map_err(|e| ReasonanceError::io("open JSONL for append", e))?;
+    writeln!(file, "{}", line)
+        .map_err(|e| ReasonanceError::io("append to JSONL", e))?;
+    file.sync_data()
+        .map_err(|e| ReasonanceError::io("fsync JSONL", e))?;
+    Ok(())
+}
+
+/// Validate a JSONL file: truncate any partial last line.
+///
+/// Each non-empty line must be valid JSON. The first line that fails
+/// JSON parsing (or a read error) marks the end of the valid region;
+/// the file is truncated there.
+///
+/// Returns the number of valid (successfully parsed) lines.
+pub fn validate_jsonl(path: &Path) -> Result<usize, ReasonanceError> {
+    use std::io::{BufRead, BufReader};
+
+    let file = std::fs::File::open(path)
+        .map_err(|e| ReasonanceError::io("open JSONL for validation", e))?;
+    let reader = BufReader::new(file);
+
+    let mut last_valid_pos: u64 = 0;
+    let mut valid_count = 0;
+
+    for line in reader.lines() {
+        match line {
+            Ok(l) => {
+                if l.trim().is_empty() {
+                    continue;
+                }
+                if serde_json::from_str::<serde_json::Value>(&l).is_ok() {
+                    last_valid_pos += l.len() as u64 + 1; // +1 for '\n'
+                    valid_count += 1;
+                } else {
+                    // Partial or corrupt line — stop here
+                    break;
+                }
+            }
+            Err(_) => break,
+        }
+    }
+
+    // Truncate file to last valid position
+    let file = std::fs::OpenOptions::new()
+        .write(true)
+        .open(path)
+        .map_err(|e| ReasonanceError::io("open JSONL for truncation", e))?;
+    file.set_len(last_valid_pos)
+        .map_err(|e| ReasonanceError::io("truncate JSONL", e))?;
+
+    Ok(valid_count)
 }
 
 #[async_trait]
@@ -256,5 +333,101 @@ mod tests {
         assert_eq!(sanitize_path_component(".."), "_");
         assert_eq!(sanitize_path_component(".hidden"), "hidden");
         assert_eq!(sanitize_path_component("..."), "_.");
+    }
+
+    // ── atomic_write ──────────────────────────────────────────────────────────
+
+    #[test]
+    fn atomic_write_creates_file_with_correct_content() {
+        let tmp = TempDir::new().unwrap();
+        let path = tmp.path().join("out.json");
+        atomic_write(&path, b"{\"ok\":true}").unwrap();
+        let content = std::fs::read(&path).unwrap();
+        assert_eq!(content, b"{\"ok\":true}");
+        // No leftover .tmp file
+        assert!(!path.with_extension("tmp").exists());
+    }
+
+    #[test]
+    fn atomic_write_overwrites_existing_file() {
+        let tmp = TempDir::new().unwrap();
+        let path = tmp.path().join("out.json");
+        atomic_write(&path, b"first").unwrap();
+        atomic_write(&path, b"second-longer").unwrap();
+        let content = std::fs::read(&path).unwrap();
+        assert_eq!(content, b"second-longer");
+    }
+
+    // ── safe_append ───────────────────────────────────────────────────────────
+
+    #[test]
+    fn safe_append_creates_file_and_appends_lines() {
+        let tmp = TempDir::new().unwrap();
+        let path = tmp.path().join("events.jsonl");
+
+        safe_append(&path, r#"{"id":1}"#).unwrap();
+        safe_append(&path, r#"{"id":2}"#).unwrap();
+        safe_append(&path, r#"{"id":3}"#).unwrap();
+
+        let content = std::fs::read_to_string(&path).unwrap();
+        let lines: Vec<&str> = content.lines().collect();
+        assert_eq!(lines.len(), 3);
+        assert_eq!(lines[0], r#"{"id":1}"#);
+        assert_eq!(lines[1], r#"{"id":2}"#);
+        assert_eq!(lines[2], r#"{"id":3}"#);
+    }
+
+    // ── validate_jsonl ────────────────────────────────────────────────────────
+
+    #[test]
+    fn validate_jsonl_valid_file_returns_correct_count() {
+        let tmp = TempDir::new().unwrap();
+        let path = tmp.path().join("log.jsonl");
+        safe_append(&path, r#"{"a":1}"#).unwrap();
+        safe_append(&path, r#"{"b":2}"#).unwrap();
+        safe_append(&path, r#"{"c":3}"#).unwrap();
+
+        let count = validate_jsonl(&path).unwrap();
+        assert_eq!(count, 3);
+
+        // File content must be unchanged
+        let content = std::fs::read_to_string(&path).unwrap();
+        assert_eq!(content.lines().count(), 3);
+    }
+
+    #[test]
+    fn validate_jsonl_partial_last_line_is_truncated() {
+        let tmp = TempDir::new().unwrap();
+        let path = tmp.path().join("log.jsonl");
+
+        // Write two complete lines then a partial/corrupt one
+        use std::io::Write;
+        let mut f = std::fs::File::create(&path).unwrap();
+        writeln!(f, r#"{{"ok":true}}"#).unwrap();
+        writeln!(f, r#"{{"ok":true}}"#).unwrap();
+        write!(f, r#"{{"partial":"#).unwrap(); // no closing brace or newline
+        drop(f);
+
+        let count = validate_jsonl(&path).unwrap();
+        assert_eq!(count, 2);
+
+        // File must contain exactly 2 complete lines
+        let content = std::fs::read_to_string(&path).unwrap();
+        assert_eq!(content.lines().count(), 2);
+        // Partial line must be gone
+        assert!(!content.contains("partial"));
+    }
+
+    #[test]
+    fn validate_jsonl_empty_file_returns_zero() {
+        let tmp = TempDir::new().unwrap();
+        let path = tmp.path().join("empty.jsonl");
+        std::fs::File::create(&path).unwrap();
+
+        let count = validate_jsonl(&path).unwrap();
+        assert_eq!(count, 0);
+
+        // File remains empty
+        assert_eq!(std::fs::metadata(&path).unwrap().len(), 0);
     }
 }
