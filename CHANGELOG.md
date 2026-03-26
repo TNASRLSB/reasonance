@@ -1,5 +1,93 @@
 # Changelog
 
+## [1.7.0] - 2026-03-26
+
+### Features
+
+- feat(phase-4): add i18n pluralization via Intl.PluralRules
+- feat(phase-4): add stale detection for search results
+- feat(phase-4): add file operation undo with trash-based delete
+- feat(phase-4): add git status icons in FileTree
+- feat(phase-4): add auto-fold for single-child directory chains
+- feat(phase-4): add API value hero banner to AnalyticsDashboard
+- feat(phase-4): add pace delta (quota burn rate) to AnalyticsBar
+- feat(phase-4): add DiffBlock conflict detection via context-line validation
+- feat(phase-4): virtualize FileTree with flat list + scroll buffer
+
+### Bug Fixes
+
+- fix(phase-4): fix editor memory leak + optimize gutter to O(viewport)
+
+### Other
+
+- Added 6 plural keys across all 9 locales with proper forms per language — Arabic gets all 6
+- CLDR forms, Chinese gets only 'other', others get one/other. Replaced inline ternary plurals
+- in DiffBlock (hunk count) and ChatMessages (earlier messages load-more button).
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- file modified since search. Re-search button for stale results.
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- .reasonance/.trash/, undo restores. Redo cleared on new operation.
+- 5 Tauri commands: file_ops_delete, file_ops_undo, file_ops_record_create,
+- file_ops_record_rename, file_ops_set_project. 8 tests.
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- with color coding. 2s debounced refresh on fs-change.
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- Expand/collapse operates on final directory in chain.
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- Hidden when multiplier ≤ 1.
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- Reset countdown. claude-lens formula adapted.
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- Conflict UI with Apply anyway / Dismiss options.
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- GPU-accelerated translateY positioning. ARIA tree semantics preserved.
+- Keyboard nav works on flat index. childrenCache cleaned on project switch.
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- pre-split once on load, eliminating split('
+') on every gutter frame.
+- Gutter now iterates only visible viewport lines instead of all file lines.
+- Add LRU eviction at 100 entries and clean up entries when tabs are closed.
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+
+
+
 ## [1.6.0] - 2026-03-26
 
 ### Features
