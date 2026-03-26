@@ -27,6 +27,14 @@ globalThis.ResizeObserver = class ResizeObserver {
   disconnect() {}
 } as unknown as typeof ResizeObserver;
 
+if (typeof CSS === 'undefined' || !CSS.escape) {
+  (globalThis as Record<string, unknown>).CSS = {
+    escape: (s: string) => s.replace(/([^\w-])/g, '\\$1'),
+  };
+}
+
+Element.prototype.scrollIntoView = Element.prototype.scrollIntoView || function () {};
+
 beforeEach(() => {
   store.clear();
 });
