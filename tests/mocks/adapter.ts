@@ -474,6 +474,13 @@ export function createMockAdapter(overrides?: Partial<Adapter>): Adapter {
       return Promise.resolve(null);
     },
 
+    // File Operations (undo/trash)
+    fileOpsSetProject(_path: string): Promise<void> { return Promise.resolve(); },
+    fileOpsDelete(_path: string): Promise<void> { return Promise.resolve(); },
+    fileOpsUndo(): Promise<string> { return Promise.resolve('Undo: restored file'); },
+    fileOpsRecordCreate(_path: string): Promise<void> { return Promise.resolve(); },
+    fileOpsRecordRename(_oldPath: string, _newPath: string): Promise<void> { return Promise.resolve(); },
+
     // App State Persistence
     getAppState(): Promise<AppState> {
       return Promise.resolve({

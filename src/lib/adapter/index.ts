@@ -151,6 +151,13 @@ export interface Adapter {
   saveAppState(state: AppState): Promise<void>;
   getProjectState(projectId: string): Promise<ProjectState>;
   saveProjectState(projectId: string, state: ProjectState): Promise<void>;
+
+  // --- File Operations (undo/trash) ---
+  fileOpsSetProject(path: string): Promise<void>;
+  fileOpsDelete(path: string): Promise<void>;
+  fileOpsUndo(): Promise<string>;
+  fileOpsRecordCreate(path: string): Promise<void>;
+  fileOpsRecordRename(oldPath: string, newPath: string): Promise<void>;
 }
 
 export interface GrepResult {

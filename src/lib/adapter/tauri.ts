@@ -370,6 +370,23 @@ export class TauriAdapter implements Adapter {
     return invoke('save_project_state', { projectId, state });
   }
 
+  // File Operations (undo/trash)
+  async fileOpsSetProject(path: string): Promise<void> {
+    return invoke('file_ops_set_project', { path });
+  }
+  async fileOpsDelete(path: string): Promise<void> {
+    return invoke('file_ops_delete', { path });
+  }
+  async fileOpsUndo(): Promise<string> {
+    return invoke('file_ops_undo');
+  }
+  async fileOpsRecordCreate(path: string): Promise<void> {
+    return invoke('file_ops_record_create', { path });
+  }
+  async fileOpsRecordRename(oldPath: string, newPath: string): Promise<void> {
+    return invoke('file_ops_record_rename', { oldPath, newPath });
+  }
+
   // Multi-project
   async addProject(id: string, rootPath: string, trustLevel: string): Promise<void> {
     await invoke('add_project', { id, rootPath, trustLevel });
