@@ -146,6 +146,7 @@
   "shortcuts.undo": "تراجع",
   "shortcuts.redo": "إعادة",
   "shortcuts.findInFile": "البحث في الطرفية",
+  "shortcuts.sessionHistory": "سجل الجلسات",
   "shortcuts.ctx.global": "عام",
   "shortcuts.ctx.dialog": "مربعات الحوار",
   "shortcuts.ctx.editor": "المحرر",

@@ -33,7 +33,6 @@ export default defineConfig({
       '@tauri-apps/plugin-notification': path.resolve('./tests/mocks/tauri-plugins.ts'),
       '@tauri-apps/plugin-global-shortcut': path.resolve('./tests/mocks/tauri-plugins.ts'),
       '@tauri-apps/plugin-process': path.resolve('./tests/mocks/tauri-plugins.ts'),
-      '@tauri-apps/plugin-deep-link': path.resolve('./tests/mocks/tauri-plugins.ts'),
       '@tauri-apps/plugin-window-state': path.resolve('./tests/mocks/tauri-plugins.ts'),
       '@tauri-apps/plugin-updater': path.resolve('./tests/mocks/tauri-plugins.ts'),
       '@tauri-apps/plugin-opener': path.resolve('./tests/mocks/tauri-plugins.ts'),

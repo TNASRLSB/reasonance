@@ -146,6 +146,7 @@
   "shortcuts.undo": "撤销",
   "shortcuts.redo": "重做",
   "shortcuts.findInFile": "在终端中搜索",
+  "shortcuts.sessionHistory": "会话历史",
   "shortcuts.ctx.global": "全局",
   "shortcuts.ctx.dialog": "对话框",
   "shortcuts.ctx.editor": "编辑器",

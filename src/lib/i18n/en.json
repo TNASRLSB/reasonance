@@ -149,6 +149,7 @@
   "shortcuts.undo": "Undo",
   "shortcuts.redo": "Redo",
   "shortcuts.findInFile": "Find in terminal",
+  "shortcuts.sessionHistory": "Session history",
   "shortcuts.ctx.global": "Global",
   "shortcuts.ctx.dialog": "Dialogs",
   "shortcuts.ctx.editor": "Editor",

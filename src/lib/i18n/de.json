@@ -146,6 +146,7 @@
   "shortcuts.undo": "Rückgängig",
   "shortcuts.redo": "Wiederholen",
   "shortcuts.findInFile": "Im Terminal suchen",
+  "shortcuts.sessionHistory": "Sitzungsverlauf",
   "shortcuts.ctx.global": "Global",
   "shortcuts.ctx.dialog": "Dialoge",
   "shortcuts.ctx.editor": "Editor",

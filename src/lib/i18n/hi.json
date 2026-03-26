@@ -146,6 +146,7 @@
   "shortcuts.undo": "पूर्ववत करें",
   "shortcuts.redo": "फिर से करें",
   "shortcuts.findInFile": "टर्मिनल में खोजें",
+  "shortcuts.sessionHistory": "सत्र इतिहास",
   "shortcuts.ctx.global": "वैश्विक",
   "shortcuts.ctx.dialog": "डायलॉग",
   "shortcuts.ctx.editor": "संपादक",

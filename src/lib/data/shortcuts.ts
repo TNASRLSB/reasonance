@@ -15,4 +15,5 @@ export const shortcuts: ShortcutEntry[] = [
   { keys: ['Ctrl', 'Z'], descriptionKey: 'shortcuts.undo', context: 'shortcuts.ctx.editor' },
   { keys: ['Ctrl', 'Y'], descriptionKey: 'shortcuts.redo', context: 'shortcuts.ctx.editor' },
   { keys: ['Ctrl', 'F'], descriptionKey: 'shortcuts.findInFile', context: 'shortcuts.ctx.terminal' },
+  { keys: ['Ctrl', 'Shift', 'H'], descriptionKey: 'shortcuts.sessionHistory', context: 'shortcuts.ctx.global' },
 ];

@@ -146,6 +146,7 @@
   "shortcuts.undo": "Annuler",
   "shortcuts.redo": "Rétablir",
   "shortcuts.findInFile": "Rechercher dans le terminal",
+  "shortcuts.sessionHistory": "Historique des sessions",
   "shortcuts.ctx.global": "Global",
   "shortcuts.ctx.dialog": "Boîtes de dialogue",
   "shortcuts.ctx.editor": "Éditeur",

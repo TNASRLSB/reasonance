@@ -130,27 +130,10 @@
     }
   }
 
-  // ── Open Folder / Switch Project ─────────────────────────────────────────
+  // ── File Watcher ──────────────────────────────────────────────────────────
 
-  async function openFolder() {
-    const selected = await adapter.openFolderDialog();
-    if (selected) {
-      addProject(selected);
-      const currentId = get(activeProjectId);
-      if (currentId) { try { await adapter.addProject(currentId, selected, 'trusted'); } catch { /* non-fatal */ } }
-      try { await adapter.setProjectRoot(selected); } catch { /* non-fatal */ }
-      await switchProject(selected);
-    }
-  }
-
-  async function switchProject(path: string) {
-    addProject(path);
-    showWelcome = false;
-    try { await adapter.setProjectRoot(path); } catch { /* non-fatal */ }
-
-    // Restart file watcher for new directory
-    if (unwatchFiles) unwatchFiles();
-    unwatchFiles = await adapter.watchFiles(path, async (event) => {
+  async function setupFileWatcher(root: string): Promise<(() => void) | undefined> {
+    return adapter.watchFiles(root, async (event) => {
       // Notify FileTree about filesystem changes
       if (event.type === 'create' || event.type === 'remove') {
         document.dispatchEvent(new CustomEvent('reasonance:fsChange', { detail: event }));
@@ -192,6 +175,29 @@
         } catch { /* non-fatal */ }
       }
     });
+  }
+
+  // ── Open Folder / Switch Project ─────────────────────────────────────────
+
+  async function openFolder() {
+    const selected = await adapter.openFolderDialog();
+    if (selected) {
+      addProject(selected);
+      const currentId = get(activeProjectId);
+      if (currentId) { try { await adapter.addProject(currentId, selected, 'trusted'); } catch { /* non-fatal */ } }
+      try { await adapter.setProjectRoot(selected); } catch { /* non-fatal */ }
+      await switchProject(selected);
+    }
+  }
+
+  async function switchProject(path: string) {
+    addProject(path);
+    showWelcome = false;
+    try { await adapter.setProjectRoot(path); } catch { /* non-fatal */ }
+
+    // Restart file watcher for new directory
+    if (unwatchFiles) unwatchFiles();
+    unwatchFiles = await setupFileWatcher(path) ?? null;
   }
 
   // Shadow tracking subscription — initialised in onMount, cleaned up in onDestroy
@@ -287,55 +293,7 @@
     // Start watching the project directory for external changes
     const root = get(projectRoot);
     if (root) {
-    unwatchFiles = await adapter.watchFiles(root, async (event) => {
-      // Notify FileTree about filesystem changes (create/remove/modify)
-      if (event.type === 'create' || event.type === 'remove') {
-        document.dispatchEvent(new CustomEvent('reasonance:fsChange', { detail: event }));
-      }
-
-      const currentFiles = get(openFiles);
-      const openFile = currentFiles.find((f) => f.path === event.path);
-
-      if (!openFile) return;
-
-      if (event.type === 'remove') {
-        // Mark the file as deleted in the store
-        updateFileState(event.path, { isDeleted: true });
-        showToast('warning', 'File deleted', event.path.split('/').pop() ?? event.path);
-        return;
-      }
-
-      if (event.type === 'modify') {
-        // Avoid showing diff if already showing one for this path
-        if (diffState && diffState.path === event.path) return;
-
-        try {
-          const [newContent, shadow] = await Promise.all([
-            adapter.readFile(event.path),
-            adapter.getShadow(event.path),
-          ]);
-
-          if (shadow === null) return; // No shadow means we don't track this file
-          if (newContent === shadow) return; // No actual change
-
-          if (isActiveSessionYolo()) {
-            // AUTO/YOLO: accept changes silently
-            await adapter.storeShadow(event.path, newContent);
-            updateFileContent(event.path, newContent, false);
-          } else {
-            diffState = {
-              path: event.path,
-              original: shadow,
-              modified: newContent,
-              filename: event.path.split('/').pop() ?? event.path,
-            };
-            setActiveFile(event.path);
-          }
-        } catch {
-          // Read failures are non-fatal
-        }
-      }
-    });
+      unwatchFiles = await setupFileWatcher(root) ?? null;
     } // end if (root)
   });
 

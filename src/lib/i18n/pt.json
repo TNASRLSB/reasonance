@@ -146,6 +146,7 @@
   "shortcuts.undo": "Desfazer",
   "shortcuts.redo": "Refazer",
   "shortcuts.findInFile": "Pesquisar no terminal",
+  "shortcuts.sessionHistory": "Histórico de sessões",
   "shortcuts.ctx.global": "Global",
   "shortcuts.ctx.dialog": "Diálogos",
   "shortcuts.ctx.editor": "Editor",

@@ -343,46 +343,6 @@
     border-radius: 8px;
   }
 
-  /* Status indicators — ready for when store provides status fields */
-  .indicator {
-    position: absolute;
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-  }
-
-  .indicator.running {
-    bottom: 6px;
-    right: 6px;
-    background: var(--sidebar-indicator-running);
-    animation: pulse 1.5s ease-in-out infinite;
-  }
-
-  .indicator.terminals {
-    bottom: 6px;
-    right: 6px;
-    background: var(--sidebar-indicator-idle);
-  }
-
-  .indicator.unsaved {
-    top: 6px;
-    right: 6px;
-    background: var(--sidebar-indicator-unsaved);
-  }
-
-  @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.4; }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .indicator.running {
-      animation: none;
-      outline: 2px solid var(--sidebar-indicator-running);
-      outline-offset: 1px;
-    }
-  }
-
   /* Add button */
   .add-button {
     display: flex;

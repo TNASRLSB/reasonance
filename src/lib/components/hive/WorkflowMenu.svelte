@@ -48,7 +48,6 @@
     if (!path) return;
     try {
       const dest = await adapter.saveToGlobal(path);
-      console.log('Saved to library:', dest);
       showToast('success', 'Saved to library', dest.split('/').pop() ?? dest);
     } catch (e) {
       console.error('Save to library failed:', e);

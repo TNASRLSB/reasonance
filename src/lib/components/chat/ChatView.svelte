@@ -138,7 +138,6 @@
   async function handleFork(eventIndex: number) {
     try {
       const forkedId = await adapter.sessionFork(sessionId, eventIndex);
-      console.log('Session forked:', forkedId);
       // Phase 6/7: navigate to forked session tab
     } catch (e) {
       console.error('Failed to fork session:', e);
