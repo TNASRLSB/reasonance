@@ -30,6 +30,7 @@ mod pty_manager;
 mod shadow_store;
 mod workflow_store;
 mod agent_runtime;
+pub mod agent_comms;
 mod workflow_engine;
 mod resource_lock;
 mod agent_memory;
@@ -153,6 +154,7 @@ pub fn run() {
         .manage(discovery::DiscoveryEngine::new())
         .manage(workflow_store::WorkflowStore::new())
         .manage(agent_runtime::AgentRuntime::new())
+        .manage(agent_comms::AgentCommsBus::new(1000))
         .manage(workflow_engine::WorkflowEngine::new())
         .manage(resource_lock::ResourceLockManager::new())
         .manage(NormalizersDir(resolve_normalizers_dir()))
@@ -424,6 +426,12 @@ pub fn run() {
             project_manager::remove_project,
             project_manager::set_active_project,
             project_manager::get_project_root,
+            commands::agent_comms::agent_publish_message,
+            commands::agent_comms::agent_get_messages,
+            commands::agent_comms::agent_get_topic_messages,
+            commands::agent_comms::agent_get_broadcast_messages,
+            commands::agent_comms::agent_sweep_messages,
+            commands::agent_comms::agent_clear_workflow_messages,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -16,3 +16,4 @@ pub mod provider;
 pub mod workspace_trust;
 pub mod permission;
 pub mod memory;
+pub mod agent_comms;
