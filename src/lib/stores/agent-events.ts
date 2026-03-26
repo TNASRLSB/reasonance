@@ -1,4 +1,4 @@
-import { writable, derived, get } from 'svelte/store';
+import { writable } from 'svelte/store';
 import type { AgentEvent, AgentEventPayload } from '$lib/types/agent-event';
 import { updateTokens, updateSessionStatus, updateMetrics } from './agent-session';
 
@@ -11,25 +11,11 @@ const MAX_EVENTS_PER_SESSION = 5000;
 // Per-session streaming state
 export const streamingSessionIds = writable<Set<string>>(new Set());
 
-// Helper: get events for a specific session
-export function getSessionEvents(sessionId: string): AgentEvent[] {
-  return get(agentEvents).get(sessionId) ?? [];
-}
-
 // Helper: set events for a session (e.g., on restore)
 export function setSessionEvents(sessionId: string, events: AgentEvent[]): void {
   agentEvents.update((map) => {
     const next = new Map(map);
     next.set(sessionId, [...events]);
-    return next;
-  });
-}
-
-// Helper: clear events for a session
-export function clearSessionEvents(sessionId: string): void {
-  agentEvents.update((map) => {
-    const next = new Map(map);
-    next.delete(sessionId);
     return next;
   });
 }
@@ -45,11 +31,6 @@ export function setStreaming(sessionId: string, streaming: boolean): void {
     }
     return next;
   });
-}
-
-// Helper: check if session is streaming
-export function isStreaming(sessionId: string): boolean {
-  return get(streamingSessionIds).has(sessionId);
 }
 
 /**

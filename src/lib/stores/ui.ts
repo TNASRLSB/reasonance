@@ -12,15 +12,11 @@ function persistedWidth(key: string, fallback: number) {
 
 export const fileTreeWidth = persistedWidth('reasonance:fileTreeWidth', 200);
 export const terminalWidth = persistedWidth('reasonance:terminalWidth', 300);
-export const activeEditorTab = writable<string | null>(null);
 export const showSettings = writable(false);
-export const showDiff = writable(false);
 export const fontFamily = writable("'Atkinson Hyperlegible Mono', monospace");
 export const fontSize = writable(14);
 export const enhancedReadability = writable(false);
 export const editorTheme = writable<string>('forge-dark');
-
-export const cursorBlink = writable(false);
 
 // Hive canvas state
 export const showHiveCanvas = writable<boolean>(false);

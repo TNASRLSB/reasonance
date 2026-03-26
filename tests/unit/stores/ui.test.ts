@@ -3,9 +3,7 @@ import { get } from 'svelte/store';
 import {
   fileTreeWidth,
   terminalWidth,
-  activeEditorTab,
   showSettings,
-  showDiff,
   fontFamily,
   fontSize,
   enhancedReadability,
@@ -19,9 +17,7 @@ describe('ui store', () => {
   beforeEach(() => {
     fileTreeWidth.set(200);
     terminalWidth.set(300);
-    activeEditorTab.set(null);
     showSettings.set(false);
-    showDiff.set(false);
     fontFamily.set("'Atkinson Hyperlegible Mono', monospace");
     fontSize.set(14);
     enhancedReadability.set(false);
@@ -34,9 +30,7 @@ describe('ui store', () => {
   it('has correct default values', () => {
     expect(get(fileTreeWidth)).toBe(200);
     expect(get(terminalWidth)).toBe(300);
-    expect(get(activeEditorTab)).toBeNull();
     expect(get(showSettings)).toBe(false);
-    expect(get(showDiff)).toBe(false);
     expect(get(fontSize)).toBe(14);
     expect(get(enhancedReadability)).toBe(false);
     expect(get(editorTheme)).toBe('forge-dark');
@@ -61,11 +55,6 @@ describe('ui store', () => {
   it('can update fileTreeWidth', () => {
     fileTreeWidth.set(280);
     expect(get(fileTreeWidth)).toBe(280);
-  });
-
-  it('can set activeEditorTab', () => {
-    activeEditorTab.set('/project/src/main.ts');
-    expect(get(activeEditorTab)).toBe('/project/src/main.ts');
   });
 
   it('hive canvas defaults to hidden with visual mode and no selection', () => {
@@ -101,11 +90,6 @@ describe('ui store', () => {
   it('can switch editorTheme', () => {
     editorTheme.set('forge-light');
     expect(get(editorTheme)).toBe('forge-light');
-  });
-
-  it('can toggle showDiff', () => {
-    showDiff.set(true);
-    expect(get(showDiff)).toBe(true);
   });
 
   it('can toggle enhancedReadability', () => {

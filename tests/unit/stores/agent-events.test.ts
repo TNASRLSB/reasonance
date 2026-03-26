@@ -5,11 +5,18 @@ import {
   streamingSessionIds,
   processAgentEvent,
   setSessionEvents,
-  clearSessionEvents,
   setStreaming,
-  getSessionEvents,
-  isStreaming,
 } from '$lib/stores/agent-events';
+
+/** Get events for a session (helper since getSessionEvents was removed) */
+function getSessionEvents(sessionId: string) {
+  return get(agentEvents).get(sessionId) ?? [];
+}
+
+/** Check if session is streaming (helper since isStreaming was removed) */
+function isStreaming(sessionId: string) {
+  return get(streamingSessionIds).has(sessionId);
+}
 import type { AgentEvent, AgentEventPayload } from '$lib/types/agent-event';
 
 /** Build a minimal AgentEvent for testing. */
@@ -54,9 +61,9 @@ describe('agent-events store', () => {
     expect(getSessionEvents('s1')).toHaveLength(2);
   });
 
-  it('clearSessionEvents removes all events for a session', () => {
+  it('setSessionEvents with empty array clears events for a session', () => {
     setSessionEvents('s1', [makeEvent()]);
-    clearSessionEvents('s1');
+    setSessionEvents('s1', []);
     expect(getSessionEvents('s1')).toHaveLength(0);
   });
 

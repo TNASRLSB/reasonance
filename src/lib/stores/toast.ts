@@ -63,12 +63,6 @@ export function resumeToastTimer(id: number) {
   }, entry.remaining);
 }
 
-export function updateToastProgress(id: number, progress: number) {
-  toasts.update((t) =>
-    t.map((msg) => (msg.id === id ? { ...msg, progress } : msg))
-  );
-}
-
 export function dismissToast(id: number) {
   toasts.update((t) => t.filter((msg) => msg.id !== id));
 }

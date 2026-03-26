@@ -51,10 +51,6 @@ function setCache<T>(key: string, data: T): void {
   cache[key] = { data, fetchedAt: Date.now() };
 }
 
-export function invalidateCache(): void {
-  Object.keys(cache).forEach(k => delete cache[k]);
-}
-
 // === FETCH FUNCTIONS ===
 
 export async function fetchProviderAnalytics(
@@ -76,9 +72,6 @@ export async function fetchProviderAnalytics(
     providerAnalytics.set({ data: null, status: 'error', error: String(e) });
   }
 }
-
-// Spec-named alias for fetchProviderAnalytics
-export const fetchCompareProviders = fetchProviderAnalytics;
 
 export async function fetchDailyStats(
   adapter: Adapter,

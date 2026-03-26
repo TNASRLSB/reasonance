@@ -220,11 +220,6 @@ function setupSystemModifiers(): void {
   motionQuery.addEventListener('change', handleMotion);
 }
 
-/** @deprecated Use initThemeEngine instead */
-export function initTheme(): void {
-  initThemeEngine();
-}
-
 export async function initThemeEngine(): Promise<void> {
   try {
     const prefs = await invoke<ThemePreferences>('load_theme_preferences');
