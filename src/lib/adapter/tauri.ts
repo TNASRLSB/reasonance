@@ -4,6 +4,7 @@ import type { AgentEvent, AgentEventPayload, SessionHandle, SessionSummary, View
 import type { NegotiatedCapabilities, CliVersionInfo, VersionEntry, HealthReport } from '$lib/types/capability';
 import type { ProviderAnalytics, ModelAnalytics, DailyStats, SessionMetrics, ConnectionTestStep } from '$lib/types/analytics';
 import type { TrustCheckResult, TrustLevel, TrustEntry } from '$lib/stores/workspace-trust';
+import type { AppState, ProjectState } from '$lib/types/app-state';
 
 export class TauriAdapter implements Adapter {
   async setProjectRoot(path: string): Promise<void> {
@@ -353,6 +354,20 @@ export class TauriAdapter implements Adapter {
 
   async getNormalizerConfig(provider: string): Promise<{ permission_args?: string[] } | null> {
     return invoke<{ permission_args?: string[] } | null>('get_normalizer_config', { provider });
+  }
+
+  // App State Persistence
+  async getAppState(): Promise<AppState> {
+    return invoke('get_app_state');
+  }
+  async saveAppState(state: AppState): Promise<void> {
+    return invoke('save_app_state', { state });
+  }
+  async getProjectState(projectId: string): Promise<ProjectState> {
+    return invoke('get_project_state', { projectId });
+  }
+  async saveProjectState(projectId: string, state: ProjectState): Promise<void> {
+    return invoke('save_project_state', { projectId, state });
   }
 
   // Multi-project

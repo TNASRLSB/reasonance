@@ -2,6 +2,7 @@ import type { AgentEvent, AgentEventPayload, SessionHandle, SessionSummary, View
 import type { NegotiatedCapabilities, CliVersionInfo, VersionEntry, HealthReport } from '$lib/types/capability';
 import type { ProviderAnalytics, ModelAnalytics, DailyStats, SessionMetrics, ConnectionTestStep } from '$lib/types/analytics';
 import type { TrustCheckResult, TrustLevel, TrustEntry } from '$lib/stores/workspace-trust';
+import type { AppState, ProjectState } from '$lib/types/app-state';
 
 export interface FileEntry {
   name: string;
@@ -144,6 +145,12 @@ export interface Adapter {
   revokeWorkspaceTrust(hash: string): Promise<void>;
   listWorkspaceTrust(): Promise<TrustEntry[]>;
   getNormalizerConfig(provider: string): Promise<{ permission_args?: string[] } | null>;
+
+  // --- App State Persistence ---
+  getAppState(): Promise<AppState>;
+  saveAppState(state: AppState): Promise<void>;
+  getProjectState(projectId: string): Promise<ProjectState>;
+  saveProjectState(projectId: string, state: ProjectState): Promise<void>;
 }
 
 export interface GrepResult {
@@ -225,12 +232,6 @@ export interface WorkflowEdge {
   from: string;
   to: string;
   label?: string;
-}
-
-export interface MemoryConfig {
-  enabled: boolean;
-  maxEntries: number;
-  persist: 'none' | 'workflow' | 'global';
 }
 
 export interface WorkflowSettings {

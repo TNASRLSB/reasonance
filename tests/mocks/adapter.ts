@@ -15,6 +15,7 @@ import type { AgentEvent, AgentEventPayload, SessionHandle, SessionSummary, View
 import type { NegotiatedCapabilities, CliVersionInfo, VersionEntry, HealthReport } from '$lib/types/capability';
 import type { ProviderAnalytics, ModelAnalytics, DailyStats, SessionMetrics, ConnectionTestStep } from '$lib/types/analytics';
 import type { TrustCheckResult, TrustEntry } from '$lib/stores/workspace-trust';
+import type { AppState, ProjectState } from '$lib/types/app-state';
 
 let _ptyIdCounter = 0;
 let _agentIdCounter = 0;
@@ -471,6 +472,30 @@ export function createMockAdapter(overrides?: Partial<Adapter>): Adapter {
     },
     getNormalizerConfig(_provider: string): Promise<{ permission_args?: string[] } | null> {
       return Promise.resolve(null);
+    },
+
+    // App State Persistence
+    getAppState(): Promise<AppState> {
+      return Promise.resolve({
+        last_active_project_id: null,
+        recent_projects: [],
+        window_state: null,
+      });
+    },
+    saveAppState(_state: AppState): Promise<void> {
+      return Promise.resolve();
+    },
+    getProjectState(_projectId: string): Promise<ProjectState> {
+      return Promise.resolve({
+        active_session_id: null,
+        open_files: [],
+        active_file_path: null,
+        panel_layout: null,
+        last_model_used: null,
+      });
+    },
+    saveProjectState(_projectId: string, _state: ProjectState): Promise<void> {
+      return Promise.resolve();
     },
   };
 
