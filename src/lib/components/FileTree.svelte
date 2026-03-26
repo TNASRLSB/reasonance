@@ -15,6 +15,43 @@
 
   let currentRoot = $derived($projectRoot || '.');
 
+  // --- Git status state ---
+  let gitStatuses = $state<Record<string, string>>({});
+  let gitRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+
+  async function refreshGitStatus() {
+    try {
+      const statuses = await adapter.getGitStatus(currentRoot);
+      gitStatuses = statuses;
+    } catch {
+      // non-git project or git not available — ignore
+      gitStatuses = {};
+    }
+  }
+
+  function scheduleGitRefresh() {
+    if (gitRefreshTimer) clearTimeout(gitRefreshTimer);
+    gitRefreshTimer = setTimeout(refreshGitStatus, 2000);
+  }
+
+  function getGitStatus(path: string): string {
+    const relativePath = path.replace(currentRoot + '/', '');
+    return gitStatuses[relativePath] || '';
+  }
+
+  function getGitStatusLetter(path: string): string {
+    const status = getGitStatus(path);
+    switch (status) {
+      case 'modified': return 'M';
+      case 'added': return 'A';
+      case 'deleted': return 'D';
+      case 'renamed': return 'R';
+      case 'untracked': return 'U';
+      case 'conflicted': return 'C';
+      default: return '';
+    }
+  }
+
   // --- Virtual scroll constants ---
   const ROW_HEIGHT = 28;
   const BUFFER_ITEMS = 20;
@@ -105,12 +142,14 @@
       expandedDirs = new Set();
       focusedIndex = 0;
       adapter.listDir(root).then((e) => { entries = e; });
+      refreshGitStatus();
     }
   });
 
   onMount(async () => {
     const root = $projectRoot || '.';
     entries = await adapter.listDir(root);
+    refreshGitStatus();
   });
 
   // Listen for filesystem changes (dispatched by +page.svelte watcher)
@@ -128,6 +167,7 @@
           childrenCache = new Map(childrenCache);
         }
       }).catch(() => { /* parent dir may no longer exist */ });
+      scheduleGitRefresh();
     }
     document.addEventListener('reasonance:fsChange', handleFsChange);
     return () => document.removeEventListener('reasonance:fsChange', handleFsChange);
@@ -404,6 +444,9 @@
           >
             <span class="icon">{getFileIcon(item.entry.name, item.isDir)}</span>
             <span class="name">{item.displayName}</span>
+            {#if !item.isDir && getGitStatusLetter(item.entry.path)}
+              <span class="git-status git-{getGitStatus(item.entry.path)}" aria-label="git: {getGitStatus(item.entry.path)}">{getGitStatusLetter(item.entry.path)}</span>
+            {/if}
           </button>
           {#if inlineInput && inlineIdx === flatIndex}
             <div class="inline-input-row" style="padding-inline-start: {14 + (item.depth + (inlineInput.parentDir === item.foldedEntry.path ? 1 : 0)) * 16}px; height: {ROW_HEIGHT}px;">
@@ -541,6 +584,38 @@
     overflow: auto;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .git-status {
+    font-size: 0.7rem;
+    margin-left: auto;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+
+  .git-modified {
+    color: #e5c07b;
+  }
+
+  .git-added {
+    color: #98c379;
+  }
+
+  .git-deleted {
+    color: #e06c75;
+  }
+
+  .git-renamed {
+    color: #61afef;
+  }
+
+  .git-untracked {
+    color: #888;
+  }
+
+  .git-conflicted {
+    color: #e06c75;
+    font-weight: 800;
   }
 
   .tree-header-actions {

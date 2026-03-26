@@ -23,6 +23,7 @@ export interface Adapter {
   writeFile(path: string, content: string): Promise<void>;
   listDir(path: string, respectGitignore?: boolean): Promise<FileEntry[]>;
   watchFiles(path: string, callback: (event: FsEvent) => void): Promise<() => void>;
+  getGitStatus(projectRoot: string): Promise<Record<string, string>>;
 
   // System
   openExternal(path: string): Promise<void>;

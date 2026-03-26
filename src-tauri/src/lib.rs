@@ -338,6 +338,7 @@ pub fn run() {
             commands::fs::write_file,
             commands::fs::list_dir,
             commands::fs::grep_files,
+            commands::fs::get_git_status,
             commands::fs::start_watching,
             commands::system::open_external,
             commands::system::get_env_var,

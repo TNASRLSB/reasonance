@@ -449,6 +449,53 @@ pub fn grep_files(
 }
 
 #[tauri::command]
+pub async fn get_git_status(project_root: String) -> Result<std::collections::HashMap<String, String>, ReasonanceError> {
+    use std::collections::HashMap;
+
+    let output = std::process::Command::new("git")
+        .args(["status", "--porcelain=v1", "-uall"])
+        .current_dir(&project_root)
+        .output()
+        .map_err(|e| ReasonanceError::io("run git status", e))?;
+
+    if !output.status.success() {
+        // Not a git repo or git not available — return empty
+        return Ok(HashMap::new());
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let mut statuses = HashMap::new();
+
+    for line in stdout.lines() {
+        if line.len() < 4 { continue; }
+        let xy = &line[0..2];
+        let path = line[3..].trim();
+
+        // Handle renames: "R  old -> new" — use the new path
+        let effective_path = if let Some(arrow_pos) = path.find(" -> ") {
+            &path[arrow_pos + 4..]
+        } else {
+            path
+        };
+
+        let status = match xy.trim() {
+            "M" | " M" | "MM" => "modified",
+            "A" | "AM" => "added",
+            "D" | " D" => "deleted",
+            "R" | "RM" => "renamed",
+            "??" => "untracked",
+            "UU" | "AA" | "DD" => "conflicted",
+            _ => "modified", // fallback
+        };
+
+        statuses.insert(effective_path.to_string(), status.to_string());
+    }
+
+    debug!("cmd::get_git_status returned {} entries for {}", statuses.len(), project_root);
+    Ok(statuses)
+}
+
+#[tauri::command]
 pub fn start_watching(
     path: String,
     app: AppHandle,

@@ -58,6 +58,9 @@ export function createMockAdapter(overrides?: Partial<Adapter>): Adapter {
     watchFiles(_path: string, _callback: (event: FsEvent) => void) {
       return Promise.resolve(() => {});
     },
+    getGitStatus(_projectRoot: string): Promise<Record<string, string>> {
+      return Promise.resolve({});
+    },
 
     // System
     openExternal(_path: string) {

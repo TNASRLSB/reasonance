@@ -24,6 +24,9 @@ export class TauriAdapter implements Adapter {
     await invoke('start_watching', { path });
     return unlisten;
   }
+  async getGitStatus(projectRoot: string): Promise<Record<string, string>> {
+    return invoke<Record<string, string>>('get_git_status', { projectRoot });
+  }
   async openExternal(path: string): Promise<void> {
     return invoke<void>('open_external', { path });
   }
