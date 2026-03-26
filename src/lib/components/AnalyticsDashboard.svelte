@@ -14,6 +14,7 @@
   } from '$lib/utils/format-analytics';
   import { getProviderVisual, barStyle } from '$lib/utils/provider-patterns';
   import { normalizeBarScale } from '$lib/utils/bar-scale';
+  import { MODEL_INFO } from '$lib/data/model-info';
   import { gridNavigation } from '$lib/utils/grid-navigation';
   import { tooltip } from '$lib/utils/tooltip';
   import { tr } from '$lib/i18n/index';
@@ -106,6 +107,40 @@
     const totalSess = data.reduce((s, p) => s + p.total_sessions, 0);
     const totalErr = data.reduce((s, p) => s + p.total_errors, 0);
     return totalSess > 0 ? totalErr / totalSess : 0;
+  });
+
+  // === API Value Hero ===
+  // Plan cost default: $20/mo (Pro). Future: read from settings.
+  const PLAN_COST_MONTHLY = 20;
+
+  /**
+   * Compute API equivalent cost from per-provider token data.
+   * Uses each provider's most_used_model rates from MODEL_INFO.
+   * Falls back to a conservative blended rate ($3/$15 per 1M) when model is unknown.
+   */
+  const apiEquivalentCost = $derived.by(() => {
+    const data = $providerAnalytics.data;
+    if (!data) return 0;
+    let total = 0;
+    for (const p of data) {
+      // Prefer pre-computed cost if backend tracks it
+      if (p.total_cost_usd != null && p.total_cost_usd > 0) {
+        total += p.total_cost_usd;
+        continue;
+      }
+      // Otherwise estimate from token counts × model rates
+      const modelInfo = MODEL_INFO.find(m => m.id === p.most_used_model);
+      const inputRate = modelInfo ? modelInfo.cost_per_1m_input : 3;   // fallback: Sonnet rates
+      const outputRate = modelInfo ? modelInfo.cost_per_1m_output : 15;
+      total += (p.total_input_tokens / 1_000_000) * inputRate
+             + (p.total_output_tokens / 1_000_000) * outputRate;
+    }
+    return total;
+  });
+
+  const valueMultiplier = $derived.by(() => {
+    if (PLAN_COST_MONTHLY <= 0) return 0;
+    return apiEquivalentCost / PLAN_COST_MONTHLY;
   });
 
   // === Insights ===
@@ -333,6 +368,16 @@
   </div>
 
   <div class="dashboard-body">
+
+    <!-- ── Value Hero Banner ── -->
+    {#if valueMultiplier > 1}
+      <div class="value-hero-card" role="status" aria-label="API value multiplier">
+        <div class="value-primary">
+          Your ${PLAN_COST_MONTHLY}/mo → <strong>${apiEquivalentCost.toFixed(0)}</strong> in API value
+        </div>
+        <div class="value-multiplier">{valueMultiplier.toFixed(0)}× value</div>
+      </div>
+    {/if}
 
     <!-- ── Section 1: KPI Cards ── -->
     <section class="section kpi-section" aria-label={$tr('a11y.keyMetrics')} aria-busy={$providerAnalytics.status === 'loading'}>
@@ -1326,5 +1371,40 @@
   @media (prefers-reduced-motion: reduce) {
     .skeleton, .skel-line { animation: none; }
     .trend-bar-fill, .trend-bar-compare { transition: none; }
+  }
+
+  /* Value Hero Banner */
+  .value-hero-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    background: var(--bg-surface);
+    border: var(--border-width, 2px) solid var(--accent);
+    border-radius: var(--radius);
+  }
+
+  .value-primary {
+    font-family: var(--font-ui);
+    font-size: var(--font-size-small);
+    font-weight: 600;
+    color: var(--text-secondary);
+  }
+
+  .value-primary strong {
+    font-family: var(--font-mono);
+    font-size: var(--font-size-md);
+    font-weight: var(--font-weight-hero);
+    color: var(--text-primary);
+  }
+
+  .value-multiplier {
+    font-family: var(--font-mono);
+    font-size: var(--font-size-md);
+    font-weight: var(--font-weight-hero);
+    color: var(--accent-text, var(--accent));
+    white-space: nowrap;
+    flex-shrink: 0;
   }
 </style>
