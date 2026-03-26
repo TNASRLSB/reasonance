@@ -15,6 +15,7 @@
 
 pub mod error;
 pub mod event_bus_v2;
+pub mod signal;
 mod agent_event;
 mod normalizer;
 mod transport;
