@@ -2,7 +2,6 @@ use crate::agent_event::ErrorSeverity;
 use std::time::Duration;
 
 #[derive(Debug, Clone)]
-#[allow(dead_code)] // Roadmap: retry logic wired into transport send loop
 pub struct RetryPolicy {
     pub max_retries: u32,
     pub backoff: BackoffStrategy,
@@ -11,7 +10,6 @@ pub struct RetryPolicy {
 }
 
 #[derive(Debug, Clone)]
-#[allow(dead_code)] // Used by RetryPolicy
 pub enum BackoffStrategy {
     Fixed { delay_ms: u64 },
     Exponential { base_ms: u64, max_ms: u64 },
@@ -53,7 +51,6 @@ impl RetryPolicy {
         }
     }
 
-    #[allow(dead_code)] // Roadmap: retry logic
     pub fn should_retry(&self, error_code: Option<&str>, severity: Option<&ErrorSeverity>, attempt: u32) -> bool {
         if attempt >= self.max_retries {
             return false;
@@ -71,7 +68,6 @@ impl RetryPolicy {
         false
     }
 
-    #[allow(dead_code)] // Roadmap: retry logic
     pub fn delay_for_attempt(&self, attempt: u32) -> Duration {
         match &self.backoff {
             BackoffStrategy::Fixed { delay_ms } => Duration::from_millis(*delay_ms),

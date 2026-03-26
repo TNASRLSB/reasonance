@@ -8,6 +8,7 @@ pub mod session_store;
 pub mod session_manager;
 
 use crate::agent_event::{AgentEvent, ErrorSeverity};
+use crate::circuit_breaker::CircuitBreaker;
 use crate::normalizer::NormalizerRegistry;
 use event_bus::{AgentEventBus, AgentEventSubscriber, HistoryRecorder};
 #[allow(unused_imports)]
@@ -28,10 +29,11 @@ pub struct StructuredAgentTransport {
     sessions: Arc<Mutex<HashMap<String, AgentSession>>>,
     event_bus: Arc<AgentEventBus>,
     history: Arc<HistoryRecorder>,
-    /// Retry policies loaded from provider configs. Not yet wired into `send()` —
-    /// planned for future use when automatic retry-on-error is implemented.
-    #[allow(dead_code)]
+    /// Retry policies loaded from provider configs, keyed by provider name.
+    /// Used by `send()` to retry failed CLI spawns with exponential backoff.
     retry_policies: Arc<Mutex<HashMap<String, RetryPolicy>>>,
+    /// Circuit breaker for transport-level fault isolation per provider.
+    circuit_breaker: Arc<CircuitBreaker>,
 }
 
 impl StructuredAgentTransport {
@@ -56,6 +58,7 @@ impl StructuredAgentTransport {
             event_bus,
             history,
             retry_policies: Arc::new(Mutex::new(HashMap::new())),
+            circuit_breaker: Arc::new(CircuitBreaker::new()),
         }
     }
 
@@ -83,6 +86,8 @@ impl StructuredAgentTransport {
         }
         event_bus.subscribe(Box::new(HistoryWrapper(history.clone())));
 
+        let circuit_breaker = Arc::new(CircuitBreaker::new());
+
         info!("StructuredAgentTransport: initialized with {} providers", registry.providers().len());
         Ok(Self {
             registry: Arc::new(Mutex::new(registry)),
@@ -90,6 +95,7 @@ impl StructuredAgentTransport {
             event_bus,
             history,
             retry_policies: Arc::new(Mutex::new(retry_policies)),
+            circuit_breaker,
         })
     }
 
@@ -129,6 +135,10 @@ impl StructuredAgentTransport {
             warn!("Transport: unknown provider={}", provider);
             return Err(crate::error::ReasonanceError::not_found("provider", &provider));
         }
+
+        // Circuit breaker gate: reject early if provider circuit is open
+        let circuit_id = format!("transport:{}", provider);
+        self.circuit_breaker.check(&circuit_id)?;
 
         let config = registry.get_config(&provider)
             .ok_or_else(|| crate::error::ReasonanceError::not_found("provider config", &provider))?;
@@ -212,38 +222,82 @@ impl StructuredAgentTransport {
             }
         };
 
-        let mut cmd = Command::new(&binary);
-        cmd.args(&args);
-        // Append permission args from normalizer config (e.g. --dangerously-skip-permissions)
-        cmd.args(&permission_args);
-        // Append allowed tools args (e.g. --allowedTools Read,Edit)
-        cmd.args(&allowed_tools_args);
-        cmd.stdin(Stdio::null());
-        cmd.stdout(Stdio::piped());
-        cmd.stderr(Stdio::piped());
+        // Get retry policy for this provider (if configured)
+        let retry_policy = {
+            let policies = self.retry_policies.lock().unwrap_or_else(|e| e.into_inner());
+            policies.get(&provider).cloned()
+        };
 
-        // Set working directory to project root if provided
-        if let Some(ref cwd) = request.cwd {
-            if !cwd.is_empty() {
-                cmd.current_dir(cwd);
-                debug!("Transport: set cwd={}", cwd);
-            }
-        }
+        // Spawn CLI with retry loop for transient spawn failures
+        let mut attempt: u32 = 0;
+        let mut child = loop {
+            let mut cmd = Command::new(&binary);
+            cmd.args(&args);
+            // Append permission args from normalizer config (e.g. --dangerously-skip-permissions)
+            cmd.args(&permission_args);
+            // Append allowed tools args (e.g. --allowedTools Read,Edit)
+            cmd.args(&allowed_tools_args);
+            cmd.stdin(Stdio::null());
+            cmd.stdout(Stdio::piped());
+            cmd.stderr(Stdio::piped());
 
-        info!("Transport: spawning CLI binary={} args={:?} permission_args={:?} allowed_tools_args={:?}", binary, args, permission_args, allowed_tools_args);
-        let mut child = cmd.spawn().map_err(|e| {
-            error!("Transport: failed to spawn {}: {}", binary, e);
-            // Restore session status since we set it to Active but spawn failed
-            let mut sessions = self.sessions.lock().unwrap_or_else(|e| e.into_inner());
-            if let Some(sess) = sessions.get_mut(&session_id) {
-                sess.set_status(SessionStatus::Error { severity: ErrorSeverity::Fatal });
+            // Set working directory to project root if provided
+            if let Some(ref cwd) = request.cwd {
+                if !cwd.is_empty() {
+                    cmd.current_dir(cwd);
+                    debug!("Transport: set cwd={}", cwd);
+                }
             }
-            crate::error::ReasonanceError::Transport {
-                provider: provider.clone(),
-                message: format!("Failed to spawn {}: {}", binary, e),
-                retryable: false,
+
+            info!("Transport: spawning CLI binary={} args={:?} permission_args={:?} allowed_tools_args={:?} attempt={}", binary, args, permission_args, allowed_tools_args, attempt);
+            match cmd.spawn() {
+                Ok(child) => break child,
+                Err(e) => {
+                    let spawn_err = crate::error::ReasonanceError::Transport {
+                        provider: provider.clone(),
+                        message: format!("Failed to spawn {}: {}", binary, e),
+                        retryable: e.kind() != std::io::ErrorKind::NotFound, // binary missing is not retryable
+                    };
+
+                    // Check if we should retry this spawn failure.
+                    // Map error::ErrorSeverity to agent_event::ErrorSeverity for the retry policy.
+                    let agent_severity = match spawn_err.severity() {
+                        crate::error::ErrorSeverity::Recoverable => Some(ErrorSeverity::Recoverable),
+                        crate::error::ErrorSeverity::Degraded => Some(ErrorSeverity::Degraded),
+                        crate::error::ErrorSeverity::Fatal => Some(ErrorSeverity::Fatal),
+                    };
+                    let should_retry = spawn_err.is_retryable()
+                        && retry_policy.as_ref().map_or(false, |rp| {
+                            rp.should_retry(None, agent_severity.as_ref(), attempt)
+                        });
+
+                    if should_retry {
+                        let delay = retry_policy.as_ref().unwrap().delay_for_attempt(attempt);
+                        warn!(
+                            "Transport: spawn retry attempt {} after {}ms: {}",
+                            attempt + 1,
+                            delay.as_millis(),
+                            spawn_err
+                        );
+                        attempt += 1;
+                        // Sleep synchronously — we're not in an async context here and
+                        // the session lock was already released above.
+                        std::thread::sleep(delay);
+                        continue;
+                    }
+
+                    error!("Transport: failed to spawn {} (no retry): {}", binary, spawn_err);
+                    // Record failure in circuit breaker
+                    self.circuit_breaker.record_failure(&circuit_id, &spawn_err);
+                    // Restore session status since we set it to Active but spawn failed
+                    let mut sessions = self.sessions.lock().unwrap_or_else(|e| e.into_inner());
+                    if let Some(sess) = sessions.get_mut(&session_id) {
+                        sess.set_status(SessionStatus::Error { severity: ErrorSeverity::Fatal });
+                    }
+                    return Err(spawn_err);
+                }
             }
-        })?;
+        };
         let stdout = child.stdout.take().ok_or_else(|| crate::error::ReasonanceError::Transport {
             provider: provider.clone(),
             message: "Failed to capture stdout".to_string(),
@@ -272,9 +326,14 @@ impl StructuredAgentTransport {
             });
         }
 
+        // Record successful spawn in circuit breaker
+        self.circuit_breaker.record_success(&circuit_id);
+
         let event_bus = self.event_bus.clone();
         let sid = session_id.clone();
         let sessions_ref = self.sessions.clone();
+        let cb_ref = self.circuit_breaker.clone();
+        let cb_circuit_id = circuit_id.clone();
 
         let cli_session_id_ref = Arc::new(Mutex::new(None::<String>));
         let cli_sid_for_reader = cli_session_id_ref.clone();
@@ -299,8 +358,16 @@ impl StructuredAgentTransport {
                 let mut sessions = sessions_ref.lock().unwrap_or_else(|e| e.into_inner());
                 if let Some(sess) = sessions.get_mut(&sid) {
                     if result.error.is_some() {
+                        // Record failure in circuit breaker for CLI-level errors
+                        let err = crate::error::ReasonanceError::Transport {
+                            provider: cb_circuit_id.clone(),
+                            message: result.error.clone().unwrap_or_default(),
+                            retryable: true,
+                        };
+                        cb_ref.record_failure(&cb_circuit_id, &err);
                         sess.set_status(SessionStatus::Error { severity: ErrorSeverity::Fatal });
                     } else {
+                        cb_ref.record_success(&cb_circuit_id);
                         sess.set_status(SessionStatus::Terminated);
                     }
                 }
