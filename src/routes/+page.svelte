@@ -13,9 +13,10 @@
   import WelcomeScreen from '$lib/components/WelcomeScreen.svelte';
   import { TauriAdapter } from '$lib/adapter/tauri';
   import { initThemeEngine } from '$lib/stores/theme';
-  import { openFiles, activeFilePath, projectRoot } from '$lib/stores/files';
-  import { addProject, removeProject, activeProjectId, setActiveFile, updateFileContent, updateFileState } from '$lib/stores/projects';
-  import { showSettings, enhancedReadability, showHiveCanvas, showThemeEditor } from '$lib/stores/ui';
+  import { openFiles, activeFilePath, projectRoot, cursorLine, cursorCol } from '$lib/stores/files';
+  import { addProject, removeProject, activeProjectId, recentProjectsList, setActiveFile, openFile, updateFileContent, updateFileState } from '$lib/stores/projects';
+  import { showSettings, enhancedReadability, showHiveCanvas, showThemeEditor, fileTreeWidth, terminalWidth } from '$lib/stores/ui';
+  import { saveAllState, loadAppState, loadProjectState, gatherProjectState } from '$lib/utils/state-persistence';
   import { activeInstance } from '$lib/stores/terminals';
   import { llmConfigs } from '$lib/stores/config';
   import { initI18n, tr } from '$lib/i18n/index';
@@ -86,6 +87,33 @@
   // Cleanup array for event listeners
   const cleanups: Array<() => void> = [];
 
+  // ── App State Persistence ─────────────────────────────────────────────────
+
+  function getCurrentProjectState() {
+    const files = get(openFiles);
+    const activeFile = get(activeFilePath);
+    const curLine = get(cursorLine);
+    const curCol = get(cursorCol);
+
+    return gatherProjectState(
+      files.map(f => ({
+        path: f.path,
+        cursorLine: f.path === activeFile ? curLine : (f.cursorPosition?.line ?? 0),
+        cursorCol: f.path === activeFile ? curCol : (f.cursorPosition?.col ?? 0),
+        scrollOffset: f.scrollPosition?.line ?? 0,
+      })),
+      activeFile,
+      {
+        sidebar_visible: true,
+        sidebar_width: get(fileTreeWidth),
+        bottom_panel_visible: true,
+        bottom_panel_height: get(terminalWidth),
+      },
+      null,
+      null,
+    );
+  }
+
   // ── Save File ─────────────────────────────────────────────────────────────
 
   async function saveActiveFile() {
@@ -140,8 +168,8 @@
       }
 
       const currentFiles = get(openFiles);
-      const openFile = currentFiles.find((f) => f.path === event.path);
-      if (!openFile) return;
+      const watchedFile = currentFiles.find((f) => f.path === event.path);
+      if (!watchedFile) return;
 
       if (event.type === 'remove') {
         updateFileState(event.path, { isDeleted: true });
@@ -191,6 +219,14 @@
   }
 
   async function switchProject(path: string) {
+    // Save current project state before switching
+    const oldId = get(activeProjectId);
+    if (oldId) {
+      try {
+        await adapter.saveProjectState(oldId, getCurrentProjectState());
+      } catch { /* non-fatal */ }
+    }
+
     addProject(path);
     showWelcome = false;
     try { await adapter.setProjectRoot(path); } catch { /* non-fatal */ }
@@ -198,6 +234,33 @@
     // Restart file watcher for new directory
     if (unwatchFiles) unwatchFiles();
     unwatchFiles = await setupFileWatcher(path) ?? null;
+
+    // Restore saved state for the new project
+    const newId = get(activeProjectId);
+    if (newId) {
+      try {
+        const projectState = await loadProjectState(adapter, newId);
+        if (projectState.panel_layout) {
+          fileTreeWidth.set(projectState.panel_layout.sidebar_width);
+          terminalWidth.set(projectState.panel_layout.bottom_panel_height);
+        }
+        if (projectState.open_files.length > 0 && get(openFiles).length === 0) {
+          for (const f of projectState.open_files) {
+            try {
+              const content = await adapter.readFile(f.path);
+              openFile(f.path, content);
+              updateFileState(f.path, {
+                cursorPosition: { line: f.cursor_line, col: f.cursor_column },
+                scrollPosition: { line: f.scroll_offset, col: 0 },
+              });
+            } catch { /* file may have been deleted */ }
+          }
+          if (projectState.active_file_path) {
+            setActiveFile(projectState.active_file_path);
+          }
+        }
+      } catch { /* no saved state for new project */ }
+    }
   }
 
   // Shadow tracking subscription — initialised in onMount, cleaned up in onDestroy
@@ -227,12 +290,52 @@
     // Restore persisted session state before anything else
     await restoreSession(adapter, () => { showWelcome = false; });
 
+    // Restore app layout state (panel widths, open files, cursors)
+    try {
+      const appState = await loadAppState(adapter);
+      if (appState.last_active_project_id) {
+        const projectState = await loadProjectState(adapter, appState.last_active_project_id);
+        if (projectState.panel_layout) {
+          fileTreeWidth.set(projectState.panel_layout.sidebar_width);
+          terminalWidth.set(projectState.panel_layout.bottom_panel_height);
+        }
+        if (projectState.open_files.length > 0 && get(openFiles).length === 0) {
+          for (const f of projectState.open_files) {
+            try {
+              const content = await adapter.readFile(f.path);
+              openFile(f.path, content);
+              updateFileState(f.path, {
+                cursorPosition: { line: f.cursor_line, col: f.cursor_column },
+                scrollPosition: { line: f.scroll_offset, col: 0 },
+              });
+            } catch {
+              // File may have been deleted
+            }
+          }
+          if (projectState.active_file_path) {
+            setActiveFile(projectState.active_file_path);
+          }
+        }
+      }
+    } catch {
+      // First launch or corrupted state
+    }
+
     // Load TOML config then auto-discover LLM CLIs if none configured
     await loadInitialConfig(adapter);
     await discoverAndApplyLlms(adapter);
 
-    // Listen for window close to save session state
-    await adapter.onWindowClose(saveSession);
+    // Listen for window close to save session state (preferences) and app layout state
+    await adapter.onWindowClose(async () => {
+      await saveSession();
+      const activeId = get(activeProjectId);
+      const recent = get(recentProjectsList);
+      await saveAllState(adapter, activeId, recent.map(r => ({
+        path: r.path,
+        label: r.label ?? r.path.split('/').pop() ?? '',
+        lastOpened: r.lastOpened ?? Date.now(),
+      })), () => getCurrentProjectState());
+    });
 
     // Register global keyboard shortcuts
     registerKeybinding('ctrl+p', () => { showSearchPalette = true; });
