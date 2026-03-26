@@ -12,6 +12,7 @@
     clippy::needless_borrows_for_generic_args,
 )]
 
+pub mod circuit_breaker;
 pub mod error;
 pub mod event_bus_v2;
 pub mod settings;
