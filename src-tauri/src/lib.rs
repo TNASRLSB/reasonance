@@ -16,6 +16,7 @@
 pub mod error;
 pub mod event_bus_v2;
 pub mod signal;
+pub mod storage;
 pub mod tracked_map;
 mod agent_event;
 mod normalizer;
