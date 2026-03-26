@@ -49,6 +49,7 @@ mod theme_watcher;
 mod project_manager;
 pub mod node_registry;
 pub mod app_state_store;
+pub mod model_slots;
 
 use commands::fs::ProjectRootState;
 use fs_watcher::FsWatcherState;
@@ -222,6 +223,7 @@ pub fn run() {
             app_state_store::AppStateStore::new(&state_dir)
                 .expect("Failed to initialize app state store")
         })
+        .manage(std::sync::Mutex::new(model_slots::ModelSlotRegistry::new()))
         .manage({
             let bus = event_bus_v2::EventBus::new();
             bus.register_channel("transport:send", true);
@@ -448,6 +450,9 @@ pub fn run() {
             commands::app_state::save_app_state,
             commands::app_state::get_project_state,
             commands::app_state::save_project_state,
+            model_slots::get_model_for_slot,
+            model_slots::set_model_slot,
+            model_slots::list_model_slots,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
