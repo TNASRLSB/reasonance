@@ -1,5 +1,90 @@
 # Changelog
 
+## [1.5.0] - 2026-03-26
+
+### Features
+
+- feat(phase-2): add PTY lifecycle management with orphan sweep
+- feat(phase-2): add WebGL context loss recovery with canvas fallback
+- feat(phase-2): add PTY reconnection with exponential backoff
+- feat(phase-2): wire retry logic into transport with circuit breaker gating
+- feat(phase-2): add three-state circuit breaker with fingerprint dedup
+- feat(phase-1): add permission request timeout with auto-deny
+- feat(phase-1): add PermissionMemory for per-tool approval decisions
+- feat(phase-1): add symlink escape detection with resolve_safe_path
+- feat(phase-1): add permission decision engine with 6-layer evaluation
+
+### Other
+
+- TerminalManager via adapter.sweepPtys(). Backend: list_active_ptys(),
+- sweep_dead_ptys() (probe-resize heuristic), kill_all() for shutdown.
+- New Tauri commands sweep_ptys and kill_all_ptys. Three unit tests.
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- canvas renderer. Proactive check on window re-focus after 30s blur.
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- pty_manager.rs. Adds reconnect_pty Tauri command to commands/pty.rs —
+- kills the dead PTY and spawns a fresh one with the same shell and cwd,
+- returning the new ID for the frontend to track. Backoff timing and
+- custom-config tests all pass (477 total, 0 failures).
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- rejects requests when provider circuit is OPEN. Retryable spawn failures
+- get exponential backoff per provider's retry policy. Non-retryable errors
+- fail immediately. Async completion handler records success/failure in
+- circuit breaker for CLI-level errors.
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- Per-fingerprint error dedup within 10s window using SHA-256. 13 tests.
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- with ReasonanceError::Timeout. 3 test cases covering default config,
+- decision-before-deadline, and auto-deny-on-expiry.
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- Tauri commands for frontend integration (record, lookup, list, clear).
+- 10 test cases covering all scopes, consumption, clearing, and overwrite.
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- Prevents path traversal via symlinks or relative paths.
+- Returns Security::PathTraversal error instead of PermissionDenied
+- for clearer security violation classification. 7 new tests.
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- policy file -> model config -> session memory -> default Confirm.
+- 13 test cases cover all layers and priority ordering.
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+
+
+
 ## [1.4.0] - 2026-03-26
 
 ### Features
