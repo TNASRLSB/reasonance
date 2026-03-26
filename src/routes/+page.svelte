@@ -214,6 +214,7 @@
       const currentId = get(activeProjectId);
       if (currentId) { try { await adapter.addProject(currentId, selected, 'trusted'); } catch { /* non-fatal */ } }
       try { await adapter.setProjectRoot(selected); } catch { /* non-fatal */ }
+      try { await adapter.fileOpsSetProject(selected); } catch {}
       await switchProject(selected);
     }
   }
@@ -230,6 +231,7 @@
     addProject(path);
     showWelcome = false;
     try { await adapter.setProjectRoot(path); } catch { /* non-fatal */ }
+    try { await adapter.fileOpsSetProject(path); } catch {}
 
     // Restart file watcher for new directory
     if (unwatchFiles) unwatchFiles();
