@@ -15,6 +15,7 @@
 
 pub mod error;
 pub mod event_bus_v2;
+pub mod settings;
 pub mod signal;
 pub mod storage;
 pub mod tracked_map;
