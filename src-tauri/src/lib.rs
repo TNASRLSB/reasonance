@@ -265,6 +265,8 @@ pub fn run() {
             bus.register_channel("file:save", true);
             bus.register_channel("workflow:node-state", true);
             bus.register_channel("workflow:run-status", true);
+            bus.register_channel("workflow:agent-output", true);
+            bus.register_channel("workflow:permission-request", true);
             bus.register_channel("lifecycle:sweep", false);
             app.manage(bus.clone());
             let transport: tauri::State<'_, transport::StructuredAgentTransport> = app.state();
@@ -340,6 +342,10 @@ pub fn run() {
 
             // Pass v2 bus to the transport for dual-publishing
             transport.set_event_bus_v2(bus.clone());
+
+            // Pass v2 bus to the workflow engine for dual-publishing
+            let workflow_engine: tauri::State<'_, workflow_engine::WorkflowEngine> = app.state();
+            workflow_engine.set_event_bus_v2(bus.clone());
 
             // Load capability cache
             let negotiator: tauri::State<'_, capability::CapabilityNegotiator> = app.state();

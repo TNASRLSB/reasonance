@@ -2,7 +2,9 @@ use crate::agent_memory::AgentMemoryStore;
 use crate::agent_runtime::{AgentRuntime, AgentState};
 use crate::pty_manager::PtyManager;
 use crate::resource_lock::ResourceLockManager;
-use crate::workflow_store::{AgentNodeConfig, NodeType, ResourceNodeConfig, Workflow, WorkflowEdge};
+use crate::workflow_store::{
+    AgentNodeConfig, NodeType, ResourceNodeConfig, Workflow, WorkflowEdge,
+};
 use log::{debug, info, warn};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
@@ -47,12 +49,41 @@ pub struct WorkflowRun {
 
 pub struct WorkflowEngine {
     pub runs: Arc<Mutex<HashMap<String, WorkflowRun>>>,
+    /// EventBus v2 for dual-bus coexistence during migration.
+    /// `None` in tests and when the v2 bus hasn't been wired yet.
+    /// Uses `Mutex` for interior mutability so `set_event_bus_v2` can be
+    /// called through `&self` (Tauri `State` only provides shared refs).
+    event_bus_v2: Mutex<Option<Arc<crate::event_bus_v2::EventBus>>>,
 }
 
 impl WorkflowEngine {
     pub fn new() -> Self {
         Self {
             runs: Arc::new(Mutex::new(HashMap::new())),
+            event_bus_v2: Mutex::new(None),
+        }
+    }
+
+    /// Set the EventBus v2 for dual-bus coexistence.
+    /// Called from `setup()` after the bus is constructed.
+    pub fn set_event_bus_v2(&self, bus: Arc<crate::event_bus_v2::EventBus>) {
+        *self.event_bus_v2.lock().unwrap_or_else(|e| e.into_inner()) = Some(bus);
+    }
+
+    /// Dual-emit helper: publish an event through the EventBus v2 channel.
+    /// The old `app.emit()` call is kept at each call site for backward compatibility.
+    fn emit_to_bus(&self, channel: &str, payload: serde_json::Value) {
+        let bus = self
+            .event_bus_v2
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone();
+        if let Some(bus) = bus {
+            bus.publish(crate::event_bus_v2::Event::new(
+                channel,
+                payload,
+                "workflow-engine",
+            ));
         }
     }
 
@@ -93,7 +124,11 @@ impl WorkflowEngine {
             }
         }
         if result.len() != workflow.nodes.len() {
-            warn!("Workflow graph cycle detected: sorted {} of {} nodes", result.len(), workflow.nodes.len());
+            warn!(
+                "Workflow graph cycle detected: sorted {} of {} nodes",
+                result.len(),
+                workflow.nodes.len()
+            );
             return Err("Workflow graph contains a cycle".to_string());
         }
         debug!("Topological sort completed: {} nodes", result.len());
@@ -150,7 +185,12 @@ impl WorkflowEngine {
     pub fn create_run(&self, workflow: &Workflow, workflow_path: &str) -> Result<String, String> {
         Self::topological_sort(workflow)?;
         let run_id = uuid::Uuid::new_v4().to_string();
-        info!("Workflow run created: run_id={}, workflow={}, nodes={}", run_id, workflow_path, workflow.nodes.len());
+        info!(
+            "Workflow run created: run_id={}, workflow={}, nodes={}",
+            run_id,
+            workflow_path,
+            workflow.nodes.len()
+        );
         let mut node_states = HashMap::new();
         for node in &workflow.nodes {
             let state = if node.node_type == NodeType::Resource {
@@ -175,7 +215,10 @@ impl WorkflowEngine {
             started_at: Some(chrono::Utc::now().to_rfc3339()),
             finished_at: None,
         };
-        self.runs.lock().unwrap_or_else(|e| e.into_inner()).insert(run_id.clone(), run);
+        self.runs
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .insert(run_id.clone(), run);
         Ok(run_id)
     }
 
@@ -219,7 +262,11 @@ impl WorkflowEngine {
     }
 
     pub fn get_run(&self, run_id: &str) -> Option<WorkflowRun> {
-        self.runs.lock().unwrap_or_else(|e| e.into_inner()).get(run_id).cloned()
+        self.runs
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .get(run_id)
+            .cloned()
     }
 
     pub fn update_node_state(
@@ -249,10 +296,12 @@ impl WorkflowEngine {
         let run = runs
             .get(run_id)
             .ok_or_else(|| format!("Run {} not found", run_id))?;
-        Ok(run
-            .node_states
-            .values()
-            .all(|ns| matches!(ns.state, AgentState::Success | AgentState::Error | AgentState::Skipped)))
+        Ok(run.node_states.values().all(|ns| {
+            matches!(
+                ns.state,
+                AgentState::Success | AgentState::Error | AgentState::Skipped
+            )
+        }))
     }
 
     pub fn finalize_run(&self, run_id: &str) -> Result<RunStatus, String> {
@@ -269,7 +318,10 @@ impl WorkflowEngine {
         } else {
             RunStatus::Completed
         };
-        info!("Workflow run finalized: run_id={}, status={:?}", run_id, final_status);
+        info!(
+            "Workflow run finalized: run_id={}, status={:?}",
+            run_id, final_status
+        );
         run.status = final_status.clone();
         run.finished_at = Some(chrono::Utc::now().to_rfc3339());
         Ok(final_status)
@@ -307,14 +359,23 @@ impl WorkflowEngine {
             } else {
                 continue;
             };
-            if let Some(res_node) = workflow.nodes.iter().find(|n| n.id == *resource_node_id && n.node_type == NodeType::Resource) {
-                let write = if let Ok(cfg) = serde_json::from_value::<ResourceNodeConfig>(res_node.config.clone()) {
+            if let Some(res_node) = workflow
+                .nodes
+                .iter()
+                .find(|n| n.id == *resource_node_id && n.node_type == NodeType::Resource)
+            {
+                let write = if let Ok(cfg) =
+                    serde_json::from_value::<ResourceNodeConfig>(res_node.config.clone())
+                {
                     cfg.access == "write" || cfg.access == "read_write"
                 } else {
                     false
                 };
                 if let Err(e) = lock_manager.acquire(resource_node_id, node_id, write) {
-                    debug!("Lock acquisition failed for node {} on resource {}: {}", node_id, resource_node_id, e);
+                    debug!(
+                        "Lock acquisition failed for node {} on resource {}: {}",
+                        node_id, resource_node_id, e
+                    );
                     lock_failed = true;
                     break;
                 }
@@ -325,15 +386,17 @@ impl WorkflowEngine {
             for rid in &acquired_resources {
                 lock_manager.release(rid, node_id);
             }
-            return Err(format!("Resource lock acquisition failed for node {}", node_id));
+            return Err(format!(
+                "Resource lock acquisition failed for node {}",
+                node_id
+            ));
         }
 
         let retry = node
             .config
             .get("retry")
             .and_then(|v| v.as_u64())
-            .unwrap_or(workflow.settings.default_retry as u64)
-            as u32;
+            .unwrap_or(workflow.settings.default_retry as u64) as u32;
         let fallback = node
             .config
             .get("fallback")
@@ -361,8 +424,12 @@ impl WorkflowEngine {
                     };
                     match AgentMemoryStore::load(mem_path.to_str().unwrap_or("")) {
                         Ok(store) if !store.entries.is_empty() => {
-                            let summary = store.entries.iter()
-                                .map(|e| format!("[{}] {}: {}", e.timestamp, e.outcome, e.output_summary))
+                            let summary = store
+                                .entries
+                                .iter()
+                                .map(|e| {
+                                    format!("[{}] {}: {}", e.timestamp, e.outcome, e.output_summary)
+                                })
                                 .collect::<Vec<_>>()
                                 .join("\n");
                             memory_context = format!("\n<memory>\n{}\n</memory>\n", summary);
@@ -384,12 +451,18 @@ impl WorkflowEngine {
         }
 
         // Build prompt from node config + routed messages + memory
-        let prompt = node.config.get("prompt").and_then(|v| v.as_str()).unwrap_or("").to_string();
+        let prompt = node
+            .config
+            .get("prompt")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
         let input_msgs = runtime.get_messages_for(node_id);
         let routed_input = if input_msgs.is_empty() {
             String::new()
         } else {
-            let parts: Vec<&str> = input_msgs.iter()
+            let parts: Vec<&str> = input_msgs
+                .iter()
                 .filter_map(|m| m.payload.get("output").and_then(|v| v.as_str()))
                 .collect();
             format!("\n<input>\n{}\n</input>\n", parts.join("\n---\n"))
@@ -397,12 +470,8 @@ impl WorkflowEngine {
 
         let full_prompt = format!("{}{}{}\n", memory_context, routed_input, prompt);
 
-        let agent_id = runtime.create_agent(
-            node_id,
-            &format!("{}:{}", run_id, node_id),
-            retry,
-            fallback,
-        );
+        let agent_id =
+            runtime.create_agent(node_id, &format!("{}:{}", run_id, node_id), retry, fallback);
         runtime.transition(&agent_id, AgentState::Queued)?;
         runtime.transition(&agent_id, AgentState::Running)?;
         let pty_id = pty_manager.spawn(llm, &[], cwd, app.clone())?;
@@ -413,15 +482,15 @@ impl WorkflowEngine {
             if let Err(e) = pty_manager.write(&pty_id, &full_prompt) {
                 warn!("Failed to write prompt to PTY {}: {}", pty_id, e);
             } else {
-                debug!("Injected prompt into PTY {} for node {} ({} bytes)", pty_id, node_id, full_prompt.len());
+                debug!(
+                    "Injected prompt into PTY {} for node {} ({} bytes)",
+                    pty_id,
+                    node_id,
+                    full_prompt.len()
+                );
             }
         }
-        self.update_node_state(
-            run_id,
-            node_id,
-            AgentState::Running,
-            Some(agent_id.clone()),
-        )?;
+        self.update_node_state(run_id, node_id, AgentState::Running, Some(agent_id.clone()))?;
         let _ = app.emit(
             "hive://node-state-changed",
             NodeStateEvent {
@@ -431,11 +500,32 @@ impl WorkflowEngine {
                 new_state: "running".to_string(),
             },
         );
-        app.emit("hive://agent-output", serde_json::json!({
-            "run_id": run_id,
-            "node_id": node_id,
-            "pty_id": pty_id,
-        })).ok();
+        self.emit_to_bus(
+            "workflow:node-state",
+            serde_json::json!({
+                "run_id": run_id,
+                "node_id": node_id,
+                "old_state": "idle",
+                "new_state": "running",
+            }),
+        );
+        app.emit(
+            "hive://agent-output",
+            serde_json::json!({
+                "run_id": run_id,
+                "node_id": node_id,
+                "pty_id": pty_id,
+            }),
+        )
+        .ok();
+        self.emit_to_bus(
+            "workflow:agent-output",
+            serde_json::json!({
+                "run_id": run_id,
+                "node_id": node_id,
+                "pty_id": pty_id,
+            }),
+        );
 
         // Subscribe to PTY output for backend buffering (used by message routing + memory)
         let runtime_agents = runtime.agents.clone();
@@ -491,11 +581,19 @@ impl WorkflowEngine {
         let mut started = Vec::new();
         let permission_level = &workflow.settings.permission_level;
 
-        debug!("Advancing run {}: {} ready nodes, {} currently running", run_id, ready.len(), running_count);
+        debug!(
+            "Advancing run {}: {} ready nodes, {} currently running",
+            run_id,
+            ready.len(),
+            running_count
+        );
 
         for node_id in ready {
             if running_count + started.len() as u32 >= max_concurrent {
-                debug!("Concurrency limit reached ({}) for run {}", max_concurrent, run_id);
+                debug!(
+                    "Concurrency limit reached ({}) for run {}",
+                    max_concurrent, run_id
+                );
                 break;
             }
             let node = workflow
@@ -510,36 +608,83 @@ impl WorkflowEngine {
                         "dry-run" => {
                             // Simulate execution — mark as Success without spawning
                             self.update_node_state(run_id, &node_id, AgentState::Success, None)?;
-                            app.emit("hive://node-state-changed", NodeStateEvent {
-                                run_id: run_id.to_string(),
-                                node_id: node_id.clone(),
-                                old_state: "idle".to_string(),
-                                new_state: "success".to_string(),
-                            }).ok();
+                            app.emit(
+                                "hive://node-state-changed",
+                                NodeStateEvent {
+                                    run_id: run_id.to_string(),
+                                    node_id: node_id.clone(),
+                                    old_state: "idle".to_string(),
+                                    new_state: "success".to_string(),
+                                },
+                            )
+                            .ok();
+                            self.emit_to_bus(
+                                "workflow:node-state",
+                                serde_json::json!({
+                                    "run_id": run_id,
+                                    "node_id": node_id,
+                                    "old_state": "idle",
+                                    "new_state": "success",
+                                }),
+                            );
                             log::info!("[dry-run] Node {} simulated as success", node_id);
                             // Don't push to started since it completes immediately
                         }
                         "supervised" => {
                             // Emit permission request — frontend shows approval dialog
-                            app.emit("hive://permission-request", serde_json::json!({
-                                "run_id": run_id,
-                                "node_id": node_id,
-                                "agent_label": node.label,
-                            })).ok();
+                            app.emit(
+                                "hive://permission-request",
+                                serde_json::json!({
+                                    "run_id": run_id,
+                                    "node_id": node_id,
+                                    "agent_label": node.label,
+                                }),
+                            )
+                            .ok();
+                            self.emit_to_bus(
+                                "workflow:permission-request",
+                                serde_json::json!({
+                                    "run_id": run_id,
+                                    "node_id": node_id,
+                                    "agent_label": node.label,
+                                }),
+                            );
                             // Don't spawn PTY yet — wait for approval via approve_node command
                             // Mark as Queued so it's visually distinct
                             self.update_node_state(run_id, &node_id, AgentState::Queued, None)?;
-                            app.emit("hive://node-state-changed", NodeStateEvent {
-                                run_id: run_id.to_string(),
-                                node_id: node_id.clone(),
-                                old_state: "idle".to_string(),
-                                new_state: "queued".to_string(),
-                            }).ok();
+                            app.emit(
+                                "hive://node-state-changed",
+                                NodeStateEvent {
+                                    run_id: run_id.to_string(),
+                                    node_id: node_id.clone(),
+                                    old_state: "idle".to_string(),
+                                    new_state: "queued".to_string(),
+                                },
+                            )
+                            .ok();
+                            self.emit_to_bus(
+                                "workflow:node-state",
+                                serde_json::json!({
+                                    "run_id": run_id,
+                                    "node_id": node_id,
+                                    "old_state": "idle",
+                                    "new_state": "queued",
+                                }),
+                            );
                             log::info!("[supervised] Node {} awaiting approval", node_id);
                         }
                         _ => {
                             // "trusted" — spawn directly (existing behavior)
-                            self.spawn_single_node(run_id, &node_id, workflow, runtime, pty_manager, lock_manager, app, cwd)?;
+                            self.spawn_single_node(
+                                run_id,
+                                &node_id,
+                                workflow,
+                                runtime,
+                                pty_manager,
+                                lock_manager,
+                                app,
+                                cwd,
+                            )?;
                             started.push(node_id);
                         }
                     }
@@ -558,8 +703,11 @@ impl WorkflowEngine {
                             self.update_node_state(run_id, &node_id, AgentState::Success, None)?;
 
                             // Route to onTrue or onFalse edge — disable the other branch
-                            let inactive_edge_id =
-                                if result { &config.on_false } else { &config.on_true };
+                            let inactive_edge_id = if result {
+                                &config.on_false
+                            } else {
+                                &config.on_true
+                            };
 
                             // Mark nodes on the inactive branch as skipped
                             if let Some(ref inactive_id) = inactive_edge_id {
@@ -591,6 +739,15 @@ impl WorkflowEngine {
                                                 new_state: "skipped".to_string(),
                                             },
                                         );
+                                        self.emit_to_bus(
+                                            "workflow:node-state",
+                                            serde_json::json!({
+                                                "run_id": run_id,
+                                                "node_id": succ_id,
+                                                "old_state": "idle",
+                                                "new_state": "skipped",
+                                            }),
+                                        );
                                     }
                                 }
                             }
@@ -605,6 +762,15 @@ impl WorkflowEngine {
                                     new_state: "success".to_string(),
                                 },
                             );
+                            self.emit_to_bus(
+                                "workflow:node-state",
+                                serde_json::json!({
+                                    "run_id": run_id,
+                                    "node_id": node_id,
+                                    "old_state": "idle",
+                                    "new_state": "success",
+                                }),
+                            );
                         }
                         Err(e) => {
                             self.update_node_state(run_id, &node_id, AgentState::Error, None)?;
@@ -617,6 +783,15 @@ impl WorkflowEngine {
                                     old_state: "idle".to_string(),
                                     new_state: "error".to_string(),
                                 },
+                            );
+                            self.emit_to_bus(
+                                "workflow:node-state",
+                                serde_json::json!({
+                                    "run_id": run_id,
+                                    "node_id": node_id,
+                                    "old_state": "idle",
+                                    "new_state": "error",
+                                }),
                             );
                         }
                     }
@@ -631,6 +806,13 @@ impl WorkflowEngine {
             let final_status = self.finalize_run(run_id)?;
             let _ = app.emit(
                 "hive://run-completed",
+                serde_json::json!({
+                    "run_id": run_id,
+                    "status": final_status,
+                }),
+            );
+            self.emit_to_bus(
+                "workflow:run-status",
                 serde_json::json!({
                     "run_id": run_id,
                     "status": final_status,
@@ -666,7 +848,10 @@ impl WorkflowEngine {
         lock_manager.release_all(node_id);
 
         if success {
-            info!("Workflow node completed successfully: run_id={}, node_id={}", run_id, node_id);
+            info!(
+                "Workflow node completed successfully: run_id={}, node_id={}",
+                run_id, node_id
+            );
             if let Some(ref aid) = agent_id {
                 let _ = runtime.transition(aid, AgentState::Success);
             }
@@ -679,6 +864,15 @@ impl WorkflowEngine {
                     old_state: "running".to_string(),
                     new_state: "success".to_string(),
                 },
+            );
+            self.emit_to_bus(
+                "workflow:node-state",
+                serde_json::json!({
+                    "run_id": run_id,
+                    "node_id": node_id,
+                    "old_state": "running",
+                    "new_state": "success",
+                }),
             );
 
             // Route output to successor nodes via agent messaging
@@ -694,11 +888,19 @@ impl WorkflowEngine {
                 });
                 for succ_id in &successors {
                     runtime.send_message(node_id, succ_id, payload.clone());
-                    debug!("Routed output from {} to {} ({} lines)", node_id, succ_id, output.len());
+                    debug!(
+                        "Routed output from {} to {} ({} lines)",
+                        node_id,
+                        succ_id,
+                        output.len()
+                    );
                 }
             }
         } else {
-            warn!("Workflow node failed: run_id={}, node_id={}", run_id, node_id);
+            warn!(
+                "Workflow node failed: run_id={}, node_id={}",
+                run_id, node_id
+            );
             if let Some(ref aid) = agent_id {
                 let _ = runtime.transition(aid, AgentState::Failed);
             }
@@ -720,11 +922,21 @@ impl WorkflowEngine {
                         new_state: "error".to_string(),
                     },
                 );
+                self.emit_to_bus(
+                    "workflow:node-state",
+                    serde_json::json!({
+                        "run_id": run_id,
+                        "node_id": node_id,
+                        "old_state": "failed",
+                        "new_state": "error",
+                    }),
+                );
             }
         }
         // Save memory entry if enabled for this node
         if let Some(wf_node) = workflow.nodes.iter().find(|n| n.id == node_id) {
-            if let Ok(agent_cfg) = serde_json::from_value::<AgentNodeConfig>(wf_node.config.clone()) {
+            if let Ok(agent_cfg) = serde_json::from_value::<AgentNodeConfig>(wf_node.config.clone())
+            {
                 if let Some(ref mem_cfg) = agent_cfg.memory {
                     if mem_cfg.enabled {
                         let mem_path = match mem_cfg.persist.as_str() {
@@ -737,17 +949,21 @@ impl WorkflowEngine {
                             _ => AgentMemoryStore::workflow_memory_path(".", node_id),
                         };
                         let path_str = mem_path.to_str().unwrap_or("");
-                        let mut store = AgentMemoryStore::load(path_str).unwrap_or_else(|_| AgentMemoryStore::new(node_id));
+                        let mut store = AgentMemoryStore::load(path_str)
+                            .unwrap_or_else(|_| AgentMemoryStore::new(node_id));
                         // Build input summary from messages routed to this node
                         let input_msgs = runtime.get_messages_for(node_id);
                         let input_summary = if input_msgs.is_empty() {
                             String::new()
                         } else {
-                            input_msgs.iter()
+                            input_msgs
+                                .iter()
                                 .filter_map(|m| m.payload.get("output").and_then(|v| v.as_str()))
                                 .collect::<Vec<_>>()
                                 .join("\n---\n")
-                                .chars().take(2000).collect()
+                                .chars()
+                                .take(2000)
+                                .collect()
                         };
 
                         // Build output summary from PTY output buffer
@@ -755,7 +971,8 @@ impl WorkflowEngine {
                             .as_ref()
                             .and_then(|aid| runtime.get_output(aid).ok())
                             .map(|lines| {
-                                let last_50: Vec<&str> = lines.iter().rev().take(50).map(|s| s.as_str()).collect();
+                                let last_50: Vec<&str> =
+                                    lines.iter().rev().take(50).map(|s| s.as_str()).collect();
                                 let mut reversed = last_50;
                                 reversed.reverse();
                                 reversed.join("\n").chars().take(2000).collect::<String>()
@@ -767,21 +984,37 @@ impl WorkflowEngine {
                             timestamp: chrono::Utc::now().to_rfc3339(),
                             input_summary,
                             output_summary,
-                            outcome: if success { "success".to_string() } else { "failure".to_string() },
+                            outcome: if success {
+                                "success".to_string()
+                            } else {
+                                "failure".to_string()
+                            },
                             context: serde_json::Value::Null,
                         };
                         store.add_entry(entry, mem_cfg.max_entries);
                         if let Err(e) = store.save(path_str) {
                             warn!("Failed to save memory for node {}: {}", node_id, e);
                         } else {
-                            info!("Memory saved for node {}: {} entries", node_id, store.entries.len());
+                            info!(
+                                "Memory saved for node {}: {} entries",
+                                node_id,
+                                store.entries.len()
+                            );
                         }
                     }
                 }
             }
         }
 
-        self.advance_run(run_id, workflow, runtime, pty_manager, app, cwd, lock_manager)?;
+        self.advance_run(
+            run_id,
+            workflow,
+            runtime,
+            pty_manager,
+            app,
+            cwd,
+            lock_manager,
+        )?;
         Ok(())
     }
 
@@ -807,15 +1040,17 @@ impl WorkflowEngine {
 
         // Try retry
         if agent.retry_count < agent.max_retries {
-            info!("Retrying node: run_id={}, node_id={}, attempt={}/{}", run_id, node_id, agent.retry_count + 1, agent.max_retries);
+            info!(
+                "Retrying node: run_id={}, node_id={}, attempt={}/{}",
+                run_id,
+                node_id,
+                agent.retry_count + 1,
+                agent.max_retries
+            );
             let _ = runtime.transition(&agent_id, AgentState::Retrying);
             let _ = runtime.transition(&agent_id, AgentState::Running);
             self.update_node_state(run_id, node_id, AgentState::Running, None)?;
-            let node = workflow
-                .nodes
-                .iter()
-                .find(|n| n.id == node_id)
-                .unwrap();
+            let node = workflow.nodes.iter().find(|n| n.id == node_id).unwrap();
             let llm = node
                 .config
                 .get("llm")
@@ -832,24 +1067,44 @@ impl WorkflowEngine {
                     new_state: "running".to_string(),
                 },
             );
-            app.emit("hive://agent-output", serde_json::json!({
-                "run_id": run_id,
-                "node_id": node_id,
-                "pty_id": pty_id,
-            })).ok();
+            self.emit_to_bus(
+                "workflow:node-state",
+                serde_json::json!({
+                    "run_id": run_id,
+                    "node_id": node_id,
+                    "old_state": "failed",
+                    "new_state": "running",
+                }),
+            );
+            app.emit(
+                "hive://agent-output",
+                serde_json::json!({
+                    "run_id": run_id,
+                    "node_id": node_id,
+                    "pty_id": pty_id,
+                }),
+            )
+            .ok();
+            self.emit_to_bus(
+                "workflow:agent-output",
+                serde_json::json!({
+                    "run_id": run_id,
+                    "node_id": node_id,
+                    "pty_id": pty_id,
+                }),
+            );
             return Ok(true);
         }
 
         // Try fallback
         if agent.fallback_agent.is_some() {
-            info!("Activating fallback for node: run_id={}, node_id={}, fallback={:?}", run_id, node_id, agent.fallback_agent);
+            info!(
+                "Activating fallback for node: run_id={}, node_id={}, fallback={:?}",
+                run_id, node_id, agent.fallback_agent
+            );
             let _ = runtime.transition(&agent_id, AgentState::Fallback);
             self.update_node_state(run_id, node_id, AgentState::Fallback, None)?;
-            let node = workflow
-                .nodes
-                .iter()
-                .find(|n| n.id == node_id)
-                .unwrap();
+            let node = workflow.nodes.iter().find(|n| n.id == node_id).unwrap();
             let fallback_llm = node
                 .config
                 .get("fallback")
@@ -876,11 +1131,32 @@ impl WorkflowEngine {
                     new_state: "running".to_string(),
                 },
             );
-            app.emit("hive://agent-output", serde_json::json!({
-                "run_id": run_id,
-                "node_id": node_id,
-                "pty_id": pty_id,
-            })).ok();
+            self.emit_to_bus(
+                "workflow:node-state",
+                serde_json::json!({
+                    "run_id": run_id,
+                    "node_id": node_id,
+                    "old_state": "failed",
+                    "new_state": "running",
+                }),
+            );
+            app.emit(
+                "hive://agent-output",
+                serde_json::json!({
+                    "run_id": run_id,
+                    "node_id": node_id,
+                    "pty_id": pty_id,
+                }),
+            )
+            .ok();
+            self.emit_to_bus(
+                "workflow:agent-output",
+                serde_json::json!({
+                    "run_id": run_id,
+                    "node_id": node_id,
+                    "pty_id": pty_id,
+                }),
+            );
             return Ok(true);
         }
 
@@ -920,7 +1196,15 @@ impl WorkflowEngine {
             return Ok(None);
         }
 
-        let started = self.advance_run(run_id, workflow, runtime, pty_manager, app, cwd, lock_manager)?;
+        let started = self.advance_run(
+            run_id,
+            workflow,
+            runtime,
+            pty_manager,
+            app,
+            cwd,
+            lock_manager,
+        )?;
         {
             let mut runs = self.runs.lock().unwrap_or_else(|e| e.into_inner());
             if let Some(run) = runs.get_mut(run_id) {
@@ -973,7 +1257,11 @@ mod tests {
     #[test]
     fn test_topological_sort_linear() {
         let wf = make_workflow(
-            vec![("A", NodeType::Agent), ("B", NodeType::Agent), ("C", NodeType::Agent)],
+            vec![
+                ("A", NodeType::Agent),
+                ("B", NodeType::Agent),
+                ("C", NodeType::Agent),
+            ],
             vec![("A", "B"), ("B", "C")],
         );
         let sorted = WorkflowEngine::topological_sort(&wf).unwrap();
@@ -983,7 +1271,11 @@ mod tests {
     #[test]
     fn test_topological_sort_fan_out() {
         let wf = make_workflow(
-            vec![("A", NodeType::Agent), ("B", NodeType::Agent), ("C", NodeType::Agent)],
+            vec![
+                ("A", NodeType::Agent),
+                ("B", NodeType::Agent),
+                ("C", NodeType::Agent),
+            ],
             vec![("A", "B"), ("A", "C")],
         );
         let sorted = WorkflowEngine::topological_sort(&wf).unwrap();
@@ -1013,7 +1305,11 @@ mod tests {
     #[test]
     fn test_topological_sort_disconnected() {
         let wf = make_workflow(
-            vec![("A", NodeType::Agent), ("B", NodeType::Agent), ("C", NodeType::Agent)],
+            vec![
+                ("A", NodeType::Agent),
+                ("B", NodeType::Agent),
+                ("C", NodeType::Agent),
+            ],
             vec![],
         );
         let sorted = WorkflowEngine::topological_sort(&wf).unwrap();
@@ -1023,10 +1319,30 @@ mod tests {
     #[test]
     fn test_predecessors_and_successors() {
         let edges = vec![
-            WorkflowEdge { id: "e1".into(), from: "A".into(), to: "B".into(), label: None },
-            WorkflowEdge { id: "e2".into(), from: "A".into(), to: "C".into(), label: None },
-            WorkflowEdge { id: "e3".into(), from: "B".into(), to: "D".into(), label: None },
-            WorkflowEdge { id: "e4".into(), from: "C".into(), to: "D".into(), label: None },
+            WorkflowEdge {
+                id: "e1".into(),
+                from: "A".into(),
+                to: "B".into(),
+                label: None,
+            },
+            WorkflowEdge {
+                id: "e2".into(),
+                from: "A".into(),
+                to: "C".into(),
+                label: None,
+            },
+            WorkflowEdge {
+                id: "e3".into(),
+                from: "B".into(),
+                to: "D".into(),
+                label: None,
+            },
+            WorkflowEdge {
+                id: "e4".into(),
+                from: "C".into(),
+                to: "D".into(),
+                label: None,
+            },
         ];
 
         let preds_d = WorkflowEngine::get_predecessors("D", &edges);
@@ -1044,13 +1360,44 @@ mod tests {
     #[test]
     fn test_ready_nodes() {
         let edges = vec![
-            WorkflowEdge { id: "e1".into(), from: "A".into(), to: "C".into(), label: None },
-            WorkflowEdge { id: "e2".into(), from: "B".into(), to: "C".into(), label: None },
+            WorkflowEdge {
+                id: "e1".into(),
+                from: "A".into(),
+                to: "C".into(),
+                label: None,
+            },
+            WorkflowEdge {
+                id: "e2".into(),
+                from: "B".into(),
+                to: "C".into(),
+                label: None,
+            },
         ];
         let mut states = HashMap::new();
-        states.insert("A".to_string(), NodeRunState { node_id: "A".into(), agent_id: None, state: AgentState::Success });
-        states.insert("B".to_string(), NodeRunState { node_id: "B".into(), agent_id: None, state: AgentState::Idle });
-        states.insert("C".to_string(), NodeRunState { node_id: "C".into(), agent_id: None, state: AgentState::Idle });
+        states.insert(
+            "A".to_string(),
+            NodeRunState {
+                node_id: "A".into(),
+                agent_id: None,
+                state: AgentState::Success,
+            },
+        );
+        states.insert(
+            "B".to_string(),
+            NodeRunState {
+                node_id: "B".into(),
+                agent_id: None,
+                state: AgentState::Idle,
+            },
+        );
+        states.insert(
+            "C".to_string(),
+            NodeRunState {
+                node_id: "C".into(),
+                agent_id: None,
+                state: AgentState::Idle,
+            },
+        );
 
         // C is not ready because B is still Idle
         let ready = WorkflowEngine::get_ready_nodes(&edges, &states);
@@ -1113,7 +1460,9 @@ mod tests {
         let wf = make_workflow(vec![("A", NodeType::Agent)], vec![]);
         let run_id = engine.create_run(&wf, "test.json").unwrap();
 
-        engine.update_node_state(&run_id, "A", AgentState::Success, None).unwrap();
+        engine
+            .update_node_state(&run_id, "A", AgentState::Success, None)
+            .unwrap();
         let status = engine.finalize_run(&run_id).unwrap();
         assert_eq!(status, RunStatus::Completed);
     }
@@ -1121,14 +1470,15 @@ mod tests {
     #[test]
     fn test_finalize_run_with_errors() {
         let engine = WorkflowEngine::new();
-        let wf = make_workflow(
-            vec![("A", NodeType::Agent), ("B", NodeType::Agent)],
-            vec![],
-        );
+        let wf = make_workflow(vec![("A", NodeType::Agent), ("B", NodeType::Agent)], vec![]);
         let run_id = engine.create_run(&wf, "test.json").unwrap();
 
-        engine.update_node_state(&run_id, "A", AgentState::Success, None).unwrap();
-        engine.update_node_state(&run_id, "B", AgentState::Error, None).unwrap();
+        engine
+            .update_node_state(&run_id, "A", AgentState::Success, None)
+            .unwrap();
+        engine
+            .update_node_state(&run_id, "B", AgentState::Error, None)
+            .unwrap();
         let status = engine.finalize_run(&run_id).unwrap();
         assert_eq!(status, RunStatus::Failed);
     }
@@ -1141,10 +1491,14 @@ mod tests {
 
         assert!(!engine.check_run_complete(&run_id).unwrap());
 
-        engine.update_node_state(&run_id, "A", AgentState::Success, None).unwrap();
+        engine
+            .update_node_state(&run_id, "A", AgentState::Success, None)
+            .unwrap();
         assert!(!engine.check_run_complete(&run_id).unwrap());
 
-        engine.update_node_state(&run_id, "B", AgentState::Error, None).unwrap();
+        engine
+            .update_node_state(&run_id, "B", AgentState::Error, None)
+            .unwrap();
         assert!(engine.check_run_complete(&run_id).unwrap());
     }
 
@@ -1152,22 +1506,59 @@ mod tests {
     fn test_all_predecessors_complete_partial() {
         // Diamond: A -> C, B -> C. C is only ready when both A and B succeed.
         let edges = vec![
-            WorkflowEdge { id: "e1".into(), from: "A".into(), to: "C".into(), label: None },
-            WorkflowEdge { id: "e2".into(), from: "B".into(), to: "C".into(), label: None },
+            WorkflowEdge {
+                id: "e1".into(),
+                from: "A".into(),
+                to: "C".into(),
+                label: None,
+            },
+            WorkflowEdge {
+                id: "e2".into(),
+                from: "B".into(),
+                to: "C".into(),
+                label: None,
+            },
         ];
         let mut states = HashMap::new();
-        states.insert("A".to_string(), NodeRunState { node_id: "A".into(), agent_id: None, state: AgentState::Success });
-        states.insert("B".to_string(), NodeRunState { node_id: "B".into(), agent_id: None, state: AgentState::Running });
-        states.insert("C".to_string(), NodeRunState { node_id: "C".into(), agent_id: None, state: AgentState::Idle });
+        states.insert(
+            "A".to_string(),
+            NodeRunState {
+                node_id: "A".into(),
+                agent_id: None,
+                state: AgentState::Success,
+            },
+        );
+        states.insert(
+            "B".to_string(),
+            NodeRunState {
+                node_id: "B".into(),
+                agent_id: None,
+                state: AgentState::Running,
+            },
+        );
+        states.insert(
+            "C".to_string(),
+            NodeRunState {
+                node_id: "C".into(),
+                agent_id: None,
+                state: AgentState::Idle,
+            },
+        );
 
         // C not ready: B is still Running
-        assert!(!WorkflowEngine::all_predecessors_complete("C", &edges, &states));
+        assert!(!WorkflowEngine::all_predecessors_complete(
+            "C", &edges, &states
+        ));
 
         // A node with no predecessors is always "ready"
-        assert!(WorkflowEngine::all_predecessors_complete("A", &edges, &states));
+        assert!(WorkflowEngine::all_predecessors_complete(
+            "A", &edges, &states
+        ));
 
         // After B completes, C becomes ready
         states.get_mut("B").unwrap().state = AgentState::Success;
-        assert!(WorkflowEngine::all_predecessors_complete("C", &edges, &states));
+        assert!(WorkflowEngine::all_predecessors_complete(
+            "C", &edges, &states
+        ));
     }
 }
