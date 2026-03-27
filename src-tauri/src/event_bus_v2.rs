@@ -1,11 +1,15 @@
 use std::collections::{HashMap, VecDeque};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, RwLock, Weak};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use serde::Serialize;
 
 use crate::error::ReasonanceError;
+
+const DEFAULT_CHANNEL_BUFFER: usize = 1000;
+const MAX_DEFERRED_ITERATIONS: usize = 1000;
+const SLOW_HANDLER_THRESHOLD: Duration = Duration::from_millis(100);
 
 /// A general-purpose event for channel-based pub/sub.
 #[derive(Debug, Clone, Serialize)]
@@ -56,8 +60,6 @@ enum Subscriber {
 
 /// Internal channel with weak-ref subscribers and backpressure tracking.
 struct Channel {
-    #[allow(dead_code)]
-    name: String,
     subscribers: Vec<Subscriber>,
     max_buffer_size: usize,
     frontend_visible: bool,
@@ -65,6 +67,18 @@ struct Channel {
     pending_count: Arc<AtomicUsize>,
     /// Number of events dropped due to backpressure.
     drop_count: AtomicUsize,
+}
+
+impl Channel {
+    fn new(frontend_visible: bool, max_buffer_size: usize) -> Self {
+        Self {
+            subscribers: Vec::new(),
+            max_buffer_size,
+            pending_count: Arc::new(AtomicUsize::new(0)),
+            drop_count: AtomicUsize::new(0),
+            frontend_visible,
+        }
+    }
 }
 
 /// General-purpose event bus with channel-based pub/sub, deferred queue for
@@ -75,10 +89,6 @@ pub struct EventBus {
     processing: AtomicBool,
     runtime: tokio::runtime::Handle,
 }
-
-// SAFETY: All fields use thread-safe primitives.
-unsafe impl Send for EventBus {}
-unsafe impl Sync for EventBus {}
 
 impl EventBus {
     pub fn new(runtime: tokio::runtime::Handle) -> Self {
@@ -98,14 +108,9 @@ impl EventBus {
     /// If it already exists, this is a no-op.
     pub fn register_channel(&self, name: &str, frontend_visible: bool) {
         let mut channels = self.channels.write().unwrap_or_else(|e| e.into_inner());
-        channels.entry(name.to_string()).or_insert_with(|| Channel {
-            name: name.to_string(),
-            subscribers: Vec::new(),
-            max_buffer_size: 1000,
-            frontend_visible,
-            pending_count: Arc::new(AtomicUsize::new(0)),
-            drop_count: AtomicUsize::new(0),
-        });
+        channels
+            .entry(name.to_string())
+            .or_insert_with(|| Channel::new(frontend_visible, DEFAULT_CHANNEL_BUFFER));
     }
 
     /// Register a named channel with a custom buffer size.
@@ -117,14 +122,9 @@ impl EventBus {
         max_buffer_size: usize,
     ) {
         let mut channels = self.channels.write().unwrap_or_else(|e| e.into_inner());
-        channels.entry(name.to_string()).or_insert_with(|| Channel {
-            name: name.to_string(),
-            subscribers: Vec::new(),
-            max_buffer_size,
-            frontend_visible,
-            pending_count: Arc::new(AtomicUsize::new(0)),
-            drop_count: AtomicUsize::new(0),
-        });
+        channels
+            .entry(name.to_string())
+            .or_insert_with(|| Channel::new(frontend_visible, max_buffer_size));
     }
 
     /// Subscribe a synchronous handler to a channel. The bus holds a weak reference.
@@ -133,14 +133,7 @@ impl EventBus {
         let mut channels = self.channels.write().unwrap_or_else(|e| e.into_inner());
         let channel = channels
             .entry(channel_name.to_string())
-            .or_insert_with(|| Channel {
-                name: channel_name.to_string(),
-                subscribers: Vec::new(),
-                max_buffer_size: 1000,
-                frontend_visible: false,
-                pending_count: Arc::new(AtomicUsize::new(0)),
-                drop_count: AtomicUsize::new(0),
-            });
+            .or_insert_with(|| Channel::new(false, DEFAULT_CHANNEL_BUFFER));
         channel
             .subscribers
             .push(Subscriber::Sync(Arc::downgrade(&handler)));
@@ -152,14 +145,7 @@ impl EventBus {
         let mut channels = self.channels.write().unwrap_or_else(|e| e.into_inner());
         let channel = channels
             .entry(channel_name.to_string())
-            .or_insert_with(|| Channel {
-                name: channel_name.to_string(),
-                subscribers: Vec::new(),
-                max_buffer_size: 1000,
-                frontend_visible: false,
-                pending_count: Arc::new(AtomicUsize::new(0)),
-                drop_count: AtomicUsize::new(0),
-            });
+            .or_insert_with(|| Channel::new(false, DEFAULT_CHANNEL_BUFFER));
         channel
             .subscribers
             .push(Subscriber::Async(Arc::downgrade(&handler)));
@@ -169,14 +155,20 @@ impl EventBus {
     ///
     /// If called reentrantly (from within a handler), the event is deferred.
     /// After the top-level dispatch completes, deferred events are drained
-    /// iteratively (max 1000 iterations to prevent infinite loops).
+    /// iteratively (max `MAX_DEFERRED_ITERATIONS` to prevent infinite loops).
     ///
     /// Backpressure: if the channel's pending async count exceeds max_buffer_size,
     /// the event is dropped, a warning is logged, and a synthetic `lifecycle:warning`
     /// event is emitted.
     pub fn publish(&self, event: Event) {
-        // If we're already processing, defer this event.
-        if self.processing.load(Ordering::SeqCst) {
+        // Atomically claim the processing flag. If another thread is already
+        // dispatching, defer this event instead of risking concurrent dispatch.
+        if self
+            .processing
+            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+            .is_err()
+        {
+            // Another call is already dispatching; defer this event.
             let mut queue = self
                 .deferred_queue
                 .lock()
@@ -184,8 +176,6 @@ impl EventBus {
             queue.push_back(event);
             return;
         }
-
-        self.processing.store(true, Ordering::SeqCst);
 
         self.dispatch(&event);
 
@@ -203,9 +193,10 @@ impl EventBus {
                 Some(deferred) => {
                     self.dispatch(&deferred);
                     iterations += 1;
-                    if iterations >= 1000 {
+                    if iterations >= MAX_DEFERRED_ITERATIONS {
                         log::warn!(
-                            "EventBus: deferred queue exceeded 1000 iterations, stopping drain"
+                            "EventBus: deferred queue exceeded {} iterations, stopping drain",
+                            MAX_DEFERRED_ITERATIONS,
                         );
                         break;
                     }
@@ -225,13 +216,14 @@ impl EventBus {
     fn dispatch(&self, event: &Event) {
         let channels = self.channels.read().unwrap_or_else(|e| e.into_inner());
         if let Some(channel) = channels.get(&event.channel) {
-            // Backpressure check: based on currently pending async handlers
-            if channel.pending_count.load(Ordering::SeqCst) >= channel.max_buffer_size {
+            // Backpressure check: capture once to avoid TOCTOU between check and log.
+            let pending = channel.pending_count.load(Ordering::SeqCst);
+            if pending >= channel.max_buffer_size {
                 channel.drop_count.fetch_add(1, Ordering::SeqCst);
                 log::warn!(
-                    "EventBus: backpressure on channel '{}' — pending_count {} >= max_buffer_size {}, dropping event",
+                    "EventBus: backpressure on channel '{}' — pending {} >= max {}, dropping event",
                     event.channel,
-                    channel.pending_count.load(Ordering::SeqCst),
+                    pending,
                     channel.max_buffer_size,
                 );
                 // Emit a synthetic event:dropped warning on the lifecycle:warning channel.
@@ -267,7 +259,7 @@ impl EventBus {
                                 );
                             }
                             let elapsed = start.elapsed();
-                            if elapsed.as_millis() > 100 {
+                            if elapsed > SLOW_HANDLER_THRESHOLD {
                                 log::warn!(
                                     "EventBus: slow sync handler '{}' on channel '{}' took {}ms",
                                     handler.id(),
