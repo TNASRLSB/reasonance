@@ -61,8 +61,8 @@ struct Channel {
     subscribers: Vec<Subscriber>,
     max_buffer_size: usize,
     frontend_visible: bool,
-    /// Rolling count of events published to this channel (for backpressure).
-    publish_count: usize,
+    /// Number of async events currently in-flight (for backpressure).
+    pending_count: Arc<AtomicUsize>,
     /// Number of events dropped due to backpressure.
     drop_count: AtomicUsize,
 }
@@ -82,12 +82,16 @@ unsafe impl Sync for EventBus {}
 
 impl EventBus {
     pub fn new(runtime: tokio::runtime::Handle) -> Self {
-        Self {
+        let bus = Self {
             channels: RwLock::new(HashMap::new()),
             deferred_queue: Mutex::new(VecDeque::new()),
             processing: AtomicBool::new(false),
             runtime,
-        }
+        };
+        // Auto-register the lifecycle:warning channel with no backpressure limit
+        // to prevent recursion when emitting event:dropped warnings.
+        bus.register_channel_with_buffer("lifecycle:warning", false, usize::MAX);
+        bus
     }
 
     /// Register a named channel with the default buffer size (1000).
@@ -99,7 +103,7 @@ impl EventBus {
             subscribers: Vec::new(),
             max_buffer_size: 1000,
             frontend_visible,
-            publish_count: 0,
+            pending_count: Arc::new(AtomicUsize::new(0)),
             drop_count: AtomicUsize::new(0),
         });
     }
@@ -118,7 +122,7 @@ impl EventBus {
             subscribers: Vec::new(),
             max_buffer_size,
             frontend_visible,
-            publish_count: 0,
+            pending_count: Arc::new(AtomicUsize::new(0)),
             drop_count: AtomicUsize::new(0),
         });
     }
@@ -134,7 +138,7 @@ impl EventBus {
                 subscribers: Vec::new(),
                 max_buffer_size: 1000,
                 frontend_visible: false,
-                publish_count: 0,
+                pending_count: Arc::new(AtomicUsize::new(0)),
                 drop_count: AtomicUsize::new(0),
             });
         channel
@@ -153,7 +157,7 @@ impl EventBus {
                 subscribers: Vec::new(),
                 max_buffer_size: 1000,
                 frontend_visible: false,
-                publish_count: 0,
+                pending_count: Arc::new(AtomicUsize::new(0)),
                 drop_count: AtomicUsize::new(0),
             });
         channel
@@ -167,8 +171,9 @@ impl EventBus {
     /// After the top-level dispatch completes, deferred events are drained
     /// iteratively (max 1000 iterations to prevent infinite loops).
     ///
-    /// Backpressure: if the channel's publish_count exceeds max_buffer_size,
-    /// the event is dropped and a warning is logged.
+    /// Backpressure: if the channel's pending async count exceeds max_buffer_size,
+    /// the event is dropped, a warning is logged, and a synthetic `lifecycle:warning`
+    /// event is emitted.
     pub fn publish(&self, event: Event) {
         // If we're already processing, defer this event.
         if self.processing.load(Ordering::SeqCst) {
@@ -214,19 +219,37 @@ impl EventBus {
 
     /// Dispatch a single event to all live subscribers on its channel.
     /// Applies backpressure and slow-handler detection.
+    ///
+    /// Uses a read lock — `pending_count` and `drop_count` are `AtomicUsize` and
+    /// can be mutated through a shared reference.
     fn dispatch(&self, event: &Event) {
-        let mut channels = self.channels.write().unwrap_or_else(|e| e.into_inner());
-        if let Some(channel) = channels.get_mut(&event.channel) {
-            // Backpressure check
-            channel.publish_count += 1;
-            if channel.publish_count > channel.max_buffer_size {
+        let channels = self.channels.read().unwrap_or_else(|e| e.into_inner());
+        if let Some(channel) = channels.get(&event.channel) {
+            // Backpressure check: based on currently pending async handlers
+            if channel.pending_count.load(Ordering::SeqCst) >= channel.max_buffer_size {
                 channel.drop_count.fetch_add(1, Ordering::SeqCst);
                 log::warn!(
-                    "EventBus: backpressure on channel '{}' — publish_count {} exceeds max_buffer_size {}, dropping event",
+                    "EventBus: backpressure on channel '{}' — pending_count {} >= max_buffer_size {}, dropping event",
                     event.channel,
-                    channel.publish_count,
+                    channel.pending_count.load(Ordering::SeqCst),
                     channel.max_buffer_size,
                 );
+                // Emit a synthetic event:dropped warning on the lifecycle:warning channel.
+                let warning = Event::new(
+                    "lifecycle:warning",
+                    serde_json::json!({
+                        "kind": "event:dropped",
+                        "channel": event.channel,
+                        "event_id": event.id,
+                        "reason": "backpressure",
+                    }),
+                    "event-bus",
+                );
+                let mut queue = self
+                    .deferred_queue
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner());
+                queue.push_back(warning);
                 return;
             }
 
@@ -258,8 +281,16 @@ impl EventBus {
                         if let Some(handler) = weak.upgrade() {
                             let event_clone = event.clone();
                             let channel_name = event.channel.clone();
+                            let pending = Arc::clone(&channel.pending_count);
+                            // Increment pending count *before* spawning so that
+                            // subsequent dispatches see the pressure immediately.
+                            pending.fetch_add(1, Ordering::SeqCst);
                             self.runtime.spawn(async move {
-                                if let Err(e) = handler.handle(event_clone).await {
+                                let result = handler.handle(event_clone).await;
+                                // Decrement regardless of success/failure so the
+                                // channel recovers naturally.
+                                pending.fetch_sub(1, Ordering::SeqCst);
+                                if let Err(e) = result {
                                     log::error!(
                                         "EventBus: async handler '{}' failed on channel '{}': {}",
                                         handler.id(),
@@ -308,16 +339,17 @@ impl EventBus {
 mod tests {
     use super::*;
     use std::sync::atomic::AtomicUsize;
+    use std::sync::OnceLock;
 
     /// Helper: get a tokio runtime handle for tests.
     fn test_runtime_handle() -> tokio::runtime::Handle {
         // When running under #[tokio::test], we can grab the current handle.
-        // For plain #[test] functions, build a small runtime.
+        // For plain #[test] functions, use a shared runtime via OnceLock.
         tokio::runtime::Handle::try_current().unwrap_or_else(|_| {
-            // Leak a runtime so the handle stays valid for the test's duration.
-            let rt = Box::leak(Box::new(
-                tokio::runtime::Runtime::new().expect("failed to create test runtime"),
-            ));
+            static TEST_RUNTIME: OnceLock<tokio::runtime::Runtime> = OnceLock::new();
+            let rt = TEST_RUNTIME.get_or_init(|| {
+                tokio::runtime::Runtime::new().expect("failed to create test runtime")
+            });
             rt.handle().clone()
         })
     }
@@ -512,22 +544,114 @@ mod tests {
         assert_eq!(count.load(Ordering::SeqCst), 1);
     }
 
-    #[test]
-    fn backpressure_drop_counting() {
-        let bus = EventBus::new(test_runtime_handle());
-        // Register a channel with a very small buffer
+    #[tokio::test]
+    async fn backpressure_drop_counting() {
+        /// Async handler that blocks until a signal is received, simulating
+        /// slow processing to create genuine backpressure.
+        struct BlockingAsyncHandler {
+            handler_id: String,
+            count: Arc<AtomicUsize>,
+            release: Arc<tokio::sync::Notify>,
+        }
+
+        #[async_trait::async_trait]
+        impl AsyncEventHandler for BlockingAsyncHandler {
+            async fn handle(&self, _event: Event) -> Result<(), ReasonanceError> {
+                self.count.fetch_add(1, Ordering::SeqCst);
+                // Block until the test releases us.
+                self.release.notified().await;
+                Ok(())
+            }
+            fn id(&self) -> &str {
+                &self.handler_id
+            }
+        }
+
+        let bus = EventBus::new(tokio::runtime::Handle::current());
+        // Channel with max 5 pending async events.
         bus.register_channel_with_buffer("bp", false, 5);
 
-        let handler = Arc::new(CountingHandler::new("bp-handler"));
-        bus.subscribe("bp", handler.clone());
+        let count = Arc::new(AtomicUsize::new(0));
+        let release = Arc::new(tokio::sync::Notify::new());
+        let handler = Arc::new(BlockingAsyncHandler {
+            handler_id: "bp-handler".to_string(),
+            count: count.clone(),
+            release: release.clone(),
+        });
+        bus.subscribe_async("bp", handler.clone());
 
-        // Publish 10 events — first 5 delivered, next 5 dropped
+        // Publish 10 events — first 5 get spawned (filling pending slots),
+        // next 5 are dropped because pending_count >= max_buffer_size.
         for i in 0..10 {
             bus.publish(Event::new("bp", serde_json::json!(i), "src"));
         }
 
-        assert_eq!(handler.count(), 5);
+        // Let spawned tasks start.
+        tokio::task::yield_now().await;
+
+        assert_eq!(count.load(Ordering::SeqCst), 5, "only 5 should be dispatched");
+        assert_eq!(bus.drop_count("bp"), 5, "5 should be dropped");
+
+        // Release all blocked handlers so pending_count drops back to 0.
+        release.notify_waiters();
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+
+        // Verify recovery: channel should accept new events again.
+        for i in 10..13 {
+            bus.publish(Event::new("bp", serde_json::json!(i), "src"));
+        }
+
+        // Release the newly spawned handlers.
+        release.notify_waiters();
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+
+        assert_eq!(count.load(Ordering::SeqCst), 8, "3 more should be dispatched after recovery");
+        // drop_count should remain at 5 (no new drops).
         assert_eq!(bus.drop_count("bp"), 5);
+    }
+
+    #[tokio::test]
+    async fn dropped_event_emits_lifecycle_warning() {
+        /// Async handler that never completes (blocks forever), used to
+        /// fill the pending buffer and trigger backpressure.
+        struct NeverFinishHandler {
+            handler_id: String,
+        }
+
+        #[async_trait::async_trait]
+        impl AsyncEventHandler for NeverFinishHandler {
+            async fn handle(&self, _event: Event) -> Result<(), ReasonanceError> {
+                // Block indefinitely so pending_count stays high.
+                std::future::pending::<()>().await;
+                Ok(())
+            }
+            fn id(&self) -> &str {
+                &self.handler_id
+            }
+        }
+
+        let bus = EventBus::new(tokio::runtime::Handle::current());
+        bus.register_channel_with_buffer("bp-warn", false, 2);
+
+        // Subscribe a lifecycle:warning handler to verify the synthetic event.
+        let warning_handler = Arc::new(CountingHandler::new("warn-listener"));
+        bus.subscribe("lifecycle:warning", warning_handler.clone());
+
+        let handler = Arc::new(NeverFinishHandler {
+            handler_id: "blocker".to_string(),
+        });
+        bus.subscribe_async("bp-warn", handler.clone());
+
+        // Fill the buffer (2 events) then trigger a drop.
+        bus.publish(Event::new("bp-warn", serde_json::json!(1), "src"));
+        bus.publish(Event::new("bp-warn", serde_json::json!(2), "src"));
+        // This one should be dropped, triggering a lifecycle:warning event.
+        bus.publish(Event::new("bp-warn", serde_json::json!(3), "src"));
+
+        // The lifecycle:warning is dispatched via the deferred queue within
+        // the same publish() call, so it should already be delivered.
+        assert_eq!(warning_handler.count(), 1, "lifecycle:warning should have been emitted");
+        assert_eq!(bus.drop_count("bp-warn"), 1);
     }
 
     #[tokio::test]
@@ -588,5 +712,15 @@ mod tests {
         let channels = bus.channels.read().unwrap();
         let ch = channels.get("custom").unwrap();
         assert_eq!(ch.max_buffer_size, 50);
+    }
+
+    #[test]
+    fn lifecycle_warning_channel_auto_registered() {
+        let bus = EventBus::new(test_runtime_handle());
+        // lifecycle:warning should be registered automatically by EventBus::new()
+        let channels = bus.channels.read().unwrap();
+        let ch = channels.get("lifecycle:warning").unwrap();
+        assert_eq!(ch.max_buffer_size, usize::MAX);
+        assert!(!ch.frontend_visible);
     }
 }

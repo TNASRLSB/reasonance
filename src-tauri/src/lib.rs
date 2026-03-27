@@ -238,7 +238,10 @@ pub fn run() {
         })
         .manage(std::sync::Mutex::new(model_slots::ModelSlotRegistry::new()))
         .manage(commands::file_ops::FileOpsState::new())
-        .manage({
+        .setup(|app| {
+            info!("🚀 Reasonance setup starting");
+
+            // Build EventBus inside setup() where the tokio runtime is guaranteed active.
             let bus = event_bus_v2::EventBus::new(tokio::runtime::Handle::current());
             bus.register_channel("transport:send", true);
             bus.register_channel("transport:complete", true);
@@ -251,10 +254,7 @@ pub fn run() {
             bus.register_channel("workflow:node-state", true);
             bus.register_channel("workflow:run-status", true);
             bus.register_channel("lifecycle:sweep", false);
-            bus
-        })
-        .setup(|app| {
-            info!("🚀 Reasonance setup starting");
+            app.manage(bus);
             let transport: tauri::State<'_, transport::StructuredAgentTransport> = app.state();
 
             // Wire FrontendEmitter (existing)
