@@ -1,7 +1,9 @@
 #[cfg(test)]
 mod tests {
     use crate::agent_event::AgentEvent;
-    use crate::transport::event_bus::{AgentEventBus, AgentEventSubscriber, SessionHistoryRecorder};
+    use crate::event_bus::{Event, EventBus};
+    use crate::subscribers::history::HistoryRecorder;
+    use crate::subscribers::session_writer::SessionHistoryWriter;
     use crate::transport::session_handle::SessionHandle;
     use crate::transport::session_manager::SessionManager;
     use crate::transport::session_store::SessionStore;
@@ -12,19 +14,20 @@ mod tests {
     fn test_full_session_lifecycle() {
         let dir = TempDir::new().unwrap();
         let mgr = SessionManager::new(dir.path()).unwrap();
+        let writer = Arc::new(SessionHistoryWriter::new(mgr.store()));
+        mgr.set_writer(writer.clone());
 
         // Create session
         let id = mgr.create_session("claude", "sonnet").unwrap();
 
-        // Write events via recorder
-        let recorder = mgr.recorder();
-        let event1 = AgentEvent::text("Hello", "claude");
-        let event2 = AgentEvent::text("World", "claude");
-        recorder.on_event(&id, &event1);
-        recorder.on_event(&id, &event2);
-
-        // Flush background writer before asserting
-        recorder.flush();
+        // Write events directly via store
+        let store = mgr.store();
+        store
+            .append_event(&id, &AgentEvent::text("Hello", "claude"))
+            .unwrap();
+        store
+            .append_event(&id, &AgentEvent::text("World", "claude"))
+            .unwrap();
 
         // Restore and verify
         let (handle, events) = mgr.restore_session(&id).unwrap();
@@ -45,35 +48,43 @@ mod tests {
         assert!(mgr.restore_session(&fork_id).is_ok());
     }
 
-    #[test]
-    fn test_event_bus_to_disk_pipeline() {
+    #[tokio::test]
+    async fn test_event_bus_to_disk_pipeline() {
         let dir = TempDir::new().unwrap();
         let store = Arc::new(SessionStore::new(dir.path()).unwrap());
         let handle = SessionHandle::new("claude", "sonnet");
         let session_id = handle.id.clone();
         store.create_session(&handle).unwrap();
 
-        // Set up event bus with session recorder
-        let bus = Arc::new(AgentEventBus::new());
-        let recorder = Arc::new(SessionHistoryRecorder::new(store.clone()));
-        recorder.track_session(handle);
+        // Set up v2 event bus with session writer
+        let bus = Arc::new(EventBus::new(tokio::runtime::Handle::current()));
+        bus.register_channel("transport:event", true);
+        bus.register_channel("transport:complete", true);
 
-        struct Wrapper(Arc<SessionHistoryRecorder>);
-        impl AgentEventSubscriber for Wrapper {
-            fn on_event(&self, session_id: &str, event: &AgentEvent) {
-                self.0.on_event(session_id, event);
-            }
-        }
-        let recorder_ref = recorder.clone();
-        bus.subscribe(Box::new(Wrapper(recorder)));
+        let writer = Arc::new(SessionHistoryWriter::new(store.clone()));
+        writer.track_session(handle);
+        bus.subscribe_async("transport:event", writer.clone());
+        bus.subscribe_async("transport:complete", writer.clone());
 
         // Publish events through the bus
-        bus.publish(&session_id, &AgentEvent::text("hello", "claude"));
-        bus.publish(&session_id, &AgentEvent::usage(100, 200, "claude"));
-        bus.publish(&session_id, &AgentEvent::done("sess", "claude"));
+        bus.publish(Event::from_agent_event(
+            "transport:event",
+            &session_id,
+            &AgentEvent::text("hello", "claude"),
+        ));
+        bus.publish(Event::from_agent_event(
+            "transport:event",
+            &session_id,
+            &AgentEvent::usage(100, 200, "claude"),
+        ));
+        bus.publish(Event::from_agent_event(
+            "transport:complete",
+            &session_id,
+            &AgentEvent::done("sess", "claude"),
+        ));
 
-        // Flush background writer before asserting
-        recorder_ref.flush();
+        // Yield to let async handlers complete
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
 
         // Verify events persisted to disk
         let events = store.read_events(&session_id).unwrap();
@@ -85,19 +96,22 @@ mod tests {
         let dir = TempDir::new().unwrap();
         let session_id;
 
-        // First "app launch" — create session and write events
+        // First "app launch" -- create session and write events
         {
             let mgr = SessionManager::new(dir.path()).unwrap();
+            let writer = Arc::new(SessionHistoryWriter::new(mgr.store()));
+            mgr.set_writer(writer);
+
             session_id = mgr.create_session("claude", "opus").unwrap();
             mgr.rename_session(&session_id, "Important Chat").unwrap();
 
-            let recorder = mgr.recorder();
-            recorder.on_event(&session_id, &AgentEvent::text("persisted", "claude"));
-            // Flush before dropping to ensure write completes
-            recorder.flush();
+            // Write event directly via store
+            mgr.store()
+                .append_event(&session_id, &AgentEvent::text("persisted", "claude"))
+                .unwrap();
         }
 
-        // Second "app launch" — restore from disk
+        // Second "app launch" -- restore from disk
         {
             let mgr2 = SessionManager::new(dir.path()).unwrap();
             let sessions = mgr2.list_sessions();

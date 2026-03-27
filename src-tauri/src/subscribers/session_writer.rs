@@ -6,7 +6,7 @@ use log::{debug, error, info, trace, warn};
 
 use crate::agent_event::AgentEvent;
 use crate::error::ReasonanceError;
-use crate::event_bus_v2::{AsyncEventHandler, Event};
+use crate::event_bus::{AsyncEventHandler, Event};
 use crate::transport::session_handle::SessionHandle;
 use crate::transport::session_store::SessionStore;
 
@@ -145,7 +145,7 @@ impl AsyncEventHandler for SessionHistoryWriter {
 mod tests {
     use super::*;
     use crate::agent_event::AgentEvent;
-    use crate::event_bus_v2::Event;
+    use crate::event_bus::Event;
     use crate::transport::session_handle::SessionHandle;
     use crate::transport::session_store::SessionStore;
 

@@ -8,8 +8,9 @@
 #[cfg(test)]
 mod tests {
     use crate::agent_event::{AgentEvent, AgentEventType, EventContent};
+    use crate::event_bus::EventBus;
     use crate::normalizer::NormalizerRegistry;
-    use crate::transport::event_bus::{AgentEventBus, AgentEventSubscriber, HistoryRecorder};
+    use crate::subscribers::history::HistoryRecorder;
     use crate::transport::stream_reader::spawn_stream_reader;
     use std::process::Stdio;
     use std::sync::{Arc, Mutex};
@@ -45,19 +46,18 @@ mod tests {
         ))
     }
 
-    /// Helper: set up event bus + recorder.
-    fn make_bus() -> (Arc<AgentEventBus>, Arc<HistoryRecorder>) {
-        let bus = Arc::new(AgentEventBus::new());
-        let recorder = Arc::new(HistoryRecorder::new());
-        let recorder_clone = recorder.clone();
+    /// Helper: set up v2 event bus + recorder.
+    fn make_bus() -> (Arc<EventBus>, Arc<HistoryRecorder>) {
+        let bus = Arc::new(EventBus::new(tokio::runtime::Handle::current()));
+        bus.register_channel("transport:event", true);
+        bus.register_channel("transport:complete", true);
+        bus.register_channel("transport:error", true);
 
-        struct Wrapper(Arc<HistoryRecorder>);
-        impl AgentEventSubscriber for Wrapper {
-            fn on_event(&self, session_id: &str, event: &AgentEvent) {
-                self.0.on_event(session_id, event);
-            }
-        }
-        bus.subscribe(Box::new(Wrapper(recorder_clone)));
+        let recorder = Arc::new(HistoryRecorder::new());
+        bus.subscribe("transport:event", recorder.clone());
+        bus.subscribe("transport:complete", recorder.clone());
+        bus.subscribe("transport:error", recorder.clone());
+
         (bus, recorder)
     }
 
@@ -92,7 +92,6 @@ mod tests {
             session_id.to_string(),
             None,
             Arc::new(std::sync::Mutex::new(None)),
-            None,
             None,
         );
         let result = rx.await.unwrap();
@@ -716,7 +715,6 @@ mod tests {
             None,
             Arc::new(std::sync::Mutex::new(None)),
             None,
-            None,
         );
         let rx2 = spawn_stream_reader(
             stdout2,
@@ -725,7 +723,6 @@ mod tests {
             "sid-gemini".to_string(),
             None,
             Arc::new(std::sync::Mutex::new(None)),
-            None,
             None,
         );
 

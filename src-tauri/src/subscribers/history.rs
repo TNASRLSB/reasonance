@@ -6,12 +6,12 @@ use log::{debug, error, info, trace, warn};
 
 use crate::agent_event::AgentEvent;
 use crate::error::ReasonanceError;
-use crate::event_bus_v2::{Event, EventHandler};
+use crate::event_bus::{Event, EventHandler};
 
 /// In-memory history recorder that implements the EventBus v2 `EventHandler` trait.
 ///
 /// Stores events grouped by session ID, extracted from the generic `Event.payload`.
-/// This is the v2 equivalent of `transport::event_bus::HistoryRecorder`.
+/// Replaces the former `transport::event_bus::HistoryRecorder`.
 pub struct HistoryRecorder {
     history: Arc<Mutex<HashMap<String, Vec<AgentEvent>>>>,
 }
@@ -108,7 +108,7 @@ impl EventHandler for HistoryRecorder {
 mod tests {
     use super::*;
     use crate::agent_event::AgentEvent;
-    use crate::event_bus_v2::Event;
+    use crate::event_bus::Event;
 
     /// Build a bus `Event` from an `AgentEvent` using the standard conversion.
     fn make_event(session_id: &str, agent_event: &AgentEvent) -> Event {

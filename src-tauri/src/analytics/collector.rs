@@ -1,7 +1,8 @@
-use super::{SessionMetrics, ErrorRecord, ProviderAnalytics, ModelAnalytics, DailyStats, TimeRange};
 use super::store::AnalyticsStore;
+use super::{
+    DailyStats, ErrorRecord, ModelAnalytics, ProviderAnalytics, SessionMetrics, TimeRange,
+};
 use crate::agent_event::{AgentEvent, AgentEventType, ErrorSeverity};
-use crate::transport::event_bus::{AgentEventSubscriber, EventFilter};
 use log::{debug, error, trace, warn};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -21,24 +22,42 @@ impl AnalyticsCollector {
     }
 
     pub fn get_active_sessions(&self) -> Vec<SessionMetrics> {
-        self.active.lock().unwrap_or_else(|e| e.into_inner()).values().cloned().collect()
+        self.active
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .values()
+            .cloned()
+            .collect()
     }
 
     pub fn get_session_metrics(&self, session_id: &str) -> Option<SessionMetrics> {
         // Check active first
-        if let Some(m) = self.active.lock().unwrap_or_else(|e| e.into_inner()).get(session_id) {
+        if let Some(m) = self
+            .active
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .get(session_id)
+        {
             return Some(m.clone());
         }
         // Then check completed (avoid cloning the entire Vec)
         self.store.with_completed(|completed| {
-            completed.iter().find(|m| m.session_id == session_id).cloned()
+            completed
+                .iter()
+                .find(|m| m.session_id == session_id)
+                .cloned()
         })
     }
 
-    pub fn get_provider_analytics(&self, provider: &str, range: Option<TimeRange>) -> ProviderAnalytics {
+    pub fn get_provider_analytics(
+        &self,
+        provider: &str,
+        range: Option<TimeRange>,
+    ) -> ProviderAnalytics {
         debug!("Computing provider analytics for provider={}", provider);
         self.store.with_completed(|completed| {
-            let sessions: Vec<&SessionMetrics> = completed.iter()
+            let sessions: Vec<&SessionMetrics> = completed
+                .iter()
                 .filter(|m| m.provider == provider)
                 .filter(|m| Self::in_range(m, &range))
                 .collect();
@@ -55,7 +74,8 @@ impl AnalyticsCollector {
                     by_provider.entry(m.provider.clone()).or_default().push(m);
                 }
             }
-            by_provider.into_iter()
+            by_provider
+                .into_iter()
                 .map(|(provider, sessions)| {
                     let owned: Vec<SessionMetrics> = sessions.into_iter().cloned().collect();
                     Self::aggregate_provider(&provider, &owned)
@@ -64,10 +84,15 @@ impl AnalyticsCollector {
         })
     }
 
-    pub fn get_model_breakdown(&self, provider: &str, range: Option<TimeRange>) -> Vec<ModelAnalytics> {
+    pub fn get_model_breakdown(
+        &self,
+        provider: &str,
+        range: Option<TimeRange>,
+    ) -> Vec<ModelAnalytics> {
         debug!("Computing model breakdown for provider={}", provider);
         self.store.with_completed(|completed| {
-            let sessions: Vec<&SessionMetrics> = completed.iter()
+            let sessions: Vec<&SessionMetrics> = completed
+                .iter()
                 .filter(|m| m.provider == provider)
                 .filter(|m| Self::in_range(m, &range))
                 .collect();
@@ -77,72 +102,98 @@ impl AnalyticsCollector {
                 by_model.entry(m.model.clone()).or_default().push(m);
             }
 
-            by_model.into_iter().map(|(model, sessions)| {
-                let count = sessions.len() as u64;
-                let total_input: u64 = sessions.iter().map(|s| s.input_tokens).sum();
-                let total_output: u64 = sessions.iter().map(|s| s.output_tokens).sum();
-                let durations: Vec<u64> = sessions.iter().filter_map(|s| s.duration_ms).collect();
-                let avg_dur = if durations.is_empty() { 0.0 } else { durations.iter().sum::<u64>() as f64 / durations.len() as f64 };
-                let total_errors: u64 = sessions.iter().map(|s| s.errors.len() as u64).sum();
+            by_model
+                .into_iter()
+                .map(|(model, sessions)| {
+                    let count = sessions.len() as u64;
+                    let total_input: u64 = sessions.iter().map(|s| s.input_tokens).sum();
+                    let total_output: u64 = sessions.iter().map(|s| s.output_tokens).sum();
+                    let durations: Vec<u64> =
+                        sessions.iter().filter_map(|s| s.duration_ms).collect();
+                    let avg_dur = if durations.is_empty() {
+                        0.0
+                    } else {
+                        durations.iter().sum::<u64>() as f64 / durations.len() as f64
+                    };
+                    let total_errors: u64 = sessions.iter().map(|s| s.errors.len() as u64).sum();
 
-                let tps = if avg_dur > 0.0 {
-                    (total_output as f64 / count as f64) / (avg_dur / 1000.0)
-                } else { 0.0 };
+                    let tps = if avg_dur > 0.0 {
+                        (total_output as f64 / count as f64) / (avg_dur / 1000.0)
+                    } else {
+                        0.0
+                    };
 
-                ModelAnalytics {
-                    model,
-                    provider: provider.to_string(),
-                    session_count: count,
-                    avg_input_tokens: total_input as f64 / count as f64,
-                    avg_output_tokens: total_output as f64 / count as f64,
-                    avg_duration_ms: avg_dur,
-                    avg_tokens_per_second: tps as f32,
-                    error_rate: if count > 0 { total_errors as f32 / count as f32 } else { 0.0 },
-                }
-            }).collect()
+                    ModelAnalytics {
+                        model,
+                        provider: provider.to_string(),
+                        session_count: count,
+                        avg_input_tokens: total_input as f64 / count as f64,
+                        avg_output_tokens: total_output as f64 / count as f64,
+                        avg_duration_ms: avg_dur,
+                        avg_tokens_per_second: tps as f32,
+                        error_rate: if count > 0 {
+                            total_errors as f32 / count as f32
+                        } else {
+                            0.0
+                        },
+                    }
+                })
+                .collect()
         })
     }
 
     pub fn get_daily_stats(&self, provider: Option<&str>, days: u32) -> Vec<DailyStats> {
-        debug!("Computing daily stats for provider={:?}, days={}", provider, days);
+        debug!(
+            "Computing daily stats for provider={:?}, days={}",
+            provider, days
+        );
         self.store.with_completed(|completed| {
-        let mut by_date: HashMap<String, Vec<&SessionMetrics>> = HashMap::new();
+            let mut by_date: HashMap<String, Vec<&SessionMetrics>> = HashMap::new();
 
-        for m in completed {
-            if let Some(p) = provider {
-                if m.provider != p { continue; }
+            for m in completed {
+                if let Some(p) = provider {
+                    if m.provider != p {
+                        continue;
+                    }
+                }
+                // Convert ms timestamp to date string
+                let secs = m.started_at / 1000;
+                let date = unix_secs_to_date_string(secs);
+                by_date.entry(date).or_default().push(m);
             }
-            // Convert ms timestamp to date string
-            let secs = m.started_at / 1000;
-            let date = unix_secs_to_date_string(secs);
-            by_date.entry(date).or_default().push(m);
-        }
 
-        let mut stats: Vec<DailyStats> = by_date.into_iter().map(|(date, sessions)| {
-            let count = sessions.len() as u64;
-            let total_in: u64 = sessions.iter().map(|s| s.input_tokens).sum();
-            let total_out: u64 = sessions.iter().map(|s| s.output_tokens).sum();
-            let errors: u64 = sessions.iter().map(|s| s.errors.len() as u64).sum();
-            let durs: Vec<u64> = sessions.iter().filter_map(|s| s.duration_ms).collect();
-            let avg_dur = if durs.is_empty() { 0.0 } else { durs.iter().sum::<u64>() as f64 / durs.len() as f64 };
+            let mut stats: Vec<DailyStats> = by_date
+                .into_iter()
+                .map(|(date, sessions)| {
+                    let count = sessions.len() as u64;
+                    let total_in: u64 = sessions.iter().map(|s| s.input_tokens).sum();
+                    let total_out: u64 = sessions.iter().map(|s| s.output_tokens).sum();
+                    let errors: u64 = sessions.iter().map(|s| s.errors.len() as u64).sum();
+                    let durs: Vec<u64> = sessions.iter().filter_map(|s| s.duration_ms).collect();
+                    let avg_dur = if durs.is_empty() {
+                        0.0
+                    } else {
+                        durs.iter().sum::<u64>() as f64 / durs.len() as f64
+                    };
 
-            DailyStats {
-                date,
-                provider: provider.map(|s| s.to_string()),
-                sessions: count,
-                input_tokens: total_in,
-                output_tokens: total_out,
-                errors,
-                avg_duration_ms: avg_dur,
+                    DailyStats {
+                        date,
+                        provider: provider.map(|s| s.to_string()),
+                        sessions: count,
+                        input_tokens: total_in,
+                        output_tokens: total_out,
+                        errors,
+                        avg_duration_ms: avg_dur,
+                    }
+                })
+                .collect();
+
+            stats.sort_by(|a, b| a.date.cmp(&b.date));
+            // Keep only last N days
+            if stats.len() > days as usize {
+                stats = stats.split_off(stats.len() - days as usize);
             }
-        }).collect();
-
-        stats.sort_by(|a, b| a.date.cmp(&b.date));
-        // Keep only last N days
-        if stats.len() > days as usize {
-            stats = stats.split_off(stats.len() - days as usize);
-        }
-        stats
+            stats
         }) // end with_completed
     }
 
@@ -151,10 +202,14 @@ impl AnalyticsCollector {
             None => true,
             Some(r) => {
                 if let Some(from) = r.from {
-                    if m.started_at < from { return false; }
+                    if m.started_at < from {
+                        return false;
+                    }
                 }
                 if let Some(to) = r.to {
-                    if m.started_at >= to { return false; }
+                    if m.started_at >= to {
+                        return false;
+                    }
                 }
                 true
             }
@@ -188,35 +243,54 @@ impl AnalyticsCollector {
         let total_cache_create: u64 = sessions.iter().map(|s| s.cache_creation_tokens).sum();
         let total_cache_read: u64 = sessions.iter().map(|s| s.cache_read_tokens).sum();
         let total_errors: u64 = sessions.iter().map(|s| s.errors.len() as u64).sum();
-        let recovered: u64 = sessions.iter()
+        let recovered: u64 = sessions
+            .iter()
             .flat_map(|s| s.errors.iter())
             .filter(|e| e.recovered)
             .count() as u64;
-        let total_tools: u64 = sessions.iter()
+        let total_tools: u64 = sessions
+            .iter()
             .map(|s| s.tools_used.values().sum::<u32>() as u64)
             .sum();
 
         let durs: Vec<u64> = sessions.iter().filter_map(|s| s.duration_ms).collect();
-        let avg_dur = if durs.is_empty() { 0.0 } else { durs.iter().sum::<u64>() as f64 / durs.len() as f64 };
+        let avg_dur = if durs.is_empty() {
+            0.0
+        } else {
+            durs.iter().sum::<u64>() as f64 / durs.len() as f64
+        };
 
         let cache_denom = total_in + total_cache_read;
-        let cache_hit = if cache_denom > 0 { total_cache_read as f32 / cache_denom as f32 } else { 0.0 };
+        let cache_hit = if cache_denom > 0 {
+            total_cache_read as f32 / cache_denom as f32
+        } else {
+            0.0
+        };
 
         let tps = if avg_dur > 0.0 {
             ((total_out as f64 / count as f64) / (avg_dur / 1000.0)) as f32
-        } else { 0.0 };
+        } else {
+            0.0
+        };
 
         // Most used model
         let mut model_counts: HashMap<&str, u64> = HashMap::new();
-        for s in sessions { *model_counts.entry(&s.model).or_insert(0) += 1; }
-        let most_used = model_counts.into_iter()
+        for s in sessions {
+            *model_counts.entry(&s.model).or_insert(0) += 1;
+        }
+        let most_used = model_counts
+            .into_iter()
             .max_by_key(|(_, c)| *c)
             .map(|(m, _)| m.to_string())
             .unwrap_or_default();
 
         let cost: Option<f64> = {
             let costs: Vec<f64> = sessions.iter().filter_map(|s| s.total_cost_usd).collect();
-            if costs.is_empty() { None } else { Some(costs.iter().sum()) }
+            if costs.is_empty() {
+                None
+            } else {
+                Some(costs.iter().sum())
+            }
         };
 
         ProviderAnalytics {
@@ -261,15 +335,20 @@ fn days_to_ymd(days: i64) -> (i64, u32, u32) {
     (y, m, d)
 }
 
-impl AgentEventSubscriber for AnalyticsCollector {
-    fn on_event(&self, session_id: &str, event: &AgentEvent) {
+impl AnalyticsCollector {
+    /// Process an agent event for analytics tracking.
+    /// Extracts metrics, token counts, tool usage, errors, and session lifecycle.
+    pub fn on_event(&self, session_id: &str, event: &AgentEvent) {
         let mut active = self.active.lock().unwrap_or_else(|e| e.into_inner());
 
         // Handle Done separately to avoid borrow conflict:
         // entry() borrows `active` mutably, and remove() would need another mutable borrow.
         if event.event_type == AgentEventType::Done {
             if let Some(mut m) = active.remove(session_id) {
-                debug!("Session ended: session_id={}, input_tokens={}, output_tokens={}", session_id, m.input_tokens, m.output_tokens);
+                debug!(
+                    "Session ended: session_id={}, input_tokens={}, output_tokens={}",
+                    session_id, m.input_tokens, m.output_tokens
+                );
                 m.ended_at = Some(event.timestamp);
                 drop(active); // release lock before I/O
                 if let Err(e) = self.store.append(&m) {
@@ -281,7 +360,10 @@ impl AgentEventSubscriber for AnalyticsCollector {
 
         // Bootstrap new session on first event
         let metrics = active.entry(session_id.to_string()).or_insert_with(|| {
-            debug!("Session tracking started: session_id={}, provider={}", session_id, event.metadata.provider);
+            debug!(
+                "Session tracking started: session_id={}, provider={}",
+                session_id, event.metadata.provider
+            );
             SessionMetrics::new(
                 session_id,
                 &event.metadata.provider,
@@ -299,7 +381,11 @@ impl AgentEventSubscriber for AnalyticsCollector {
             }
         }
 
-        trace!("Processing event: session_id={}, type={:?}", session_id, event.event_type);
+        trace!(
+            "Processing event: session_id={}, type={:?}",
+            session_id,
+            event.event_type
+        );
 
         match event.event_type {
             AgentEventType::Usage => {
@@ -336,7 +422,9 @@ impl AgentEventSubscriber for AnalyticsCollector {
                 // context_tokens is not stored directly; peak_context_usage captures the derived metric
                 if let Some(cu) = event.metadata.context_usage {
                     metrics.peak_context_usage = Some(
-                        metrics.peak_context_usage.map_or(cu, |current| current.max(cu))
+                        metrics
+                            .peak_context_usage
+                            .map_or(cu, |current| current.max(cu)),
                     );
                 }
                 if let Some(v) = event.metadata.max_context_tokens {
@@ -349,33 +437,27 @@ impl AgentEventSubscriber for AnalyticsCollector {
                 }
             }
             AgentEventType::Error => {
-                warn!("Error recorded for session_id={}, code={:?}, severity={:?}",
-                    session_id,
-                    event.metadata.error_code,
-                    event.metadata.error_severity
+                warn!(
+                    "Error recorded for session_id={}, code={:?}, severity={:?}",
+                    session_id, event.metadata.error_code, event.metadata.error_severity
                 );
                 metrics.errors.push(ErrorRecord {
                     timestamp: event.timestamp,
-                    code: event.metadata.error_code.clone().unwrap_or_else(|| "unknown".to_string()),
-                    severity: event.metadata.error_severity.clone().unwrap_or(ErrorSeverity::Fatal),
+                    code: event
+                        .metadata
+                        .error_code
+                        .clone()
+                        .unwrap_or_else(|| "unknown".to_string()),
+                    severity: event
+                        .metadata
+                        .error_severity
+                        .clone()
+                        .unwrap_or(ErrorSeverity::Fatal),
                     recovered: false,
                 });
             }
             _ => {}
         }
-    }
-
-    fn filter(&self) -> Option<EventFilter> {
-        Some(EventFilter {
-            event_types: Some(vec![
-                AgentEventType::Usage,
-                AgentEventType::Metrics,
-                AgentEventType::ToolUse,
-                AgentEventType::Error,
-                AgentEventType::Done,
-            ]),
-            providers: None,
-        })
     }
 }
 
@@ -436,7 +518,12 @@ mod tests {
         let (store, _dir) = make_store();
         let collector = AnalyticsCollector::new(store);
 
-        let err = AgentEvent::error("rate limit", "overloaded", ErrorSeverity::Recoverable, "claude");
+        let err = AgentEvent::error(
+            "rate limit",
+            "overloaded",
+            ErrorSeverity::Recoverable,
+            "claude",
+        );
         collector.on_event("s1", &err);
 
         // Another event arrives — previous error is recovered
@@ -457,7 +544,11 @@ mod tests {
         collector.on_event("s1", &AgentEvent::done("s1", "claude"));
 
         // Active should be empty now
-        assert!(collector.active.lock().unwrap_or_else(|e| e.into_inner()).is_empty());
+        assert!(collector
+            .active
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .is_empty());
 
         // Store should have 1 completed session
         assert_eq!(store.all_completed().len(), 1);

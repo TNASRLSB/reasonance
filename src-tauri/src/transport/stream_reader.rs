@@ -1,5 +1,4 @@
 use crate::normalizer::pipeline::NormalizerPipeline;
-use crate::transport::event_bus::AgentEventBus;
 use std::sync::{Arc, Mutex};
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::ChildStdout;
@@ -15,12 +14,11 @@ pub struct StreamResult {
 pub fn spawn_stream_reader(
     stdout: ChildStdout,
     pipeline: Arc<Mutex<NormalizerPipeline>>,
-    event_bus: Arc<AgentEventBus>,
+    event_bus: Arc<crate::event_bus::EventBus>,
     session_id: String,
     session_id_path: Option<String>,
     cli_session_id: Arc<Mutex<Option<String>>>,
     line_timeout: Option<Duration>,
-    event_bus_v2: Option<Arc<crate::event_bus_v2::EventBus>>,
 ) -> oneshot::Receiver<StreamResult> {
     let (tx, rx) = oneshot::channel();
 
@@ -96,28 +94,22 @@ pub fn spawn_stream_reader(
                             session_id,
                             event.event_type
                         );
-                        event_bus.publish(&session_id, event);
-                        if let Some(ref bus) = event_bus_v2 {
-                            bus.publish(crate::event_bus_v2::Event::from_agent_event(
-                                "transport:event",
-                                &session_id,
-                                event,
-                            ));
-                        }
+                        event_bus.publish(crate::event_bus::Event::from_agent_event(
+                            "transport:event",
+                            &session_id,
+                            event,
+                        ));
                     }
                 }
                 Ok(Ok(None)) => {
                     // Emit a synthetic done event when the CLI process closes stdout
                     let done_event = crate::agent_event::AgentEvent::done(&session_id, "system");
                     events_count += 1;
-                    event_bus.publish(&session_id, &done_event);
-                    if let Some(ref bus) = event_bus_v2 {
-                        bus.publish(crate::event_bus_v2::Event::from_agent_event(
-                            "transport:complete",
-                            &session_id,
-                            &done_event,
-                        ));
-                    }
+                    event_bus.publish(crate::event_bus::Event::from_agent_event(
+                        "transport:complete",
+                        &session_id,
+                        &done_event,
+                    ));
                     break;
                 }
                 Ok(Err(e)) => {
@@ -131,26 +123,20 @@ pub fn spawn_stream_reader(
                         crate::agent_event::ErrorSeverity::Fatal,
                         "system",
                     );
-                    event_bus.publish(&session_id, &error_event);
-                    if let Some(ref bus) = event_bus_v2 {
-                        bus.publish(crate::event_bus_v2::Event::from_agent_event(
-                            "transport:error",
-                            &session_id,
-                            &error_event,
-                        ));
-                    }
+                    event_bus.publish(crate::event_bus::Event::from_agent_event(
+                        "transport:error",
+                        &session_id,
+                        &error_event,
+                    ));
                     events_count += 1;
 
                     // Publish done event so frontend clears streaming state
                     let done_event = crate::agent_event::AgentEvent::done(&session_id, "system");
-                    event_bus.publish(&session_id, &done_event);
-                    if let Some(ref bus) = event_bus_v2 {
-                        bus.publish(crate::event_bus_v2::Event::from_agent_event(
-                            "transport:complete",
-                            &session_id,
-                            &done_event,
-                        ));
-                    }
+                    event_bus.publish(crate::event_bus::Event::from_agent_event(
+                        "transport:complete",
+                        &session_id,
+                        &done_event,
+                    ));
                     events_count += 1;
 
                     error = Some(err_msg);
@@ -170,25 +156,19 @@ pub fn spawn_stream_reader(
                         crate::agent_event::ErrorSeverity::Fatal,
                         "system",
                     );
-                    event_bus.publish(&session_id, &error_event);
-                    if let Some(ref bus) = event_bus_v2 {
-                        bus.publish(crate::event_bus_v2::Event::from_agent_event(
-                            "transport:error",
-                            &session_id,
-                            &error_event,
-                        ));
-                    }
+                    event_bus.publish(crate::event_bus::Event::from_agent_event(
+                        "transport:error",
+                        &session_id,
+                        &error_event,
+                    ));
                     events_count += 1;
 
                     let done_event = crate::agent_event::AgentEvent::done(&session_id, "system");
-                    event_bus.publish(&session_id, &done_event);
-                    if let Some(ref bus) = event_bus_v2 {
-                        bus.publish(crate::event_bus_v2::Event::from_agent_event(
-                            "transport:complete",
-                            &session_id,
-                            &done_event,
-                        ));
-                    }
+                    event_bus.publish(crate::event_bus::Event::from_agent_event(
+                        "transport:complete",
+                        &session_id,
+                        &done_event,
+                    ));
                     events_count += 1;
 
                     error = Some(err_msg);
@@ -209,11 +189,27 @@ pub fn spawn_stream_reader(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::agent_event::AgentEvent;
     use crate::normalizer::NormalizerRegistry;
-    use crate::transport::event_bus::HistoryRecorder;
+    use crate::subscribers::history::HistoryRecorder;
     use std::process::Stdio;
     use tokio::process::Command;
+
+    /// Helper: create a v2 EventBus with a HistoryRecorder wired to transport channels.
+    fn make_bus_with_recorder() -> (Arc<crate::event_bus::EventBus>, Arc<HistoryRecorder>) {
+        let bus = Arc::new(crate::event_bus::EventBus::new(
+            tokio::runtime::Handle::current(),
+        ));
+        bus.register_channel("transport:event", true);
+        bus.register_channel("transport:complete", true);
+        bus.register_channel("transport:error", true);
+
+        let recorder = Arc::new(HistoryRecorder::new());
+        bus.subscribe("transport:event", recorder.clone());
+        bus.subscribe("transport:complete", recorder.clone());
+        bus.subscribe("transport:error", recorder.clone());
+
+        (bus, recorder)
+    }
 
     #[tokio::test]
     async fn test_stream_reader_with_echo() {
@@ -245,17 +241,7 @@ mod tests {
             ),
         ));
 
-        let bus = Arc::new(AgentEventBus::new());
-        let recorder = Arc::new(HistoryRecorder::new());
-        let recorder_ref = recorder.clone();
-
-        struct RecorderWrapper(Arc<HistoryRecorder>);
-        impl crate::transport::event_bus::AgentEventSubscriber for RecorderWrapper {
-            fn on_event(&self, session_id: &str, event: &AgentEvent) {
-                self.0.on_event(session_id, event);
-            }
-        }
-        bus.subscribe(Box::new(RecorderWrapper(recorder.clone())));
+        let (bus, recorder) = make_bus_with_recorder();
 
         let rx = spawn_stream_reader(
             stdout,
@@ -265,7 +251,6 @@ mod tests {
             None,
             Arc::new(Mutex::new(None)),
             None,
-            None,
         );
 
         let result = rx.await.unwrap();
@@ -274,7 +259,7 @@ mod tests {
         // text + usage + synthetic done from stream close
         assert!(result.events_count >= 3);
 
-        let events = recorder_ref.get_events("test-session");
+        let events = recorder.get_events("test-session");
         assert!(events.len() >= 3);
     }
 
@@ -305,7 +290,7 @@ mod tests {
             ),
         ));
 
-        let bus = Arc::new(AgentEventBus::new());
+        let (bus, _recorder) = make_bus_with_recorder();
         let cli_sid = Arc::new(Mutex::new(None::<String>));
 
         let rx = spawn_stream_reader(
@@ -315,7 +300,6 @@ mod tests {
             "test-session".to_string(),
             Some("message.id".to_string()),
             cli_sid.clone(),
-            None,
             None,
         );
 
@@ -352,16 +336,7 @@ mod tests {
             ),
         ));
 
-        let bus = Arc::new(AgentEventBus::new());
-        let recorder = Arc::new(HistoryRecorder::new());
-
-        struct RecorderWrapper(Arc<HistoryRecorder>);
-        impl crate::transport::event_bus::AgentEventSubscriber for RecorderWrapper {
-            fn on_event(&self, session_id: &str, event: &AgentEvent) {
-                self.0.on_event(session_id, event);
-            }
-        }
-        bus.subscribe(Box::new(RecorderWrapper(recorder.clone())));
+        let (bus, recorder) = make_bus_with_recorder();
 
         // Use a short timeout (2 seconds) to actually test the timeout path
         let rx = spawn_stream_reader(
@@ -372,7 +347,6 @@ mod tests {
             None,
             Arc::new(Mutex::new(None)),
             Some(Duration::from_secs(2)),
-            None,
         );
 
         let result = rx.await.unwrap();

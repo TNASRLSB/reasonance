@@ -26,7 +26,7 @@ mod commands;
 mod config;
 mod discovery;
 pub mod error;
-pub mod event_bus_v2;
+pub mod event_bus;
 mod file_ops;
 mod fs_watcher;
 mod logic_eval;
@@ -63,12 +63,13 @@ use tauri::{Emitter, Manager};
 /// Shared state for the resolved normalizers directory path.
 pub struct NormalizersDir(pub std::path::PathBuf);
 
-/// Holds strong references to EventBus v2 subscribers to keep them alive.
+/// Holds strong references to EventBus subscribers to keep them alive.
 /// The EventBus stores Weak references; these Arcs are the strong owners.
 pub struct EventBusSubscribers {
     pub history: std::sync::Arc<subscribers::history::HistoryRecorder>,
     pub session_writer: std::sync::Arc<subscribers::session_writer::SessionHistoryWriter>,
-    pub bridge: std::sync::Arc<event_bus_v2::TauriFrontendBridge>,
+    pub analytics: std::sync::Arc<subscribers::analytics::AnalyticsHandler>,
+    pub bridge: std::sync::Arc<event_bus::TauriFrontendBridge>,
 }
 
 /// Resolve the normalizers directory.
@@ -251,9 +252,8 @@ pub fn run() {
             info!("🚀 Reasonance setup starting");
 
             // Build EventBus inside setup() where the tokio runtime is guaranteed active.
-            let bus = std::sync::Arc::new(event_bus_v2::EventBus::new(
-                tokio::runtime::Handle::current(),
-            ));
+            let bus =
+                std::sync::Arc::new(event_bus::EventBus::new(tokio::runtime::Handle::current()));
             bus.register_channel("transport:event", true);
             bus.register_channel("transport:send", true);
             bus.register_channel("transport:complete", true);
@@ -270,63 +270,37 @@ pub fn run() {
             bus.register_channel("lifecycle:sweep", false);
             app.manage(bus.clone());
             let transport: tauri::State<'_, transport::StructuredAgentTransport> = app.state();
-
-            // Wire FrontendEmitter (existing)
-            info!("  ✓ Wiring FrontendEmitter to event bus");
-            let emitter = transport::event_bus::FrontendEmitter::new(app.handle().clone());
-            transport.event_bus().subscribe(Box::new(emitter));
-
-            // Wire SessionHistoryRecorder into event bus
-            info!("  ✓ Wiring SessionHistoryRecorder to event bus");
             let session_mgr: tauri::State<'_, transport::session_manager::SessionManager> =
                 app.state();
-            let session_recorder = session_mgr.recorder();
-            struct SessionRecorderWrapper(
-                std::sync::Arc<transport::event_bus::SessionHistoryRecorder>,
-            );
-            impl transport::event_bus::AgentEventSubscriber for SessionRecorderWrapper {
-                fn on_event(&self, session_id: &str, event: &crate::agent_event::AgentEvent) {
-                    self.0.on_event(session_id, event);
-                }
-            }
-            transport
-                .event_bus()
-                .subscribe(Box::new(SessionRecorderWrapper(session_recorder)));
 
-            // Wire AnalyticsCollector into event bus
-            info!("  ✓ Wiring AnalyticsCollector to event bus");
-            let analytics: tauri::State<
-                '_,
-                std::sync::Arc<analytics::collector::AnalyticsCollector>,
-            > = app.state();
-            struct AnalyticsWrapper(std::sync::Arc<analytics::collector::AnalyticsCollector>);
-            impl transport::event_bus::AgentEventSubscriber for AnalyticsWrapper {
-                fn on_event(&self, session_id: &str, event: &crate::agent_event::AgentEvent) {
-                    self.0.on_event(session_id, event);
-                }
-                fn filter(&self) -> Option<transport::event_bus::EventFilter> {
-                    self.0.filter()
-                }
-            }
-            transport
-                .event_bus()
-                .subscribe(Box::new(AnalyticsWrapper(analytics.inner().clone())));
-
-            // Wire EventBus v2 subscribers (dual-bus coexistence)
-            info!("  ✓ Wiring EventBus v2 subscribers");
-            let history_v2 = std::sync::Arc::new(subscribers::history::HistoryRecorder::new());
+            // Wire EventBus subscribers
+            info!("  ✓ Wiring EventBus subscribers");
+            let history = std::sync::Arc::new(subscribers::history::HistoryRecorder::new());
             let session_writer = std::sync::Arc::new(
                 subscribers::session_writer::SessionHistoryWriter::new(session_mgr.store()),
             );
+            let analytics_state: tauri::State<
+                '_,
+                std::sync::Arc<analytics::collector::AnalyticsCollector>,
+            > = app.state();
+            let analytics_handler = std::sync::Arc::new(
+                subscribers::analytics::AnalyticsHandler::new(analytics_state.inner().clone()),
+            );
 
-            bus.subscribe("transport:event", history_v2.clone());
-            bus.subscribe("transport:complete", history_v2.clone());
-            bus.subscribe("transport:error", history_v2.clone());
+            bus.subscribe("transport:event", history.clone());
+            bus.subscribe("transport:complete", history.clone());
+            bus.subscribe("transport:error", history.clone());
             bus.subscribe_async("transport:event", session_writer.clone());
             bus.subscribe_async("transport:complete", session_writer.clone());
             bus.subscribe_async("transport:error", session_writer.clone());
+            bus.subscribe("transport:event", analytics_handler.clone());
+            bus.subscribe("transport:complete", analytics_handler.clone());
+            bus.subscribe("transport:error", analytics_handler.clone());
 
-            let bridge = std::sync::Arc::new(event_bus_v2::TauriFrontendBridge::new(
+            // Wire the session writer into SessionManager so it can track new sessions
+            session_mgr.set_writer(session_writer.clone());
+
+            let bridge = std::sync::Arc::new(event_bus::TauriFrontendBridge::new(
                 app.handle().clone(),
                 bus.clone(),
             ));
@@ -335,17 +309,18 @@ pub fn run() {
             // Store strong Arcs so the Weak refs inside EventBus stay alive
             // for the application lifetime.
             app.manage(EventBusSubscribers {
-                history: history_v2,
+                history,
                 session_writer,
+                analytics: analytics_handler,
                 bridge,
             });
 
-            // Pass v2 bus to the transport for dual-publishing
-            transport.set_event_bus_v2(bus.clone());
+            // Pass bus to the transport
+            transport.set_event_bus(bus.clone());
 
-            // Pass v2 bus to the workflow engine for dual-publishing
+            // Pass bus to the workflow engine
             let workflow_engine: tauri::State<'_, workflow_engine::WorkflowEngine> = app.state();
-            workflow_engine.set_event_bus_v2(bus.clone());
+            workflow_engine.set_event_bus(bus.clone());
 
             // Load capability cache
             let negotiator: tauri::State<'_, capability::CapabilityNegotiator> = app.state();

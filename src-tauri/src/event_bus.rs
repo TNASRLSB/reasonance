@@ -4,7 +4,9 @@ use std::sync::{Arc, Mutex, RwLock, Weak};
 use std::time::{Duration, Instant};
 
 use serde::Serialize;
+use tauri::Emitter;
 
+use crate::agent_event::AgentEvent;
 use crate::error::ReasonanceError;
 
 const DEFAULT_CHANNEL_BUFFER: usize = 1000;
@@ -34,6 +36,23 @@ impl Event {
             payload,
             timestamp: chrono::Utc::now().to_rfc3339(),
             source: source.into(),
+        }
+    }
+
+    /// Convert a transport-specific `AgentEvent` into a generic bus `Event`.
+    ///
+    /// The payload wraps `session_id` and the serialized `AgentEvent` so that
+    /// downstream subscribers (including the frontend) can reconstruct context.
+    pub fn from_agent_event(channel: &str, session_id: &str, agent_event: &AgentEvent) -> Self {
+        Self {
+            id: uuid::Uuid::new_v4().to_string(),
+            channel: channel.to_string(),
+            payload: serde_json::json!({
+                "session_id": session_id,
+                "event": agent_event,
+            }),
+            timestamp: chrono::Utc::now().to_rfc3339(),
+            source: format!("transport:{}", agent_event.metadata.provider),
         }
     }
 }
@@ -325,6 +344,52 @@ impl EventBus {
             .get(channel_name)
             .map_or(0, |c| c.drop_count.load(Ordering::SeqCst))
     }
+
+    /// Subscribe a handler to all channels currently marked as frontend-visible.
+    ///
+    /// This is a convenience method for bridge-style handlers that need to
+    /// observe every frontend-facing channel without knowing their names upfront.
+    pub fn subscribe_to_visible(&self, handler: Arc<dyn EventHandler>) {
+        let channels = self.channels.read().unwrap_or_else(|e| e.into_inner());
+        let visible: Vec<String> = channels
+            .iter()
+            .filter(|(_, ch)| ch.frontend_visible)
+            .map(|(name, _)| name.clone())
+            .collect();
+        drop(channels); // release read lock before taking write locks in subscribe()
+        for name in visible {
+            self.subscribe(&name, handler.clone());
+        }
+    }
+}
+
+/// Bridge that forwards events to the Tauri frontend via `app_handle.emit()`.
+///
+/// Registered as a sync subscriber on frontend-visible channels. On each event
+/// it checks `is_frontend_visible` (in case the channel set changed since
+/// subscription) and emits to the webview if appropriate.
+pub struct TauriFrontendBridge {
+    app_handle: tauri::AppHandle,
+    bus: Arc<EventBus>,
+}
+
+impl TauriFrontendBridge {
+    pub fn new(app_handle: tauri::AppHandle, bus: Arc<EventBus>) -> Self {
+        Self { app_handle, bus }
+    }
+}
+
+impl EventHandler for TauriFrontendBridge {
+    fn handle(&self, event: &Event) -> Result<(), ReasonanceError> {
+        if self.bus.is_frontend_visible(&event.channel) {
+            let _ = self.app_handle.emit(&event.channel, event);
+        }
+        Ok(())
+    }
+
+    fn id(&self) -> &str {
+        "tauri-frontend-bridge"
+    }
 }
 
 #[cfg(test)]
@@ -581,7 +646,11 @@ mod tests {
         // Let spawned tasks start.
         tokio::task::yield_now().await;
 
-        assert_eq!(count.load(Ordering::SeqCst), 5, "only 5 should be dispatched");
+        assert_eq!(
+            count.load(Ordering::SeqCst),
+            5,
+            "only 5 should be dispatched"
+        );
         assert_eq!(bus.drop_count("bp"), 5, "5 should be dropped");
 
         // Release all blocked handlers so pending_count drops back to 0.
@@ -597,7 +666,11 @@ mod tests {
         release.notify_waiters();
         tokio::time::sleep(std::time::Duration::from_millis(50)).await;
 
-        assert_eq!(count.load(Ordering::SeqCst), 8, "3 more should be dispatched after recovery");
+        assert_eq!(
+            count.load(Ordering::SeqCst),
+            8,
+            "3 more should be dispatched after recovery"
+        );
         // drop_count should remain at 5 (no new drops).
         assert_eq!(bus.drop_count("bp"), 5);
     }
@@ -642,7 +715,11 @@ mod tests {
 
         // The lifecycle:warning is dispatched via the deferred queue within
         // the same publish() call, so it should already be delivered.
-        assert_eq!(warning_handler.count(), 1, "lifecycle:warning should have been emitted");
+        assert_eq!(
+            warning_handler.count(),
+            1,
+            "lifecycle:warning should have been emitted"
+        );
         assert_eq!(bus.drop_count("bp-warn"), 1);
     }
 
@@ -714,5 +791,78 @@ mod tests {
         let ch = channels.get("lifecycle:warning").unwrap();
         assert_eq!(ch.max_buffer_size, usize::MAX);
         assert!(!ch.frontend_visible);
+    }
+
+    // ── Tests for Event::from_agent_event ───────────────────────────────
+
+    #[test]
+    fn from_agent_event_sets_channel_and_source() {
+        let agent_evt = AgentEvent::text("hello", "claude");
+        let event = Event::from_agent_event("agent:stream", "sess-1", &agent_evt);
+
+        assert_eq!(event.channel, "agent:stream");
+        assert_eq!(event.source, "transport:claude");
+        assert!(!event.id.is_empty());
+        assert!(chrono::DateTime::parse_from_rfc3339(&event.timestamp).is_ok());
+    }
+
+    #[test]
+    fn from_agent_event_payload_contains_session_and_event() {
+        let agent_evt = AgentEvent::text("world", "openai");
+        let event = Event::from_agent_event("agent:stream", "sess-42", &agent_evt);
+
+        let payload = &event.payload;
+        assert_eq!(payload["session_id"], "sess-42");
+        // The nested event should contain the agent event's id
+        assert_eq!(payload["event"]["id"], agent_evt.id);
+        assert_eq!(payload["event"]["metadata"]["provider"], "openai");
+    }
+
+    #[test]
+    fn from_agent_event_source_format_varies_by_provider() {
+        let claude_evt = AgentEvent::text("a", "claude");
+        let openai_evt = AgentEvent::text("b", "openai");
+
+        let e1 = Event::from_agent_event("ch", "s", &claude_evt);
+        let e2 = Event::from_agent_event("ch", "s", &openai_evt);
+
+        assert_eq!(e1.source, "transport:claude");
+        assert_eq!(e2.source, "transport:openai");
+    }
+
+    // ── Tests for subscribe_to_visible ──────────────────────────────────
+
+    #[test]
+    fn subscribe_to_visible_only_subscribes_visible_channels() {
+        let bus = EventBus::new(test_runtime_handle());
+        bus.register_channel("visible-a", true);
+        bus.register_channel("visible-b", true);
+        bus.register_channel("hidden-c", false);
+
+        let handler = Arc::new(CountingHandler::new("bridge"));
+        bus.subscribe_to_visible(handler.clone());
+
+        // Publish to visible channels — handler should receive both
+        bus.publish(Event::new("visible-a", serde_json::json!(1), "src"));
+        bus.publish(Event::new("visible-b", serde_json::json!(2), "src"));
+        assert_eq!(handler.count(), 2);
+
+        // Publish to hidden channel — handler should NOT receive it
+        bus.publish(Event::new("hidden-c", serde_json::json!(3), "src"));
+        assert_eq!(handler.count(), 2);
+    }
+
+    #[test]
+    fn subscribe_to_visible_no_visible_channels() {
+        let bus = EventBus::new(test_runtime_handle());
+        bus.register_channel("hidden-1", false);
+        bus.register_channel("hidden-2", false);
+
+        let handler = Arc::new(CountingHandler::new("bridge"));
+        bus.subscribe_to_visible(handler.clone());
+
+        bus.publish(Event::new("hidden-1", serde_json::json!(null), "src"));
+        bus.publish(Event::new("hidden-2", serde_json::json!(null), "src"));
+        assert_eq!(handler.count(), 0);
     }
 }

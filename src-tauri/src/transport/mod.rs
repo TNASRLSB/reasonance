@@ -1,4 +1,3 @@
-pub mod event_bus;
 pub mod request;
 pub mod retry;
 pub mod session;
@@ -10,7 +9,6 @@ pub mod stream_reader;
 use crate::agent_event::{AgentEvent, ErrorSeverity};
 use crate::circuit_breaker::CircuitBreaker;
 use crate::normalizer::NormalizerRegistry;
-use event_bus::{AgentEventBus, AgentEventSubscriber, HistoryRecorder};
 #[allow(unused_imports)]
 use log::{debug, error, info, trace, warn};
 use request::{AgentRequest, CliMode, SessionStatus};
@@ -27,18 +25,15 @@ use tokio::process::Command;
 pub struct StructuredAgentTransport {
     registry: Arc<Mutex<NormalizerRegistry>>,
     sessions: Arc<Mutex<HashMap<String, AgentSession>>>,
-    event_bus: Arc<AgentEventBus>,
-    history: Arc<HistoryRecorder>,
     /// Retry policies loaded from provider configs, keyed by provider name.
     /// Used by `send()` to retry failed CLI spawns with exponential backoff.
     retry_policies: Arc<Mutex<HashMap<String, RetryPolicy>>>,
     /// Circuit breaker for transport-level fault isolation per provider.
     circuit_breaker: Arc<CircuitBreaker>,
-    /// New EventBus v2 for dual-bus coexistence during migration.
-    /// `None` in tests and when the v2 bus hasn't been wired yet.
-    /// Uses `Mutex` for interior mutability so `set_event_bus_v2` can be
-    /// called through `&self` (Tauri `State` only provides shared refs).
-    event_bus_v2: Mutex<Option<Arc<crate::event_bus_v2::EventBus>>>,
+    /// The sole event bus. Uses `Mutex` for interior mutability so
+    /// `set_event_bus` can be called through `&self` (Tauri `State`
+    /// only provides shared refs).
+    event_bus: Mutex<Option<Arc<crate::event_bus::EventBus>>>,
 }
 
 impl StructuredAgentTransport {
@@ -46,25 +41,12 @@ impl StructuredAgentTransport {
     /// Used as fallback when normalizer configs are missing.
     pub fn empty() -> Self {
         warn!("StructuredAgentTransport: starting with empty registry (no normalizers found)");
-        let event_bus = Arc::new(AgentEventBus::new());
-        let history = Arc::new(HistoryRecorder::new());
-
-        struct HistoryWrapper(Arc<HistoryRecorder>);
-        impl AgentEventSubscriber for HistoryWrapper {
-            fn on_event(&self, session_id: &str, event: &AgentEvent) {
-                self.0.on_event(session_id, event);
-            }
-        }
-        event_bus.subscribe(Box::new(HistoryWrapper(history.clone())));
-
         Self {
             registry: Arc::new(Mutex::new(NormalizerRegistry::default())),
             sessions: Arc::new(Mutex::new(HashMap::new())),
-            event_bus,
-            history,
             retry_policies: Arc::new(Mutex::new(HashMap::new())),
             circuit_breaker: Arc::new(CircuitBreaker::new()),
-            event_bus_v2: Mutex::new(None),
+            event_bus: Mutex::new(None),
         }
     }
 
@@ -87,17 +69,6 @@ impl StructuredAgentTransport {
             }
         }
 
-        let event_bus = Arc::new(AgentEventBus::new());
-        let history = Arc::new(HistoryRecorder::new());
-
-        struct HistoryWrapper(Arc<HistoryRecorder>);
-        impl AgentEventSubscriber for HistoryWrapper {
-            fn on_event(&self, session_id: &str, event: &AgentEvent) {
-                self.0.on_event(session_id, event);
-            }
-        }
-        event_bus.subscribe(Box::new(HistoryWrapper(history.clone())));
-
         let circuit_breaker = Arc::new(CircuitBreaker::new());
 
         info!(
@@ -107,11 +78,9 @@ impl StructuredAgentTransport {
         Ok(Self {
             registry: Arc::new(Mutex::new(registry)),
             sessions: Arc::new(Mutex::new(HashMap::new())),
-            event_bus,
-            history,
             retry_policies: Arc::new(Mutex::new(retry_policies)),
             circuit_breaker,
-            event_bus_v2: Mutex::new(None),
+            event_bus: Mutex::new(None),
         })
     }
 
@@ -388,9 +357,8 @@ impl StructuredAgentTransport {
 
         // Capture stderr and emit as warning events
         if let Some(stderr) = child.stderr.take() {
-            let stderr_bus = self.event_bus.clone();
-            let stderr_v2_bus = self
-                .event_bus_v2
+            let stderr_bus = self
+                .event_bus
                 .lock()
                 .unwrap_or_else(|e| e.into_inner())
                 .clone();
@@ -407,9 +375,8 @@ impl StructuredAgentTransport {
                             ErrorSeverity::Recoverable,
                             "system",
                         );
-                        stderr_bus.publish(&stderr_sid, &error_event);
-                        if let Some(ref bus) = stderr_v2_bus {
-                            bus.publish(crate::event_bus_v2::Event::from_agent_event(
+                        if let Some(ref bus) = stderr_bus {
+                            bus.publish(crate::event_bus::Event::from_agent_event(
                                 "transport:error",
                                 &stderr_sid,
                                 &error_event,
@@ -423,7 +390,6 @@ impl StructuredAgentTransport {
         // Record successful spawn in circuit breaker
         self.circuit_breaker.record_success(&circuit_id);
 
-        let event_bus = self.event_bus.clone();
         let sid = session_id.clone();
         let sessions_ref = self.sessions.clone();
         let cb_ref = self.circuit_breaker.clone();
@@ -431,11 +397,12 @@ impl StructuredAgentTransport {
 
         let cli_session_id_ref = Arc::new(Mutex::new(None::<String>));
         let cli_sid_for_reader = cli_session_id_ref.clone();
-        let event_bus_v2 = self
-            .event_bus_v2
+        let event_bus = self
+            .event_bus
             .lock()
             .unwrap_or_else(|e| e.into_inner())
-            .clone();
+            .clone()
+            .expect("EventBus must be set before send()");
         let rx = spawn_stream_reader(
             stdout,
             pipeline,
@@ -444,7 +411,6 @@ impl StructuredAgentTransport {
             session_id_path,
             cli_sid_for_reader,
             None,
-            event_bus_v2,
         );
 
         let join_handle = tokio::spawn(async move {
@@ -537,18 +503,9 @@ impl StructuredAgentTransport {
         Ok(status)
     }
 
-    pub fn get_events(&self, session_id: &str) -> Vec<AgentEvent> {
-        self.history.get_events(session_id)
-    }
-
-    pub fn event_bus(&self) -> Arc<AgentEventBus> {
-        self.event_bus.clone()
-    }
-
-    /// Set the EventBus v2 for dual-bus coexistence.
-    /// Called from `setup()` after the bus is constructed.
-    pub fn set_event_bus_v2(&self, bus: Arc<crate::event_bus_v2::EventBus>) {
-        *self.event_bus_v2.lock().unwrap_or_else(|e| e.into_inner()) = Some(bus);
+    /// Set the EventBus. Called from `setup()` after the bus is constructed.
+    pub fn set_event_bus(&self, bus: Arc<crate::event_bus::EventBus>) {
+        *self.event_bus.lock().unwrap_or_else(|e| e.into_inner()) = Some(bus);
     }
 
     pub fn active_sessions(&self) -> Vec<String> {
@@ -810,13 +767,6 @@ mod tests {
         // Empty tools list
         let args_empty = StructuredAgentTransport::build_allowed_tools_args(config, &Some(vec![]));
         assert!(args_empty.is_empty());
-    }
-
-    #[test]
-    fn test_get_events_empty() {
-        let transport = StructuredAgentTransport::new(Path::new("normalizers")).unwrap();
-        let events = transport.get_events("nonexistent");
-        assert!(events.is_empty());
     }
 
     #[test]

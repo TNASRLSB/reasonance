@@ -9,15 +9,7 @@ use log::{debug, info, warn};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex};
-use tauri::{AppHandle, Emitter, Listener};
-
-#[derive(Serialize, Clone)]
-struct NodeStateEvent {
-    run_id: String,
-    node_id: String,
-    old_state: String,
-    new_state: String,
-}
+use tauri::{AppHandle, Listener};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -49,37 +41,34 @@ pub struct WorkflowRun {
 
 pub struct WorkflowEngine {
     pub runs: Arc<Mutex<HashMap<String, WorkflowRun>>>,
-    /// EventBus v2 for dual-bus coexistence during migration.
-    /// `None` in tests and when the v2 bus hasn't been wired yet.
-    /// Uses `Mutex` for interior mutability so `set_event_bus_v2` can be
+    /// The sole event bus. `None` in tests and when the bus hasn't been wired yet.
+    /// Uses `Mutex` for interior mutability so `set_event_bus` can be
     /// called through `&self` (Tauri `State` only provides shared refs).
-    event_bus_v2: Mutex<Option<Arc<crate::event_bus_v2::EventBus>>>,
+    event_bus: Mutex<Option<Arc<crate::event_bus::EventBus>>>,
 }
 
 impl WorkflowEngine {
     pub fn new() -> Self {
         Self {
             runs: Arc::new(Mutex::new(HashMap::new())),
-            event_bus_v2: Mutex::new(None),
+            event_bus: Mutex::new(None),
         }
     }
 
-    /// Set the EventBus v2 for dual-bus coexistence.
-    /// Called from `setup()` after the bus is constructed.
-    pub fn set_event_bus_v2(&self, bus: Arc<crate::event_bus_v2::EventBus>) {
-        *self.event_bus_v2.lock().unwrap_or_else(|e| e.into_inner()) = Some(bus);
+    /// Set the EventBus. Called from `setup()` after the bus is constructed.
+    pub fn set_event_bus(&self, bus: Arc<crate::event_bus::EventBus>) {
+        *self.event_bus.lock().unwrap_or_else(|e| e.into_inner()) = Some(bus);
     }
 
-    /// Dual-emit helper: publish an event through the EventBus v2 channel.
-    /// The old `app.emit()` call is kept at each call site for backward compatibility.
+    /// Publish an event through the EventBus channel.
     fn emit_to_bus(&self, channel: &str, payload: serde_json::Value) {
         let bus = self
-            .event_bus_v2
+            .event_bus
             .lock()
             .unwrap_or_else(|e| e.into_inner())
             .clone();
         if let Some(bus) = bus {
-            bus.publish(crate::event_bus_v2::Event::new(
+            bus.publish(crate::event_bus::Event::new(
                 channel,
                 payload,
                 "workflow-engine",
@@ -491,15 +480,6 @@ impl WorkflowEngine {
             }
         }
         self.update_node_state(run_id, node_id, AgentState::Running, Some(agent_id.clone()))?;
-        let _ = app.emit(
-            "hive://node-state-changed",
-            NodeStateEvent {
-                run_id: run_id.to_string(),
-                node_id: node_id.to_string(),
-                old_state: "idle".to_string(),
-                new_state: "running".to_string(),
-            },
-        );
         self.emit_to_bus(
             "workflow:node-state",
             serde_json::json!({
@@ -509,15 +489,6 @@ impl WorkflowEngine {
                 "new_state": "running",
             }),
         );
-        app.emit(
-            "hive://agent-output",
-            serde_json::json!({
-                "run_id": run_id,
-                "node_id": node_id,
-                "pty_id": pty_id,
-            }),
-        )
-        .ok();
         self.emit_to_bus(
             "workflow:agent-output",
             serde_json::json!({
@@ -608,16 +579,6 @@ impl WorkflowEngine {
                         "dry-run" => {
                             // Simulate execution — mark as Success without spawning
                             self.update_node_state(run_id, &node_id, AgentState::Success, None)?;
-                            app.emit(
-                                "hive://node-state-changed",
-                                NodeStateEvent {
-                                    run_id: run_id.to_string(),
-                                    node_id: node_id.clone(),
-                                    old_state: "idle".to_string(),
-                                    new_state: "success".to_string(),
-                                },
-                            )
-                            .ok();
                             self.emit_to_bus(
                                 "workflow:node-state",
                                 serde_json::json!({
@@ -632,15 +593,6 @@ impl WorkflowEngine {
                         }
                         "supervised" => {
                             // Emit permission request — frontend shows approval dialog
-                            app.emit(
-                                "hive://permission-request",
-                                serde_json::json!({
-                                    "run_id": run_id,
-                                    "node_id": node_id,
-                                    "agent_label": node.label,
-                                }),
-                            )
-                            .ok();
                             self.emit_to_bus(
                                 "workflow:permission-request",
                                 serde_json::json!({
@@ -652,16 +604,6 @@ impl WorkflowEngine {
                             // Don't spawn PTY yet — wait for approval via approve_node command
                             // Mark as Queued so it's visually distinct
                             self.update_node_state(run_id, &node_id, AgentState::Queued, None)?;
-                            app.emit(
-                                "hive://node-state-changed",
-                                NodeStateEvent {
-                                    run_id: run_id.to_string(),
-                                    node_id: node_id.clone(),
-                                    old_state: "idle".to_string(),
-                                    new_state: "queued".to_string(),
-                                },
-                            )
-                            .ok();
                             self.emit_to_bus(
                                 "workflow:node-state",
                                 serde_json::json!({
@@ -730,15 +672,6 @@ impl WorkflowEngine {
                                             AgentState::Skipped,
                                             None,
                                         )?;
-                                        let _ = app.emit(
-                                            "hive://node-state-changed",
-                                            NodeStateEvent {
-                                                run_id: run_id.to_string(),
-                                                node_id: succ_id.clone(),
-                                                old_state: "idle".to_string(),
-                                                new_state: "skipped".to_string(),
-                                            },
-                                        );
                                         self.emit_to_bus(
                                             "workflow:node-state",
                                             serde_json::json!({
@@ -753,15 +686,6 @@ impl WorkflowEngine {
                             }
 
                             log::info!("Logic node {} evaluated to {}", node_id, result);
-                            let _ = app.emit(
-                                "hive://node-state-changed",
-                                NodeStateEvent {
-                                    run_id: run_id.to_string(),
-                                    node_id: node_id.clone(),
-                                    old_state: "idle".to_string(),
-                                    new_state: "success".to_string(),
-                                },
-                            );
                             self.emit_to_bus(
                                 "workflow:node-state",
                                 serde_json::json!({
@@ -775,15 +699,6 @@ impl WorkflowEngine {
                         Err(e) => {
                             self.update_node_state(run_id, &node_id, AgentState::Error, None)?;
                             log::error!("Logic node {} rule failed: {}", node_id, e);
-                            let _ = app.emit(
-                                "hive://node-state-changed",
-                                NodeStateEvent {
-                                    run_id: run_id.to_string(),
-                                    node_id: node_id.clone(),
-                                    old_state: "idle".to_string(),
-                                    new_state: "error".to_string(),
-                                },
-                            );
                             self.emit_to_bus(
                                 "workflow:node-state",
                                 serde_json::json!({
@@ -804,13 +719,6 @@ impl WorkflowEngine {
 
         if self.check_run_complete(run_id)? {
             let final_status = self.finalize_run(run_id)?;
-            let _ = app.emit(
-                "hive://run-completed",
-                serde_json::json!({
-                    "run_id": run_id,
-                    "status": final_status,
-                }),
-            );
             self.emit_to_bus(
                 "workflow:run-status",
                 serde_json::json!({
@@ -856,15 +764,6 @@ impl WorkflowEngine {
                 let _ = runtime.transition(aid, AgentState::Success);
             }
             self.update_node_state(run_id, node_id, AgentState::Success, None)?;
-            let _ = app.emit(
-                "hive://node-state-changed",
-                NodeStateEvent {
-                    run_id: run_id.to_string(),
-                    node_id: node_id.to_string(),
-                    old_state: "running".to_string(),
-                    new_state: "success".to_string(),
-                },
-            );
             self.emit_to_bus(
                 "workflow:node-state",
                 serde_json::json!({
@@ -913,15 +812,6 @@ impl WorkflowEngine {
                     let _ = runtime.transition(aid, AgentState::Error);
                 }
                 self.update_node_state(run_id, node_id, AgentState::Error, None)?;
-                let _ = app.emit(
-                    "hive://node-state-changed",
-                    NodeStateEvent {
-                        run_id: run_id.to_string(),
-                        node_id: node_id.to_string(),
-                        old_state: "failed".to_string(),
-                        new_state: "error".to_string(),
-                    },
-                );
                 self.emit_to_bus(
                     "workflow:node-state",
                     serde_json::json!({
@@ -1058,15 +948,6 @@ impl WorkflowEngine {
                 .unwrap_or("claude");
             let pty_id = pty_manager.spawn(llm, &[], cwd, app.clone())?;
             runtime.set_pty(&agent_id, &pty_id)?;
-            let _ = app.emit(
-                "hive://node-state-changed",
-                NodeStateEvent {
-                    run_id: run_id.to_string(),
-                    node_id: node_id.to_string(),
-                    old_state: "failed".to_string(),
-                    new_state: "running".to_string(),
-                },
-            );
             self.emit_to_bus(
                 "workflow:node-state",
                 serde_json::json!({
@@ -1076,15 +957,6 @@ impl WorkflowEngine {
                     "new_state": "running",
                 }),
             );
-            app.emit(
-                "hive://agent-output",
-                serde_json::json!({
-                    "run_id": run_id,
-                    "node_id": node_id,
-                    "pty_id": pty_id,
-                }),
-            )
-            .ok();
             self.emit_to_bus(
                 "workflow:agent-output",
                 serde_json::json!({
@@ -1122,15 +994,6 @@ impl WorkflowEngine {
                 AgentState::Running,
                 Some(new_agent_id.clone()),
             )?;
-            let _ = app.emit(
-                "hive://node-state-changed",
-                NodeStateEvent {
-                    run_id: run_id.to_string(),
-                    node_id: node_id.to_string(),
-                    old_state: "failed".to_string(),
-                    new_state: "running".to_string(),
-                },
-            );
             self.emit_to_bus(
                 "workflow:node-state",
                 serde_json::json!({
@@ -1140,15 +1003,6 @@ impl WorkflowEngine {
                     "new_state": "running",
                 }),
             );
-            app.emit(
-                "hive://agent-output",
-                serde_json::json!({
-                    "run_id": run_id,
-                    "node_id": node_id,
-                    "pty_id": pty_id,
-                }),
-            )
-            .ok();
             self.emit_to_bus(
                 "workflow:agent-output",
                 serde_json::json!({
