@@ -10,10 +10,10 @@ use crate::event_bus::{AsyncEventHandler, Event};
 use crate::transport::session_handle::SessionHandle;
 use crate::transport::session_store::SessionStore;
 
-/// Async session history writer that implements the EventBus v2 `AsyncEventHandler` trait.
+/// Async session history writer that implements the EventBus `AsyncEventHandler` trait.
 ///
 /// Replaces the old `SessionHistoryRecorder` which used a background thread + mpsc channel.
-/// In v2, the bus dispatches via `tokio::spawn`, so async I/O is native — no manual thread needed.
+/// The bus dispatches via `tokio::spawn`, so async I/O is native — no manual thread needed.
 pub struct SessionHistoryWriter {
     store: Arc<SessionStore>,
     handles: Arc<Mutex<HashMap<String, SessionHandle>>>,
@@ -21,7 +21,7 @@ pub struct SessionHistoryWriter {
 
 impl SessionHistoryWriter {
     pub fn new(store: Arc<SessionStore>) -> Self {
-        info!("SessionHistoryWriter(v2): created");
+        info!("SessionHistoryWriter: created");
         Self {
             store,
             handles: Arc::new(Mutex::new(HashMap::new())),
@@ -31,15 +31,13 @@ impl SessionHistoryWriter {
     /// Register a session to be tracked by this writer.
     pub fn track_session(&self, handle: SessionHandle) {
         info!(
-            "SessionHistoryWriter(v2): tracking session={} provider={} model={}",
+            "SessionHistoryWriter: tracking session={} provider={} model={}",
             handle.id, handle.provider, handle.model
         );
         self.handles
             .lock()
             .unwrap_or_else(|e| {
-                warn!(
-                    "SessionHistoryWriter(v2): handles lock poisoned in track_session, recovering"
-                );
+                warn!("SessionHistoryWriter: handles lock poisoned in track_session, recovering");
                 e.into_inner()
             })
             .insert(handle.id.clone(), handle);
@@ -59,7 +57,7 @@ impl AsyncEventHandler for SessionHistoryWriter {
             Some(id) => id.to_string(),
             None => {
                 trace!(
-                    "SessionHistoryWriter(v2): ignoring event {} — no session_id in payload",
+                    "SessionHistoryWriter: ignoring event {} — no session_id in payload",
                     event.id
                 );
                 return Ok(());
@@ -76,7 +74,7 @@ impl AsyncEventHandler for SessionHistoryWriter {
             Ok(evt) => evt,
             Err(_) => {
                 trace!(
-                    "SessionHistoryWriter(v2): ignoring event {} — could not parse AgentEvent",
+                    "SessionHistoryWriter: ignoring event {} — could not parse AgentEvent",
                     event.id
                 );
                 return Ok(());
@@ -84,7 +82,7 @@ impl AsyncEventHandler for SessionHistoryWriter {
         };
 
         trace!(
-            "SessionHistoryWriter(v2): writing event type={:?} for session={}",
+            "SessionHistoryWriter: writing event type={:?} for session={}",
             agent_event.event_type,
             session_id
         );
@@ -92,7 +90,7 @@ impl AsyncEventHandler for SessionHistoryWriter {
         // Append event to JSONL on disk.
         if let Err(e) = self.store.append_event(&session_id, &agent_event) {
             error!(
-                "SessionHistoryWriter(v2): failed to append event for session={}: {}",
+                "SessionHistoryWriter: failed to append event for session={}: {}",
                 session_id, e
             );
         }
@@ -137,7 +135,7 @@ impl AsyncEventHandler for SessionHistoryWriter {
     }
 
     fn id(&self) -> &str {
-        "session-history-writer-v2"
+        "session-history-writer"
     }
 }
 

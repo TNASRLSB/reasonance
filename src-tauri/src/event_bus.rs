@@ -377,12 +377,36 @@ impl TauriFrontendBridge {
     pub fn new(app_handle: tauri::AppHandle, bus: Arc<EventBus>) -> Self {
         Self { app_handle, bus }
     }
+
+    /// Map internal `workflow:*` bus channel names to the legacy `hive://` event
+    /// names that the frontend (engine.ts) listens on. Returns `None` for channels
+    /// that have no legacy mapping.
+    fn workflow_to_hive(channel: &str) -> Option<&'static str> {
+        match channel {
+            "workflow:node-state" => Some("hive://node-state-changed"),
+            "workflow:run-status" => Some("hive://run-status-changed"),
+            "workflow:agent-output" => Some("hive://agent-output"),
+            "workflow:permission-request" => Some("hive://permission-request"),
+            _ => None,
+        }
+    }
 }
 
 impl EventHandler for TauriFrontendBridge {
     fn handle(&self, event: &Event) -> Result<(), ReasonanceError> {
         if self.bus.is_frontend_visible(&event.channel) {
-            let _ = self.app_handle.emit(&event.channel, event);
+            if event.channel.starts_with("transport:") {
+                // Transport events are emitted as "agent-event" with the inner payload
+                // ({session_id, event}) to maintain backward compatibility with the
+                // frontend listener in tauri.ts / agent-events.ts.
+                let _ = self.app_handle.emit("agent-event", &event.payload);
+            } else if let Some(hive_name) = Self::workflow_to_hive(&event.channel) {
+                // Workflow events are re-mapped to their legacy "hive://" channel names
+                // so the frontend engine.ts listeners receive them.
+                let _ = self.app_handle.emit(hive_name, &event.payload);
+            } else {
+                let _ = self.app_handle.emit(&event.channel, &event.payload);
+            }
         }
         Ok(())
     }

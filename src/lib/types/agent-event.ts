@@ -106,7 +106,7 @@ export interface SessionSummary {
   source: SessionSource;
 }
 
-// Tauri event payload (from event_bus.rs FrontendEmitter)
+// Tauri event payload (from event_bus.rs TauriFrontendBridge)
 export interface AgentEventPayload {
   session_id: string;
   event: AgentEvent;

@@ -8,7 +8,7 @@ use crate::agent_event::AgentEvent;
 use crate::error::ReasonanceError;
 use crate::event_bus::{Event, EventHandler};
 
-/// In-memory history recorder that implements the EventBus v2 `EventHandler` trait.
+/// In-memory history recorder that implements the EventBus `EventHandler` trait.
 ///
 /// Stores events grouped by session ID, extracted from the generic `Event.payload`.
 /// Replaces the former `transport::event_bus::HistoryRecorder`.
@@ -24,7 +24,7 @@ impl Default for HistoryRecorder {
 
 impl HistoryRecorder {
     pub fn new() -> Self {
-        info!("HistoryRecorder(v2): created");
+        info!("HistoryRecorder: created");
         Self {
             history: Arc::new(Mutex::new(HashMap::new())),
         }
@@ -35,7 +35,7 @@ impl HistoryRecorder {
         self.history
             .lock()
             .unwrap_or_else(|e| {
-                warn!("HistoryRecorder(v2): lock poisoned in get_events, recovering");
+                warn!("HistoryRecorder: lock poisoned in get_events, recovering");
                 e.into_inner()
             })
             .get(session_id)
@@ -56,7 +56,7 @@ impl EventHandler for HistoryRecorder {
             Some(id) => id,
             None => {
                 trace!(
-                    "HistoryRecorder(v2): ignoring event {} — no session_id in payload",
+                    "HistoryRecorder: ignoring event {} — no session_id in payload",
                     event.id
                 );
                 return Ok(());
@@ -73,7 +73,7 @@ impl EventHandler for HistoryRecorder {
             Ok(evt) => evt,
             Err(_) => {
                 trace!(
-                    "HistoryRecorder(v2): ignoring event {} — could not parse AgentEvent from payload",
+                    "HistoryRecorder: ignoring event {} — could not parse AgentEvent from payload",
                     event.id
                 );
                 return Ok(());
@@ -81,7 +81,7 @@ impl EventHandler for HistoryRecorder {
         };
 
         trace!(
-            "HistoryRecorder(v2): recording event type={:?} for session={}",
+            "HistoryRecorder: recording event type={:?} for session={}",
             agent_event.event_type,
             session_id
         );
@@ -89,7 +89,7 @@ impl EventHandler for HistoryRecorder {
         self.history
             .lock()
             .unwrap_or_else(|e| {
-                warn!("HistoryRecorder(v2): lock poisoned in handle, recovering");
+                warn!("HistoryRecorder: lock poisoned in handle, recovering");
                 e.into_inner()
             })
             .entry(session_id.to_string())
@@ -100,7 +100,7 @@ impl EventHandler for HistoryRecorder {
     }
 
     fn id(&self) -> &str {
-        "history-recorder-v2"
+        "history-recorder"
     }
 }
 
