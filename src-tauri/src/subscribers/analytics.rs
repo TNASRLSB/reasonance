@@ -92,20 +92,20 @@ mod tests {
     use crate::agent_event::AgentEvent;
     use crate::analytics::store::AnalyticsStore;
     use crate::event_bus::Event;
+    use crate::storage::InMemoryBackend;
 
-    fn make_store() -> (Arc<AnalyticsStore>, tempfile::TempDir) {
-        let dir = tempfile::TempDir::new().unwrap();
-        let store = Arc::new(AnalyticsStore::new(dir.path()).unwrap());
-        (store, dir)
+    async fn make_store() -> Arc<AnalyticsStore> {
+        let backend = Arc::new(InMemoryBackend::new());
+        Arc::new(AnalyticsStore::new(backend).await.unwrap())
     }
 
     fn make_event(session_id: &str, agent_event: &AgentEvent) -> Event {
         Event::from_agent_event("transport:event", session_id, agent_event)
     }
 
-    #[test]
-    fn handles_usage_event() {
-        let (store, _dir) = make_store();
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn handles_usage_event() {
+        let store = make_store().await;
         let collector = Arc::new(AnalyticsCollector::new(store));
         let handler = AnalyticsHandler::new(collector.clone());
 
@@ -117,9 +117,9 @@ mod tests {
         assert_eq!(active[0].input_tokens, 100);
     }
 
-    #[test]
-    fn ignores_text_event() {
-        let (store, _dir) = make_store();
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn ignores_text_event() {
+        let store = make_store().await;
         let collector = Arc::new(AnalyticsCollector::new(store));
         let handler = AnalyticsHandler::new(collector.clone());
 
@@ -131,9 +131,9 @@ mod tests {
         assert!(active.is_empty());
     }
 
-    #[test]
-    fn ignores_invalid_payload() {
-        let (store, _dir) = make_store();
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn ignores_invalid_payload() {
+        let store = make_store().await;
         let collector = Arc::new(AnalyticsCollector::new(store));
         let handler = AnalyticsHandler::new(collector.clone());
 

@@ -351,7 +351,13 @@ impl AnalyticsCollector {
                 );
                 m.ended_at = Some(event.timestamp);
                 drop(active); // release lock before I/O
-                if let Err(e) = self.store.append(&m) {
+                let result = {
+                    let rt = tokio::runtime::Handle::current();
+                    // Use block_in_place so this works both from a sync thread
+                    // (production EventHandler) and from within a tokio runtime (tests).
+                    tokio::task::block_in_place(|| rt.block_on(self.store.append(&m)))
+                };
+                if let Err(e) = result {
                     error!("Failed to flush session {} to store: {}", session_id, e);
                 }
             }
@@ -464,16 +470,16 @@ impl AnalyticsCollector {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::storage::InMemoryBackend;
 
-    fn make_store() -> (Arc<AnalyticsStore>, tempfile::TempDir) {
-        let dir = tempfile::TempDir::new().unwrap();
-        let store = Arc::new(AnalyticsStore::new(dir.path()).unwrap());
-        (store, dir)
+    async fn make_store() -> Arc<AnalyticsStore> {
+        let backend = Arc::new(InMemoryBackend::new());
+        Arc::new(AnalyticsStore::new(backend).await.unwrap())
     }
 
-    #[test]
-    fn test_accumulate_usage_tokens() {
-        let (store, _dir) = make_store();
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn test_accumulate_usage_tokens() {
+        let store = make_store().await;
         let collector = AnalyticsCollector::new(store);
 
         let event = AgentEvent::usage(100, 50, "claude");
@@ -485,9 +491,9 @@ mod tests {
         assert_eq!(m.output_tokens, 50);
     }
 
-    #[test]
-    fn test_accumulate_multiple_usage() {
-        let (store, _dir) = make_store();
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn test_accumulate_multiple_usage() {
+        let store = make_store().await;
         let collector = AnalyticsCollector::new(store);
 
         collector.on_event("s1", &AgentEvent::usage(100, 50, "claude"));
@@ -499,9 +505,9 @@ mod tests {
         assert_eq!(m.output_tokens, 150);
     }
 
-    #[test]
-    fn test_accumulate_tool_use() {
-        let (store, _dir) = make_store();
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn test_accumulate_tool_use() {
+        let store = make_store().await;
         let collector = AnalyticsCollector::new(store);
 
         let event = AgentEvent::tool_use("read_file", r#"{"path":"test"}"#, "claude");
@@ -513,9 +519,9 @@ mod tests {
         assert_eq!(m.tools_used.get("read_file"), Some(&2));
     }
 
-    #[test]
-    fn test_accumulate_error_with_recovery() {
-        let (store, _dir) = make_store();
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn test_accumulate_error_with_recovery() {
+        let store = make_store().await;
         let collector = AnalyticsCollector::new(store);
 
         let err = AgentEvent::error(
@@ -526,7 +532,7 @@ mod tests {
         );
         collector.on_event("s1", &err);
 
-        // Another event arrives — previous error is recovered
+        // Another event arrives -- previous error is recovered
         collector.on_event("s1", &AgentEvent::usage(100, 50, "claude"));
 
         let active = collector.active.lock().unwrap_or_else(|e| e.into_inner());
@@ -535,9 +541,9 @@ mod tests {
         assert!(m.errors[0].recovered);
     }
 
-    #[test]
-    fn test_done_flushes_to_store() {
-        let (store, _dir) = make_store();
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn test_done_flushes_to_store() {
+        let store = make_store().await;
         let collector = AnalyticsCollector::new(store.clone());
 
         collector.on_event("s1", &AgentEvent::usage(100, 50, "claude"));
@@ -558,9 +564,9 @@ mod tests {
         assert!(m.ended_at.is_some());
     }
 
-    #[test]
-    fn test_active_sessions() {
-        let (store, _dir) = make_store();
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn test_active_sessions() {
+        let store = make_store().await;
         let collector = AnalyticsCollector::new(store);
 
         collector.on_event("s1", &AgentEvent::usage(100, 50, "claude"));
@@ -570,9 +576,9 @@ mod tests {
         assert_eq!(active.len(), 2);
     }
 
-    #[test]
-    fn test_session_metrics_query() {
-        let (store, _dir) = make_store();
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn test_session_metrics_query() {
+        let store = make_store().await;
         let collector = AnalyticsCollector::new(store);
 
         collector.on_event("s1", &AgentEvent::usage(100, 50, "claude"));
@@ -585,9 +591,9 @@ mod tests {
         assert!(collector.get_session_metrics("nonexistent").is_none());
     }
 
-    #[test]
-    fn test_provider_analytics() {
-        let (store, _dir) = make_store();
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn test_provider_analytics() {
+        let store = make_store().await;
         let collector = AnalyticsCollector::new(store);
 
         // Two claude sessions
@@ -603,9 +609,9 @@ mod tests {
         assert_eq!(analytics.error_rate, 0.0);
     }
 
-    #[test]
-    fn test_compare_providers() {
-        let (store, _dir) = make_store();
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn test_compare_providers() {
+        let store = make_store().await;
         let collector = AnalyticsCollector::new(store);
 
         collector.on_event("s1", &AgentEvent::usage(100, 50, "claude"));
@@ -617,9 +623,9 @@ mod tests {
         assert_eq!(comparison.len(), 2);
     }
 
-    #[test]
-    fn test_model_breakdown() {
-        let (store, _dir) = make_store();
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn test_model_breakdown() {
+        let store = make_store().await;
         let collector = AnalyticsCollector::new(store);
 
         // We need events with model set
@@ -637,9 +643,9 @@ mod tests {
         assert_eq!(breakdown.len(), 2);
     }
 
-    #[test]
-    fn test_daily_stats() {
-        let (store, _dir) = make_store();
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn test_daily_stats() {
+        let store = make_store().await;
         let collector = AnalyticsCollector::new(store);
 
         collector.on_event("s1", &AgentEvent::usage(100, 50, "claude"));
@@ -650,9 +656,9 @@ mod tests {
         assert_eq!(stats[0].sessions, 1);
     }
 
-    #[test]
-    fn test_provider_analytics_empty() {
-        let (store, _dir) = make_store();
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn test_provider_analytics_empty() {
+        let store = make_store().await;
         let collector = AnalyticsCollector::new(store);
 
         let analytics = collector.get_provider_analytics("nonexistent", None);

@@ -1,33 +1,53 @@
 use super::SessionMetrics;
 use crate::error::ReasonanceError;
+use crate::storage::StorageBackend;
 use log::{debug, error, info, warn};
-use std::fs;
-use std::io::{BufRead, BufReader, Write};
-use std::path::{Path, PathBuf};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
+
+const NAMESPACE: &str = "analytics";
+const STREAM_KEY: &str = "metrics";
 
 pub struct AnalyticsStore {
-    path: PathBuf,
+    backend: Arc<dyn StorageBackend>,
     completed: Mutex<Vec<SessionMetrics>>,
 }
 
 impl AnalyticsStore {
-    pub fn new(dir: &Path) -> Result<Self, ReasonanceError> {
-        fs::create_dir_all(dir)
-            .map_err(|e| ReasonanceError::io("Failed to create analytics dir", e))?;
-        info!("AnalyticsStore initialized at {}", dir.display());
+    pub async fn new(backend: Arc<dyn StorageBackend>) -> Result<Self, ReasonanceError> {
+        info!("AnalyticsStore initializing with StorageBackend");
 
-        let path = dir.to_path_buf();
-        let mut store = Self {
-            path,
-            completed: Mutex::new(Vec::new()),
-        };
-        store.load()?;
-        Ok(store)
+        let lines = backend.read_stream(NAMESPACE, STREAM_KEY).await?;
+        let mut completed = Vec::new();
+        let mut skipped = 0u32;
+
+        for line in &lines {
+            if line.is_empty() {
+                continue;
+            }
+            match serde_json::from_slice::<SessionMetrics>(line) {
+                Ok(metrics) => completed.push(metrics),
+                Err(_) => {
+                    skipped += 1;
+                }
+            }
+        }
+
+        if skipped > 0 {
+            warn!(
+                "Skipped {} corrupted lines while loading analytics metrics",
+                skipped
+            );
+        }
+        info!("Loaded {} session metrics from storage", completed.len());
+
+        Ok(Self {
+            backend,
+            completed: Mutex::new(completed),
+        })
     }
 
-    pub fn append(&self, metrics: &SessionMetrics) -> Result<(), ReasonanceError> {
-        let json = serde_json::to_string(metrics).map_err(|e| {
+    pub async fn append(&self, metrics: &SessionMetrics) -> Result<(), ReasonanceError> {
+        let json = serde_json::to_vec(metrics).map_err(|e| {
             error!(
                 "Failed to serialize metrics for session {}: {}",
                 metrics.session_id, e
@@ -35,25 +55,11 @@ impl AnalyticsStore {
             ReasonanceError::serialization("analytics metrics", e.to_string())
         })?;
 
-        let file_path = self.path.join("metrics.jsonl");
-        let mut file = fs::OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(&file_path)
-            .map_err(|e| {
-                error!("Failed to open metrics file {}: {}", file_path.display(), e);
-                ReasonanceError::io(format!("open metrics file {}", file_path.display()), e)
-            })?;
-
-        writeln!(file, "{}", json).map_err(|e| {
-            error!("Failed to write metrics to {}: {}", file_path.display(), e);
-            ReasonanceError::io(format!("write metrics to {}", file_path.display()), e)
-        })?;
+        self.backend.append(NAMESPACE, STREAM_KEY, &json).await?;
 
         debug!(
-            "Appended metrics for session {} to {}",
+            "Appended metrics for session {} to storage",
             metrics.session_id,
-            file_path.display()
         );
         self.completed
             .lock()
@@ -79,60 +85,12 @@ impl AnalyticsStore {
         let guard = self.completed.lock().unwrap_or_else(|e| e.into_inner());
         f(&guard)
     }
-
-    fn load(&mut self) -> Result<(), ReasonanceError> {
-        let file_path = self.path.join("metrics.jsonl");
-        if !file_path.exists() {
-            debug!(
-                "No existing metrics file at {}, starting fresh",
-                file_path.display()
-            );
-            return Ok(());
-        }
-
-        debug!("Loading metrics from {}", file_path.display());
-        let file = fs::File::open(&file_path).map_err(|e| {
-            error!("Failed to open metrics file {}: {}", file_path.display(), e);
-            ReasonanceError::io(format!("open metrics file {}", file_path.display()), e)
-        })?;
-        let reader = BufReader::new(file);
-        let mut completed = Vec::new();
-        let mut skipped = 0u32;
-
-        for line in reader.lines() {
-            let line = line.map_err(|e| ReasonanceError::io("read metrics line", e))?;
-            if line.trim().is_empty() {
-                continue;
-            }
-            match serde_json::from_str::<SessionMetrics>(&line) {
-                Ok(metrics) => completed.push(metrics),
-                Err(_) => {
-                    skipped += 1;
-                    continue;
-                } // skip corrupted lines
-            }
-        }
-
-        if skipped > 0 {
-            warn!(
-                "Skipped {} corrupted lines while loading metrics from {}",
-                skipped,
-                file_path.display()
-            );
-        }
-        info!(
-            "Loaded {} session metrics from {}",
-            completed.len(),
-            file_path.display()
-        );
-        *self.completed.lock().unwrap_or_else(|e| e.into_inner()) = completed;
-        Ok(())
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::storage::InMemoryBackend;
 
     fn sample_metrics(id: &str, provider: &str) -> SessionMetrics {
         let mut m = SessionMetrics::new(id, provider, "test-model", 1000);
@@ -142,24 +100,22 @@ mod tests {
         m
     }
 
-    #[test]
-    fn test_store_new_creates_dir() {
-        let dir = tempfile::TempDir::new().unwrap();
-        let store_dir = dir.path().join("analytics");
-        let store = AnalyticsStore::new(&store_dir).unwrap();
-        assert!(store_dir.exists());
+    #[tokio::test]
+    async fn test_store_new_empty() {
+        let backend = Arc::new(InMemoryBackend::new());
+        let store = AnalyticsStore::new(backend).await.unwrap();
         assert!(store.all_completed().is_empty());
     }
 
-    #[test]
-    fn test_store_append_and_read() {
-        let dir = tempfile::TempDir::new().unwrap();
-        let store = AnalyticsStore::new(dir.path()).unwrap();
+    #[tokio::test]
+    async fn test_store_append_and_read() {
+        let backend = Arc::new(InMemoryBackend::new());
+        let store = AnalyticsStore::new(backend).await.unwrap();
 
         let m1 = sample_metrics("s1", "claude");
         let m2 = sample_metrics("s2", "gemini");
-        store.append(&m1).unwrap();
-        store.append(&m2).unwrap();
+        store.append(&m1).await.unwrap();
+        store.append(&m2).await.unwrap();
 
         let all = store.all_completed();
         assert_eq!(all.len(), 2);
@@ -167,37 +123,49 @@ mod tests {
         assert_eq!(all[1].session_id, "s2");
     }
 
-    #[test]
-    fn test_store_persists_across_instances() {
-        let dir = tempfile::TempDir::new().unwrap();
+    #[tokio::test]
+    async fn test_store_persists_across_instances() {
+        let backend = Arc::new(InMemoryBackend::new());
 
         {
-            let store = AnalyticsStore::new(dir.path()).unwrap();
-            store.append(&sample_metrics("s1", "claude")).unwrap();
-            store.append(&sample_metrics("s2", "gemini")).unwrap();
+            let store = AnalyticsStore::new(backend.clone()).await.unwrap();
+            store.append(&sample_metrics("s1", "claude")).await.unwrap();
+            store.append(&sample_metrics("s2", "gemini")).await.unwrap();
         }
 
-        let store2 = AnalyticsStore::new(dir.path()).unwrap();
+        let store2 = AnalyticsStore::new(backend).await.unwrap();
         assert_eq!(store2.all_completed().len(), 2);
     }
 
-    #[test]
-    fn test_store_handles_empty_file() {
-        let dir = tempfile::TempDir::new().unwrap();
-        fs::write(dir.path().join("metrics.jsonl"), "").unwrap();
-        let store = AnalyticsStore::new(dir.path()).unwrap();
+    #[tokio::test]
+    async fn test_store_handles_empty_stream() {
+        let backend = Arc::new(InMemoryBackend::new());
+        // No data appended -- read_stream returns empty Vec
+        let store = AnalyticsStore::new(backend).await.unwrap();
         assert!(store.all_completed().is_empty());
     }
 
-    #[test]
-    fn test_store_skips_corrupted_lines() {
-        let dir = tempfile::TempDir::new().unwrap();
-        let m = sample_metrics("s1", "claude");
-        let good_line = serde_json::to_string(&m).unwrap();
-        let content = format!("{}\nnot valid json\n{}\n", good_line, good_line);
-        fs::write(dir.path().join("metrics.jsonl"), content).unwrap();
+    #[tokio::test]
+    async fn test_store_skips_corrupted_lines() {
+        let backend = Arc::new(InMemoryBackend::new());
 
-        let store = AnalyticsStore::new(dir.path()).unwrap();
+        // Write a good line, a bad line, and another good line directly
+        let m = sample_metrics("s1", "claude");
+        let good_bytes = serde_json::to_vec(&m).unwrap();
+        backend
+            .append(NAMESPACE, STREAM_KEY, &good_bytes)
+            .await
+            .unwrap();
+        backend
+            .append(NAMESPACE, STREAM_KEY, b"not valid json")
+            .await
+            .unwrap();
+        backend
+            .append(NAMESPACE, STREAM_KEY, &good_bytes)
+            .await
+            .unwrap();
+
+        let store = AnalyticsStore::new(backend).await.unwrap();
         assert_eq!(store.all_completed().len(), 2);
     }
 }

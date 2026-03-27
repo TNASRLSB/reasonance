@@ -195,28 +195,11 @@ pub fn run() {
                 }
             }
         })
-        .manage({
-            let sessions_dir = dirs::data_dir()
-                .unwrap_or_else(|| std::path::PathBuf::from("."))
-                .join("reasonance")
-                .join("sessions");
-            transport::session_manager::SessionManager::new(&sessions_dir)
-                .expect("Failed to initialize SessionManager")
-        })
         .manage(capability::CapabilityNegotiator::new())
         .manage(std::sync::Arc::new(cli_updater::CliUpdater::new()))
         .manage(normalizer_health::NormalizerHealth::new())
-        .manage({
-            let analytics_dir = dirs::data_dir()
-                .unwrap_or_else(|| std::path::PathBuf::from("."))
-                .join("reasonance")
-                .join("analytics");
-            let store = std::sync::Arc::new(
-                analytics::store::AnalyticsStore::new(&analytics_dir)
-                    .expect("Failed to init analytics store"),
-            );
-            std::sync::Arc::new(analytics::collector::AnalyticsCollector::new(store))
-        })
+        // NOTE: AnalyticsCollector is managed inside setup() where the tokio runtime is active,
+        // because AnalyticsStore::new() is async (it reads from StorageBackend).
         .manage({
             let versions_dir = dirs::data_dir()
                 .unwrap_or_else(|| std::path::PathBuf::from("."))
@@ -271,6 +254,46 @@ pub fn run() {
             bus.register_channel("lifecycle:sweep", true);
             bus.register_channel("lifecycle:update-check", true);
             app.manage(bus.clone());
+
+            // SessionManager: create backend + async init inside setup() where tokio is active.
+            {
+                let sessions_dir = dirs::data_dir()
+                    .unwrap_or_else(|| std::path::PathBuf::from("."))
+                    .join("reasonance")
+                    .join("sessions");
+                let session_backend = std::sync::Arc::new(
+                    storage::JsonFileBackend::new(&sessions_dir)
+                        .expect("Failed to initialize session storage backend"),
+                );
+                let rt = tokio::runtime::Handle::current();
+                let session_mgr = rt
+                    .block_on(transport::session_manager::SessionManager::new(
+                        session_backend,
+                    ))
+                    .expect("Failed to initialize SessionManager");
+                app.manage(session_mgr);
+            }
+
+            // AnalyticsCollector: create backend + async init inside setup() where tokio is active.
+            {
+                let analytics_dir = dirs::data_dir()
+                    .unwrap_or_else(|| std::path::PathBuf::from("."))
+                    .join("reasonance")
+                    .join("analytics");
+                let analytics_backend = std::sync::Arc::new(
+                    storage::JsonFileBackend::new(&analytics_dir)
+                        .expect("Failed to init analytics storage backend"),
+                );
+                let rt = tokio::runtime::Handle::current();
+                let analytics_store = std::sync::Arc::new(
+                    rt.block_on(analytics::store::AnalyticsStore::new(analytics_backend))
+                        .expect("Failed to init analytics store"),
+                );
+                app.manage(std::sync::Arc::new(
+                    analytics::collector::AnalyticsCollector::new(analytics_store),
+                ));
+            }
+
             let transport: tauri::State<'_, transport::StructuredAgentTransport> = app.state();
             let session_mgr: tauri::State<'_, transport::session_manager::SessionManager> =
                 app.state();
