@@ -1,3 +1,4 @@
+use crate::error::ReasonanceError;
 use log::{debug, info};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -93,7 +94,10 @@ fn builtin_profiles() -> HashMap<String, (CapabilityProfile, Vec<String>, Option
             None,
         ),
     );
-    profiles.insert("ollama".to_string(), (CapabilityProfile::default(), vec![], None));
+    profiles.insert(
+        "ollama".to_string(),
+        (CapabilityProfile::default(), vec![], None),
+    );
     profiles.insert(
         "kimi".to_string(),
         (
@@ -180,10 +184,11 @@ impl DiscoveryEngine {
                 if !found {
                     return None;
                 }
-                let (capabilities, models, max_context) = profiles
-                    .get(cmd)
-                    .cloned()
-                    .unwrap_or((CapabilityProfile::default(), vec![], None));
+                let (capabilities, models, max_context) = profiles.get(cmd).cloned().unwrap_or((
+                    CapabilityProfile::default(),
+                    vec![],
+                    None,
+                ));
                 Some(DiscoveredAgent {
                     name: name.to_string(),
                     source: DiscoverySource::Cli,
@@ -198,7 +203,10 @@ impl DiscoveryEngine {
             .collect();
         info!("CLI scan complete: discovered {} agents", discovered.len());
         for agent in &discovered {
-            debug!("Discovered CLI agent: name='{}', command={:?}", agent.name, agent.command);
+            debug!(
+                "Discovered CLI agent: name='{}', command={:?}",
+                agent.name, agent.command
+            );
         }
         let mut agents = self.agents.lock().unwrap_or_else(|e| e.into_inner());
         agents.retain(|a| a.source != DiscoverySource::Cli);
@@ -227,21 +235,32 @@ impl DiscoveryEngine {
         discovered
     }
 
-    async fn probe_openai_compatible(base_url: &str) -> Result<Vec<DiscoveredAgent>, String> {
+    async fn probe_openai_compatible(
+        base_url: &str,
+    ) -> Result<Vec<DiscoveredAgent>, ReasonanceError> {
         debug!("Probing OpenAI-compatible API at {}", base_url);
         let client = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(3))
             .build()
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| ReasonanceError::transport("openai-compatible", e.to_string(), true))?;
 
         let url = format!("{}/v1/models", base_url.trim_end_matches('/'));
-        let resp = client.get(&url).send().await.map_err(|e| e.to_string())?;
+        let resp =
+            client.get(&url).send().await.map_err(|e| {
+                ReasonanceError::transport("openai-compatible", e.to_string(), true)
+            })?;
 
         if !resp.status().is_success() {
-            return Err(format!("API returned {}", resp.status()));
+            return Err(ReasonanceError::transport(
+                "openai-compatible",
+                format!("API returned {}", resp.status()),
+                true,
+            ));
         }
 
-        let body: serde_json::Value = resp.json().await.map_err(|e| e.to_string())?;
+        let body: serde_json::Value = resp.json().await.map_err(|e| {
+            ReasonanceError::serialization("openai-compatible response", e.to_string())
+        })?;
         let models: Vec<String> = body["data"]
             .as_array()
             .unwrap_or(&vec![])
@@ -272,27 +291,38 @@ impl DiscoveryEngine {
         }])
     }
 
-    async fn probe_ollama() -> Result<Vec<DiscoveredAgent>, String> {
+    async fn probe_ollama() -> Result<Vec<DiscoveredAgent>, ReasonanceError> {
         debug!("Probing Ollama API at localhost:11434");
         let client = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(3))
             .build()
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| ReasonanceError::transport("ollama", e.to_string(), true))?;
         let resp = client
             .get("http://localhost:11434/api/tags")
             .send()
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| ReasonanceError::transport("ollama", e.to_string(), true))?;
         if !resp.status().is_success() {
-            return Err("Ollama API returned non-200".to_string());
+            return Err(ReasonanceError::transport(
+                "ollama",
+                "Ollama API returned non-200",
+                true,
+            ));
         }
-        let body: serde_json::Value = resp.json().await.map_err(|e| e.to_string())?;
+        let body: serde_json::Value = resp
+            .json()
+            .await
+            .map_err(|e| ReasonanceError::serialization("ollama response", e.to_string()))?;
         let models: Vec<String> = body
             .get("models")
             .and_then(|m| m.as_array())
             .map(|arr| {
                 arr.iter()
-                    .filter_map(|m| m.get("name").and_then(|n| n.as_str()).map(|s| s.to_string()))
+                    .filter_map(|m| {
+                        m.get("name")
+                            .and_then(|n| n.as_str())
+                            .map(|s| s.to_string())
+                    })
                     .collect()
             })
             .unwrap_or_default();
@@ -315,7 +345,11 @@ impl DiscoveryEngine {
         info!("Starting full agent discovery (CLI + API)");
         self.scan_cli();
         self.probe_apis().await;
-        let all = self.agents.lock().unwrap_or_else(|e| e.into_inner()).clone();
+        let all = self
+            .agents
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone();
         info!("Full discovery complete: {} total agents", all.len());
         all
     }
@@ -327,7 +361,10 @@ impl DiscoveryEngine {
     }
 
     pub fn get_agents(&self) -> Vec<DiscoveredAgent> {
-        self.agents.lock().unwrap_or_else(|e| e.into_inner()).clone()
+        self.agents
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone()
     }
 }
 

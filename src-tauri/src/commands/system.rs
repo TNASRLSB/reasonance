@@ -1,9 +1,9 @@
 use crate::error::ReasonanceError;
-use log::{info, warn, error, debug};
-use std::process::Command;
-use std::path::PathBuf;
+use log::{debug, error, info, warn};
 use std::env;
 use std::ffi::OsString;
+use std::path::PathBuf;
+use std::process::Command;
 
 #[derive(serde::Serialize)]
 pub struct DiscoveredLlm {
@@ -36,7 +36,14 @@ fn build_extended_path() -> OsString {
         // nvm default (common symlink)
         extra_dirs.push(home.join(".nvm").join("current").join("bin"));
         // fnm
-        extra_dirs.push(home.join(".local").join("share").join("fnm").join("aliases").join("default").join("bin"));
+        extra_dirs.push(
+            home.join(".local")
+                .join("share")
+                .join("fnm")
+                .join("aliases")
+                .join("default")
+                .join("bin"),
+        );
     }
 
     #[cfg(target_os = "windows")]
@@ -46,7 +53,12 @@ fn build_extended_path() -> OsString {
     }
     #[cfg(target_os = "windows")]
     if let Some(localappdata) = env::var_os("LOCALAPPDATA") {
-        extra_dirs.push(PathBuf::from(&localappdata).join("Programs").join("Python").join("Scripts"));
+        extra_dirs.push(
+            PathBuf::from(&localappdata)
+                .join("Programs")
+                .join("Python")
+                .join("Scripts"),
+        );
     }
 
     // Also try `npm prefix -g` for non-standard npm global locations
@@ -77,9 +89,15 @@ fn build_extended_path() -> OsString {
 /// Find a binary in the extended PATH, returning its full path if found.
 fn find_binary(cmd: &str, extended_path: &OsString) -> Option<String> {
     let output = if cfg!(target_os = "windows") {
-        Command::new("where").arg(cmd).env("PATH", extended_path).output()
+        Command::new("where")
+            .arg(cmd)
+            .env("PATH", extended_path)
+            .output()
     } else {
-        Command::new("which").arg(cmd).env("PATH", extended_path).output()
+        Command::new("which")
+            .arg(cmd)
+            .env("PATH", extended_path)
+            .output()
     };
 
     match output {
@@ -125,17 +143,18 @@ pub fn discover_llms() -> Vec<DiscoveredLlm> {
                         found: true,
                     }
                 }
-                None => {
-                    DiscoveredLlm {
-                        name: name.to_string(),
-                        command: cmd.to_string(),
-                        found: false,
-                    }
-                }
+                None => DiscoveredLlm {
+                    name: name.to_string(),
+                    command: cmd.to_string(),
+                    found: false,
+                },
             }
         })
         .collect();
-    info!("cmd::discover_llms found {} LLMs", result.iter().filter(|l| l.found).count());
+    info!(
+        "cmd::discover_llms found {} LLMs",
+        result.iter().filter(|l| l.found).count()
+    );
     result
 }
 
@@ -144,7 +163,10 @@ pub fn open_external(path: String) -> Result<(), ReasonanceError> {
     info!("cmd::open_external(path={})", path);
     // SEC-06: only allow http:// and https:// schemes to prevent file:// and app:// abuse
     if !path.starts_with("https://") && !path.starts_with("http://") {
-        error!("cmd::open_external rejected URL with disallowed scheme: {}", path);
+        error!(
+            "cmd::open_external rejected URL with disallowed scheme: {}",
+            path
+        );
         return Err(ReasonanceError::Security {
             message: format!("Rejected URL with disallowed scheme: {}", path),
             code: crate::error::SecurityErrorCode::InvalidScheme,
@@ -230,7 +252,10 @@ fn parse_kde_colors(content: &str, colors: &mut std::collections::HashMap<String
                     let hex = rgb_to_hex(value);
                     colors.insert("bg".into(), hex);
                     // Parse RGB values for luminance calculation
-                    let parts: Vec<u8> = value.split(',').filter_map(|s| s.trim().parse().ok()).collect();
+                    let parts: Vec<u8> = value
+                        .split(',')
+                        .filter_map(|s| s.trim().parse().ok())
+                        .collect();
                     if parts.len() >= 3 {
                         bg_r = Some(parts[0]);
                         bg_g = Some(parts[1]);
@@ -257,7 +282,10 @@ fn parse_kde_colors(content: &str, colors: &mut std::collections::HashMap<String
     // Determine is_dark from background luminance (relative luminance < 0.5 = dark)
     if let (Some(r), Some(g), Some(b)) = (bg_r, bg_g, bg_b) {
         let luminance = 0.299 * (r as f64) + 0.587 * (g as f64) + 0.114 * (b as f64);
-        colors.insert("is_dark".into(), if luminance < 128.0 { "true" } else { "false" }.into());
+        colors.insert(
+            "is_dark".into(),
+            if luminance < 128.0 { "true" } else { "false" }.into(),
+        );
     }
 }
 

@@ -23,12 +23,19 @@ impl ShadowStore {
 
     pub fn get(&self, path: &str) -> Option<String> {
         trace!("Shadow store: retrieving path='{}'", path);
-        self.copies.lock().unwrap_or_else(|e| e.into_inner()).get(path).cloned()
+        self.copies
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .get(path)
+            .cloned()
     }
 
     #[allow(dead_code)] // CRUD API for shadow store
     pub fn remove(&self, path: &str) {
         debug!("Shadow store: removing path='{}'", path);
-        self.copies.lock().unwrap_or_else(|e| e.into_inner()).remove(path);
+        self.copies
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .remove(path);
     }
 }

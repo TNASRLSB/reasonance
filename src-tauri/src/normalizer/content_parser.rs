@@ -8,7 +8,9 @@ pub fn parse_content(text: &str) -> EventContent {
         blocks.into_iter().next().unwrap()
     } else {
         // Multiple blocks: return as text (the caller handles block-level rendering)
-        EventContent::Text { value: text.to_string() }
+        EventContent::Text {
+            value: text.to_string(),
+        }
     }
 }
 
@@ -27,7 +29,9 @@ pub fn parse_content_blocks(text: &str) -> Vec<EventContent> {
         if line.starts_with("```") {
             // Flush accumulated text
             if !current_text.is_empty() {
-                blocks.push(EventContent::Text { value: current_text.trim_end().to_string() });
+                blocks.push(EventContent::Text {
+                    value: current_text.trim_end().to_string(),
+                });
                 current_text.clear();
             }
 
@@ -47,13 +51,16 @@ pub fn parse_content_blocks(text: &str) -> Vec<EventContent> {
         }
 
         // Detect unified diff (needs ---, +++, and @@ markers)
-        if line.starts_with("--- ") && i + 2 < lines.len()
+        if line.starts_with("--- ")
+            && i + 2 < lines.len()
             && lines[i + 1].starts_with("+++ ")
             && lines[i + 2].starts_with("@@ ")
         {
             // Flush accumulated text
             if !current_text.is_empty() {
-                blocks.push(EventContent::Text { value: current_text.trim_end().to_string() });
+                blocks.push(EventContent::Text {
+                    value: current_text.trim_end().to_string(),
+                });
                 current_text.clear();
             }
 
@@ -81,11 +88,15 @@ pub fn parse_content_blocks(text: &str) -> Vec<EventContent> {
 
     // Flush remaining text
     if !current_text.is_empty() {
-        blocks.push(EventContent::Text { value: current_text.trim_end().to_string() });
+        blocks.push(EventContent::Text {
+            value: current_text.trim_end().to_string(),
+        });
     }
 
     if blocks.is_empty() {
-        blocks.push(EventContent::Text { value: String::new() });
+        blocks.push(EventContent::Text {
+            value: String::new(),
+        });
     }
 
     blocks
@@ -120,17 +131,27 @@ fn parse_diff_hunk(lines: &[&str], start: usize) -> (DiffHunk, usize) {
         i += 1;
     }
 
-    (DiffHunk { old_start, new_start, old_lines, new_lines }, i)
+    (
+        DiffHunk {
+            old_start,
+            new_start,
+            old_lines,
+            new_lines,
+        },
+        i,
+    )
 }
 
 /// Parses "@@ -1,3 +1,3 @@" into (old_start, new_start).
 fn parse_hunk_header(header: &str) -> (u32, u32) {
     let parts: Vec<&str> = header.split_whitespace().collect();
-    let old_start = parts.get(1)
+    let old_start = parts
+        .get(1)
         .and_then(|s| s.trim_start_matches('-').split(',').next())
         .and_then(|s| s.parse().ok())
         .unwrap_or(1);
-    let new_start = parts.get(2)
+    let new_start = parts
+        .get(2)
         .and_then(|s| s.trim_start_matches('+').split(',').next())
         .and_then(|s| s.parse().ok())
         .unwrap_or(1);
@@ -149,7 +170,8 @@ mod tests {
 
     #[test]
     fn test_code_block_rust() {
-        let input = "Here is some code:\n```rust\nfn main() {\n    println!(\"hello\");\n}\n```\nEnd.";
+        let input =
+            "Here is some code:\n```rust\nfn main() {\n    println!(\"hello\");\n}\n```\nEnd.";
         let blocks = parse_content_blocks(input);
         assert_eq!(blocks.len(), 3); // text, code, text
         assert!(matches!(&blocks[1], EventContent::Code { language, .. } if language == "rust"));
@@ -173,7 +195,10 @@ mod tests {
     fn test_diff_hunk_parsing() {
         let input = "--- a/test.rs\n+++ b/test.rs\n@@ -1,2 +1,2 @@\n-removed\n+added\n kept\n";
         let blocks = parse_content_blocks(input);
-        if let EventContent::Diff { hunks, file_path, .. } = &blocks[0] {
+        if let EventContent::Diff {
+            hunks, file_path, ..
+        } = &blocks[0]
+        {
             assert_eq!(file_path, "test.rs");
             assert_eq!(hunks.len(), 1);
             assert_eq!(hunks[0].old_lines, vec!["removed"]);

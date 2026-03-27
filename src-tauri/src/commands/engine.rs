@@ -4,7 +4,7 @@ use crate::pty_manager::PtyManager;
 use crate::resource_lock::ResourceLockManager;
 use crate::workflow_engine::{WorkflowEngine, WorkflowRun};
 use crate::workflow_store::WorkflowStore;
-use log::{info, debug};
+use log::{debug, info};
 use tauri::{AppHandle, Emitter, State};
 
 #[tauri::command]
@@ -18,17 +18,44 @@ pub fn play_workflow(
     pty_manager: State<'_, PtyManager>,
     lock_manager: State<'_, ResourceLockManager>,
 ) -> Result<String, ReasonanceError> {
-    info!("cmd::play_workflow(workflow_path={}, cwd={})", workflow_path, cwd);
-    let workflow = store
-        .load(&workflow_path)
-        .or_else(|_| store.get(&workflow_path).ok_or_else(|| ReasonanceError::not_found("workflow", &workflow_path)))?;
-    let run_id = engine.create_run(&workflow, &workflow_path)
-        .map_err(|e| ReasonanceError::Workflow { workflow_id: workflow_path.clone(), node_id: String::new(), message: e })?;
-    engine.advance_run(&run_id, &workflow, &runtime, &pty_manager, &app, &cwd, &lock_manager)
-        .map_err(|e| ReasonanceError::Workflow { workflow_id: workflow_path.clone(), node_id: String::new(), message: e })?;
-    let _ = app.emit("hive://run-status-changed", serde_json::json!({
-        "run_id": run_id, "old_status": "idle", "new_status": "running",
-    }));
+    info!(
+        "cmd::play_workflow(workflow_path={}, cwd={})",
+        workflow_path, cwd
+    );
+    let workflow = store.load(&workflow_path).or_else(|_| {
+        store
+            .get(&workflow_path)
+            .ok_or_else(|| ReasonanceError::not_found("workflow", &workflow_path))
+    })?;
+    let run_id =
+        engine
+            .create_run(&workflow, &workflow_path)
+            .map_err(|e| ReasonanceError::Workflow {
+                workflow_id: workflow_path.clone(),
+                node_id: String::new(),
+                message: e,
+            })?;
+    engine
+        .advance_run(
+            &run_id,
+            &workflow,
+            &runtime,
+            &pty_manager,
+            &app,
+            &cwd,
+            &lock_manager,
+        )
+        .map_err(|e| ReasonanceError::Workflow {
+            workflow_id: workflow_path.clone(),
+            node_id: String::new(),
+            message: e,
+        })?;
+    let _ = app.emit(
+        "hive://run-status-changed",
+        serde_json::json!({
+            "run_id": run_id, "old_status": "idle", "new_status": "running",
+        }),
+    );
     debug!("cmd::play_workflow started run_id={}", run_id);
     Ok(run_id)
 }
@@ -39,8 +66,13 @@ pub fn pause_workflow(
     engine: State<'_, WorkflowEngine>,
 ) -> Result<(), ReasonanceError> {
     info!("cmd::pause_workflow(run_id={})", run_id);
-    engine.pause_run(&run_id)
-        .map_err(|e| ReasonanceError::Workflow { workflow_id: run_id.clone(), node_id: String::new(), message: e })
+    engine
+        .pause_run(&run_id)
+        .map_err(|e| ReasonanceError::Workflow {
+            workflow_id: run_id.clone(),
+            node_id: String::new(),
+            message: e,
+        })
 }
 
 #[tauri::command]
@@ -56,11 +88,31 @@ pub fn resume_workflow(
     lock_manager: State<'_, ResourceLockManager>,
 ) -> Result<(), ReasonanceError> {
     info!("cmd::resume_workflow(run_id={})", run_id);
-    engine.resume_run(&run_id)
-        .map_err(|e| ReasonanceError::Workflow { workflow_id: run_id.clone(), node_id: String::new(), message: e })?;
-    let workflow = store.get(&workflow_path).ok_or_else(|| ReasonanceError::not_found("workflow", &workflow_path))?;
-    engine.advance_run(&run_id, &workflow, &runtime, &pty_manager, &app, &cwd, &lock_manager)
-        .map_err(|e| ReasonanceError::Workflow { workflow_id: workflow_path.clone(), node_id: String::new(), message: e })?;
+    engine
+        .resume_run(&run_id)
+        .map_err(|e| ReasonanceError::Workflow {
+            workflow_id: run_id.clone(),
+            node_id: String::new(),
+            message: e,
+        })?;
+    let workflow = store
+        .get(&workflow_path)
+        .ok_or_else(|| ReasonanceError::not_found("workflow", &workflow_path))?;
+    engine
+        .advance_run(
+            &run_id,
+            &workflow,
+            &runtime,
+            &pty_manager,
+            &app,
+            &cwd,
+            &lock_manager,
+        )
+        .map_err(|e| ReasonanceError::Workflow {
+            workflow_id: workflow_path.clone(),
+            node_id: String::new(),
+            message: e,
+        })?;
     Ok(())
 }
 
@@ -87,9 +139,17 @@ pub fn stop_workflow(
             }
         }
     }
-    engine.stop_run(&run_id)
-        .map_err(|e| ReasonanceError::Workflow { workflow_id: run_id.clone(), node_id: String::new(), message: e })?;
-    let _ = app.emit("hive://run-status-changed", serde_json::json!({ "run_id": run_id, "old_status": "running", "new_status": "stopped" }));
+    engine
+        .stop_run(&run_id)
+        .map_err(|e| ReasonanceError::Workflow {
+            workflow_id: run_id.clone(),
+            node_id: String::new(),
+            message: e,
+        })?;
+    let _ = app.emit(
+        "hive://run-status-changed",
+        serde_json::json!({ "run_id": run_id, "old_status": "running", "new_status": "stopped" }),
+    );
     Ok(())
 }
 
@@ -106,16 +166,28 @@ pub fn step_workflow(
     lock_manager: State<'_, ResourceLockManager>,
 ) -> Result<Option<String>, ReasonanceError> {
     info!("cmd::step_workflow(run_id={})", run_id);
-    let workflow = store.get(&workflow_path).ok_or_else(|| ReasonanceError::not_found("workflow", &workflow_path))?;
-    engine.step_run(&run_id, &workflow, &runtime, &pty_manager, &app, &cwd, &lock_manager)
-        .map_err(|e| ReasonanceError::Workflow { workflow_id: workflow_path, node_id: String::new(), message: e })
+    let workflow = store
+        .get(&workflow_path)
+        .ok_or_else(|| ReasonanceError::not_found("workflow", &workflow_path))?;
+    engine
+        .step_run(
+            &run_id,
+            &workflow,
+            &runtime,
+            &pty_manager,
+            &app,
+            &cwd,
+            &lock_manager,
+        )
+        .map_err(|e| ReasonanceError::Workflow {
+            workflow_id: workflow_path,
+            node_id: String::new(),
+            message: e,
+        })
 }
 
 #[tauri::command]
-pub fn get_run_status(
-    run_id: String,
-    engine: State<'_, WorkflowEngine>,
-) -> Option<WorkflowRun> {
+pub fn get_run_status(run_id: String, engine: State<'_, WorkflowEngine>) -> Option<WorkflowRun> {
     debug!("cmd::get_run_status(run_id={})", run_id);
     engine.get_run(&run_id)
 }
@@ -134,9 +206,25 @@ pub fn approve_node(
     lock_manager: State<'_, ResourceLockManager>,
 ) -> Result<(), ReasonanceError> {
     info!("cmd::approve_node(run_id={}, node_id={})", run_id, node_id);
-    let workflow = store.get(&workflow_path).ok_or_else(|| ReasonanceError::not_found("workflow", &workflow_path))?;
-    engine.spawn_single_node(&run_id, &node_id, &workflow, &runtime, &pty_manager, &lock_manager, &app, &cwd)
-        .map_err(|e| ReasonanceError::Workflow { workflow_id: workflow_path, node_id: node_id.clone(), message: e })
+    let workflow = store
+        .get(&workflow_path)
+        .ok_or_else(|| ReasonanceError::not_found("workflow", &workflow_path))?;
+    engine
+        .spawn_single_node(
+            &run_id,
+            &node_id,
+            &workflow,
+            &runtime,
+            &pty_manager,
+            &lock_manager,
+            &app,
+            &cwd,
+        )
+        .map_err(|e| ReasonanceError::Workflow {
+            workflow_id: workflow_path,
+            node_id: node_id.clone(),
+            message: e,
+        })
 }
 
 #[tauri::command]
@@ -153,8 +241,28 @@ pub fn notify_node_completed(
     pty_manager: State<'_, PtyManager>,
     lock_manager: State<'_, ResourceLockManager>,
 ) -> Result<(), ReasonanceError> {
-    info!("cmd::notify_node_completed(run_id={}, node_id={}, success={})", run_id, node_id, success);
-    let workflow = store.get(&workflow_path).ok_or_else(|| ReasonanceError::not_found("workflow", &workflow_path))?;
-    engine.on_node_completed(&run_id, &node_id, success, &workflow, &runtime, &pty_manager, &app, &cwd, &lock_manager)
-        .map_err(|e| ReasonanceError::Workflow { workflow_id: workflow_path, node_id: node_id.clone(), message: e })
+    info!(
+        "cmd::notify_node_completed(run_id={}, node_id={}, success={})",
+        run_id, node_id, success
+    );
+    let workflow = store
+        .get(&workflow_path)
+        .ok_or_else(|| ReasonanceError::not_found("workflow", &workflow_path))?;
+    engine
+        .on_node_completed(
+            &run_id,
+            &node_id,
+            success,
+            &workflow,
+            &runtime,
+            &pty_manager,
+            &app,
+            &cwd,
+            &lock_manager,
+        )
+        .map_err(|e| ReasonanceError::Workflow {
+            workflow_id: workflow_path,
+            node_id: node_id.clone(),
+            message: e,
+        })
 }

@@ -4,8 +4,8 @@ use async_trait::async_trait;
 use std::collections::HashMap;
 use std::sync::Mutex;
 
-use crate::error::ReasonanceError;
 use super::StorageBackend;
+use crate::error::ReasonanceError;
 
 /// A fast, in-memory implementation of `StorageBackend`.
 ///
@@ -32,19 +32,18 @@ impl Default for InMemoryBackend {
 #[async_trait]
 impl StorageBackend for InMemoryBackend {
     async fn get(&self, namespace: &str, key: &str) -> Result<Option<Vec<u8>>, ReasonanceError> {
-        let guard = self.data.lock().map_err(|e| {
-            ReasonanceError::internal(format!("lock poisoned: {e}"))
-        })?;
-        Ok(guard
-            .get(namespace)
-            .and_then(|ns| ns.get(key))
-            .cloned())
+        let guard = self
+            .data
+            .lock()
+            .map_err(|e| ReasonanceError::internal(format!("lock poisoned: {e}")))?;
+        Ok(guard.get(namespace).and_then(|ns| ns.get(key)).cloned())
     }
 
     async fn put(&self, namespace: &str, key: &str, value: &[u8]) -> Result<(), ReasonanceError> {
-        let mut guard = self.data.lock().map_err(|e| {
-            ReasonanceError::internal(format!("lock poisoned: {e}"))
-        })?;
+        let mut guard = self
+            .data
+            .lock()
+            .map_err(|e| ReasonanceError::internal(format!("lock poisoned: {e}")))?;
         guard
             .entry(namespace.to_string())
             .or_default()
@@ -53,9 +52,10 @@ impl StorageBackend for InMemoryBackend {
     }
 
     async fn delete(&self, namespace: &str, key: &str) -> Result<bool, ReasonanceError> {
-        let mut guard = self.data.lock().map_err(|e| {
-            ReasonanceError::internal(format!("lock poisoned: {e}"))
-        })?;
+        let mut guard = self
+            .data
+            .lock()
+            .map_err(|e| ReasonanceError::internal(format!("lock poisoned: {e}")))?;
         Ok(guard
             .get_mut(namespace)
             .map(|ns| ns.remove(key).is_some())
@@ -67,9 +67,10 @@ impl StorageBackend for InMemoryBackend {
         namespace: &str,
         prefix: Option<&str>,
     ) -> Result<Vec<String>, ReasonanceError> {
-        let guard = self.data.lock().map_err(|e| {
-            ReasonanceError::internal(format!("lock poisoned: {e}"))
-        })?;
+        let guard = self
+            .data
+            .lock()
+            .map_err(|e| ReasonanceError::internal(format!("lock poisoned: {e}")))?;
         let keys = match guard.get(namespace) {
             Some(ns) => ns
                 .keys()
@@ -85,9 +86,10 @@ impl StorageBackend for InMemoryBackend {
     }
 
     async fn exists(&self, namespace: &str, key: &str) -> Result<bool, ReasonanceError> {
-        let guard = self.data.lock().map_err(|e| {
-            ReasonanceError::internal(format!("lock poisoned: {e}"))
-        })?;
+        let guard = self
+            .data
+            .lock()
+            .map_err(|e| ReasonanceError::internal(format!("lock poisoned: {e}")))?;
         Ok(guard
             .get(namespace)
             .map(|ns| ns.contains_key(key))

@@ -93,8 +93,8 @@ impl AppStateStore {
         std::fs::create_dir_all(base_dir.join("projects"))
             .map_err(|e| ReasonanceError::io("create projects state dir", e))?;
 
-        let app_state = Self::load_json::<AppState>(&base_dir.join("app-state.json"))
-            .unwrap_or_default();
+        let app_state =
+            Self::load_json::<AppState>(&base_dir.join("app-state.json")).unwrap_or_default();
 
         Ok(Self {
             base_dir: base_dir.to_path_buf(),
@@ -155,10 +155,10 @@ impl AppStateStore {
 
     fn project_path(&self, project_id: &str) -> PathBuf {
         // Sanitize: replace path-unsafe chars with '_'
-        let safe_id = project_id
-            .replace(['/', '\\', ':'], "_")
-            .replace("..", "_");
-        self.base_dir.join("projects").join(format!("{}.json", safe_id))
+        let safe_id = project_id.replace(['/', '\\', ':'], "_").replace("..", "_");
+        self.base_dir
+            .join("projects")
+            .join(format!("{}.json", safe_id))
     }
 
     fn load_json<T: DeserializeOwned>(path: &Path) -> Option<T> {
@@ -167,10 +167,11 @@ impl AppStateStore {
     }
 
     fn save_json<T: Serialize>(path: &Path, data: &T) -> Result<(), ReasonanceError> {
-        let bytes = serde_json::to_vec_pretty(data).map_err(|e| ReasonanceError::Serialization {
-            context: "AppStateStore::save_json".to_string(),
-            message: e.to_string(),
-        })?;
+        let bytes =
+            serde_json::to_vec_pretty(data).map_err(|e| ReasonanceError::Serialization {
+                context: "AppStateStore::save_json".to_string(),
+                message: e.to_string(),
+            })?;
         atomic_write(path, &bytes)
     }
 }
@@ -362,7 +363,10 @@ mod tests {
         store.save_app_state(&state).unwrap();
 
         let retrieved = store.get_app_state();
-        assert_eq!(retrieved.last_active_project_id, Some("proj-cache".to_string()));
+        assert_eq!(
+            retrieved.last_active_project_id,
+            Some("proj-cache".to_string())
+        );
     }
 
     // 8. Project ID sanitization — unsafe chars don't escape base_dir

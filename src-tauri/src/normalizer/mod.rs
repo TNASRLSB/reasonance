@@ -1,15 +1,16 @@
-pub mod rules_engine;
 pub mod content_parser;
-pub mod state_machines;
 pub mod pipeline;
+pub mod rules_engine;
+pub mod state_machines;
 
 use crate::agent_event::AgentEvent;
-use rules_engine::Rule;
+use crate::error::ReasonanceError;
 use pipeline::NormalizerPipeline;
-use state_machines::{StateMachine, generic::GenericStateMachine, claude::ClaudeStateMachine};
+use rules_engine::Rule;
+use serde::Deserialize;
+use state_machines::{claude::ClaudeStateMachine, generic::GenericStateMachine, StateMachine};
 use std::collections::HashMap;
 use std::path::Path;
-use serde::Deserialize;
 
 #[derive(Debug, Clone, Deserialize)]
 #[allow(dead_code)] // Fields populated by serde deserialization from TOML configs
@@ -126,23 +127,28 @@ pub struct DirectApiConfig {
 }
 
 impl TomlConfig {
-    pub fn parse(toml_str: &str) -> Result<Self, String> {
-        toml::from_str(toml_str).map_err(|e| format!("TOML parse error: {}", e))
+    pub fn parse(toml_str: &str) -> Result<Self, ReasonanceError> {
+        toml::from_str(toml_str)
+            .map_err(|e| ReasonanceError::config(format!("TOML parse error: {}", e)))
     }
 
     pub fn to_rules(&self) -> Vec<Rule> {
-        self.rules.iter().map(|r| Rule {
-            name: r.name.clone(),
-            when: r.when.clone(),
-            emit: r.emit.clone(),
-            mappings: r.mappings.clone(),
-            content_blocks: r.content_blocks.clone(),
-        }).collect()
+        self.rules
+            .iter()
+            .map(|r| Rule {
+                name: r.name.clone(),
+                when: r.when.clone(),
+                emit: r.emit.clone(),
+                mappings: r.mappings.clone(),
+                content_blocks: r.content_blocks.clone(),
+            })
+            .collect()
     }
 
     /// Returns the JSON path for extracting CLI session IDs from stream output.
     pub fn session_id_path(&self) -> Option<&str> {
-        self.session.as_ref()
+        self.session
+            .as_ref()
             .and_then(|s| s.session_id_path.as_deref())
     }
 }
@@ -155,20 +161,28 @@ pub struct NormalizerRegistry {
 }
 
 impl NormalizerRegistry {
-    pub fn load_from_dir(dir: &Path) -> Result<Self, String> {
+    pub fn load_from_dir(dir: &Path) -> Result<Self, ReasonanceError> {
         let mut pipelines = HashMap::new();
         let mut configs = HashMap::new();
         let mut toml_sources = HashMap::new();
 
         if !dir.exists() {
-            return Ok(Self { pipelines, configs, toml_sources });
+            return Ok(Self {
+                pipelines,
+                configs,
+                toml_sources,
+            });
         }
 
-        for entry in std::fs::read_dir(dir).map_err(|e| e.to_string())? {
-            let entry = entry.map_err(|e| e.to_string())?;
+        for entry in std::fs::read_dir(dir).map_err(|e| {
+            ReasonanceError::io(format!("read normalizers dir {}", dir.display()), e)
+        })? {
+            let entry = entry.map_err(|e| ReasonanceError::io("read normalizers dir entry", e))?;
             let path = entry.path();
             if path.extension().and_then(|e| e.to_str()) == Some("toml") {
-                let content = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
+                let content = std::fs::read_to_string(&path).map_err(|e| {
+                    ReasonanceError::io(format!("read normalizer file {}", path.display()), e)
+                })?;
                 let config = TomlConfig::parse(&content)?;
                 let name = config.cli.name.clone();
 
@@ -181,11 +195,8 @@ impl NormalizerRegistry {
                     _ => Box::new(GenericStateMachine::new()),
                 };
 
-                let pipeline = NormalizerPipeline::new(
-                    config.to_rules(),
-                    state_machine,
-                    name.clone(),
-                );
+                let pipeline =
+                    NormalizerPipeline::new(config.to_rules(), state_machine, name.clone());
 
                 pipelines.insert(name.clone(), pipeline);
                 toml_sources.insert(name.clone(), content);
@@ -193,7 +204,11 @@ impl NormalizerRegistry {
             }
         }
 
-        Ok(Self { pipelines, configs, toml_sources })
+        Ok(Self {
+            pipelines,
+            configs,
+            toml_sources,
+        })
     }
 
     pub fn has_provider(&self, name: &str) -> bool {
@@ -221,7 +236,11 @@ impl NormalizerRegistry {
         self.toml_sources.get(provider).cloned()
     }
 
-    pub fn reload_provider(&mut self, provider: &str, toml_str: &str) -> Result<(), String> {
+    pub fn reload_provider(
+        &mut self,
+        provider: &str,
+        toml_str: &str,
+    ) -> Result<(), ReasonanceError> {
         let config = TomlConfig::parse(toml_str)?;
 
         let state_machine: Box<dyn StateMachine> = match provider {
@@ -233,15 +252,13 @@ impl NormalizerRegistry {
             _ => Box::new(GenericStateMachine::new()),
         };
 
-        let pipeline = NormalizerPipeline::new(
-            config.to_rules(),
-            state_machine,
-            provider.to_string(),
-        );
+        let pipeline =
+            NormalizerPipeline::new(config.to_rules(), state_machine, provider.to_string());
 
         self.pipelines.insert(provider.to_string(), pipeline);
         self.configs.insert(provider.to_string(), config);
-        self.toml_sources.insert(provider.to_string(), toml_str.to_string());
+        self.toml_sources
+            .insert(provider.to_string(), toml_str.to_string());
         Ok(())
     }
 }
@@ -255,9 +272,9 @@ mod fixture_tests;
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
     use std::path::PathBuf;
     use tempfile::TempDir;
-    use std::fs;
 
     fn sample_toml() -> &'static str {
         r#"
@@ -300,7 +317,10 @@ emit = "done"
     #[test]
     fn test_parse_toml_rules_have_mappings() {
         let config = TomlConfig::parse(sample_toml()).unwrap();
-        assert_eq!(config.rules[0].mappings.get("content"), Some(&"text".to_string()));
+        assert_eq!(
+            config.rules[0].mappings.get("content"),
+            Some(&"text".to_string())
+        );
     }
 
     #[test]
@@ -360,7 +380,10 @@ emit = "done"
         let mut registry = NormalizerRegistry::load_from_dir(dir.path()).unwrap();
         assert!(registry.has_provider("testprovider"));
 
-        let modified_toml = sample_toml().replace(r#"when = 'type == "text_delta"'"#, r#"when = 'type == "content"'"#);
+        let modified_toml = sample_toml().replace(
+            r#"when = 'type == "text_delta"'"#,
+            r#"when = 'type == "content"'"#,
+        );
         let result = registry.reload_provider("testprovider", &modified_toml);
         assert!(result.is_ok());
         assert!(registry.has_provider("testprovider"));

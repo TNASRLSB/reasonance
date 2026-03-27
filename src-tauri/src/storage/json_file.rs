@@ -3,8 +3,8 @@
 use async_trait::async_trait;
 use std::path::{Path, PathBuf};
 
-use crate::error::ReasonanceError;
 use super::StorageBackend;
+use crate::error::ReasonanceError;
 
 /// A filesystem-backed implementation of `StorageBackend`.
 ///
@@ -21,9 +21,8 @@ impl JsonFileBackend {
     /// The directory is created if it doesn't exist.
     pub fn new(base_dir: impl Into<PathBuf>) -> Result<Self, ReasonanceError> {
         let base_dir = base_dir.into();
-        std::fs::create_dir_all(&base_dir).map_err(|e| {
-            ReasonanceError::io("creating storage base directory", e)
-        })?;
+        std::fs::create_dir_all(&base_dir)
+            .map_err(|e| ReasonanceError::io("creating storage base directory", e))?;
         Ok(Self { base_dir })
     }
 
@@ -38,9 +37,8 @@ impl JsonFileBackend {
     fn ensure_ns_dir(&self, namespace: &str) -> Result<PathBuf, ReasonanceError> {
         let safe_ns = sanitize_path_component(namespace);
         let dir = self.base_dir.join(safe_ns);
-        std::fs::create_dir_all(&dir).map_err(|e| {
-            ReasonanceError::io("creating namespace directory", e)
-        })?;
+        std::fs::create_dir_all(&dir)
+            .map_err(|e| ReasonanceError::io("creating namespace directory", e))?;
         Ok(dir)
     }
 }
@@ -50,9 +48,7 @@ impl JsonFileBackend {
 /// Replaces `/`, `\`, and `..` sequences with `_` to prevent path traversal.
 /// Also strips leading dots to avoid hidden files on Unix.
 fn sanitize_path_component(s: &str) -> String {
-    let sanitized = s
-        .replace("..", "_")
-        .replace(['/', '\\'], "_");
+    let sanitized = s.replace("..", "_").replace(['/', '\\'], "_");
     // Strip leading dots
     let trimmed = sanitized.trim_start_matches('.');
     if trimmed.is_empty() {
@@ -69,10 +65,8 @@ fn sanitize_path_component(s: &str) -> String {
 /// file is never seen in a partial state.
 pub fn atomic_write(path: &Path, content: &[u8]) -> Result<(), ReasonanceError> {
     let tmp = path.with_extension("tmp");
-    std::fs::write(&tmp, content)
-        .map_err(|e| ReasonanceError::io("atomic write temp file", e))?;
-    std::fs::rename(&tmp, path)
-        .map_err(|e| ReasonanceError::io("atomic write rename", e))?;
+    std::fs::write(&tmp, content).map_err(|e| ReasonanceError::io("atomic write temp file", e))?;
+    std::fs::rename(&tmp, path).map_err(|e| ReasonanceError::io("atomic write rename", e))?;
     Ok(())
 }
 
@@ -88,8 +82,7 @@ pub fn safe_append(path: &Path, line: &str) -> Result<(), ReasonanceError> {
         .append(true)
         .open(path)
         .map_err(|e| ReasonanceError::io("open JSONL for append", e))?;
-    writeln!(file, "{}", line)
-        .map_err(|e| ReasonanceError::io("append to JSONL", e))?;
+    writeln!(file, "{}", line).map_err(|e| ReasonanceError::io("append to JSONL", e))?;
     file.sync_data()
         .map_err(|e| ReasonanceError::io("fsync JSONL", e))?;
     Ok(())
@@ -159,12 +152,9 @@ impl StorageBackend for JsonFileBackend {
 
         // Atomic write: write to .tmp then rename
         let tmp_path = path.with_extension("tmp");
-        std::fs::write(&tmp_path, value).map_err(|e| {
-            ReasonanceError::io("writing temp file", e)
-        })?;
-        std::fs::rename(&tmp_path, &path).map_err(|e| {
-            ReasonanceError::io("atomic rename", e)
-        })?;
+        std::fs::write(&tmp_path, value)
+            .map_err(|e| ReasonanceError::io("writing temp file", e))?;
+        std::fs::rename(&tmp_path, &path).map_err(|e| ReasonanceError::io("atomic rename", e))?;
 
         Ok(())
     }
@@ -190,9 +180,8 @@ impl StorageBackend for JsonFileBackend {
             return Ok(Vec::new());
         }
 
-        let entries = std::fs::read_dir(&dir).map_err(|e| {
-            ReasonanceError::io("listing storage keys", e)
-        })?;
+        let entries =
+            std::fs::read_dir(&dir).map_err(|e| ReasonanceError::io("listing storage keys", e))?;
 
         let mut keys = Vec::new();
         for entry in entries {
@@ -293,15 +282,24 @@ mod tests {
         let (backend, _tmp) = make_backend();
         backend.put("ns1", "key", b"one").await.unwrap();
         backend.put("ns2", "key", b"two").await.unwrap();
-        assert_eq!(backend.get("ns1", "key").await.unwrap(), Some(b"one".to_vec()));
-        assert_eq!(backend.get("ns2", "key").await.unwrap(), Some(b"two".to_vec()));
+        assert_eq!(
+            backend.get("ns1", "key").await.unwrap(),
+            Some(b"one".to_vec())
+        );
+        assert_eq!(
+            backend.get("ns2", "key").await.unwrap(),
+            Some(b"two".to_vec())
+        );
     }
 
     #[tokio::test]
     async fn path_traversal_sanitized() {
         let (backend, tmp) = make_backend();
         // Attempt path traversal via key
-        backend.put("ns", "../../../etc/passwd", b"nope").await.unwrap();
+        backend
+            .put("ns", "../../../etc/passwd", b"nope")
+            .await
+            .unwrap();
         // Should NOT create file outside base dir
         assert!(!Path::new("/etc/passwd_nope").exists());
         // File should be inside base dir under sanitized name
@@ -321,7 +319,10 @@ mod tests {
         let (backend, _tmp) = make_backend();
         // Write and then overwrite — second value should be complete
         backend.put("ns", "key", b"first").await.unwrap();
-        backend.put("ns", "key", b"second-longer-value").await.unwrap();
+        backend
+            .put("ns", "key", b"second-longer-value")
+            .await
+            .unwrap();
         let val = backend.get("ns", "key").await.unwrap();
         assert_eq!(val, Some(b"second-longer-value".to_vec()));
     }

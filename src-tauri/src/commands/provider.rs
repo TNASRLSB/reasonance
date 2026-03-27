@@ -1,7 +1,7 @@
 use crate::error::ReasonanceError;
 use crate::transport::StructuredAgentTransport;
 use crate::NormalizersDir;
-use log::{info, error, debug};
+use log::{debug, error, info};
 use tauri::{AppHandle, Emitter, State};
 
 #[derive(Clone, serde::Serialize)]
@@ -21,7 +21,8 @@ pub async fn test_provider_connection(
     let (binary, api_key_env, version_cmd) = {
         let registry = transport.registry();
         let reg = registry.lock().unwrap_or_else(|e| e.into_inner());
-        let config = reg.get_config(&provider)
+        let config = reg
+            .get_config(&provider)
             .ok_or_else(|| ReasonanceError::not_found("provider", &provider))?;
         (
             config.cli.binary.clone(),
@@ -31,52 +32,79 @@ pub async fn test_provider_connection(
     };
 
     // Step 1: Binary check
-    let _ = app.emit("connection_test_step", ConnectionTestStep {
-        step: "binary".into(),
-        status: "checking".into(),
-        detail: None,
-    });
+    let _ = app.emit(
+        "connection_test_step",
+        ConnectionTestStep {
+            step: "binary".into(),
+            status: "checking".into(),
+            detail: None,
+        },
+    );
 
     let binary_path = which::which(&binary).ok();
-    let _ = app.emit("connection_test_step", ConnectionTestStep {
-        step: "binary".into(),
-        status: if binary_path.is_some() { "ok" } else { "failed" }.into(),
-        detail: binary_path.as_ref().map(|p| p.display().to_string()),
-    });
+    let _ = app.emit(
+        "connection_test_step",
+        ConnectionTestStep {
+            step: "binary".into(),
+            status: if binary_path.is_some() {
+                "ok"
+            } else {
+                "failed"
+            }
+            .into(),
+            detail: binary_path.as_ref().map(|p| p.display().to_string()),
+        },
+    );
 
     if binary_path.is_none() {
-        debug!("cmd::test_provider_connection binary not found for provider={}", provider);
+        debug!(
+            "cmd::test_provider_connection binary not found for provider={}",
+            provider
+        );
         return Ok(());
     }
 
     // Step 2: API key check
-    let _ = app.emit("connection_test_step", ConnectionTestStep {
-        step: "api_key".into(),
-        status: "checking".into(),
-        detail: None,
-    });
+    let _ = app.emit(
+        "connection_test_step",
+        ConnectionTestStep {
+            step: "api_key".into(),
+            status: "checking".into(),
+            detail: None,
+        },
+    );
 
-    let api_key_set = api_key_env.as_ref()
+    let api_key_set = api_key_env
+        .as_ref()
         .map(|env| std::env::var(env).is_ok())
         .unwrap_or(true);
 
-    let _ = app.emit("connection_test_step", ConnectionTestStep {
-        step: "api_key".into(),
-        status: if api_key_set { "ok" } else { "failed" }.into(),
-        detail: api_key_env.clone(),
-    });
+    let _ = app.emit(
+        "connection_test_step",
+        ConnectionTestStep {
+            step: "api_key".into(),
+            status: if api_key_set { "ok" } else { "failed" }.into(),
+            detail: api_key_env.clone(),
+        },
+    );
 
     if !api_key_set {
-        debug!("cmd::test_provider_connection API key not set for provider={}", provider);
+        debug!(
+            "cmd::test_provider_connection API key not set for provider={}",
+            provider
+        );
         return Ok(());
     }
 
     // Step 3: Connection test (use version_command from TOML if available)
-    let _ = app.emit("connection_test_step", ConnectionTestStep {
-        step: "connection".into(),
-        status: "checking".into(),
-        detail: None,
-    });
+    let _ = app.emit(
+        "connection_test_step",
+        ConnectionTestStep {
+            step: "connection".into(),
+            status: "checking".into(),
+            detail: None,
+        },
+    );
 
     let start = std::time::Instant::now();
     let output = if !version_cmd.is_empty() {
@@ -94,26 +122,35 @@ pub async fn test_provider_connection(
     match output {
         Ok(o) if o.status.success() => {
             let latency = start.elapsed().as_millis();
-            let _ = app.emit("connection_test_step", ConnectionTestStep {
-                step: "connection".into(),
-                status: "ok".into(),
-                detail: Some(format!("{}ms", latency)),
-            });
+            let _ = app.emit(
+                "connection_test_step",
+                ConnectionTestStep {
+                    step: "connection".into(),
+                    status: "ok".into(),
+                    detail: Some(format!("{}ms", latency)),
+                },
+            );
         }
         Ok(o) => {
             let stderr = String::from_utf8_lossy(&o.stderr);
-            let _ = app.emit("connection_test_step", ConnectionTestStep {
-                step: "connection".into(),
-                status: "failed".into(),
-                detail: Some(stderr.to_string()),
-            });
+            let _ = app.emit(
+                "connection_test_step",
+                ConnectionTestStep {
+                    step: "connection".into(),
+                    status: "failed".into(),
+                    detail: Some(stderr.to_string()),
+                },
+            );
         }
         Err(e) => {
-            let _ = app.emit("connection_test_step", ConnectionTestStep {
-                step: "connection".into(),
-                status: "failed".into(),
-                detail: Some(e.to_string()),
-            });
+            let _ = app.emit(
+                "connection_test_step",
+                ConnectionTestStep {
+                    step: "connection".into(),
+                    status: "failed".into(),
+                    detail: Some(e.to_string()),
+                },
+            );
         }
     }
 
@@ -126,10 +163,11 @@ pub fn reload_normalizers(
     norm_dir: State<'_, NormalizersDir>,
 ) -> Result<(), ReasonanceError> {
     info!("cmd::reload_normalizers called");
-    let new_registry = crate::normalizer::NormalizerRegistry::load_from_dir(&norm_dir.0).map_err(|e| {
-        error!("cmd::reload_normalizers failed to load from dir: {}", e);
-        ReasonanceError::config(e)
-    })?;
+    let new_registry =
+        crate::normalizer::NormalizerRegistry::load_from_dir(&norm_dir.0).map_err(|e| {
+            error!("cmd::reload_normalizers failed to load from dir: {}", e);
+            ReasonanceError::config(e)
+        })?;
     let registry = transport.registry();
     *registry.lock().unwrap_or_else(|e| e.into_inner()) = new_registry;
     Ok(())

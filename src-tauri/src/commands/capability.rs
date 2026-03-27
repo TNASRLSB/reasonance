@@ -1,13 +1,13 @@
 use crate::capability::{CapabilityNegotiator, NegotiatedCapabilities};
+use crate::cli_updater::CliUpdater;
 use crate::cli_updater::CliVersionInfo;
 use crate::error::ReasonanceError;
-use std::sync::Arc;
-use crate::cli_updater::CliUpdater;
-use crate::normalizer_health::{NormalizerHealth, HealthReport};
+use crate::normalizer_health::{HealthReport, NormalizerHealth};
 use crate::normalizer_version::{NormalizerVersionStore, VersionEntry};
-use log::{info, error, debug};
+use log::{debug, error, info};
 use serde::Serialize;
 use std::collections::HashMap;
+use std::sync::Arc;
 use tauri::State;
 
 #[tauri::command]
@@ -24,18 +24,17 @@ pub fn get_provider_capabilities(
     provider: String,
 ) -> Result<NegotiatedCapabilities, ReasonanceError> {
     info!("cmd::get_provider_capabilities(provider={})", provider);
-    negotiator
-        .get_capabilities(&provider)
-        .ok_or_else(|| {
-            error!("cmd::get_provider_capabilities no capabilities for provider: {}", provider);
-            ReasonanceError::not_found("provider capabilities", &provider)
-        })
+    negotiator.get_capabilities(&provider).ok_or_else(|| {
+        error!(
+            "cmd::get_provider_capabilities no capabilities for provider: {}",
+            provider
+        );
+        ReasonanceError::not_found("provider capabilities", &provider)
+    })
 }
 
 #[tauri::command]
-pub fn get_cli_versions(
-    updater: State<'_, Arc<CliUpdater>>,
-) -> Vec<CliVersionInfo> {
+pub fn get_cli_versions(updater: State<'_, Arc<CliUpdater>>) -> Vec<CliVersionInfo> {
     info!("cmd::get_cli_versions called");
     updater
         .providers()
@@ -60,17 +59,25 @@ pub fn rollback_normalizer(
     provider: String,
     version_id: String,
 ) -> Result<String, ReasonanceError> {
-    info!("cmd::rollback_normalizer(provider={}, version_id={})", provider, version_id);
-    let toml_content = version_store.restore(&provider, &version_id)
+    info!(
+        "cmd::rollback_normalizer(provider={}, version_id={})",
+        provider, version_id
+    );
+    let toml_content = version_store
+        .restore(&provider, &version_id)
         .map_err(ReasonanceError::config)?;
 
     // Hot-reload the normalizer in the transport's registry
     let registry = transport.registry();
     let mut registry = registry.lock().unwrap_or_else(|e| e.into_inner());
-    registry.reload_provider(&provider, &toml_content)
+    registry
+        .reload_provider(&provider, &toml_content)
         .map_err(ReasonanceError::config)?;
 
-    Ok(format!("Rolled back {} to version {}", provider, version_id))
+    Ok(format!(
+        "Rolled back {} to version {}",
+        provider, version_id
+    ))
 }
 
 #[tauri::command]
@@ -105,7 +112,9 @@ pub fn get_normalizer_config(
     info!("cmd::get_normalizer_config(provider={})", provider);
     let registry = transport.registry();
     let registry = registry.lock().unwrap_or_else(|e| e.into_inner());
-    registry.get_config(&provider).map(|config| NormalizerConfigResponse {
-        permission_args: config.cli.permission_args.clone(),
-    })
+    registry
+        .get_config(&provider)
+        .map(|config| NormalizerConfigResponse {
+            permission_args: config.cli.permission_args.clone(),
+        })
 }

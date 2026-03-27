@@ -1,6 +1,6 @@
 use crate::agent_event::{AgentEvent, ErrorSeverity};
 #[allow(unused_imports)]
-use log::{info, warn, error, debug, trace};
+use log::{debug, error, info, trace, warn};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -122,7 +122,9 @@ mod tests {
     #[test]
     fn test_session_status_variants() {
         let active = SessionStatus::Active;
-        let error = SessionStatus::Error { severity: ErrorSeverity::Fatal };
+        let error = SessionStatus::Error {
+            severity: ErrorSeverity::Fatal,
+        };
         assert_eq!(active, SessionStatus::Active);
         assert_ne!(active, SessionStatus::Terminated);
         let json = serde_json::to_string(&error).unwrap();
@@ -131,7 +133,9 @@ mod tests {
 
     #[test]
     fn test_agent_command_serialization() {
-        let cmd = AgentCommand::Interrupt { message: "stop now".to_string() };
+        let cmd = AgentCommand::Interrupt {
+            message: "stop now".to_string(),
+        };
         let json = serde_json::to_string(&cmd).unwrap();
         assert!(json.contains("interrupt"));
         assert!(json.contains("stop now"));

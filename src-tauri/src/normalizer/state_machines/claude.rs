@@ -118,7 +118,12 @@ mod tests {
     #[test]
     fn test_error_passes_through() {
         let mut sm = ClaudeStateMachine::new();
-        let error = AgentEvent::error("bad", "err", crate::agent_event::ErrorSeverity::Fatal, "claude");
+        let error = AgentEvent::error(
+            "bad",
+            "err",
+            crate::agent_event::ErrorSeverity::Fatal,
+            "claude",
+        );
         assert_eq!(sm.process(error).len(), 1);
     }
 }

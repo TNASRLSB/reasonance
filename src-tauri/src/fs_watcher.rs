@@ -1,6 +1,6 @@
 use log::{debug, info, trace};
-use notify::{RecommendedWatcher, RecursiveMode, Watcher, EventHandler};
 use notify::event::Event;
+use notify::{EventHandler, RecommendedWatcher, RecursiveMode, Watcher};
 use std::path::Path;
 use std::sync::Mutex;
 use tauri::{AppHandle, Emitter};
@@ -49,12 +49,16 @@ pub fn start_watching(
 ) -> Result<(), crate::error::ReasonanceError> {
     info!("Starting filesystem watcher on path='{}'", path);
     let handler = AppEventHandler { app };
-    let mut watcher =
-        RecommendedWatcher::new(handler, notify::Config::default())
-            .map_err(|e| crate::error::ReasonanceError::internal(e.to_string()))?;
+    let mut watcher = RecommendedWatcher::new(handler, notify::Config::default())
+        .map_err(|e| crate::error::ReasonanceError::internal(e.to_string()))?;
     watcher
         .watch(Path::new(path), RecursiveMode::Recursive)
-        .map_err(|e| crate::error::ReasonanceError::io(format!("watch '{}'", path), std::io::Error::other(e.to_string())))?;
+        .map_err(|e| {
+            crate::error::ReasonanceError::io(
+                format!("watch '{}'", path),
+                std::io::Error::other(e.to_string()),
+            )
+        })?;
 
     debug!("Filesystem watcher active on path='{}'", path);
     *state.watcher.lock().unwrap_or_else(|e| e.into_inner()) = Some(watcher);

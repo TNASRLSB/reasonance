@@ -1,3 +1,4 @@
+use crate::error::ReasonanceError;
 use log::{debug, error, info};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -21,7 +22,11 @@ impl NormalizerVersionStore {
     pub fn new(base_dir: &Path) -> Self {
         let _ = std::fs::create_dir_all(base_dir);
         let index = Self::load_index(base_dir);
-        info!("NormalizerVersionStore initialized at {}, {} providers tracked", base_dir.display(), index.len());
+        info!(
+            "NormalizerVersionStore initialized at {}, {} providers tracked",
+            base_dir.display(),
+            index.len()
+        );
         Self {
             base_dir: base_dir.to_path_buf(),
             index: Mutex::new(index),
@@ -42,7 +47,10 @@ impl NormalizerVersionStore {
 
         let file_path = provider_dir.join(format!("{}.toml", id));
         std::fs::write(&file_path, toml_content).map_err(|e| {
-            error!("Failed to write version backup for provider='{}': {}", provider, e);
+            error!(
+                "Failed to write version backup for provider='{}': {}",
+                provider, e
+            );
             e.to_string()
         })?;
         info!("Version backup created: provider='{}', id={}", provider, id);
@@ -62,14 +70,19 @@ impl NormalizerVersionStore {
     }
 
     pub fn restore(&self, provider: &str, version_id: &str) -> Result<String, String> {
-        debug!("Restoring version: provider='{}', version_id={}", provider, version_id);
-        let file_path = self.base_dir.join(provider).join(format!("{}.toml", version_id));
-        std::fs::read_to_string(&file_path)
-            .map_err(|_| {
-                let msg = format!("Version {} not found for {}", version_id, provider);
-                error!("{}", msg);
-                msg
-            })
+        debug!(
+            "Restoring version: provider='{}', version_id={}",
+            provider, version_id
+        );
+        let file_path = self
+            .base_dir
+            .join(provider)
+            .join(format!("{}.toml", version_id));
+        std::fs::read_to_string(&file_path).map_err(|_| {
+            let msg = format!("Version {} not found for {}", version_id, provider);
+            error!("{}", msg);
+            msg
+        })
     }
 
     pub fn list_versions(&self, provider: &str) -> Vec<VersionEntry> {
@@ -93,10 +106,16 @@ impl NormalizerVersionStore {
     }
 
     #[allow(dead_code)] // Called by backup()
-    fn save_index(&self, index: &HashMap<String, Vec<VersionEntry>>) -> Result<(), String> {
+    fn save_index(
+        &self,
+        index: &HashMap<String, Vec<VersionEntry>>,
+    ) -> Result<(), ReasonanceError> {
         let index_path = self.base_dir.join("index.json");
-        let json = serde_json::to_string_pretty(index).map_err(|e| e.to_string())?;
-        std::fs::write(&index_path, json).map_err(|e| e.to_string())
+        let json = serde_json::to_string_pretty(index).map_err(|e| {
+            ReasonanceError::serialization("normalizer version index", e.to_string())
+        })?;
+        std::fs::write(&index_path, json)
+            .map_err(|e| ReasonanceError::io("write normalizer version index", e))
     }
 }
 

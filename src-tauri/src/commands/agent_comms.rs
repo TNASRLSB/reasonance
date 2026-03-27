@@ -33,7 +33,10 @@ pub fn agent_get_messages(
     since_id: Option<String>,
     bus: State<'_, AgentCommsBus>,
 ) -> Vec<AgentMessage> {
-    debug!("cmd::agent_get_messages(node_id={}, since_id={:?})", node_id, since_id);
+    debug!(
+        "cmd::agent_get_messages(node_id={}, since_id={:?})",
+        node_id, since_id
+    );
     bus.get_messages(&node_id, since_id.as_deref())
 }
 
@@ -43,7 +46,10 @@ pub fn agent_get_topic_messages(
     since_id: Option<String>,
     bus: State<'_, AgentCommsBus>,
 ) -> Vec<AgentMessage> {
-    debug!("cmd::agent_get_topic_messages(topic={}, since_id={:?})", topic, since_id);
+    debug!(
+        "cmd::agent_get_topic_messages(topic={}, since_id={:?})",
+        topic, since_id
+    );
     bus.get_topic_messages(&topic, since_id.as_deref())
 }
 
@@ -53,7 +59,10 @@ pub fn agent_get_broadcast_messages(
     since_id: Option<String>,
     bus: State<'_, AgentCommsBus>,
 ) -> Vec<AgentMessage> {
-    debug!("cmd::agent_get_broadcast_messages(workflow_id={})", workflow_id);
+    debug!(
+        "cmd::agent_get_broadcast_messages(workflow_id={})",
+        workflow_id
+    );
     bus.get_broadcast_messages(&workflow_id, since_id.as_deref())
 }
 
@@ -65,6 +74,9 @@ pub fn agent_sweep_messages(bus: State<'_, AgentCommsBus>) -> usize {
 
 #[tauri::command]
 pub fn agent_clear_workflow_messages(workflow_id: String, bus: State<'_, AgentCommsBus>) {
-    info!("cmd::agent_clear_workflow_messages(workflow_id={})", workflow_id);
+    info!(
+        "cmd::agent_clear_workflow_messages(workflow_id={})",
+        workflow_id
+    );
     bus.clear_workflow(&workflow_id);
 }

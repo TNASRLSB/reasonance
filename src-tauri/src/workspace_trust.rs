@@ -79,7 +79,11 @@ impl TrustStore {
         self.check_trust_with_expiration(path, None)
     }
 
-    pub fn check_trust_with_expiration(&self, path: &str, expiration_days: Option<u64>) -> TrustCheckResult {
+    pub fn check_trust_with_expiration(
+        &self,
+        path: &str,
+        expiration_days: Option<u64>,
+    ) -> TrustCheckResult {
         let canonical = match fs::canonicalize(path) {
             Ok(p) => p,
             Err(_) => {
@@ -92,7 +96,8 @@ impl TrustStore {
             }
         };
         let canonical_str = canonical.to_string_lossy().to_string();
-        let basename = Path::new(path).file_name()
+        let basename = Path::new(path)
+            .file_name()
             .map(|n| n.to_string_lossy().to_string());
 
         let entries = self.entries.lock().unwrap_or_else(|e| e.into_inner());
@@ -140,11 +145,20 @@ impl TrustStore {
         }
 
         let rename_hint = basename.and_then(|bn| {
-            entries.iter().find(|e| {
-                let entry_basename = Path::new(&e.path).file_name()
-                    .map(|n| n.to_string_lossy().to_string());
-                entry_basename.as_deref() == Some(&bn) && e.path != canonical_str
-            }).map(|e| format!("A folder named '{}' was previously trusted at {}", bn, e.path))
+            entries
+                .iter()
+                .find(|e| {
+                    let entry_basename = Path::new(&e.path)
+                        .file_name()
+                        .map(|n| n.to_string_lossy().to_string());
+                    entry_basename.as_deref() == Some(&bn) && e.path != canonical_str
+                })
+                .map(|e| {
+                    format!(
+                        "A folder named '{}' was previously trusted at {}",
+                        bn, e.path
+                    )
+                })
         });
 
         TrustCheckResult {
@@ -166,9 +180,14 @@ impl TrustStore {
         }
     }
 
-    pub fn set_trust(&self, path: &str, level: TrustLevel) -> Result<(), crate::error::ReasonanceError> {
-        let canonical = fs::canonicalize(path)
-            .map_err(|e| crate::error::ReasonanceError::io(format!("canonicalize '{}'", path), e))?;
+    pub fn set_trust(
+        &self,
+        path: &str,
+        level: TrustLevel,
+    ) -> Result<(), crate::error::ReasonanceError> {
+        let canonical = fs::canonicalize(path).map_err(|e| {
+            crate::error::ReasonanceError::io(format!("canonicalize '{}'", path), e)
+        })?;
         let canonical_str = canonical.to_string_lossy().to_string();
 
         if Self::is_blocked_broad_dir(&canonical_str) {
@@ -204,18 +223,20 @@ impl TrustStore {
     }
 
     pub fn list_trusted(&self) -> Vec<TrustEntry> {
-        self.entries.lock().unwrap_or_else(|e| e.into_inner()).clone()
+        self.entries
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone()
     }
 
     pub fn folder_info(path: &str) -> Result<FolderInfo, String> {
         let p = Path::new(path);
-        let name = p.file_name()
+        let name = p
+            .file_name()
             .map(|n| n.to_string_lossy().to_string())
             .unwrap_or_else(|| path.to_string());
         let has_git = p.join(".git").exists();
-        let file_count = fs::read_dir(p)
-            .map(|entries| entries.count())
-            .unwrap_or(0);
+        let file_count = fs::read_dir(p).map(|entries| entries.count()).unwrap_or(0);
         Ok(FolderInfo {
             name,
             path: path.to_string(),
@@ -275,7 +296,9 @@ mod tests {
         let project = tmp.path().join("my-project");
         fs::create_dir(&project).unwrap();
 
-        store.set_trust(project.to_str().unwrap(), TrustLevel::Trusted).unwrap();
+        store
+            .set_trust(project.to_str().unwrap(), TrustLevel::Trusted)
+            .unwrap();
 
         let result = store.check_trust(project.to_str().unwrap());
         assert!(!result.needs_prompt);
@@ -289,7 +312,9 @@ mod tests {
         let project = tmp.path().join("my-project");
         fs::create_dir(&project).unwrap();
 
-        store.set_trust(project.to_str().unwrap(), TrustLevel::Trusted).unwrap();
+        store
+            .set_trust(project.to_str().unwrap(), TrustLevel::Trusted)
+            .unwrap();
         let hash = TrustStore::hash_path(&fs::canonicalize(&project).unwrap().to_string_lossy());
         store.revoke_trust(&hash).unwrap();
 
@@ -305,7 +330,9 @@ mod tests {
         let child = parent.join("sub-project");
         fs::create_dir_all(&child).unwrap();
 
-        store.set_trust(parent.to_str().unwrap(), TrustLevel::Trusted).unwrap();
+        store
+            .set_trust(parent.to_str().unwrap(), TrustLevel::Trusted)
+            .unwrap();
 
         let result = store.check_trust(child.to_str().unwrap());
         assert!(!result.needs_prompt);
@@ -329,7 +356,9 @@ mod tests {
 
         {
             let store = TrustStore::new(store_path.clone());
-            store.set_trust(project.to_str().unwrap(), TrustLevel::ReadOnly).unwrap();
+            store
+                .set_trust(project.to_str().unwrap(), TrustLevel::ReadOnly)
+                .unwrap();
         }
 
         let store2 = TrustStore::new(store_path);

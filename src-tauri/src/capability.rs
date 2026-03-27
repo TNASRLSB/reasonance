@@ -1,3 +1,4 @@
+use crate::error::ReasonanceError;
 use log::{debug, info, warn};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -36,7 +37,13 @@ impl FeatureSupport {
 
     #[allow(dead_code)] // Public API for capability queries
     pub fn needs_workaround(&self) -> bool {
-        matches!(self, FeatureSupport::Partial { workaround: Some(_), .. })
+        matches!(
+            self,
+            FeatureSupport::Partial {
+                workaround: Some(_),
+                ..
+            }
+        )
     }
 }
 
@@ -67,16 +74,31 @@ impl CapabilityNegotiator {
     }
 
     pub fn get_capabilities(&self, provider: &str) -> Option<NegotiatedCapabilities> {
-        self.results.lock().unwrap_or_else(|e| e.into_inner()).get(provider).cloned()
+        self.results
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .get(provider)
+            .cloned()
     }
 
     pub fn set_capabilities(&self, provider: &str, caps: NegotiatedCapabilities) {
-        info!("Capabilities negotiated for provider='{}', mode={:?}, features={}", provider, caps.cli_mode, caps.features.len());
-        self.results.lock().unwrap_or_else(|e| e.into_inner()).insert(provider.to_string(), caps);
+        info!(
+            "Capabilities negotiated for provider='{}', mode={:?}, features={}",
+            provider,
+            caps.cli_mode,
+            caps.features.len()
+        );
+        self.results
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .insert(provider.to_string(), caps);
     }
 
     pub fn all_capabilities(&self) -> HashMap<String, NegotiatedCapabilities> {
-        self.results.lock().unwrap_or_else(|e| e.into_inner()).clone()
+        self.results
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone()
     }
 
     #[allow(dead_code)] // Roadmap: used for capability cache invalidation
@@ -85,7 +107,10 @@ impl CapabilityNegotiator {
         match results.get(provider) {
             Some(caps) => {
                 if caps.cli_version != current_cli_version {
-                    debug!("Capability cache invalid for '{}': version mismatch ({} != {})", provider, caps.cli_version, current_cli_version);
+                    debug!(
+                        "Capability cache invalid for '{}': version mismatch ({} != {})",
+                        provider, caps.cli_version, current_cli_version
+                    );
                     return false;
                 }
                 // Also check age — 30 days max
@@ -101,28 +126,41 @@ impl CapabilityNegotiator {
     }
 
     #[allow(dead_code)] // Roadmap: persist capability cache to disk
-    pub fn save_cache(&self, cache_dir: &Path) -> Result<(), String> {
-        std::fs::create_dir_all(cache_dir).map_err(|e| e.to_string())?;
+    pub fn save_cache(&self, cache_dir: &Path) -> Result<(), ReasonanceError> {
+        std::fs::create_dir_all(cache_dir)
+            .map_err(|e| ReasonanceError::io("create capability cache dir", e))?;
         let results = self.results.lock().unwrap_or_else(|e| e.into_inner());
-        debug!("Saving capability cache to {}: {} providers", cache_dir.display(), results.len());
+        debug!(
+            "Saving capability cache to {}: {} providers",
+            cache_dir.display(),
+            results.len()
+        );
         for (provider, caps) in results.iter() {
             let path = cache_dir.join(format!("{}.json", provider));
-            let json = serde_json::to_string_pretty(caps).map_err(|e| e.to_string())?;
-            std::fs::write(&path, json).map_err(|e| e.to_string())?;
+            let json = serde_json::to_string_pretty(caps)
+                .map_err(|e| ReasonanceError::serialization("capability cache", e.to_string()))?;
+            std::fs::write(&path, json).map_err(|e| {
+                ReasonanceError::io(format!("write capability cache {}", provider), e)
+            })?;
         }
         Ok(())
     }
 
-    pub fn load_cache(&self, cache_dir: &Path) -> Result<(), String> {
+    pub fn load_cache(&self, cache_dir: &Path) -> Result<(), ReasonanceError> {
         if !cache_dir.exists() {
-            debug!("Capability cache dir {} does not exist, skipping load", cache_dir.display());
+            debug!(
+                "Capability cache dir {} does not exist, skipping load",
+                cache_dir.display()
+            );
             return Ok(());
         }
         debug!("Loading capability cache from {}", cache_dir.display());
         let mut results = self.results.lock().unwrap_or_else(|e| e.into_inner());
         let mut loaded = 0u32;
-        for entry in std::fs::read_dir(cache_dir).map_err(|e| e.to_string())? {
-            let entry = entry.map_err(|e| e.to_string())?;
+        for entry in std::fs::read_dir(cache_dir)
+            .map_err(|e| ReasonanceError::io("read capability cache dir", e))?
+        {
+            let entry = entry.map_err(|e| ReasonanceError::io("read capability cache entry", e))?;
             let path = entry.path();
             if path.extension().and_then(|e| e.to_str()) == Some("json") {
                 if let Ok(content) = std::fs::read_to_string(&path) {
@@ -135,7 +173,11 @@ impl CapabilityNegotiator {
                 }
             }
         }
-        info!("Loaded {} capability cache entries from {}", loaded, cache_dir.display());
+        info!(
+            "Loaded {} capability cache entries from {}",
+            loaded,
+            cache_dir.display()
+        );
         Ok(())
     }
 }
@@ -196,7 +238,10 @@ mod tests {
         let negotiator = CapabilityNegotiator::new();
         let mut features = HashMap::new();
         features.insert("streaming".to_string(), FeatureSupport::Full);
-        features.insert("thinking".to_string(), FeatureSupport::Unsupported { alternative: None });
+        features.insert(
+            "thinking".to_string(),
+            FeatureSupport::Unsupported { alternative: None },
+        );
 
         let caps = NegotiatedCapabilities {
             provider: "claude".to_string(),

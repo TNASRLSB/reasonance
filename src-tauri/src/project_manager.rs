@@ -35,7 +35,10 @@ pub fn add_project(
     trust_level: String,
     state: tauri::State<'_, ProjectsState>,
 ) -> Result<(), ReasonanceError> {
-    info!("cmd::add_project(id={}, root_path={}, trust_level={})", id, root_path, trust_level);
+    info!(
+        "cmd::add_project(id={}, root_path={}, trust_level={})",
+        id, root_path, trust_level
+    );
     let mut projects = state.0.lock().unwrap_or_else(|e| e.into_inner());
     projects.insert(
         id.clone(),
@@ -89,7 +92,10 @@ pub fn get_project_root(
     debug!("cmd::get_project_root(project_id={})", project_id);
     let projects = state.0.lock().unwrap_or_else(|e| e.into_inner());
     let project = projects.get(&project_id).ok_or_else(|| {
-        error!("cmd::get_project_root failed: project {} not found", project_id);
+        error!(
+            "cmd::get_project_root failed: project {} not found",
+            project_id
+        );
         ReasonanceError::not_found("project", &project_id)
     })?;
     Ok(project.root_path.to_string_lossy().to_string())

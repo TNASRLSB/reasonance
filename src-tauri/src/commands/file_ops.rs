@@ -49,9 +49,7 @@ pub fn file_ops_delete(
 /// Undo the last file operation.
 /// Returns a description of what was undone, or null if the stack is empty.
 #[tauri::command]
-pub fn file_ops_undo(
-    state: State<'_, FileOpsState>,
-) -> Result<Option<String>, ReasonanceError> {
+pub fn file_ops_undo(state: State<'_, FileOpsState>) -> Result<Option<String>, ReasonanceError> {
     info!("cmd::file_ops_undo");
     let mgr = state.0.lock().unwrap();
     mgr.undo()
@@ -76,7 +74,10 @@ pub fn file_ops_record_rename(
     new_path: String,
     state: State<'_, FileOpsState>,
 ) -> Result<(), ReasonanceError> {
-    info!("cmd::file_ops_record_rename(old={}, new={})", old_path, new_path);
+    info!(
+        "cmd::file_ops_record_rename(old={}, new={})",
+        old_path, new_path
+    );
     let mgr = state.0.lock().unwrap();
     mgr.record_rename(&old_path, &new_path);
     Ok(())

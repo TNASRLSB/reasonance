@@ -1,5 +1,5 @@
 use crate::error::ReasonanceError;
-use log::{info, error, debug};
+use log::{debug, error, info};
 use serde::Serialize;
 
 #[derive(Serialize)]
@@ -9,13 +9,19 @@ struct LlmResult {
 }
 
 fn ok_result(content: String) -> String {
-    serde_json::to_string(&LlmResult { content: Some(content), error: None })
-        .unwrap_or_else(|e| format!(r#"{{"content":null,"error":"serialize: {}"}}"#, e))
+    serde_json::to_string(&LlmResult {
+        content: Some(content),
+        error: None,
+    })
+    .unwrap_or_else(|e| format!(r#"{{"content":null,"error":"serialize: {}"}}"#, e))
 }
 
 fn err_result(error: String) -> String {
-    serde_json::to_string(&LlmResult { content: None, error: Some(error.clone()) })
-        .unwrap_or_else(|_| format!(r#"{{"content":null,"error":"{}"}}"#, error))
+    serde_json::to_string(&LlmResult {
+        content: None,
+        error: Some(error.clone()),
+    })
+    .unwrap_or_else(|_| format!(r#"{{"content":null,"error":"{}"}}"#, error))
 }
 
 #[tauri::command]
@@ -44,7 +50,11 @@ pub async fn call_llm_api(
 
     match result {
         Ok(ref content) => {
-            debug!("cmd::call_llm_api success for provider={}, response_len={}", provider, content.len());
+            debug!(
+                "cmd::call_llm_api success for provider={}, response_len={}",
+                provider,
+                content.len()
+            );
         }
         Err(ref e) => {
             error!("cmd::call_llm_api error for provider={}: {}", provider, e);
@@ -85,7 +95,10 @@ async fn call_anthropic(
     }
 
     let data: serde_json::Value = res.json().await.map_err(|e| e.to_string())?;
-    Ok(data["content"][0]["text"].as_str().unwrap_or("").to_string())
+    Ok(data["content"][0]["text"]
+        .as_str()
+        .unwrap_or("")
+        .to_string())
 }
 
 async fn call_openai(
@@ -125,7 +138,10 @@ async fn call_openai(
     }
 
     let data: serde_json::Value = res.json().await.map_err(|e| e.to_string())?;
-    Ok(data["choices"][0]["message"]["content"].as_str().unwrap_or("").to_string())
+    Ok(data["choices"][0]["message"]["content"]
+        .as_str()
+        .unwrap_or("")
+        .to_string())
 }
 
 async fn call_google(
@@ -134,7 +150,11 @@ async fn call_google(
     prompt: &str,
     api_key: &str,
 ) -> Result<String, String> {
-    let m = if model.is_empty() { "gemini-pro" } else { model };
+    let m = if model.is_empty() {
+        "gemini-pro"
+    } else {
+        model
+    };
     let url = format!(
         "https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent",
         m

@@ -1,6 +1,6 @@
 use crate::discovery::DiscoveryEngine;
 use crate::error::ReasonanceError;
-use log::{info, debug};
+use log::{debug, info};
 use tauri::State;
 
 #[tauri::command]

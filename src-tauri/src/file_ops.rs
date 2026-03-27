@@ -79,8 +79,9 @@ impl FileOpsManager {
                 // Restore the parent directory if it was removed
                 if let Some(parent) = Path::new(&path).parent() {
                     if !parent.exists() {
-                        std::fs::create_dir_all(parent)
-                            .map_err(|e| ReasonanceError::io("recreate parent dir for restore", e))?;
+                        std::fs::create_dir_all(parent).map_err(|e| {
+                            ReasonanceError::io("recreate parent dir for restore", e)
+                        })?;
                     }
                 }
                 std::fs::rename(&trash_path, &path)

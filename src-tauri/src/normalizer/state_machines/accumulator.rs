@@ -1,5 +1,5 @@
-use std::time::{Duration, Instant};
 use crate::agent_event::{AgentEvent, EventContent};
+use std::time::{Duration, Instant};
 
 // ─── TextAccumulator ─────────────────────────────────────────────────────────
 
@@ -9,7 +9,9 @@ pub struct TextAccumulator {
 
 impl TextAccumulator {
     pub fn new() -> Self {
-        Self { buffer: String::new() }
+        Self {
+            buffer: String::new(),
+        }
     }
 
     pub fn push(&mut self, text: &str) {
@@ -57,7 +59,11 @@ impl ToolInputAccumulator {
         tool_name: &str,
         tool_id: Option<&str>,
     ) -> Option<AgentEvent> {
-        let flushed = if self.is_active() { self.finalize() } else { None };
+        let flushed = if self.is_active() {
+            self.finalize()
+        } else {
+            None
+        };
         self.tool_name = Some(tool_name.to_string());
         self.tool_id = tool_id.map(|s| s.to_string());
         self.input_buffer.clear();
@@ -183,7 +189,10 @@ mod tests {
         let event = make_tool_event("read_file", "gemini");
 
         let flushed = acc.start(event, "read_file", Some("tool-1"));
-        assert!(flushed.is_none(), "start on fresh accumulator should return None");
+        assert!(
+            flushed.is_none(),
+            "start on fresh accumulator should return None"
+        );
         assert!(acc.is_active());
 
         acc.push_input(r#"{"path":"#);
@@ -210,7 +219,10 @@ mod tests {
         let flushed = acc.start(event2, "write_file", Some("tool-2"));
 
         let flushed_event = flushed.expect("starting while active should flush pending tool");
-        assert_eq!(flushed_event.metadata.tool_name, Some("read_file".to_string()));
+        assert_eq!(
+            flushed_event.metadata.tool_name,
+            Some("read_file".to_string())
+        );
 
         // Accumulator should now be active for tool-2
         assert!(acc.is_active());

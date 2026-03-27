@@ -1,15 +1,14 @@
 #[cfg(test)]
 mod tests {
-    use crate::normalizer::NormalizerRegistry;
     use crate::agent_event::{AgentEventType, EventContent};
+    use crate::normalizer::NormalizerRegistry;
 
     /// Simulates a real Claude CLI stream-json session:
     /// system events → assistant (response) → result (usage + done)
     #[test]
     fn test_full_claude_stream_session() {
-        let mut registry = NormalizerRegistry::load_from_dir(
-            std::path::Path::new("normalizers")
-        ).unwrap();
+        let mut registry =
+            NormalizerRegistry::load_from_dir(std::path::Path::new("normalizers")).unwrap();
 
         assert!(registry.has_provider("claude"));
 
@@ -29,8 +28,14 @@ mod tests {
         // Should have: 1 text event, 1 usage event
         // (system/init events are ignored — no rules match)
         // Note: done events are emitted by stream_reader when stdout closes, not by TOML rules
-        let text_events: Vec<_> = all_events.iter().filter(|e| e.event_type == AgentEventType::Text).collect();
-        let usage_events: Vec<_> = all_events.iter().filter(|e| e.event_type == AgentEventType::Usage).collect();
+        let text_events: Vec<_> = all_events
+            .iter()
+            .filter(|e| e.event_type == AgentEventType::Text)
+            .collect();
+        let usage_events: Vec<_> = all_events
+            .iter()
+            .filter(|e| e.event_type == AgentEventType::Usage)
+            .collect();
 
         assert_eq!(text_events.len(), 1, "Expected 1 text event");
         assert_eq!(usage_events.len(), 1, "Expected 1 usage event");
@@ -56,9 +61,8 @@ mod tests {
 
     #[test]
     fn test_claude_error_handling() {
-        let mut registry = NormalizerRegistry::load_from_dir(
-            std::path::Path::new("normalizers")
-        ).unwrap();
+        let mut registry =
+            NormalizerRegistry::load_from_dir(std::path::Path::new("normalizers")).unwrap();
 
         // CLI error format
         let error_line = r#"{"type":"error","message":"Server is overloaded","code":"overloaded"}"#;
@@ -66,17 +70,20 @@ mod tests {
 
         assert_eq!(events.len(), 1);
         assert_eq!(events[0].event_type, AgentEventType::Error);
-        assert_eq!(events[0].metadata.error_code, Some("overloaded".to_string()));
+        assert_eq!(
+            events[0].metadata.error_code,
+            Some("overloaded".to_string())
+        );
     }
 
     #[test]
     fn test_claude_system_events_ignored() {
-        let mut registry = NormalizerRegistry::load_from_dir(
-            std::path::Path::new("normalizers")
-        ).unwrap();
+        let mut registry =
+            NormalizerRegistry::load_from_dir(std::path::Path::new("normalizers")).unwrap();
 
         // System/hook events should not match any rules
-        let system_line = r#"{"type":"system","subtype":"init","cwd":"/tmp","session_id":"sess-1"}"#;
+        let system_line =
+            r#"{"type":"system","subtype":"init","cwd":"/tmp","session_id":"sess-1"}"#;
         let events = registry.process("claude", system_line);
         assert!(events.is_empty(), "System events should be ignored");
 

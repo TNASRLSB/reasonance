@@ -1,4 +1,4 @@
-use log::{debug, info, warn, error};
+use log::{debug, error, info, warn};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -27,19 +27,34 @@ impl CliUpdater {
 
     pub fn register(&self, name: &str, info: CliVersionInfo) {
         info!("CLI updater: registered provider '{}'", name);
-        self.providers.lock().unwrap_or_else(|e| e.into_inner()).insert(name.to_string(), info);
+        self.providers
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .insert(name.to_string(), info);
     }
 
     pub fn providers(&self) -> Vec<String> {
-        self.providers.lock().unwrap_or_else(|e| e.into_inner()).keys().cloned().collect()
+        self.providers
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .keys()
+            .cloned()
+            .collect()
     }
 
     pub fn get_info(&self, provider: &str) -> Option<CliVersionInfo> {
-        self.providers.lock().unwrap_or_else(|e| e.into_inner()).get(provider).cloned()
+        self.providers
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .get(provider)
+            .cloned()
     }
 
     pub fn set_version(&self, provider: &str, version: &str) {
-        debug!("CLI updater: setting version for provider='{}' to '{}'", provider, version);
+        debug!(
+            "CLI updater: setting version for provider='{}' to '{}'",
+            provider, version
+        );
         let mut providers = self.providers.lock().unwrap_or_else(|e| e.into_inner());
         if let Some(info) = providers.get_mut(provider) {
             info.current_version = Some(version.to_string());
@@ -63,7 +78,10 @@ impl CliUpdater {
             None => false,
         };
         if changed {
-            info!("CLI version change detected for '{}': new version '{}'", provider, new_version);
+            info!(
+                "CLI version change detected for '{}': new version '{}'",
+                provider, new_version
+            );
         }
         changed
     }
@@ -79,10 +97,7 @@ impl CliUpdater {
             .collect()
     }
 
-    pub fn register_from_configs(
-        &self,
-        configs: &HashMap<String, crate::normalizer::TomlConfig>,
-    ) {
+    pub fn register_from_configs(&self, configs: &HashMap<String, crate::normalizer::TomlConfig>) {
         for (name, config) in configs {
             self.register(
                 name,
@@ -132,7 +147,10 @@ pub async fn run_background_updates(app: AppHandle, updater: Arc<CliUpdater>) {
         return;
     }
 
-    info!("CLI updater: starting background updates for {} provider(s)", providers.len());
+    info!(
+        "CLI updater: starting background updates for {} provider(s)",
+        providers.len()
+    );
 
     for info in &providers {
         let provider = &info.provider;
@@ -156,7 +174,10 @@ pub async fn run_background_updates(app: AppHandle, updater: Arc<CliUpdater>) {
                 }
                 Ok(out) => {
                     let stderr = String::from_utf8_lossy(&out.stderr);
-                    warn!("CLI updater: version command for '{provider}' exited with {}: {stderr}", out.status);
+                    warn!(
+                        "CLI updater: version command for '{provider}' exited with {}: {stderr}",
+                        out.status
+                    );
                     None
                 }
                 Err(e) => {
@@ -180,7 +201,10 @@ pub async fn run_background_updates(app: AppHandle, updater: Arc<CliUpdater>) {
             Ok(out) if out.status.success() => (true, None),
             Ok(out) => {
                 let stderr = String::from_utf8_lossy(&out.stderr).trim().to_string();
-                warn!("CLI updater: update for '{provider}' failed ({}): {stderr}", out.status);
+                warn!(
+                    "CLI updater: update for '{provider}' failed ({}): {stderr}",
+                    out.status
+                );
                 (false, Some(stderr))
             }
             Err(e) => {
@@ -212,22 +236,30 @@ pub async fn run_background_updates(app: AppHandle, updater: Arc<CliUpdater>) {
         };
 
         if success {
-            let changed = matches!((&old_version, &new_version), (Some(old), Some(new)) if old != new);
+            let changed =
+                matches!((&old_version, &new_version), (Some(old), Some(new)) if old != new);
             if changed {
-                info!("CLI updater: '{provider}' updated {} → {}", old_version.as_deref().unwrap_or("?"), new_version.as_deref().unwrap_or("?"));
+                info!(
+                    "CLI updater: '{provider}' updated {} → {}",
+                    old_version.as_deref().unwrap_or("?"),
+                    new_version.as_deref().unwrap_or("?")
+                );
             } else {
                 info!("CLI updater: '{provider}' already up to date");
             }
         }
 
         // 4. Notify frontend.
-        let _ = app.emit("cli://update-result", CliUpdateEvent {
-            provider: provider.clone(),
-            success,
-            old_version,
-            new_version,
-            error: err_msg,
-        });
+        let _ = app.emit(
+            "cli://update-result",
+            CliUpdateEvent {
+                provider: provider.clone(),
+                success,
+                old_version,
+                new_version,
+                error: err_msg,
+            },
+        );
     }
 
     info!("CLI updater: background update cycle complete");
@@ -246,14 +278,17 @@ mod tests {
     #[test]
     fn test_register_provider() {
         let updater = CliUpdater::new();
-        updater.register("claude", CliVersionInfo {
-            provider: "claude".to_string(),
-            current_version: None,
-            last_checked: None,
-            auto_update: true,
-            version_command: vec!["claude".into(), "--version".into()],
-            update_command: vec!["claude".into(), "update".into()],
-        });
+        updater.register(
+            "claude",
+            CliVersionInfo {
+                provider: "claude".to_string(),
+                current_version: None,
+                last_checked: None,
+                auto_update: true,
+                version_command: vec!["claude".into(), "--version".into()],
+                update_command: vec!["claude".into(), "update".into()],
+            },
+        );
         assert_eq!(updater.providers().len(), 1);
         assert!(updater.get_info("claude").is_some());
     }
@@ -261,14 +296,17 @@ mod tests {
     #[test]
     fn test_update_version() {
         let updater = CliUpdater::new();
-        updater.register("claude", CliVersionInfo {
-            provider: "claude".to_string(),
-            current_version: None,
-            last_checked: None,
-            auto_update: true,
-            version_command: vec!["claude".into(), "--version".into()],
-            update_command: vec!["claude".into(), "update".into()],
-        });
+        updater.register(
+            "claude",
+            CliVersionInfo {
+                provider: "claude".to_string(),
+                current_version: None,
+                last_checked: None,
+                auto_update: true,
+                version_command: vec!["claude".into(), "--version".into()],
+                update_command: vec!["claude".into(), "update".into()],
+            },
+        );
         updater.set_version("claude", "1.0.5");
         let info = updater.get_info("claude").unwrap();
         assert_eq!(info.current_version, Some("1.0.5".to_string()));
@@ -278,14 +316,17 @@ mod tests {
     #[test]
     fn test_version_changed() {
         let updater = CliUpdater::new();
-        updater.register("claude", CliVersionInfo {
-            provider: "claude".to_string(),
-            current_version: Some("1.0.4".to_string()),
-            last_checked: None,
-            auto_update: true,
-            version_command: vec!["claude".into(), "--version".into()],
-            update_command: vec!["claude".into(), "update".into()],
-        });
+        updater.register(
+            "claude",
+            CliVersionInfo {
+                provider: "claude".to_string(),
+                current_version: Some("1.0.4".to_string()),
+                last_checked: None,
+                auto_update: true,
+                version_command: vec!["claude".into(), "--version".into()],
+                update_command: vec!["claude".into(), "update".into()],
+            },
+        );
         assert!(updater.version_changed("claude", "1.0.5"));
         assert!(!updater.version_changed("claude", "1.0.4"));
         assert!(!updater.version_changed("unknown", "1.0.0"));
@@ -294,22 +335,28 @@ mod tests {
     #[test]
     fn test_auto_update_providers() {
         let updater = CliUpdater::new();
-        updater.register("claude", CliVersionInfo {
-            provider: "claude".to_string(),
-            current_version: None,
-            last_checked: None,
-            auto_update: true,
-            version_command: vec![],
-            update_command: vec![],
-        });
-        updater.register("gemini", CliVersionInfo {
-            provider: "gemini".to_string(),
-            current_version: None,
-            last_checked: None,
-            auto_update: false,
-            version_command: vec![],
-            update_command: vec![],
-        });
+        updater.register(
+            "claude",
+            CliVersionInfo {
+                provider: "claude".to_string(),
+                current_version: None,
+                last_checked: None,
+                auto_update: true,
+                version_command: vec![],
+                update_command: vec![],
+            },
+        );
+        updater.register(
+            "gemini",
+            CliVersionInfo {
+                provider: "gemini".to_string(),
+                current_version: None,
+                last_checked: None,
+                auto_update: false,
+                version_command: vec![],
+                update_command: vec![],
+            },
+        );
         let auto = updater.auto_update_providers();
         assert_eq!(auto.len(), 1);
         assert_eq!(auto[0], "claude");

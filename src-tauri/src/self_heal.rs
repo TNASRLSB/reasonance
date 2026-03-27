@@ -46,7 +46,11 @@ pub fn build_heal_prompt(
     failures: &[crate::normalizer_health::TestCaseResult],
     previous_attempt: Option<&str>,
 ) -> String {
-    info!("Building self-heal prompt: {} failures, previous_attempt={}", failures.len(), previous_attempt.is_some());
+    info!(
+        "Building self-heal prompt: {} failures, previous_attempt={}",
+        failures.len(),
+        previous_attempt.is_some()
+    );
     let mut prompt = String::new();
 
     prompt.push_str("You are a REASONANCE normalizer engineer. A normalizer TOML file defines how to parse JSON output from an LLM CLI into structured AgentEvent objects.\n\n");
@@ -56,7 +60,11 @@ pub fn build_heal_prompt(
 
     prompt.push_str("The following test cases are FAILING:\n\n");
     for failure in failures {
-        prompt.push_str(&format!("- **{}**: {}\n", failure.name, failure.failure_reason.as_deref().unwrap_or("unknown")));
+        prompt.push_str(&format!(
+            "- **{}**: {}\n",
+            failure.name,
+            failure.failure_reason.as_deref().unwrap_or("unknown")
+        ));
     }
 
     if let Some(prev) = previous_attempt {
@@ -74,7 +82,10 @@ pub fn build_heal_prompt(
 #[allow(dead_code)] // Used in tests; roadmap: self-healing normalizer loop
 /// Extract TOML content from an LLM response that wraps it in a code block.
 pub fn extract_toml_from_response(response: &str) -> Option<String> {
-    debug!("Extracting TOML from LLM response ({} chars)", response.len());
+    debug!(
+        "Extracting TOML from LLM response ({} chars)",
+        response.len()
+    );
     // Look for ```toml ... ``` block
     let toml_start = response.find("```toml")?;
     let content_start = response[toml_start..].find('\n')? + toml_start + 1;
@@ -106,13 +117,11 @@ mod tests {
 name = "test"
 binary = "test"
 "#;
-        let failures = vec![
-            crate::normalizer_health::TestCaseResult {
-                name: "basic_text".into(),
-                passed: false,
-                failure_reason: Some("Required event 'text' not found".into()),
-            },
-        ];
+        let failures = vec![crate::normalizer_health::TestCaseResult {
+            name: "basic_text".into(),
+            passed: false,
+            failure_reason: Some("Required event 'text' not found".into()),
+        }];
 
         let prompt = build_heal_prompt(current_toml, &failures, None);
         assert!(prompt.contains("name = \"test\""));
@@ -124,13 +133,11 @@ binary = "test"
     #[test]
     fn test_build_heal_prompt_with_previous_attempt() {
         let current_toml = "[cli]\nname = \"test\"\n";
-        let failures = vec![
-            crate::normalizer_health::TestCaseResult {
-                name: "basic_text".into(),
-                passed: false,
-                failure_reason: Some("still failing".into()),
-            },
-        ];
+        let failures = vec![crate::normalizer_health::TestCaseResult {
+            name: "basic_text".into(),
+            passed: false,
+            failure_reason: Some("still failing".into()),
+        }];
         let previous = "previous toml attempt";
 
         let prompt = build_heal_prompt(current_toml, &failures, Some(previous));

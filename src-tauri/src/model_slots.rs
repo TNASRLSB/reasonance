@@ -34,14 +34,8 @@ impl ModelSlotConfig {
     pub fn resolve(&self, slot: &ModelSlot) -> Option<&str> {
         match slot {
             ModelSlot::Chat => self.chat.as_deref(),
-            ModelSlot::Workflow => self
-                .workflow
-                .as_deref()
-                .or(self.chat.as_deref()),
-            ModelSlot::Summary => self
-                .summary
-                .as_deref()
-                .or(self.chat.as_deref()),
+            ModelSlot::Workflow => self.workflow.as_deref().or(self.chat.as_deref()),
+            ModelSlot::Summary => self.summary.as_deref().or(self.chat.as_deref()),
             ModelSlot::Quick => self
                 .quick
                 .as_deref()
@@ -53,10 +47,22 @@ impl ModelSlotConfig {
     /// List all four slots with their resolved (fallback-applied) models.
     pub fn list_resolved(&self) -> Vec<(ModelSlot, Option<String>)> {
         vec![
-            (ModelSlot::Chat, self.resolve(&ModelSlot::Chat).map(|s| s.to_string())),
-            (ModelSlot::Workflow, self.resolve(&ModelSlot::Workflow).map(|s| s.to_string())),
-            (ModelSlot::Summary, self.resolve(&ModelSlot::Summary).map(|s| s.to_string())),
-            (ModelSlot::Quick, self.resolve(&ModelSlot::Quick).map(|s| s.to_string())),
+            (
+                ModelSlot::Chat,
+                self.resolve(&ModelSlot::Chat).map(|s| s.to_string()),
+            ),
+            (
+                ModelSlot::Workflow,
+                self.resolve(&ModelSlot::Workflow).map(|s| s.to_string()),
+            ),
+            (
+                ModelSlot::Summary,
+                self.resolve(&ModelSlot::Summary).map(|s| s.to_string()),
+            ),
+            (
+                ModelSlot::Quick,
+                self.resolve(&ModelSlot::Quick).map(|s| s.to_string()),
+            ),
         ]
     }
 }
@@ -113,7 +119,10 @@ fn parse_slot(slot: &str) -> Result<ModelSlot, ReasonanceError> {
         "quick" => Ok(ModelSlot::Quick),
         other => Err(ReasonanceError::validation(
             "slot",
-            format!("unknown slot '{}'; expected chat | workflow | summary | quick", other),
+            format!(
+                "unknown slot '{}'; expected chat | workflow | summary | quick",
+                other
+            ),
         )),
     }
 }

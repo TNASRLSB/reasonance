@@ -21,11 +21,24 @@ pub enum AgentEventType {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum EventContent {
-    Text { value: String },
-    Code { language: String, source: String },
-    Diff { file_path: String, hunks: Vec<DiffHunk> },
-    FileRef { path: String, action: FileAction },
-    Json { value: serde_json::Value },
+    Text {
+        value: String,
+    },
+    Code {
+        language: String,
+        source: String,
+    },
+    Diff {
+        file_path: String,
+        hunks: Vec<DiffHunk>,
+    },
+    FileRef {
+        path: String,
+        action: FileAction,
+    },
+    Json {
+        value: serde_json::Value,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -144,7 +157,9 @@ impl AgentEvent {
             id: Uuid::new_v4().to_string(),
             parent_id: None,
             event_type: AgentEventType::Text,
-            content: EventContent::Text { value: content.to_string() },
+            content: EventContent::Text {
+                value: content.to_string(),
+            },
             timestamp: Self::now(),
             metadata: Self::base_metadata(provider),
         }
@@ -156,14 +171,21 @@ impl AgentEvent {
             id: Uuid::new_v4().to_string(),
             parent_id: None,
             event_type: AgentEventType::Thinking,
-            content: EventContent::Text { value: content.to_string() },
+            content: EventContent::Text {
+                value: content.to_string(),
+            },
             timestamp: Self::now(),
             metadata: Self::base_metadata(provider),
         }
     }
 
     pub fn error(message: &str, code: &str, severity: ErrorSeverity, provider: &str) -> Self {
-        trace!("AgentEvent::error created for provider='{}', code='{}', severity={:?}", provider, code, severity);
+        trace!(
+            "AgentEvent::error created for provider='{}', code='{}', severity={:?}",
+            provider,
+            code,
+            severity
+        );
         let mut meta = Self::base_metadata(provider);
         meta.error_severity = Some(severity);
         meta.error_code = Some(code.to_string());
@@ -171,7 +193,9 @@ impl AgentEvent {
             id: Uuid::new_v4().to_string(),
             parent_id: None,
             event_type: AgentEventType::Error,
-            content: EventContent::Text { value: message.to_string() },
+            content: EventContent::Text {
+                value: message.to_string(),
+            },
             timestamp: Self::now(),
             metadata: meta,
         }
@@ -179,7 +203,11 @@ impl AgentEvent {
 
     #[allow(dead_code)] // Used extensively in tests across multiple modules
     pub fn tool_use(tool_name: &str, input: &str, provider: &str) -> Self {
-        trace!("AgentEvent::tool_use created: tool='{}', provider='{}'", tool_name, provider);
+        trace!(
+            "AgentEvent::tool_use created: tool='{}', provider='{}'",
+            tool_name,
+            provider
+        );
         let mut meta = Self::base_metadata(provider);
         meta.tool_name = Some(tool_name.to_string());
         Self {
@@ -187,7 +215,8 @@ impl AgentEvent {
             parent_id: None,
             event_type: AgentEventType::ToolUse,
             content: EventContent::Json {
-                value: serde_json::from_str(input).unwrap_or(serde_json::Value::String(input.to_string())),
+                value: serde_json::from_str(input)
+                    .unwrap_or(serde_json::Value::String(input.to_string())),
             },
             timestamp: Self::now(),
             metadata: meta,
@@ -200,7 +229,9 @@ impl AgentEvent {
             id: Uuid::new_v4().to_string(),
             parent_id: Some(parent_id.to_string()),
             event_type: AgentEventType::ToolResult,
-            content: EventContent::Text { value: content.to_string() },
+            content: EventContent::Text {
+                value: content.to_string(),
+            },
             timestamp: Self::now(),
             metadata: Self::base_metadata(provider),
         }
@@ -215,21 +246,29 @@ impl AgentEvent {
             id: Uuid::new_v4().to_string(),
             parent_id: None,
             event_type: AgentEventType::Usage,
-            content: EventContent::Text { value: String::new() },
+            content: EventContent::Text {
+                value: String::new(),
+            },
             timestamp: Self::now(),
             metadata: meta,
         }
     }
 
     pub fn done(session_id: &str, provider: &str) -> Self {
-        trace!("AgentEvent::done created for session='{}', provider='{}'", session_id, provider);
+        trace!(
+            "AgentEvent::done created for session='{}', provider='{}'",
+            session_id,
+            provider
+        );
         let mut meta = Self::base_metadata(provider);
         meta.session_id = Some(session_id.to_string());
         Self {
             id: Uuid::new_v4().to_string(),
             parent_id: None,
             event_type: AgentEventType::Done,
-            content: EventContent::Text { value: String::new() },
+            content: EventContent::Text {
+                value: String::new(),
+            },
             timestamp: Self::now(),
             metadata: meta,
         }
@@ -243,7 +282,9 @@ impl AgentEvent {
             id: Uuid::new_v4().to_string(),
             parent_id: None,
             event_type: AgentEventType::Metrics,
-            content: EventContent::Text { value: String::new() },
+            content: EventContent::Text {
+                value: String::new(),
+            },
             timestamp: Self::now(),
             metadata: meta,
         }
@@ -251,12 +292,17 @@ impl AgentEvent {
 
     #[allow(dead_code)] // Convenience constructor; pipeline builds PermissionDenial directly
     pub fn permission_denial(denials_json: serde_json::Value, provider: &str) -> Self {
-        trace!("AgentEvent::permission_denial created for provider='{}'", provider);
+        trace!(
+            "AgentEvent::permission_denial created for provider='{}'",
+            provider
+        );
         Self {
             id: Uuid::new_v4().to_string(),
             parent_id: None,
             event_type: AgentEventType::PermissionDenial,
-            content: EventContent::Json { value: denials_json },
+            content: EventContent::Json {
+                value: denials_json,
+            },
             timestamp: Self::now(),
             metadata: Self::base_metadata(provider),
         }
@@ -268,7 +314,9 @@ impl AgentEvent {
             id: Uuid::new_v4().to_string(),
             parent_id: None,
             event_type: AgentEventType::Status,
-            content: EventContent::Text { value: status_text.to_string() },
+            content: EventContent::Text {
+                value: status_text.to_string(),
+            },
             timestamp: Self::now(),
             metadata: Self::base_metadata(provider),
         }
@@ -283,7 +331,9 @@ mod tests {
     fn test_text_event_creation() {
         let event = AgentEvent::text("hello world", "claude");
         assert_eq!(event.event_type, AgentEventType::Text);
-        assert!(matches!(event.content, EventContent::Text { ref value } if value == "hello world"));
+        assert!(
+            matches!(event.content, EventContent::Text { ref value } if value == "hello world")
+        );
         assert_eq!(event.metadata.provider, "claude");
         assert!(!event.id.is_empty());
         assert!(event.timestamp > 0);
@@ -298,7 +348,10 @@ mod tests {
             "claude",
         );
         assert_eq!(event.event_type, AgentEventType::Error);
-        assert_eq!(event.metadata.error_severity, Some(ErrorSeverity::Recoverable));
+        assert_eq!(
+            event.metadata.error_severity,
+            Some(ErrorSeverity::Recoverable)
+        );
         assert_eq!(event.metadata.error_code, Some("overloaded".to_string()));
     }
 

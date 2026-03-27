@@ -1,5 +1,5 @@
+use super::accumulator::{TimedFlush, ToolInputAccumulator};
 use super::StateMachine;
-use super::accumulator::{ToolInputAccumulator, TimedFlush};
 use crate::agent_event::{AgentEvent, AgentEventType, EventContent};
 use std::time::Duration;
 
@@ -49,7 +49,9 @@ impl StateMachine for GeminiStateMachine {
                 } else {
                     let tool_name = event.metadata.tool_name.clone().unwrap_or_default();
                     let parent_id = event.parent_id.clone();
-                    let flushed = self.tool_accumulator.start(event, &tool_name, parent_id.as_deref());
+                    let flushed =
+                        self.tool_accumulator
+                            .start(event, &tool_name, parent_id.as_deref());
                     flushed.into_iter().collect()
                 }
             }

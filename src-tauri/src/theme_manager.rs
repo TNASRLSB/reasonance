@@ -40,8 +40,7 @@ pub fn list_user_themes() -> Result<Vec<String>, ReasonanceError> {
     if !dir.exists() {
         return Ok(vec![]);
     }
-    let entries = fs::read_dir(&dir)
-        .map_err(|e| ReasonanceError::io("read themes dir", e))?;
+    let entries = fs::read_dir(&dir).map_err(|e| ReasonanceError::io("read themes dir", e))?;
     let mut names = Vec::new();
     for entry in entries.flatten() {
         let path = entry.path();
@@ -57,18 +56,15 @@ pub fn list_user_themes() -> Result<Vec<String>, ReasonanceError> {
 #[tauri::command]
 pub fn load_user_theme(name: String) -> Result<String, ReasonanceError> {
     let path = themes_dir().join(format!("{}.json", name));
-    fs::read_to_string(&path)
-        .map_err(|e| ReasonanceError::io(format!("read theme '{}'", name), e))
+    fs::read_to_string(&path).map_err(|e| ReasonanceError::io(format!("read theme '{}'", name), e))
 }
 
 #[tauri::command]
 pub fn save_user_theme(name: String, content: String) -> Result<(), ReasonanceError> {
     let dir = themes_dir();
-    fs::create_dir_all(&dir)
-        .map_err(|e| ReasonanceError::io("create themes dir", e))?;
+    fs::create_dir_all(&dir).map_err(|e| ReasonanceError::io("create themes dir", e))?;
     let path = dir.join(format!("{}.json", name));
-    fs::write(&path, content)
-        .map_err(|e| ReasonanceError::io(format!("write theme '{}'", name), e))
+    fs::write(&path, content).map_err(|e| ReasonanceError::io(format!("write theme '{}'", name), e))
 }
 
 #[tauri::command]
@@ -88,8 +84,8 @@ pub fn load_theme_preferences() -> Result<ThemePreferences, ReasonanceError> {
     if !path.exists() {
         return Ok(ThemePreferences::default());
     }
-    let content = fs::read_to_string(&path)
-        .map_err(|e| ReasonanceError::io("read theme preferences", e))?;
+    let content =
+        fs::read_to_string(&path).map_err(|e| ReasonanceError::io("read theme preferences", e))?;
     Ok(serde_json::from_str(&content)?)
 }
 
@@ -97,10 +93,8 @@ pub fn load_theme_preferences() -> Result<ThemePreferences, ReasonanceError> {
 pub fn save_theme_preferences(prefs: ThemePreferences) -> Result<(), ReasonanceError> {
     let path = preferences_path();
     if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)
-            .map_err(|e| ReasonanceError::io("create config dir", e))?;
+        fs::create_dir_all(parent).map_err(|e| ReasonanceError::io("create config dir", e))?;
     }
     let content = serde_json::to_string_pretty(&prefs)?;
-    fs::write(&path, content)
-        .map_err(|e| ReasonanceError::io("write theme preferences", e))
+    fs::write(&path, content).map_err(|e| ReasonanceError::io("write theme preferences", e))
 }

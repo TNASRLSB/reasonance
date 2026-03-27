@@ -1,7 +1,7 @@
-use crate::analytics::{ProviderAnalytics, ModelAnalytics, DailyStats, SessionMetrics, TimeRange};
 use crate::analytics::collector::AnalyticsCollector;
+use crate::analytics::{DailyStats, ModelAnalytics, ProviderAnalytics, SessionMetrics, TimeRange};
 use crate::error::ReasonanceError;
-use log::{info, debug};
+use log::{debug, info};
 use std::sync::Arc;
 use tauri::State;
 
@@ -67,7 +67,10 @@ pub fn analytics_daily(
     days: Option<u32>,
     collector: State<'_, Arc<AnalyticsCollector>>,
 ) -> Result<Vec<DailyStats>, ReasonanceError> {
-    info!("cmd::analytics_daily(provider={:?}, days={:?})", provider, days);
+    info!(
+        "cmd::analytics_daily(provider={:?}, days={:?})",
+        provider, days
+    );
     Ok(collector.get_daily_stats(provider.as_deref(), days.unwrap_or(30)))
 }
 

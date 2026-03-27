@@ -127,7 +127,12 @@ mod tests {
     async fn test_decision_before_timeout_allow() {
         let memory = Arc::new(PermissionMemory::new());
         // Record allow before waiting.
-        memory.record("sess1", "Write", PermissionDecision::Allow, DecisionScope::Once);
+        memory.record(
+            "sess1",
+            "Write",
+            PermissionDecision::Allow,
+            DecisionScope::Once,
+        );
 
         // Inline the wait logic so we don't need Tauri State in unit tests.
         let timeout: u64 = 5;

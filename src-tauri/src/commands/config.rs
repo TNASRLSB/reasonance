@@ -1,6 +1,6 @@
 use crate::config;
 use crate::error::ReasonanceError;
-use log::{info, error, debug};
+use log::{debug, error, info};
 
 #[tauri::command]
 pub fn read_config() -> Result<String, ReasonanceError> {
@@ -20,22 +20,35 @@ pub fn read_config() -> Result<String, ReasonanceError> {
 pub fn write_config(content: String) -> Result<(), ReasonanceError> {
     info!("cmd::write_config called");
     // Validate TOML parses correctly
-    let parsed: config::AppConfig = toml::from_str(&content)
-        .map_err(|e| {
-            error!("cmd::write_config invalid TOML format: {}", e);
-            ReasonanceError::Serialization {
-                context: "config TOML".to_string(),
-                message: format!("Invalid config format: {}", e),
-            }
-        })?;
+    let parsed: config::AppConfig = toml::from_str(&content).map_err(|e| {
+        error!("cmd::write_config invalid TOML format: {}", e);
+        ReasonanceError::Serialization {
+            context: "config TOML".to_string(),
+            message: format!("Invalid config format: {}", e),
+        }
+    })?;
 
     // Validate command fields in LLM entries
     if let Some(llms) = &parsed.llm {
         const KNOWN_LLM_BINARIES: &[&str] = &[
-            "claude", "aider", "codex", "copilot", "continue",
-            "ollama", "llm", "sgpt", "tgpt", "mods",
-            "fabric", "cursor", "windsurf", "cline",
-            "gemini", "kimi", "qwen", "interpreter",
+            "claude",
+            "aider",
+            "codex",
+            "copilot",
+            "continue",
+            "ollama",
+            "llm",
+            "sgpt",
+            "tgpt",
+            "mods",
+            "fabric",
+            "cursor",
+            "windsurf",
+            "cline",
+            "gemini",
+            "kimi",
+            "qwen",
+            "interpreter",
             "github-copilot-cli",
         ];
 
@@ -63,9 +76,7 @@ pub fn write_config(content: String) -> Result<(), ReasonanceError> {
 
     let path = config::config_path();
     if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)
-            .map_err(|e| ReasonanceError::io("create config dir", e))?;
+        std::fs::create_dir_all(parent).map_err(|e| ReasonanceError::io("create config dir", e))?;
     }
-    std::fs::write(&path, content)
-        .map_err(|e| ReasonanceError::io("write config", e))
+    std::fs::write(&path, content).map_err(|e| ReasonanceError::io("write config", e))
 }

@@ -1,4 +1,5 @@
 use super::SessionMetrics;
+use crate::error::ReasonanceError;
 use log::{debug, error, info, warn};
 use std::fs;
 use std::io::{BufRead, BufReader, Write};
@@ -11,8 +12,9 @@ pub struct AnalyticsStore {
 }
 
 impl AnalyticsStore {
-    pub fn new(dir: &Path) -> Result<Self, String> {
-        fs::create_dir_all(dir).map_err(|e| format!("Failed to create analytics dir: {}", e))?;
+    pub fn new(dir: &Path) -> Result<Self, ReasonanceError> {
+        fs::create_dir_all(dir)
+            .map_err(|e| ReasonanceError::io("Failed to create analytics dir", e))?;
         info!("AnalyticsStore initialized at {}", dir.display());
 
         let path = dir.to_path_buf();
@@ -24,12 +26,14 @@ impl AnalyticsStore {
         Ok(store)
     }
 
-    pub fn append(&self, metrics: &SessionMetrics) -> Result<(), String> {
-        let json = serde_json::to_string(metrics)
-            .map_err(|e| {
-                error!("Failed to serialize metrics for session {}: {}", metrics.session_id, e);
-                format!("Failed to serialize metrics: {}", e)
-            })?;
+    pub fn append(&self, metrics: &SessionMetrics) -> Result<(), ReasonanceError> {
+        let json = serde_json::to_string(metrics).map_err(|e| {
+            error!(
+                "Failed to serialize metrics for session {}: {}",
+                metrics.session_id, e
+            );
+            ReasonanceError::serialization("analytics metrics", e.to_string())
+        })?;
 
         let file_path = self.path.join("metrics.jsonl");
         let mut file = fs::OpenOptions::new()
@@ -38,23 +42,32 @@ impl AnalyticsStore {
             .open(&file_path)
             .map_err(|e| {
                 error!("Failed to open metrics file {}: {}", file_path.display(), e);
-                format!("Failed to open metrics file: {}", e)
+                ReasonanceError::io(format!("open metrics file {}", file_path.display()), e)
             })?;
 
-        writeln!(file, "{}", json)
-            .map_err(|e| {
-                error!("Failed to write metrics to {}: {}", file_path.display(), e);
-                format!("Failed to write metrics: {}", e)
-            })?;
+        writeln!(file, "{}", json).map_err(|e| {
+            error!("Failed to write metrics to {}: {}", file_path.display(), e);
+            ReasonanceError::io(format!("write metrics to {}", file_path.display()), e)
+        })?;
 
-        debug!("Appended metrics for session {} to {}", metrics.session_id, file_path.display());
-        self.completed.lock().unwrap_or_else(|e| e.into_inner()).push(metrics.clone());
+        debug!(
+            "Appended metrics for session {} to {}",
+            metrics.session_id,
+            file_path.display()
+        );
+        self.completed
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .push(metrics.clone());
         Ok(())
     }
 
     #[allow(dead_code)] // Used in tests; with_completed preferred in production
     pub fn all_completed(&self) -> Vec<SessionMetrics> {
-        self.completed.lock().unwrap_or_else(|e| e.into_inner()).clone()
+        self.completed
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone()
     }
 
     /// Run a closure with a read-only reference to the completed metrics,
@@ -67,38 +80,51 @@ impl AnalyticsStore {
         f(&guard)
     }
 
-    fn load(&mut self) -> Result<(), String> {
+    fn load(&mut self) -> Result<(), ReasonanceError> {
         let file_path = self.path.join("metrics.jsonl");
         if !file_path.exists() {
-            debug!("No existing metrics file at {}, starting fresh", file_path.display());
+            debug!(
+                "No existing metrics file at {}, starting fresh",
+                file_path.display()
+            );
             return Ok(());
         }
 
         debug!("Loading metrics from {}", file_path.display());
-        let file = fs::File::open(&file_path)
-            .map_err(|e| {
-                error!("Failed to open metrics file {}: {}", file_path.display(), e);
-                format!("Failed to open metrics file: {}", e)
-            })?;
+        let file = fs::File::open(&file_path).map_err(|e| {
+            error!("Failed to open metrics file {}: {}", file_path.display(), e);
+            ReasonanceError::io(format!("open metrics file {}", file_path.display()), e)
+        })?;
         let reader = BufReader::new(file);
         let mut completed = Vec::new();
         let mut skipped = 0u32;
 
         for line in reader.lines() {
-            let line = line.map_err(|e| format!("Failed to read line: {}", e))?;
+            let line = line.map_err(|e| ReasonanceError::io("read metrics line", e))?;
             if line.trim().is_empty() {
                 continue;
             }
             match serde_json::from_str::<SessionMetrics>(&line) {
                 Ok(metrics) => completed.push(metrics),
-                Err(_) => { skipped += 1; continue; } // skip corrupted lines
+                Err(_) => {
+                    skipped += 1;
+                    continue;
+                } // skip corrupted lines
             }
         }
 
         if skipped > 0 {
-            warn!("Skipped {} corrupted lines while loading metrics from {}", skipped, file_path.display());
+            warn!(
+                "Skipped {} corrupted lines while loading metrics from {}",
+                skipped,
+                file_path.display()
+            );
         }
-        info!("Loaded {} session metrics from {}", completed.len(), file_path.display());
+        info!(
+            "Loaded {} session metrics from {}",
+            completed.len(),
+            file_path.display()
+        );
         *self.completed.lock().unwrap_or_else(|e| e.into_inner()) = completed;
         Ok(())
     }

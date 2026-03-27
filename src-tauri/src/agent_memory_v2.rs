@@ -89,16 +89,14 @@ impl AgentMemoryV2 {
     pub fn new(db_path: &std::path::Path) -> Result<Self, ReasonanceError> {
         if let Some(parent) = db_path.parent() {
             std::fs::create_dir_all(parent).map_err(|e| {
-                ReasonanceError::internal(format!(
-                    "Failed to create memory DB directory: {}",
-                    e
-                ))
+                ReasonanceError::internal(format!("Failed to create memory DB directory: {}", e))
             })?;
         }
         let conn = Connection::open(db_path)
             .map_err(|e| ReasonanceError::internal(format!("Failed to open memory DB: {}", e)))?;
-        conn.execute_batch(SCHEMA_SQL)
-            .map_err(|e| ReasonanceError::internal(format!("Failed to init memory schema: {}", e)))?;
+        conn.execute_batch(SCHEMA_SQL).map_err(|e| {
+            ReasonanceError::internal(format!("Failed to init memory schema: {}", e))
+        })?;
         conn.pragma_update(None, "journal_mode", "WAL")
             .map_err(|e| ReasonanceError::internal(format!("Failed to set WAL mode: {}", e)))?;
         Ok(Self {
@@ -108,8 +106,9 @@ impl AgentMemoryV2 {
 
     /// For testing — in-memory database
     pub fn in_memory() -> Result<Self, ReasonanceError> {
-        let conn = Connection::open_in_memory()
-            .map_err(|e| ReasonanceError::internal(format!("Failed to open in-memory DB: {}", e)))?;
+        let conn = Connection::open_in_memory().map_err(|e| {
+            ReasonanceError::internal(format!("Failed to open in-memory DB: {}", e))
+        })?;
         conn.execute_batch(SCHEMA_SQL)
             .map_err(|e| ReasonanceError::internal(format!("Failed to init schema: {}", e)))?;
         Ok(Self {
@@ -121,11 +120,12 @@ impl AgentMemoryV2 {
         if entry.id.is_empty() {
             entry.id = Uuid::new_v4().to_string();
         }
-        let conn = self.conn.lock().map_err(|e| {
-            ReasonanceError::internal(format!("Memory DB lock poisoned: {}", e))
-        })?;
-        let context_json = serde_json::to_string(&entry.context)
-            .unwrap_or_else(|_| "{}".to_string());
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| ReasonanceError::internal(format!("Memory DB lock poisoned: {}", e)))?;
+        let context_json =
+            serde_json::to_string(&entry.context).unwrap_or_else(|_| "{}".to_string());
         conn.execute(
             "INSERT INTO memories (id, node_id, project_id, session_id, run_id, timestamp, input_summary, output_summary, outcome, importance, tags, context_json)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
@@ -149,9 +149,10 @@ impl AgentMemoryV2 {
     }
 
     pub fn get_entry(&self, id: &str) -> Result<Option<MemoryEntryV2>, ReasonanceError> {
-        let conn = self.conn.lock().map_err(|e| {
-            ReasonanceError::internal(format!("Memory DB lock poisoned: {}", e))
-        })?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| ReasonanceError::internal(format!("Memory DB lock poisoned: {}", e)))?;
         let mut stmt = conn
             .prepare(
                 "SELECT id, node_id, project_id, session_id, run_id, timestamp, input_summary, output_summary, outcome, importance, tags, context_json FROM memories WHERE id = ?1",
@@ -173,9 +174,10 @@ impl AgentMemoryV2 {
         scope: MemoryScope,
         limit: u32,
     ) -> Result<Vec<MemoryEntryV2>, ReasonanceError> {
-        let conn = self.conn.lock().map_err(|e| {
-            ReasonanceError::internal(format!("Memory DB lock poisoned: {}", e))
-        })?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| ReasonanceError::internal(format!("Memory DB lock poisoned: {}", e)))?;
         let (where_clause, scope_params) = scope_to_where(&scope, "m", 2);
         let sql = format!(
             "SELECT m.id, m.node_id, m.project_id, m.session_id, m.run_id, m.timestamp, m.input_summary, m.output_summary, m.outcome, m.importance, m.tags, m.context_json
@@ -202,7 +204,8 @@ impl AgentMemoryV2 {
         }
         all_params.push(Box::new(limit));
 
-        let param_refs: Vec<&dyn rusqlite::types::ToSql> = all_params.iter().map(|p| p.as_ref()).collect();
+        let param_refs: Vec<&dyn rusqlite::types::ToSql> =
+            all_params.iter().map(|p| p.as_ref()).collect();
 
         let rows = stmt
             .query_map(param_refs.as_slice(), |row| Ok(row_to_entry(row)))
@@ -227,9 +230,10 @@ impl AgentMemoryV2 {
         limit: u32,
         offset: u32,
     ) -> Result<Vec<MemoryEntryV2>, ReasonanceError> {
-        let conn = self.conn.lock().map_err(|e| {
-            ReasonanceError::internal(format!("Memory DB lock poisoned: {}", e))
-        })?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| ReasonanceError::internal(format!("Memory DB lock poisoned: {}", e)))?;
         let (where_clause, scope_params) = scope_to_where(&scope, "", 1);
         let order_by = match sort {
             SortBy::Recency => "timestamp DESC",
@@ -260,7 +264,8 @@ impl AgentMemoryV2 {
         all_params.push(Box::new(limit));
         all_params.push(Box::new(offset));
 
-        let param_refs: Vec<&dyn rusqlite::types::ToSql> = all_params.iter().map(|p| p.as_ref()).collect();
+        let param_refs: Vec<&dyn rusqlite::types::ToSql> =
+            all_params.iter().map(|p| p.as_ref()).collect();
 
         let rows = stmt
             .query_map(param_refs.as_slice(), |row| Ok(row_to_entry(row)))
@@ -277,9 +282,10 @@ impl AgentMemoryV2 {
     }
 
     pub fn update_importance(&self, id: &str, delta: f64) -> Result<(), ReasonanceError> {
-        let conn = self.conn.lock().map_err(|e| {
-            ReasonanceError::internal(format!("Memory DB lock poisoned: {}", e))
-        })?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| ReasonanceError::internal(format!("Memory DB lock poisoned: {}", e)))?;
         conn.execute(
             "UPDATE memories SET importance = MIN(1.0, MAX(0.0, importance + ?1)) WHERE id = ?2",
             params![delta, id],
@@ -289,9 +295,10 @@ impl AgentMemoryV2 {
     }
 
     pub fn evict(&self, scope: MemoryScope, max_entries: u32) -> Result<u32, ReasonanceError> {
-        let conn = self.conn.lock().map_err(|e| {
-            ReasonanceError::internal(format!("Memory DB lock poisoned: {}", e))
-        })?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| ReasonanceError::internal(format!("Memory DB lock poisoned: {}", e)))?;
         let (where_clause, scope_params) = scope_to_where(&scope, "", 1);
 
         // Count current entries
@@ -311,7 +318,8 @@ impl AgentMemoryV2 {
         for p in &scope_params {
             count_params.push(Box::new(p.clone()));
         }
-        let count_refs: Vec<&dyn rusqlite::types::ToSql> = count_params.iter().map(|p| p.as_ref()).collect();
+        let count_refs: Vec<&dyn rusqlite::types::ToSql> =
+            count_params.iter().map(|p| p.as_ref()).collect();
 
         let count: u32 = count_stmt
             .query_row(count_refs.as_slice(), |row| row.get(0))
@@ -344,7 +352,8 @@ impl AgentMemoryV2 {
             del_params.push(Box::new(p.clone()));
         }
         del_params.push(Box::new(to_remove));
-        let del_refs: Vec<&dyn rusqlite::types::ToSql> = del_params.iter().map(|p| p.as_ref()).collect();
+        let del_refs: Vec<&dyn rusqlite::types::ToSql> =
+            del_params.iter().map(|p| p.as_ref()).collect();
 
         let deleted = delete_stmt
             .execute(del_refs.as_slice())
@@ -354,9 +363,10 @@ impl AgentMemoryV2 {
     }
 
     pub fn count(&self, scope: MemoryScope) -> Result<u32, ReasonanceError> {
-        let conn = self.conn.lock().map_err(|e| {
-            ReasonanceError::internal(format!("Memory DB lock poisoned: {}", e))
-        })?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| ReasonanceError::internal(format!("Memory DB lock poisoned: {}", e)))?;
         let (where_clause, scope_params) = scope_to_where(&scope, "", 1);
         let sql = format!(
             "SELECT COUNT(*) FROM memories {}",
@@ -374,7 +384,8 @@ impl AgentMemoryV2 {
         for p in &scope_params {
             all_params.push(Box::new(p.clone()));
         }
-        let param_refs: Vec<&dyn rusqlite::types::ToSql> = all_params.iter().map(|p| p.as_ref()).collect();
+        let param_refs: Vec<&dyn rusqlite::types::ToSql> =
+            all_params.iter().map(|p| p.as_ref()).collect();
 
         let count: u32 = stmt
             .query_row(param_refs.as_slice(), |row| row.get(0))
@@ -394,8 +405,8 @@ impl AgentMemoryV2 {
             .map_err(|e| ReasonanceError::internal(format!("Cannot read json dir: {}", e)))?;
 
         for entry in entries {
-            let entry = entry
-                .map_err(|e| ReasonanceError::internal(format!("Dir entry error: {}", e)))?;
+            let entry =
+                entry.map_err(|e| ReasonanceError::internal(format!("Dir entry error: {}", e)))?;
             let path = entry.path();
             if path.extension().map_or(true, |ext| ext != "json") {
                 continue;
@@ -435,20 +446,34 @@ impl AgentMemoryV2 {
 /// `table_prefix` is prepended to column names (e.g. "m" → "m.node_id").
 /// `param_offset` is the starting `?N` number (1-based) — callers that already
 /// use `?1` for another purpose pass `param_offset = 2`.
-fn scope_to_where(scope: &MemoryScope, table_prefix: &str, param_offset: usize) -> (String, Vec<String>) {
+fn scope_to_where(
+    scope: &MemoryScope,
+    table_prefix: &str,
+    param_offset: usize,
+) -> (String, Vec<String>) {
     let p = if table_prefix.is_empty() {
         String::new()
     } else {
         format!("{}.", table_prefix)
     };
     match scope {
-        MemoryScope::Node(node_id) => (format!("{}node_id = ?{}", p, param_offset), vec![node_id.clone()]),
-        MemoryScope::Project(project_id) => {
-            (format!("{}project_id = ?{}", p, param_offset), vec![project_id.clone()])
-        }
+        MemoryScope::Node(node_id) => (
+            format!("{}node_id = ?{}", p, param_offset),
+            vec![node_id.clone()],
+        ),
+        MemoryScope::Project(project_id) => (
+            format!("{}project_id = ?{}", p, param_offset),
+            vec![project_id.clone()],
+        ),
         MemoryScope::Global => (String::new(), vec![]),
         MemoryScope::NodeInProject(node_id, project_id) => (
-            format!("{}node_id = ?{} AND {}project_id = ?{}", p, param_offset, p, param_offset + 1),
+            format!(
+                "{}node_id = ?{} AND {}project_id = ?{}",
+                p,
+                param_offset,
+                p,
+                param_offset + 1
+            ),
             vec![node_id.clone(), project_id.clone()],
         ),
     }
@@ -456,8 +481,8 @@ fn scope_to_where(scope: &MemoryScope, table_prefix: &str, param_offset: usize) 
 
 fn row_to_entry(row: &rusqlite::Row) -> MemoryEntryV2 {
     let context_json: String = row.get(11).unwrap_or_default();
-    let context: serde_json::Value =
-        serde_json::from_str(&context_json).unwrap_or(serde_json::Value::Object(Default::default()));
+    let context: serde_json::Value = serde_json::from_str(&context_json)
+        .unwrap_or(serde_json::Value::Object(Default::default()));
     MemoryEntryV2 {
         id: row.get(0).unwrap_or_default(),
         node_id: row.get(1).unwrap_or_default(),
@@ -535,15 +560,11 @@ mod tests {
         e2.output_summary = "found slow queries in users table".to_string();
         store.add_entry(e2).unwrap();
 
-        let results = store
-            .search("kubernetes", MemoryScope::Global, 10)
-            .unwrap();
+        let results = store.search("kubernetes", MemoryScope::Global, 10).unwrap();
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].node_id, "node-1");
 
-        let results = store
-            .search("database", MemoryScope::Global, 10)
-            .unwrap();
+        let results = store.search("database", MemoryScope::Global, 10).unwrap();
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].node_id, "node-2");
     }
@@ -555,10 +576,14 @@ mod tests {
         store.add_entry(sample_entry("node-a")).unwrap();
         store.add_entry(sample_entry("node-b")).unwrap();
 
-        let count = store.count(MemoryScope::Node("node-a".to_string())).unwrap();
+        let count = store
+            .count(MemoryScope::Node("node-a".to_string()))
+            .unwrap();
         assert_eq!(count, 2);
 
-        let count = store.count(MemoryScope::Node("node-b".to_string())).unwrap();
+        let count = store
+            .count(MemoryScope::Node("node-b".to_string()))
+            .unwrap();
         assert_eq!(count, 1);
     }
 
@@ -643,9 +668,7 @@ mod tests {
 
         assert_eq!(store.count(MemoryScope::Global).unwrap(), 5);
 
-        let removed = store
-            .evict(MemoryScope::Global, 3)
-            .unwrap();
+        let removed = store.evict(MemoryScope::Global, 3).unwrap();
         assert_eq!(removed, 2);
         assert_eq!(store.count(MemoryScope::Global).unwrap(), 3);
 

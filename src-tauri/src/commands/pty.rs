@@ -1,7 +1,7 @@
 use crate::config;
 use crate::error::ReasonanceError;
 use crate::pty_manager::PtyManager;
-use log::{info, error, debug};
+use log::{debug, error, info};
 use tauri::{AppHandle, State};
 
 /// Shells that are always allowed regardless of LLM config.
@@ -62,7 +62,10 @@ pub fn spawn_process(
 ) -> Result<String, ReasonanceError> {
     info!("cmd::spawn_process(command={}, cwd={})", command, cwd);
     if !is_allowed_command(&command) {
-        error!("cmd::spawn_process rejected disallowed command: {}", command);
+        error!(
+            "cmd::spawn_process rejected disallowed command: {}",
+            command
+        );
         return Err(ReasonanceError::Security {
             message: format!(
                 "Command '{}' is not allowed. Only configured LLM commands and known shells are permitted.",
@@ -101,10 +104,7 @@ pub fn resize_pty(
 }
 
 #[tauri::command]
-pub fn kill_process(
-    id: String,
-    pty_manager: State<'_, PtyManager>,
-) -> Result<(), ReasonanceError> {
+pub fn kill_process(id: String, pty_manager: State<'_, PtyManager>) -> Result<(), ReasonanceError> {
     info!("cmd::kill_process(id={})", id);
     pty_manager.kill(&id).map_err(|e| {
         error!("cmd::kill_process failed for id={}: {}", id, e);
@@ -141,7 +141,10 @@ pub fn reconnect_pty(
     );
 
     if !is_allowed_command(&command) {
-        error!("cmd::reconnect_pty rejected disallowed command: {}", command);
+        error!(
+            "cmd::reconnect_pty rejected disallowed command: {}",
+            command
+        );
         return Err(ReasonanceError::Security {
             message: format!(
                 "Command '{}' is not allowed. Only configured LLM commands and known shells are permitted.",
@@ -167,9 +170,7 @@ pub fn reconnect_pty(
 /// clean without requiring the terminal component to explicitly kill each PTY
 /// on unmount. Returns the list of swept PTY IDs.
 #[tauri::command]
-pub fn sweep_ptys(
-    pty_manager: State<'_, PtyManager>,
-) -> Vec<String> {
+pub fn sweep_ptys(pty_manager: State<'_, PtyManager>) -> Vec<String> {
     debug!("cmd::sweep_ptys");
     pty_manager.sweep_dead_ptys()
 }
@@ -178,9 +179,7 @@ pub fn sweep_ptys(
 ///
 /// Returns the number of PTYs that were killed.
 #[tauri::command]
-pub fn kill_all_ptys(
-    pty_manager: State<'_, PtyManager>,
-) -> usize {
+pub fn kill_all_ptys(pty_manager: State<'_, PtyManager>) -> usize {
     info!("cmd::kill_all_ptys");
     pty_manager.kill_all()
 }

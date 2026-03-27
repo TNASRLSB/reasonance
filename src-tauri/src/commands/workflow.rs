@@ -1,7 +1,7 @@
 use crate::commands::fs::ProjectRootState;
 use crate::error::ReasonanceError;
 use crate::workflow_store::{Workflow, WorkflowStore};
-use log::{info, error, debug};
+use log::{debug, error, info};
 use std::path::{Path, PathBuf};
 use tauri::State;
 
@@ -31,14 +31,21 @@ fn validate_workflow_path(
         std::fs::canonicalize(path)
             .map_err(|e| ReasonanceError::io(format!("resolve path '{}'", path.display()), e))?
     } else if for_write {
-        let parent = path
-            .parent()
-            .ok_or_else(|| ReasonanceError::validation("path", format!("No parent directory for '{}'", path.display())))?;
-        let canon_parent = std::fs::canonicalize(parent)
-            .map_err(|e| ReasonanceError::io(format!("resolve parent '{}'", parent.display()), e))?;
+        let parent = path.parent().ok_or_else(|| {
+            ReasonanceError::validation(
+                "path",
+                format!("No parent directory for '{}'", path.display()),
+            )
+        })?;
+        let canon_parent = std::fs::canonicalize(parent).map_err(|e| {
+            ReasonanceError::io(format!("resolve parent '{}'", parent.display()), e)
+        })?;
         canon_parent.join(path.file_name().unwrap_or_default())
     } else {
-        return Err(ReasonanceError::not_found("workflow path", path.display().to_string()));
+        return Err(ReasonanceError::not_found(
+            "workflow path",
+            path.display().to_string(),
+        ));
     };
 
     // Check global workflows dir
@@ -125,7 +132,10 @@ pub fn save_workflow(
 }
 
 #[tauri::command]
-pub fn list_workflows(dir: String, state: State<'_, ProjectRootState>) -> Result<Vec<String>, ReasonanceError> {
+pub fn list_workflows(
+    dir: String,
+    state: State<'_, ProjectRootState>,
+) -> Result<Vec<String>, ReasonanceError> {
     info!("cmd::list_workflows(dir={})", dir);
     validate_workflow_dir(Path::new(&dir), &state)?;
     WorkflowStore::list_workflows(&dir)
@@ -174,7 +184,10 @@ pub fn duplicate_workflow(
     dest_path: String,
     state: State<'_, ProjectRootState>,
 ) -> Result<Workflow, ReasonanceError> {
-    info!("cmd::duplicate_workflow(source={}, dest={})", source_path, dest_path);
+    info!(
+        "cmd::duplicate_workflow(source={}, dest={})",
+        source_path, dest_path
+    );
     validate_workflow_path(Path::new(&source_path), &state, false)?;
     validate_workflow_path(Path::new(&dest_path), &state, true)?;
     let mut wf = store.load(&source_path)?;
@@ -204,7 +217,8 @@ pub fn save_to_global(
         .to_str()
         .ok_or_else(|| ReasonanceError::validation("path", "Invalid filename"))?;
     let dest = global_dir.join(filename);
-    let dest_str = dest.to_str()
+    let dest_str = dest
+        .to_str()
         .ok_or_else(|| ReasonanceError::validation("path", "Invalid destination path"))?
         .to_string();
     store.save(&dest_str, &wf)?;
@@ -215,7 +229,8 @@ pub fn save_to_global(
 pub fn list_global_workflows() -> Result<Vec<String>, ReasonanceError> {
     info!("cmd::list_global_workflows called");
     let global_dir = WorkflowStore::global_dir();
-    let dir_str = global_dir.to_str()
+    let dir_str = global_dir
+        .to_str()
         .ok_or_else(|| ReasonanceError::validation("path", "Invalid global dir path"))?;
     WorkflowStore::list_workflows(dir_str)
 }

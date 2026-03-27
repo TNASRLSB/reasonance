@@ -1,5 +1,5 @@
+use super::accumulator::{TimedFlush, ToolInputAccumulator};
 use super::StateMachine;
-use super::accumulator::{ToolInputAccumulator, TimedFlush};
 use crate::agent_event::{AgentEvent, AgentEventType, EventContent};
 use std::time::Duration;
 
@@ -55,7 +55,9 @@ impl StateMachine for KimiStateMachine {
                     // New tool_use start — begin accumulation
                     let tool_name = event.metadata.tool_name.clone().unwrap_or_default();
                     let parent_id = event.parent_id.clone();
-                    let flushed = self.tool_accumulator.start(event, &tool_name, parent_id.as_deref());
+                    let flushed =
+                        self.tool_accumulator
+                            .start(event, &tool_name, parent_id.as_deref());
                     flushed.into_iter().collect()
                 }
             }
@@ -99,7 +101,11 @@ mod tests {
         // tool_use start — begin accumulation
         let start = AgentEvent::tool_use("read_file", "{}", "kimi");
         let result = sm.process(start);
-        assert_eq!(result.len(), 0, "tool start should be accumulated, not emitted");
+        assert_eq!(
+            result.len(),
+            0,
+            "tool start should be accumulated, not emitted"
+        );
 
         // input delta — still accumulating
         let mut chunk = AgentEvent::text(r#"{"path":"main.rs"}"#, "kimi");
@@ -110,7 +116,11 @@ mod tests {
         // content_block_stop — flush assembled ToolUse
         let stop = AgentEvent::status("content_block_stop", "kimi");
         let result = sm.process(stop);
-        assert_eq!(result.len(), 1, "status should flush one assembled tool event");
+        assert_eq!(
+            result.len(),
+            1,
+            "status should flush one assembled tool event"
+        );
         assert_eq!(result[0].event_type, AgentEventType::ToolUse);
     }
 
@@ -157,7 +167,10 @@ mod tests {
         let text = AgentEvent::text("next", "kimi");
         let result = sm.process(text);
 
-        assert!(result.len() >= 2, "should have flushed incomplete tool + next event");
+        assert!(
+            result.len() >= 2,
+            "should have flushed incomplete tool + next event"
+        );
         assert_eq!(result[0].event_type, AgentEventType::ToolUse);
         assert_eq!(result[0].metadata.incomplete, Some(true));
     }

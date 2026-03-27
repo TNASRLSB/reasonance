@@ -67,7 +67,10 @@ fn split_operator<'a>(expr: &'a str, op: &str) -> Option<(&'a str, &'a str)> {
         if bytes[i] == b'"' {
             in_quotes = !in_quotes;
         }
-        if !in_quotes && i + op_bytes.len() <= bytes.len() && &bytes[i..i + op_bytes.len()] == op_bytes {
+        if !in_quotes
+            && i + op_bytes.len() <= bytes.len()
+            && &bytes[i..i + op_bytes.len()] == op_bytes
+        {
             return Some((&expr[..i], &expr[i + op_bytes.len()..]));
         }
     }
@@ -142,7 +145,10 @@ mod tests {
     #[test]
     fn test_resolve_path_simple() {
         let v = sample_json();
-        assert_eq!(resolve_path(&v, "type"), Some(&json!("content_block_delta")));
+        assert_eq!(
+            resolve_path(&v, "type"),
+            Some(&json!("content_block_delta"))
+        );
     }
 
     #[test]
@@ -192,19 +198,28 @@ mod tests {
     #[test]
     fn test_eval_and_operator() {
         let v = sample_json();
-        assert!(eval_expr(&v, r#"type == "content_block_delta" && delta.type == "text_delta""#));
+        assert!(eval_expr(
+            &v,
+            r#"type == "content_block_delta" && delta.type == "text_delta""#
+        ));
     }
 
     #[test]
     fn test_eval_and_one_false() {
         let v = sample_json();
-        assert!(!eval_expr(&v, r#"type == "content_block_delta" && delta.type == "thinking_delta""#));
+        assert!(!eval_expr(
+            &v,
+            r#"type == "content_block_delta" && delta.type == "thinking_delta""#
+        ));
     }
 
     #[test]
     fn test_eval_or_operator() {
         let v = sample_json();
-        assert!(eval_expr(&v, r#"type == "error" || delta.type == "text_delta""#));
+        assert!(eval_expr(
+            &v,
+            r#"type == "error" || delta.type == "text_delta""#
+        ));
     }
 
     #[test]
@@ -236,8 +251,20 @@ mod tests {
     #[test]
     fn test_rule_first_match_wins() {
         let rules = vec![
-            Rule { name: "specific".into(), when: r#"type == "content_block_delta" && delta.type == "text_delta""#.into(), emit: "text".into(), mappings: Default::default(), content_blocks: None },
-            Rule { name: "generic".into(), when: r#"type == "content_block_delta""#.into(), emit: "thinking".into(), mappings: Default::default(), content_blocks: None },
+            Rule {
+                name: "specific".into(),
+                when: r#"type == "content_block_delta" && delta.type == "text_delta""#.into(),
+                emit: "text".into(),
+                mappings: Default::default(),
+                content_blocks: None,
+            },
+            Rule {
+                name: "generic".into(),
+                when: r#"type == "content_block_delta""#.into(),
+                emit: "thinking".into(),
+                mappings: Default::default(),
+                content_blocks: None,
+            },
         ];
         let v = sample_json();
         let matched = find_matching_rule(&rules, &v);
@@ -246,9 +273,13 @@ mod tests {
 
     #[test]
     fn test_rule_no_match_returns_none() {
-        let rules = vec![
-            Rule { name: "error".into(), when: r#"type == "error""#.into(), emit: "error".into(), mappings: Default::default(), content_blocks: None },
-        ];
+        let rules = vec![Rule {
+            name: "error".into(),
+            when: r#"type == "error""#.into(),
+            emit: "error".into(),
+            mappings: Default::default(),
+            content_blocks: None,
+        }];
         let v = sample_json();
         let matched = find_matching_rule(&rules, &v);
         assert!(matched.is_none());
@@ -283,6 +314,9 @@ mod tests {
                 ]
             }
         });
-        assert_eq!(resolve_path(&v, "nested.items[1].name"), Some(&json!("second")));
+        assert_eq!(
+            resolve_path(&v, "nested.items[1].name"),
+            Some(&json!("second"))
+        );
     }
 }

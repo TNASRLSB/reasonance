@@ -1,5 +1,5 @@
-pub mod store;
 pub mod collector;
+pub mod store;
 
 use crate::agent_event::ErrorSeverity;
 use serde::{Deserialize, Serialize};

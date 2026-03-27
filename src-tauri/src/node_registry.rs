@@ -1,6 +1,6 @@
-use std::collections::HashMap;
-use serde::Serialize;
 use crate::error::ReasonanceError;
+use serde::Serialize;
+use std::collections::HashMap;
 
 /// Describes what a node type can do (for frontend palette).
 #[derive(Debug, Clone, Serialize)]
@@ -395,7 +395,10 @@ mod tests {
         let config = serde_json::json!({});
         let result = registry.validate_config("unknown_type", &config);
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), ReasonanceError::NotFound { .. }));
+        assert!(matches!(
+            result.unwrap_err(),
+            ReasonanceError::NotFound { .. }
+        ));
     }
 
     // 11. Custom handler can be registered and retrieved
@@ -403,7 +406,9 @@ mod tests {
     fn test_custom_handler_registration() {
         struct CustomHandler;
         impl HiveNodeHandler for CustomHandler {
-            fn type_id(&self) -> &str { "custom" }
+            fn type_id(&self) -> &str {
+                "custom"
+            }
             fn validate_config(&self, _config: &serde_json::Value) -> Result<(), ReasonanceError> {
                 Ok(())
             }

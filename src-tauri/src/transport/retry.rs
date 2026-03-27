@@ -32,7 +32,10 @@ impl RetryPolicy {
                     "exponential" => {
                         let base = table.get("base_ms")?.as_integer()? as u64;
                         let max = table.get("max_ms")?.as_integer()? as u64;
-                        Some(BackoffStrategy::Exponential { base_ms: base, max_ms: max })
+                        Some(BackoffStrategy::Exponential {
+                            base_ms: base,
+                            max_ms: max,
+                        })
                     }
                     "fixed" => {
                         let delay = table.get("delay_ms")?.as_integer()? as u64;
@@ -41,7 +44,10 @@ impl RetryPolicy {
                     _ => None,
                 }
             })
-            .unwrap_or(BackoffStrategy::Exponential { base_ms: 1000, max_ms: 30000 });
+            .unwrap_or(BackoffStrategy::Exponential {
+                base_ms: 1000,
+                max_ms: 30000,
+            });
 
         Self {
             max_retries,
@@ -51,7 +57,12 @@ impl RetryPolicy {
         }
     }
 
-    pub fn should_retry(&self, error_code: Option<&str>, severity: Option<&ErrorSeverity>, attempt: u32) -> bool {
+    pub fn should_retry(
+        &self,
+        error_code: Option<&str>,
+        severity: Option<&ErrorSeverity>,
+        attempt: u32,
+    ) -> bool {
         if attempt >= self.max_retries {
             return false;
         }
@@ -87,7 +98,10 @@ mod tests {
     fn test_policy() -> RetryPolicy {
         RetryPolicy {
             max_retries: 3,
-            backoff: BackoffStrategy::Exponential { base_ms: 1000, max_ms: 30000 },
+            backoff: BackoffStrategy::Exponential {
+                base_ms: 1000,
+                max_ms: 30000,
+            },
             retryable_codes: vec!["overloaded".to_string(), "rate_limit".to_string()],
             retryable_severities: vec![ErrorSeverity::Recoverable],
         }

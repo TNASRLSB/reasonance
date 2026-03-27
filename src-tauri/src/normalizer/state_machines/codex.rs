@@ -1,5 +1,5 @@
+use super::accumulator::{TextAccumulator, TimedFlush, ToolInputAccumulator};
 use super::StateMachine;
-use super::accumulator::{TextAccumulator, ToolInputAccumulator, TimedFlush};
 use crate::agent_event::{AgentEvent, AgentEventType, EventContent};
 use std::time::Duration;
 
@@ -55,7 +55,9 @@ impl CodexStateMachine {
 impl StateMachine for CodexStateMachine {
     fn process(&mut self, event: AgentEvent) -> Vec<AgentEvent> {
         // Check timeout
-        if self.timed_flush.is_expired() && (!self.text_accumulator.is_empty() || self.tool_accumulator.is_active()) {
+        if self.timed_flush.is_expired()
+            && (!self.text_accumulator.is_empty() || self.tool_accumulator.is_active())
+        {
             let mut flushed = self.flush_all_with_incomplete();
             flushed.push(event);
             return flushed;
@@ -194,7 +196,10 @@ mod tests {
         let next = AgentEvent::text("next", "codex");
         let result = sm.process(next);
 
-        assert!(result.len() >= 2, "should have flushed incomplete text + next event");
+        assert!(
+            result.len() >= 2,
+            "should have flushed incomplete text + next event"
+        );
         assert_eq!(result[0].event_type, AgentEventType::Text);
         assert_eq!(result[0].metadata.incomplete, Some(true));
     }
