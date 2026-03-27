@@ -39,8 +39,8 @@ pub fn set_setting(
             message: format!("Failed to convert JSON to TOML: {}", e),
         })?;
     let mut s = settings.lock().unwrap_or_else(|e| e.into_inner());
-    s.set(&key, toml_val, layer)
-        .map_err(ReasonanceError::internal)
+    s.set(&key, toml_val, layer)?;
+    Ok(())
 }
 
 #[tauri::command]

@@ -1,3 +1,4 @@
+use crate::error::ReasonanceError;
 use rhai::{Engine, Scope};
 use serde_json::Value;
 
@@ -19,16 +20,22 @@ impl LogicEvaluator {
 
     /// Evaluate a rule expression against the previous node's output.
     /// Returns true/false for routing to onTrue/onFalse edges.
-    pub fn evaluate(&self, rule: &str, output: &Value) -> Result<bool, String> {
+    pub fn evaluate(&self, rule: &str, output: &Value) -> Result<bool, ReasonanceError> {
         let mut scope = Scope::new();
         // Convert serde_json::Value → Rhai Dynamic for nested access
-        let dynamic_output = rhai::serde::to_dynamic(output.clone())
-            .map_err(|e| format!("Failed to convert output to Rhai dynamic: {}", e))?;
+        let dynamic_output = rhai::serde::to_dynamic(output.clone()).map_err(|e| {
+            ReasonanceError::validation(
+                "expression",
+                format!("Failed to convert output to Rhai dynamic: {}", e),
+            )
+        })?;
         scope.push("output", dynamic_output);
 
         self.engine
             .eval_with_scope::<bool>(&mut scope, rule)
-            .map_err(|e| format!("Rule evaluation failed: {}", e))
+            .map_err(|e| {
+                ReasonanceError::validation("expression", format!("Rule evaluation failed: {}", e))
+            })
     }
 }
 

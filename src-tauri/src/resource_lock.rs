@@ -1,3 +1,4 @@
+use crate::error::ReasonanceError;
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
@@ -21,7 +22,12 @@ impl ResourceLockManager {
     /// Acquire a read or write lock on a resource for an agent.
     /// Write lock: fails if any readers or another writer exists.
     /// Read lock: fails if a writer exists.
-    pub fn acquire(&self, resource_id: &str, agent_id: &str, write: bool) -> Result<(), String> {
+    pub fn acquire(
+        &self,
+        resource_id: &str,
+        agent_id: &str,
+        write: bool,
+    ) -> Result<(), ReasonanceError> {
         let mut readers = self.readers.lock().unwrap_or_else(|e| e.into_inner());
         let mut writers = self.writers.lock().unwrap_or_else(|e| e.into_inner());
 
@@ -29,25 +35,37 @@ impl ResourceLockManager {
             // Write lock: no readers and no other writer
             if let Some(reader_set) = readers.get(resource_id) {
                 if !reader_set.is_empty() {
-                    return Err(format!(
-                        "Resource {} has active readers: {:?}",
-                        resource_id, reader_set
+                    return Err(ReasonanceError::workflow(
+                        "",
+                        resource_id,
+                        format!(
+                            "Resource {} has active readers: {:?}",
+                            resource_id, reader_set
+                        ),
                     ));
                 }
             }
             if let Some(existing_writer) = writers.get(resource_id) {
-                return Err(format!(
-                    "Resource {} already has writer: {}",
-                    resource_id, existing_writer
+                return Err(ReasonanceError::workflow(
+                    "",
+                    resource_id,
+                    format!(
+                        "Resource {} already has writer: {}",
+                        resource_id, existing_writer
+                    ),
                 ));
             }
             writers.insert(resource_id.to_string(), agent_id.to_string());
         } else {
             // Read lock: no writer
             if let Some(existing_writer) = writers.get(resource_id) {
-                return Err(format!(
-                    "Resource {} has active writer: {}",
-                    resource_id, existing_writer
+                return Err(ReasonanceError::workflow(
+                    "",
+                    resource_id,
+                    format!(
+                        "Resource {} has active writer: {}",
+                        resource_id, existing_writer
+                    ),
                 ));
             }
             readers
@@ -136,7 +154,10 @@ mod tests {
         // Second write lock should fail
         let result = mgr.acquire("res1", "agent_b", true);
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("already has writer"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("already has writer"));
     }
 
     #[test]
@@ -147,7 +168,7 @@ mod tests {
         // Write lock should fail because there are readers
         let result = mgr.acquire("res1", "agent_b", true);
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("active readers"));
+        assert!(result.unwrap_err().to_string().contains("active readers"));
     }
 
     #[test]
@@ -158,7 +179,7 @@ mod tests {
         // Read lock should fail because there is a writer
         let result = mgr.acquire("res1", "agent_b", false);
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("active writer"));
+        assert!(result.unwrap_err().to_string().contains("active writer"));
     }
 
     #[test]

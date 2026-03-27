@@ -1,3 +1,4 @@
+use crate::error::ReasonanceError;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -26,23 +27,20 @@ impl AgentMemoryStore {
         }
     }
 
-    pub fn load(path: &str) -> Result<Self, String> {
-        let content = std::fs::read_to_string(path)
-            .map_err(|e| format!("Failed to read memory file {}: {}", path, e))?;
-        serde_json::from_str(&content)
-            .map_err(|e| format!("Failed to parse memory file {}: {}", path, e))
+    pub fn load(path: &str) -> Result<Self, ReasonanceError> {
+        let content =
+            std::fs::read_to_string(path).map_err(|e| ReasonanceError::io("agent memory", e))?;
+        let store = serde_json::from_str(&content)?;
+        Ok(store)
     }
 
-    pub fn save(&self, path: &str) -> Result<(), String> {
+    pub fn save(&self, path: &str) -> Result<(), ReasonanceError> {
         let p = std::path::Path::new(path);
         if let Some(parent) = p.parent() {
-            std::fs::create_dir_all(parent)
-                .map_err(|e| format!("Failed to create directory for {}: {}", path, e))?;
+            std::fs::create_dir_all(parent).map_err(|e| ReasonanceError::io("agent memory", e))?;
         }
-        let json = serde_json::to_string_pretty(self)
-            .map_err(|e| format!("Failed to serialize memory: {}", e))?;
-        std::fs::write(path, json)
-            .map_err(|e| format!("Failed to write memory file {}: {}", path, e))
+        let json = serde_json::to_string_pretty(self)?;
+        std::fs::write(path, json).map_err(|e| ReasonanceError::io("agent memory", e))
     }
 
     pub fn add_entry(&mut self, entry: MemoryEntry, max_entries: u32) {

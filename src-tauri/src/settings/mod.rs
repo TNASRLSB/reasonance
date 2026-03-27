@@ -1,5 +1,6 @@
 pub mod defaults;
 
+use crate::error::ReasonanceError;
 use log::{debug, warn};
 use std::path::{Path, PathBuf};
 
@@ -166,12 +167,22 @@ impl LayeredSettings {
     ///
     /// Creates intermediate tables as needed. After setting, the resolved
     /// tree is recomputed. Layer must be one of: "user", "project", "workspace".
-    pub fn set(&mut self, path: &str, value: toml::Value, layer: &str) -> Result<(), String> {
+    pub fn set(
+        &mut self,
+        path: &str,
+        value: toml::Value,
+        layer: &str,
+    ) -> Result<(), ReasonanceError> {
         let layer_val = match layer {
             "user" => &mut self.user,
             "project" => &mut self.project,
             "workspace" => &mut self.workspace,
-            _ => return Err(format!("Unknown layer: {}", layer)),
+            _ => {
+                return Err(ReasonanceError::validation(
+                    "layer",
+                    format!("Unknown layer: {}", layer),
+                ))
+            }
         };
 
         // Ensure the layer exists
@@ -181,7 +192,9 @@ impl LayeredSettings {
         let layer_root = layer_val.as_mut().unwrap();
 
         let parts: Vec<&str> = path.split('.').collect();
-        let (key, parents) = parts.split_last().ok_or_else(|| "Empty path".to_string())?;
+        let (key, parents) = parts
+            .split_last()
+            .ok_or_else(|| ReasonanceError::validation("path", "Empty path"))?;
 
         // Navigate/create intermediate tables
         let mut current = layer_root;
@@ -189,7 +202,7 @@ impl LayeredSettings {
             if current.get(*part).map_or(true, |v| !v.is_table()) {
                 current
                     .as_table_mut()
-                    .ok_or_else(|| "Not a table".to_string())?
+                    .ok_or_else(|| ReasonanceError::config("Setting path is not a table"))?
                     .insert(part.to_string(), toml::Value::Table(toml::map::Map::new()));
             }
             current = current.get_mut(*part).unwrap();
@@ -197,7 +210,7 @@ impl LayeredSettings {
 
         current
             .as_table_mut()
-            .ok_or_else(|| "Not a table".to_string())?
+            .ok_or_else(|| ReasonanceError::config("Setting path is not a table"))?
             .insert(key.to_string(), value);
         self.resolve();
         Ok(())
