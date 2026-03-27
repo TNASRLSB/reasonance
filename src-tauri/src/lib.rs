@@ -44,6 +44,7 @@ pub mod settings;
 mod shadow_store;
 pub mod signal;
 pub mod storage;
+pub mod subscribers;
 mod theme_manager;
 mod theme_watcher;
 pub mod tracked_map;
