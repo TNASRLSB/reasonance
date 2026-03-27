@@ -9,55 +9,55 @@
     clippy::unwrap_or_default,
     clippy::doc_lazy_continuation,
     clippy::needless_borrow,
-    clippy::needless_borrows_for_generic_args,
+    clippy::needless_borrows_for_generic_args
 )]
 
-pub mod circuit_breaker;
-pub mod error;
-pub mod event_bus_v2;
-pub mod settings;
-pub mod signal;
-pub mod storage;
-pub mod tracked_map;
+pub mod agent_comms;
 mod agent_event;
-mod normalizer;
-mod transport;
+mod agent_memory;
+pub mod agent_memory_v2;
+mod agent_runtime;
+mod analytics;
+pub mod app_state_store;
+mod capability;
+pub mod circuit_breaker;
+mod cli_updater;
 mod commands;
 mod config;
 mod discovery;
-mod fs_watcher;
-mod pty_manager;
-mod shadow_store;
-mod workflow_store;
-mod agent_runtime;
-pub mod agent_comms;
-mod workflow_engine;
-mod resource_lock;
-mod agent_memory;
-pub mod agent_memory_v2;
-mod logic_eval;
-mod cli_updater;
-mod normalizer_version;
-mod normalizer_health;
-mod capability;
-mod self_heal;
-mod analytics;
-mod workspace_trust;
+pub mod error;
+pub mod event_bus_v2;
 mod file_ops;
+mod fs_watcher;
+mod logic_eval;
+pub mod model_slots;
+pub mod node_registry;
+mod normalizer;
+mod normalizer_health;
+mod normalizer_version;
 pub mod permission_engine;
+mod project_manager;
+mod pty_manager;
+mod resource_lock;
+mod self_heal;
+pub mod settings;
+mod shadow_store;
+pub mod signal;
+pub mod storage;
 mod theme_manager;
 mod theme_watcher;
-mod project_manager;
-pub mod node_registry;
-pub mod app_state_store;
-pub mod model_slots;
+pub mod tracked_map;
+mod transport;
+mod workflow_engine;
+mod workflow_store;
+mod workspace_trust;
 
 use commands::fs::ProjectRootState;
 use fs_watcher::FsWatcherState;
+use log::info;
 use pty_manager::PtyManager;
 use shadow_store::ShadowStore;
 use tauri::{Emitter, Manager};
-use log::info;
 
 /// Shared state for the resolved normalizers directory path.
 pub struct NormalizersDir(pub std::path::PathBuf);
@@ -78,7 +78,9 @@ fn resolve_normalizers_dir() -> std::path::PathBuf {
                 v.push(dir.join("../Resources/normalizers"));
             }
         }
-        v.push(std::path::PathBuf::from("/usr/share/reasonance/normalizers"));
+        v.push(std::path::PathBuf::from(
+            "/usr/share/reasonance/normalizers",
+        ));
         v
     };
     for c in &candidates {
@@ -88,8 +90,14 @@ fn resolve_normalizers_dir() -> std::path::PathBuf {
         }
     }
     // Return the most likely candidate so the error message is useful
-    log::warn!("Normalizers directory not found in any candidate: {:?}", candidates);
-    candidates.into_iter().next().unwrap_or_else(|| std::path::PathBuf::from("normalizers"))
+    log::warn!(
+        "Normalizers directory not found in any candidate: {:?}",
+        candidates
+    );
+    candidates
+        .into_iter()
+        .next()
+        .unwrap_or_else(|| std::path::PathBuf::from("normalizers"))
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -168,7 +176,11 @@ pub fn run() {
             match transport::StructuredAgentTransport::new(&dir) {
                 Ok(t) => t,
                 Err(e) => {
-                    log::error!("Failed to load normalizers from {}: {}. Starting with empty registry.", dir.display(), e);
+                    log::error!(
+                        "Failed to load normalizers from {}: {}. Starting with empty registry.",
+                        dir.display(),
+                        e
+                    );
                     transport::StructuredAgentTransport::empty()
                 }
             }
@@ -191,7 +203,7 @@ pub fn run() {
                 .join("analytics");
             let store = std::sync::Arc::new(
                 analytics::store::AnalyticsStore::new(&analytics_dir)
-                    .expect("Failed to init analytics store")
+                    .expect("Failed to init analytics store"),
             );
             std::sync::Arc::new(analytics::collector::AnalyticsCollector::new(store))
         })
@@ -227,7 +239,7 @@ pub fn run() {
         .manage(std::sync::Mutex::new(model_slots::ModelSlotRegistry::new()))
         .manage(commands::file_ops::FileOpsState::new())
         .manage({
-            let bus = event_bus_v2::EventBus::new();
+            let bus = event_bus_v2::EventBus::new(tokio::runtime::Handle::current());
             bus.register_channel("transport:send", true);
             bus.register_channel("transport:complete", true);
             bus.register_channel("transport:error", true);
@@ -252,19 +264,27 @@ pub fn run() {
 
             // Wire SessionHistoryRecorder into event bus
             info!("  ✓ Wiring SessionHistoryRecorder to event bus");
-            let session_mgr: tauri::State<'_, transport::session_manager::SessionManager> = app.state();
+            let session_mgr: tauri::State<'_, transport::session_manager::SessionManager> =
+                app.state();
             let session_recorder = session_mgr.recorder();
-            struct SessionRecorderWrapper(std::sync::Arc<transport::event_bus::SessionHistoryRecorder>);
+            struct SessionRecorderWrapper(
+                std::sync::Arc<transport::event_bus::SessionHistoryRecorder>,
+            );
             impl transport::event_bus::AgentEventSubscriber for SessionRecorderWrapper {
                 fn on_event(&self, session_id: &str, event: &crate::agent_event::AgentEvent) {
                     self.0.on_event(session_id, event);
                 }
             }
-            transport.event_bus().subscribe(Box::new(SessionRecorderWrapper(session_recorder)));
+            transport
+                .event_bus()
+                .subscribe(Box::new(SessionRecorderWrapper(session_recorder)));
 
             // Wire AnalyticsCollector into event bus
             info!("  ✓ Wiring AnalyticsCollector to event bus");
-            let analytics: tauri::State<'_, std::sync::Arc<analytics::collector::AnalyticsCollector>> = app.state();
+            let analytics: tauri::State<
+                '_,
+                std::sync::Arc<analytics::collector::AnalyticsCollector>,
+            > = app.state();
             struct AnalyticsWrapper(std::sync::Arc<analytics::collector::AnalyticsCollector>);
             impl transport::event_bus::AgentEventSubscriber for AnalyticsWrapper {
                 fn on_event(&self, session_id: &str, event: &crate::agent_event::AgentEvent) {
@@ -274,7 +294,9 @@ pub fn run() {
                     self.0.filter()
                 }
             }
-            transport.event_bus().subscribe(Box::new(AnalyticsWrapper(analytics.inner().clone())));
+            transport
+                .event_bus()
+                .subscribe(Box::new(AnalyticsWrapper(analytics.inner().clone())));
 
             // Load capability cache
             let negotiator: tauri::State<'_, capability::CapabilityNegotiator> = app.state();
@@ -288,7 +310,8 @@ pub fn run() {
             let updater: tauri::State<'_, std::sync::Arc<cli_updater::CliUpdater>> = app.state();
             let registry = transport.registry();
             let registry_guard = registry.lock().unwrap_or_else(|e| e.into_inner());
-            let configs: std::collections::HashMap<String, _> = registry_guard.providers()
+            let configs: std::collections::HashMap<String, _> = registry_guard
+                .providers()
                 .into_iter()
                 .filter_map(|p| registry_guard.get_config(&p).map(|c| (p, c.clone())))
                 .collect();
