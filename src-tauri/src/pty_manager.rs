@@ -7,6 +7,8 @@ use std::thread;
 use tauri::{AppHandle, Emitter};
 use uuid::Uuid;
 
+use crate::tracked_map::TrackedMap;
+
 /// Configuration for PTY reconnection with exponential backoff.
 /// Roadmap: used when PTY reconnection is wired from frontend (Phase 2)
 #[allow(dead_code)]
@@ -52,14 +54,16 @@ pub struct PtyInstance {
 }
 
 pub struct PtyManager {
-    instances: Arc<Mutex<HashMap<String, PtyInstance>>>,
-    project_map: Arc<Mutex<HashMap<String, String>>>, // pty_id -> project_id
+    instances: Arc<Mutex<TrackedMap<String, PtyInstance>>>,
+    /// Small, bounded lookup — pty_id → project_id. No lifecycle tracking
+    /// needed: entries are added/removed in lockstep with PTY spawn/kill.
+    project_map: Arc<Mutex<HashMap<String, String>>>,
 }
 
 impl PtyManager {
     pub fn new() -> Self {
         Self {
-            instances: Arc::new(Mutex::new(HashMap::new())),
+            instances: Arc::new(Mutex::new(TrackedMap::new())),
             project_map: Arc::new(Mutex::new(HashMap::new())),
         }
     }
@@ -181,7 +185,7 @@ impl PtyManager {
         self.instances
             .lock()
             .unwrap_or_else(|e| e.into_inner())
-            .insert(id.clone(), instance);
+            .insert(id.clone(), instance, id.clone());
         Ok(id)
     }
 
@@ -204,11 +208,14 @@ impl PtyManager {
             ));
         }
         trace!("PTY write: id={}, bytes={}", id, data.len());
-        let mut instances = self.instances.lock().unwrap_or_else(|e| e.into_inner());
-        let instance = instances.get_mut(id).ok_or_else(|| {
-            error!("PTY write failed: id={} not found", id);
-            crate::error::ReasonanceError::not_found("pty", id)
-        })?;
+        let arc = {
+            let instances = self.instances.lock().unwrap_or_else(|e| e.into_inner());
+            instances.get(id).ok_or_else(|| {
+                error!("PTY write failed: id={} not found", id);
+                crate::error::ReasonanceError::not_found("pty", id)
+            })?
+        };
+        let mut instance = arc.lock().unwrap_or_else(|e| e.into_inner());
         instance.writer.write_all(data.as_bytes()).map_err(|e| {
             error!("PTY write I/O error: id={}, error={}", id, e);
             crate::error::ReasonanceError::io(format!("PTY write id={}", id), e)
@@ -222,10 +229,13 @@ impl PtyManager {
         rows: u16,
     ) -> Result<(), crate::error::ReasonanceError> {
         debug!("PTY resize: id={}, cols={}, rows={}", id, cols, rows);
-        let instances = self.instances.lock().unwrap_or_else(|e| e.into_inner());
-        let instance = instances
-            .get(id)
-            .ok_or_else(|| crate::error::ReasonanceError::not_found("pty", id))?;
+        let arc = {
+            let instances = self.instances.lock().unwrap_or_else(|e| e.into_inner());
+            instances
+                .get(id)
+                .ok_or_else(|| crate::error::ReasonanceError::not_found("pty", id))?
+        };
+        let instance = arc.lock().unwrap_or_else(|e| e.into_inner());
         instance
             .master
             .resize(PtySize {
@@ -245,10 +255,11 @@ impl PtyManager {
     pub fn kill(&self, id: &str) -> Result<(), crate::error::ReasonanceError> {
         info!("PTY kill: id={}", id);
         let mut instances = self.instances.lock().unwrap_or_else(|e| e.into_inner());
-        instances.remove(id).ok_or_else(|| {
+        if !instances.remove(id) {
             error!("PTY kill failed: id={} not found", id);
-            crate::error::ReasonanceError::not_found("pty", id)
-        })?;
+            return Err(crate::error::ReasonanceError::not_found("pty", id));
+        }
+        drop(instances);
         // Clean up project association
         let mut project_map = self.project_map.lock().unwrap_or_else(|e| e.into_inner());
         project_map.remove(id);
@@ -279,7 +290,8 @@ impl PtyManager {
             let instances = self.instances.lock().unwrap_or_else(|e| e.into_inner());
             instances
                 .iter()
-                .filter_map(|(id, inst)| {
+                .filter_map(|(id, arc)| {
+                    let inst = arc.lock().unwrap_or_else(|e| e.into_inner());
                     // Try a no-op resize to check if the master is still alive.
                     // We re-use the current size (24×80 default) — an error means the
                     // process has already exited and the master fd is closed.
@@ -301,7 +313,7 @@ impl PtyManager {
         let mut swept = Vec::new();
         for id in &dead_ids {
             let mut instances = self.instances.lock().unwrap_or_else(|e| e.into_inner());
-            if instances.remove(id).is_some() {
+            if instances.remove(id) {
                 swept.push(id.clone());
             }
             drop(instances);
@@ -339,6 +351,11 @@ impl PtyManager {
         }
         info!("PTY kill_all: killed {} instances", count);
         count
+    }
+
+    /// Access the underlying TrackedMap for sweep_exclusive (used by periodic GC).
+    pub fn instances_map(&self) -> &Arc<Mutex<TrackedMap<String, PtyInstance>>> {
+        &self.instances
     }
 }
 
