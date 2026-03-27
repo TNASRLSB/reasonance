@@ -267,7 +267,8 @@ pub fn run() {
             bus.register_channel("workflow:run-status", true);
             bus.register_channel("workflow:agent-output", true);
             bus.register_channel("workflow:permission-request", true);
-            bus.register_channel("lifecycle:sweep", false);
+            bus.register_channel("lifecycle:sweep", true);
+            bus.register_channel("lifecycle:update-check", true);
             app.manage(bus.clone());
             let transport: tauri::State<'_, transport::StructuredAgentTransport> = app.state();
             let session_mgr: tauri::State<'_, transport::session_manager::SessionManager> =
@@ -313,6 +314,32 @@ pub fn run() {
                 session_writer,
                 analytics: analytics_handler,
                 bridge,
+            });
+
+            // Lifecycle signals: periodic timers bridged to EventBus so the
+            // frontend can listen instead of polling with setInterval.
+            let sweep_signal = signal::Signal::new(());
+            sweep_signal.bridge_to_event_bus(bus.clone(), "lifecycle:sweep");
+            tokio::spawn(async move {
+                let mut interval = tokio::time::interval(std::time::Duration::from_secs(60));
+                interval.tick().await; // skip initial immediate tick
+                loop {
+                    interval.tick().await;
+                    sweep_signal.send(());
+                }
+            });
+
+            let update_signal = signal::Signal::new(());
+            update_signal.bridge_to_event_bus(bus.clone(), "lifecycle:update-check");
+            tokio::spawn(async move {
+                // Initial delay to let the app settle
+                tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+                let mut interval =
+                    tokio::time::interval(std::time::Duration::from_secs(4 * 60 * 60));
+                loop {
+                    interval.tick().await;
+                    update_signal.send(());
+                }
             });
 
             // Pass bus to the transport

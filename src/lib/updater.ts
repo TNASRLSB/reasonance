@@ -1,5 +1,6 @@
 import { check } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
+import { listen } from '@tauri-apps/api/event';
 import { updateState } from '$lib/stores/update';
 import { showToast } from '$lib/stores/toast';
 
@@ -16,7 +17,7 @@ const DEFAULT_SETTINGS: UpdateSettings = {
 };
 
 const CHECK_INTERVAL = 4 * 60 * 60 * 1000; // 4 hours
-let intervalId: ReturnType<typeof setInterval> | null = null;
+let unlisten: (() => void) | null = null;
 let postponedUntil = 0;
 
 export async function getUpdateSettings(): Promise<UpdateSettings> {
@@ -95,27 +96,20 @@ export function postponeUpdate(): void {
   updateState.set({ newVersion: null, downloadProgress: null, updateHandle: null });
 }
 
-export function startUpdateChecker(): void {
-  // Initial check after 5s delay (let the app settle)
-  setTimeout(async () => {
+// The backend fires lifecycle:update-check via EventBus at the right intervals
+// (5s initial delay, then every 4 hours). We listen instead of polling.
+export async function startUpdateChecker(): Promise<void> {
+  unlisten = await listen('lifecycle:update-check', async () => {
     const settings = await getUpdateSettings();
     if (settings.autoUpdate) {
       checkForUpdate();
     }
-  }, 5000);
-
-  // Periodic check
-  intervalId = setInterval(async () => {
-    const settings = await getUpdateSettings();
-    if (settings.autoUpdate) {
-      checkForUpdate();
-    }
-  }, CHECK_INTERVAL);
+  });
 }
 
 export function stopUpdateChecker(): void {
-  if (intervalId) {
-    clearInterval(intervalId);
-    intervalId = null;
+  if (unlisten) {
+    unlisten();
+    unlisten = null;
   }
 }

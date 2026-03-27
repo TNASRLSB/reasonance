@@ -28,19 +28,23 @@
   import type { ViewMode } from '$lib/types/agent-event';
   import { processAgentEvent } from '$lib/stores/agent-events';
   import { appAnnouncer } from '$lib/utils/a11y-announcer';
+  import { listen } from '@tauri-apps/api/event';
   import WorkspaceTrustDialog from './WorkspaceTrustDialog.svelte';
   import { workspaceTrustLevel } from '$lib/stores/workspace-trust';
   import type { TrustLevel, FolderInfo } from '$lib/stores/workspace-trust';
 
   let { adapter, cwd = '.' }: { adapter: Adapter; cwd?: string } = $props();
 
-  // Periodic orphan sweep: ask the backend to remove PTY entries for processes
-  // that have already exited but were never explicitly killed. Runs every 60 s.
+  // Orphan sweep: the backend fires a lifecycle:sweep signal every 60s via
+  // EventBus. We listen for it instead of polling with setInterval.
   onMount(() => {
-    const sweepInterval = setInterval(() => {
+    let unlisten: (() => void) | undefined;
+    listen('lifecycle:sweep', () => {
       adapter.sweepPtys().catch(() => {});
-    }, 60_000);
-    return () => clearInterval(sweepInterval);
+    }).then((fn) => {
+      unlisten = fn;
+    });
+    return () => unlisten?.();
   });
 
   let showLLMDropdown = $state(false);
