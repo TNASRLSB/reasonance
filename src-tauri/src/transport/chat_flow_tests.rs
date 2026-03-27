@@ -16,22 +16,32 @@ mod tests {
     use tokio::process::Command;
 
     /// Helper: create a pipeline for a given provider using real TOML configs.
-    fn make_pipeline(provider: &str) -> Arc<Mutex<crate::normalizer::pipeline::NormalizerPipeline>> {
-        let registry = NormalizerRegistry::load_from_dir(
-            std::path::Path::new("normalizers")
-        ).unwrap();
+    fn make_pipeline(
+        provider: &str,
+    ) -> Arc<Mutex<crate::normalizer::pipeline::NormalizerPipeline>> {
+        let registry =
+            NormalizerRegistry::load_from_dir(std::path::Path::new("normalizers")).unwrap();
         let config = registry.get_config(provider).unwrap();
         let rules = config.to_rules();
-        let state_machine: Box<dyn crate::normalizer::state_machines::StateMachine> = match provider {
-            "claude" => Box::new(crate::normalizer::state_machines::claude::ClaudeStateMachine::new()),
-            "gemini" => Box::new(crate::normalizer::state_machines::gemini::GeminiStateMachine::new()),
+        let state_machine: Box<dyn crate::normalizer::state_machines::StateMachine> = match provider
+        {
+            "claude" => {
+                Box::new(crate::normalizer::state_machines::claude::ClaudeStateMachine::new())
+            }
+            "gemini" => {
+                Box::new(crate::normalizer::state_machines::gemini::GeminiStateMachine::new())
+            }
             "kimi" => Box::new(crate::normalizer::state_machines::kimi::KimiStateMachine::new()),
             "qwen" => Box::new(crate::normalizer::state_machines::qwen::QwenStateMachine::new()),
             "codex" => Box::new(crate::normalizer::state_machines::codex::CodexStateMachine::new()),
             _ => Box::new(crate::normalizer::state_machines::generic::GenericStateMachine::new()),
         };
         Arc::new(Mutex::new(
-            crate::normalizer::pipeline::NormalizerPipeline::new(rules, state_machine, provider.to_string())
+            crate::normalizer::pipeline::NormalizerPipeline::new(
+                rules,
+                state_machine,
+                provider.to_string(),
+            ),
         ))
     }
 
@@ -53,7 +63,8 @@ mod tests {
 
     /// Helper: spawn a shell that echoes JSON lines to stdout.
     async fn spawn_echo(lines: &[&str]) -> tokio::process::ChildStdout {
-        let script = lines.iter()
+        let script = lines
+            .iter()
             .map(|l| format!("printf '%s\\n' '{}'", l.replace('\'', "'\\''")))
             .collect::<Vec<_>>()
             .join("; ");
@@ -74,30 +85,59 @@ mod tests {
         let pipeline = make_pipeline(provider);
         let (bus, recorder) = make_bus();
 
-        let rx = spawn_stream_reader(stdout, pipeline, bus, session_id.to_string(), None, Arc::new(std::sync::Mutex::new(None)), None);
+        let rx = spawn_stream_reader(
+            stdout,
+            pipeline,
+            bus,
+            session_id.to_string(),
+            None,
+            Arc::new(std::sync::Mutex::new(None)),
+            None,
+            None,
+        );
         let result = rx.await.unwrap();
-        assert!(result.error.is_none(), "{}: stream error: {:?}", provider, result.error);
+        assert!(
+            result.error.is_none(),
+            "{}: stream error: {:?}",
+            provider,
+            result.error
+        );
 
         recorder.get_events(session_id)
     }
 
     /// Helper: assert events contain at least one Text event with given substring.
     fn assert_has_text(events: &[AgentEvent], substring: &str, provider: &str) {
-        let text_events: Vec<_> = events.iter()
+        let text_events: Vec<_> = events
+            .iter()
             .filter(|e| e.event_type == AgentEventType::Text)
             .collect();
-        assert!(!text_events.is_empty(), "{}: no text events found. Got: {:?}",
-            provider, events.iter().map(|e| format!("{:?}", e.event_type)).collect::<Vec<_>>());
+        assert!(
+            !text_events.is_empty(),
+            "{}: no text events found. Got: {:?}",
+            provider,
+            events
+                .iter()
+                .map(|e| format!("{:?}", e.event_type))
+                .collect::<Vec<_>>()
+        );
 
-        let has_content = text_events.iter().any(|e| {
-            matches!(&e.content, EventContent::Text { value } if value.contains(substring))
-        });
-        assert!(has_content, "{}: no text event contains '{}'. Text contents: {:?}",
-            provider, substring,
-            text_events.iter().filter_map(|e| match &e.content {
-                EventContent::Text { value } => Some(value.as_str()),
-                _ => None,
-            }).collect::<Vec<_>>());
+        let has_content = text_events.iter().any(
+            |e| matches!(&e.content, EventContent::Text { value } if value.contains(substring)),
+        );
+        assert!(
+            has_content,
+            "{}: no text event contains '{}'. Text contents: {:?}",
+            provider,
+            substring,
+            text_events
+                .iter()
+                .filter_map(|e| match &e.content {
+                    EventContent::Text { value } => Some(value.as_str()),
+                    _ => None,
+                })
+                .collect::<Vec<_>>()
+        );
     }
 
     /// Helper: count events by type.
@@ -119,11 +159,22 @@ mod tests {
         ], "claude-sess").await;
 
         assert_has_text(&events, "Ciao", "claude");
-        assert_eq!(count_type(&events, AgentEventType::Usage), 1, "claude: expected 1 usage event");
-        assert_eq!(count_type(&events, AgentEventType::Done), 1, "claude: expected 1 done event");
+        assert_eq!(
+            count_type(&events, AgentEventType::Usage),
+            1,
+            "claude: expected 1 usage event"
+        );
+        assert_eq!(
+            count_type(&events, AgentEventType::Done),
+            1,
+            "claude: expected 1 done event"
+        );
         assert_eq!(events.last().unwrap().event_type, AgentEventType::Done);
 
-        let usage = events.iter().find(|e| e.event_type == AgentEventType::Usage).unwrap();
+        let usage = events
+            .iter()
+            .find(|e| e.event_type == AgentEventType::Usage)
+            .unwrap();
         assert_eq!(usage.metadata.input_tokens, Some(10));
         assert_eq!(usage.metadata.output_tokens, Some(15));
         assert_eq!(usage.metadata.cache_creation_tokens, Some(500));
@@ -133,22 +184,33 @@ mod tests {
 
     #[tokio::test]
     async fn test_claude_error() {
-        let events = run_session("claude", &[
-            r#"{"type":"error","message":"Rate limit exceeded","code":"rate_limit"}"#,
-        ], "claude-err").await;
+        let events = run_session(
+            "claude",
+            &[r#"{"type":"error","message":"Rate limit exceeded","code":"rate_limit"}"#],
+            "claude-err",
+        )
+        .await;
 
         assert_eq!(count_type(&events, AgentEventType::Error), 1);
-        let err = events.iter().find(|e| e.event_type == AgentEventType::Error).unwrap();
+        let err = events
+            .iter()
+            .find(|e| e.event_type == AgentEventType::Error)
+            .unwrap();
         assert_eq!(err.metadata.error_code, Some("rate_limit".to_string()));
     }
 
     #[tokio::test]
     async fn test_claude_system_events_ignored() {
-        let events = run_session("claude", &[
-            r#"{"type":"system","subtype":"init","cwd":"/tmp","session_id":"s1"}"#,
-            r#"{"type":"system","subtype":"hook_started","hook_id":"h1"}"#,
-            r#"{"type":"system","subtype":"hook_response","hook_id":"h1","output":"ok"}"#,
-        ], "claude-sys").await;
+        let events = run_session(
+            "claude",
+            &[
+                r#"{"type":"system","subtype":"init","cwd":"/tmp","session_id":"s1"}"#,
+                r#"{"type":"system","subtype":"hook_started","hook_id":"h1"}"#,
+                r#"{"type":"system","subtype":"hook_response","hook_id":"h1","output":"ok"}"#,
+            ],
+            "claude-sys",
+        )
+        .await;
 
         // Only the synthetic Done from stream close
         assert_eq!(events.len(), 1);
@@ -167,10 +229,20 @@ mod tests {
         ], "gemini-sess").await;
 
         assert_has_text(&events, "Ciao", "gemini");
-        assert_eq!(count_type(&events, AgentEventType::Usage), 1, "gemini: expected 1 usage");
-        assert!(count_type(&events, AgentEventType::Done) >= 1, "gemini: expected done");
+        assert_eq!(
+            count_type(&events, AgentEventType::Usage),
+            1,
+            "gemini: expected 1 usage"
+        );
+        assert!(
+            count_type(&events, AgentEventType::Done) >= 1,
+            "gemini: expected done"
+        );
 
-        let usage = events.iter().find(|e| e.event_type == AgentEventType::Usage).unwrap();
+        let usage = events
+            .iter()
+            .find(|e| e.event_type == AgentEventType::Usage)
+            .unwrap();
         assert_eq!(usage.metadata.input_tokens, Some(8));
         assert_eq!(usage.metadata.output_tokens, Some(12));
         assert_eq!(usage.metadata.cache_read_tokens, Some(100));
@@ -186,31 +258,58 @@ mod tests {
             r#"{"type":"RESULT","usage":{"input_tokens":20,"output_tokens":10}}"#,
         ], "gemini-tool").await;
 
-        assert!(count_type(&events, AgentEventType::ToolUse) >= 1, "gemini: expected tool_use");
-        assert!(count_type(&events, AgentEventType::ToolResult) >= 1, "gemini: expected tool_result");
+        assert!(
+            count_type(&events, AgentEventType::ToolUse) >= 1,
+            "gemini: expected tool_use"
+        );
+        assert!(
+            count_type(&events, AgentEventType::ToolResult) >= 1,
+            "gemini: expected tool_result"
+        );
         assert_has_text(&events, "read the file", "gemini");
     }
 
     #[tokio::test]
     async fn test_gemini_error_resource_exhausted() {
-        let events = run_session("gemini", &[
-            r#"{"type":"ERROR","code":"RESOURCE_EXHAUSTED","message":"Quota exceeded"}"#,
-        ], "gemini-err").await;
+        let events = run_session(
+            "gemini",
+            &[r#"{"type":"ERROR","code":"RESOURCE_EXHAUSTED","message":"Quota exceeded"}"#],
+            "gemini-err",
+        )
+        .await;
 
-        let err = events.iter().find(|e| e.event_type == AgentEventType::Error).unwrap();
-        assert_eq!(err.metadata.error_code, Some("RESOURCE_EXHAUSTED".to_string()));
+        let err = events
+            .iter()
+            .find(|e| e.event_type == AgentEventType::Error)
+            .unwrap();
+        assert_eq!(
+            err.metadata.error_code,
+            Some("RESOURCE_EXHAUSTED".to_string())
+        );
         // resource_exhausted is configured as recoverable severity
-        assert_eq!(err.metadata.error_severity, Some(crate::agent_event::ErrorSeverity::Recoverable));
+        assert_eq!(
+            err.metadata.error_severity,
+            Some(crate::agent_event::ErrorSeverity::Recoverable)
+        );
     }
 
     #[tokio::test]
     async fn test_gemini_error_generic_is_fatal() {
-        let events = run_session("gemini", &[
-            r#"{"type":"ERROR","code":"UNKNOWN","message":"Something broke"}"#,
-        ], "gemini-fatal").await;
+        let events = run_session(
+            "gemini",
+            &[r#"{"type":"ERROR","code":"UNKNOWN","message":"Something broke"}"#],
+            "gemini-fatal",
+        )
+        .await;
 
-        let err = events.iter().find(|e| e.event_type == AgentEventType::Error).unwrap();
-        assert_eq!(err.metadata.error_severity, Some(crate::agent_event::ErrorSeverity::Fatal));
+        let err = events
+            .iter()
+            .find(|e| e.event_type == AgentEventType::Error)
+            .unwrap();
+        assert_eq!(
+            err.metadata.error_severity,
+            Some(crate::agent_event::ErrorSeverity::Fatal)
+        );
     }
 
     // ════════════════════════════════════════════════════════════
@@ -226,11 +325,21 @@ mod tests {
         ], "kimi-sess").await;
 
         assert_has_text(&events, "Ciao da Kimi", "kimi");
-        assert_eq!(count_type(&events, AgentEventType::Usage), 1, "kimi: expected 1 usage");
+        assert_eq!(
+            count_type(&events, AgentEventType::Usage),
+            1,
+            "kimi: expected 1 usage"
+        );
         // Both explicit done (message_stop) and synthetic done (stream close)
-        assert!(count_type(&events, AgentEventType::Done) >= 1, "kimi: expected done");
+        assert!(
+            count_type(&events, AgentEventType::Done) >= 1,
+            "kimi: expected done"
+        );
 
-        let usage = events.iter().find(|e| e.event_type == AgentEventType::Usage).unwrap();
+        let usage = events
+            .iter()
+            .find(|e| e.event_type == AgentEventType::Usage)
+            .unwrap();
         assert_eq!(usage.metadata.input_tokens, Some(6));
         assert_eq!(usage.metadata.output_tokens, Some(8));
     }
@@ -243,7 +352,10 @@ mod tests {
             r#"{"type":"message_stop"}"#,
         ], "kimi-think").await;
 
-        assert!(count_type(&events, AgentEventType::Thinking) >= 1, "kimi: expected thinking event");
+        assert!(
+            count_type(&events, AgentEventType::Thinking) >= 1,
+            "kimi: expected thinking event"
+        );
         assert_has_text(&events, "answer is 4", "kimi");
     }
 
@@ -257,20 +369,35 @@ mod tests {
             r#"{"type":"message_stop"}"#,
         ], "kimi-tool").await;
 
-        assert!(count_type(&events, AgentEventType::ToolUse) >= 1, "kimi: expected tool_use");
-        let tool = events.iter().find(|e| e.event_type == AgentEventType::ToolUse).unwrap();
+        assert!(
+            count_type(&events, AgentEventType::ToolUse) >= 1,
+            "kimi: expected tool_use"
+        );
+        let tool = events
+            .iter()
+            .find(|e| e.event_type == AgentEventType::ToolUse)
+            .unwrap();
         assert_eq!(tool.metadata.tool_name, Some("bash".to_string()));
     }
 
     #[tokio::test]
     async fn test_kimi_error_overloaded() {
-        let events = run_session("kimi", &[
-            r#"{"type":"error","error":{"type":"overloaded","message":"Server busy"}}"#,
-        ], "kimi-err").await;
+        let events = run_session(
+            "kimi",
+            &[r#"{"type":"error","error":{"type":"overloaded","message":"Server busy"}}"#],
+            "kimi-err",
+        )
+        .await;
 
-        let err = events.iter().find(|e| e.event_type == AgentEventType::Error).unwrap();
+        let err = events
+            .iter()
+            .find(|e| e.event_type == AgentEventType::Error)
+            .unwrap();
         assert_eq!(err.metadata.error_code, Some("overloaded".to_string()));
-        assert_eq!(err.metadata.error_severity, Some(crate::agent_event::ErrorSeverity::Recoverable));
+        assert_eq!(
+            err.metadata.error_severity,
+            Some(crate::agent_event::ErrorSeverity::Recoverable)
+        );
     }
 
     #[tokio::test]
@@ -280,7 +407,10 @@ mod tests {
             r#"{"type":"message_stop"}"#,
         ], "kimi-ctx").await;
 
-        let metrics: Vec<_> = events.iter().filter(|e| e.event_type == AgentEventType::Metrics).collect();
+        let metrics: Vec<_> = events
+            .iter()
+            .filter(|e| e.event_type == AgentEventType::Metrics)
+            .collect();
         assert_eq!(metrics.len(), 1, "kimi: expected 1 metrics event");
         assert_eq!(metrics[0].metadata.context_usage, Some(0.75));
         assert_eq!(metrics[0].metadata.context_tokens, Some(96000));
@@ -300,11 +430,21 @@ mod tests {
         ], "codex-sess").await;
 
         assert_has_text(&events, "Ciao da Codex", "codex");
-        assert_eq!(count_type(&events, AgentEventType::Usage), 1, "codex: expected 1 usage");
+        assert_eq!(
+            count_type(&events, AgentEventType::Usage),
+            1,
+            "codex: expected 1 usage"
+        );
         // Explicit done (TurnCompleted) + synthetic done (stream close)
-        assert!(count_type(&events, AgentEventType::Done) >= 1, "codex: expected done");
+        assert!(
+            count_type(&events, AgentEventType::Done) >= 1,
+            "codex: expected done"
+        );
 
-        let usage = events.iter().find(|e| e.event_type == AgentEventType::Usage).unwrap();
+        let usage = events
+            .iter()
+            .find(|e| e.event_type == AgentEventType::Usage)
+            .unwrap();
         assert_eq!(usage.metadata.input_tokens, Some(12));
         assert_eq!(usage.metadata.output_tokens, Some(20));
         assert_eq!(usage.metadata.cache_read_tokens, Some(50));
@@ -318,7 +458,10 @@ mod tests {
             r#"{"method":"TurnCompletedNotification","params":{}}"#,
         ], "codex-reason").await;
 
-        assert!(count_type(&events, AgentEventType::Thinking) >= 1, "codex: expected thinking");
+        assert!(
+            count_type(&events, AgentEventType::Thinking) >= 1,
+            "codex: expected thinking"
+        );
         assert_has_text(&events, "answer is 42", "codex");
     }
 
@@ -330,8 +473,14 @@ mod tests {
             r#"{"method":"TurnCompletedNotification","params":{}}"#,
         ], "codex-cmd").await;
 
-        let tools: Vec<_> = events.iter().filter(|e| e.event_type == AgentEventType::ToolUse).collect();
-        assert!(!tools.is_empty(), "codex: expected tool_use for command execution");
+        let tools: Vec<_> = events
+            .iter()
+            .filter(|e| e.event_type == AgentEventType::ToolUse)
+            .collect();
+        assert!(
+            !tools.is_empty(),
+            "codex: expected tool_use for command execution"
+        );
         assert_eq!(tools[0].metadata.tool_name, Some("ls -la".to_string()));
     }
 
@@ -341,9 +490,15 @@ mod tests {
             r#"{"method":"ErrorNotification","params":{"message":"Too many requests","code":"rate_limit"}}"#,
         ], "codex-err").await;
 
-        let err = events.iter().find(|e| e.event_type == AgentEventType::Error).unwrap();
+        let err = events
+            .iter()
+            .find(|e| e.event_type == AgentEventType::Error)
+            .unwrap();
         assert_eq!(err.metadata.error_code, Some("rate_limit".to_string()));
-        assert_eq!(err.metadata.error_severity, Some(crate::agent_event::ErrorSeverity::Recoverable));
+        assert_eq!(
+            err.metadata.error_severity,
+            Some(crate::agent_event::ErrorSeverity::Recoverable)
+        );
     }
 
     #[tokio::test]
@@ -352,8 +507,14 @@ mod tests {
             r#"{"method":"ErrorNotification","params":{"message":"Unknown error","code":"unknown"}}"#,
         ], "codex-fatal").await;
 
-        let err = events.iter().find(|e| e.event_type == AgentEventType::Error).unwrap();
-        assert_eq!(err.metadata.error_severity, Some(crate::agent_event::ErrorSeverity::Fatal));
+        let err = events
+            .iter()
+            .find(|e| e.event_type == AgentEventType::Error)
+            .unwrap();
+        assert_eq!(
+            err.metadata.error_severity,
+            Some(crate::agent_event::ErrorSeverity::Fatal)
+        );
     }
 
     // ════════════════════════════════════════════════════════════
@@ -368,9 +529,16 @@ mod tests {
         ], "qwen-stream").await;
 
         assert_has_text(&events, "Ciao da Qwen", "qwen");
-        assert_eq!(count_type(&events, AgentEventType::Usage), 1, "qwen: expected 1 usage");
+        assert_eq!(
+            count_type(&events, AgentEventType::Usage),
+            1,
+            "qwen: expected 1 usage"
+        );
 
-        let usage = events.iter().find(|e| e.event_type == AgentEventType::Usage).unwrap();
+        let usage = events
+            .iter()
+            .find(|e| e.event_type == AgentEventType::Usage)
+            .unwrap();
         assert_eq!(usage.metadata.input_tokens, Some(7));
         assert_eq!(usage.metadata.output_tokens, Some(9));
         assert_eq!(usage.metadata.duration_ms, Some(2000));
@@ -386,7 +554,11 @@ mod tests {
         ], "qwen-fallback").await;
 
         assert_has_text(&events, "Fallback response", "qwen");
-        assert_eq!(count_type(&events, AgentEventType::Usage), 1, "qwen: expected usage from result");
+        assert_eq!(
+            count_type(&events, AgentEventType::Usage),
+            1,
+            "qwen: expected usage from result"
+        );
     }
 
     #[tokio::test]
@@ -399,19 +571,31 @@ mod tests {
             r#"{"type":"result","usage":{"input_tokens":15,"output_tokens":8}}"#,
         ], "qwen-tool").await;
 
-        assert!(count_type(&events, AgentEventType::ToolUse) >= 1, "qwen: expected tool_use");
+        assert!(
+            count_type(&events, AgentEventType::ToolUse) >= 1,
+            "qwen: expected tool_use"
+        );
         assert_has_text(&events, "File written", "qwen");
     }
 
     #[tokio::test]
     async fn test_qwen_error_overloaded() {
-        let events = run_session("qwen", &[
-            r#"{"type":"error","error":{"type":"overloaded","message":"Server overloaded"}}"#,
-        ], "qwen-err").await;
+        let events = run_session(
+            "qwen",
+            &[r#"{"type":"error","error":{"type":"overloaded","message":"Server overloaded"}}"#],
+            "qwen-err",
+        )
+        .await;
 
-        let err = events.iter().find(|e| e.event_type == AgentEventType::Error).unwrap();
+        let err = events
+            .iter()
+            .find(|e| e.event_type == AgentEventType::Error)
+            .unwrap();
         assert_eq!(err.metadata.error_code, Some("overloaded".to_string()));
-        assert_eq!(err.metadata.error_severity, Some(crate::agent_event::ErrorSeverity::Recoverable));
+        assert_eq!(
+            err.metadata.error_severity,
+            Some(crate::agent_event::ErrorSeverity::Recoverable)
+        );
     }
 
     // ════════════════════════════════════════════════════════════
@@ -423,25 +607,50 @@ mod tests {
         // Codex accumulates text deltas and only flushes on a non-delta event
         // (like TurnCompleted), so it needs two lines.
         let provider_lines: Vec<(&str, Vec<&str>)> = vec![
-            ("claude", vec![r#"{"type":"assistant","message":{"id":"m1","model":"x","content":[{"type":"text","text":"hi"}]}}"#]),
-            ("gemini", vec![r#"{"type":"MESSAGE","content":[{"text":"hi"}]}"#]),
-            ("kimi", vec![r#"{"type":"content_block_delta","delta":{"type":"text_delta","text":"hi"}}"#]),
-            ("codex", vec![
-                r#"{"method":"AgentMessageDeltaNotification","params":{"delta":"hi"}}"#,
-                r#"{"method":"TurnCompletedNotification","params":{}}"#,
-            ]),
-            ("qwen", vec![r#"{"type":"content_block_delta","delta":{"type":"text_delta","text":"hi"}}"#]),
+            (
+                "claude",
+                vec![
+                    r#"{"type":"assistant","message":{"id":"m1","model":"x","content":[{"type":"text","text":"hi"}]}}"#,
+                ],
+            ),
+            (
+                "gemini",
+                vec![r#"{"type":"MESSAGE","content":[{"text":"hi"}]}"#],
+            ),
+            (
+                "kimi",
+                vec![r#"{"type":"content_block_delta","delta":{"type":"text_delta","text":"hi"}}"#],
+            ),
+            (
+                "codex",
+                vec![
+                    r#"{"method":"AgentMessageDeltaNotification","params":{"delta":"hi"}}"#,
+                    r#"{"method":"TurnCompletedNotification","params":{}}"#,
+                ],
+            ),
+            (
+                "qwen",
+                vec![r#"{"type":"content_block_delta","delta":{"type":"text_delta","text":"hi"}}"#],
+            ),
         ];
 
         for (provider, lines) in &provider_lines {
             let events = run_session(provider, lines, &format!("{}-meta", provider)).await;
-            let text_events: Vec<_> = events.iter()
+            let text_events: Vec<_> = events
+                .iter()
                 .filter(|e| e.event_type == AgentEventType::Text)
                 .collect();
 
-            assert!(!text_events.is_empty(), "{}: should produce text event", provider);
-            assert_eq!(text_events[0].metadata.provider, *provider,
-                "{}: provider metadata should be '{}'", provider, provider);
+            assert!(
+                !text_events.is_empty(),
+                "{}: should produce text event",
+                provider
+            );
+            assert_eq!(
+                text_events[0].metadata.provider, *provider,
+                "{}: provider metadata should be '{}'",
+                provider, provider
+            );
         }
     }
 
@@ -449,26 +658,39 @@ mod tests {
     async fn test_all_providers_emit_done_on_stream_close() {
         for provider in &["claude", "gemini", "kimi", "codex", "qwen"] {
             // Empty stream — only synthetic done
-            let events = run_session(provider, &[
-                r#"{"type":"ping"}"#, // no rule matches this for any provider
-            ], &format!("{}-done", provider)).await;
+            let events = run_session(
+                provider,
+                &[
+                    r#"{"type":"ping"}"#, // no rule matches this for any provider
+                ],
+                &format!("{}-done", provider),
+            )
+            .await;
 
-            assert!(count_type(&events, AgentEventType::Done) >= 1,
-                "{}: should emit synthetic Done on stream close", provider);
+            assert!(
+                count_type(&events, AgentEventType::Done) >= 1,
+                "{}: should emit synthetic Done on stream close",
+                provider
+            );
         }
     }
 
     #[tokio::test]
     async fn test_all_providers_handle_invalid_json() {
         for provider in &["claude", "gemini", "kimi", "codex", "qwen"] {
-            let events = run_session(provider, &[
-                "not json",
-                "{broken",
-            ], &format!("{}-invalid", provider)).await;
+            let events = run_session(
+                provider,
+                &["not json", "{broken"],
+                &format!("{}-invalid", provider),
+            )
+            .await;
 
             // Should not crash — only synthetic done
-            assert!(count_type(&events, AgentEventType::Done) >= 1,
-                "{}: should survive invalid JSON", provider);
+            assert!(
+                count_type(&events, AgentEventType::Done) >= 1,
+                "{}: should survive invalid JSON",
+                provider
+            );
         }
     }
 
@@ -480,15 +702,32 @@ mod tests {
         let stdout1 = spawn_echo(&[
             r#"{"type":"assistant","message":{"id":"m1","model":"x","content":[{"type":"text","text":"from claude"}]}}"#,
         ]).await;
-        let stdout2 = spawn_echo(&[
-            r#"{"type":"MESSAGE","content":[{"text":"from gemini"}]}"#,
-        ]).await;
+        let stdout2 =
+            spawn_echo(&[r#"{"type":"MESSAGE","content":[{"text":"from gemini"}]}"#]).await;
 
         let pipeline1 = make_pipeline("claude");
         let pipeline2 = make_pipeline("gemini");
 
-        let rx1 = spawn_stream_reader(stdout1, pipeline1, bus.clone(), "sid-claude".to_string(), None, Arc::new(std::sync::Mutex::new(None)), None);
-        let rx2 = spawn_stream_reader(stdout2, pipeline2, bus.clone(), "sid-gemini".to_string(), None, Arc::new(std::sync::Mutex::new(None)), None);
+        let rx1 = spawn_stream_reader(
+            stdout1,
+            pipeline1,
+            bus.clone(),
+            "sid-claude".to_string(),
+            None,
+            Arc::new(std::sync::Mutex::new(None)),
+            None,
+            None,
+        );
+        let rx2 = spawn_stream_reader(
+            stdout2,
+            pipeline2,
+            bus.clone(),
+            "sid-gemini".to_string(),
+            None,
+            Arc::new(std::sync::Mutex::new(None)),
+            None,
+            None,
+        );
 
         rx1.await.unwrap();
         rx2.await.unwrap();
@@ -500,9 +739,16 @@ mod tests {
         assert_has_text(&gemini_events, "from gemini", "gemini");
 
         // No cross-contamination
-        let claude_text: String = claude_events.iter().filter_map(|e| match &e.content {
-            EventContent::Text { value } => Some(value.clone()), _ => None
-        }).collect();
-        assert!(!claude_text.contains("gemini"), "claude session should not contain gemini text");
+        let claude_text: String = claude_events
+            .iter()
+            .filter_map(|e| match &e.content {
+                EventContent::Text { value } => Some(value.clone()),
+                _ => None,
+            })
+            .collect();
+        assert!(
+            !claude_text.contains("gemini"),
+            "claude session should not contain gemini text"
+        );
     }
 }

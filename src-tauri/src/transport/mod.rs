@@ -1,18 +1,18 @@
+pub mod event_bus;
 pub mod request;
 pub mod retry;
-pub mod event_bus;
 pub mod session;
-pub mod stream_reader;
 pub mod session_handle;
-pub mod session_store;
 pub mod session_manager;
+pub mod session_store;
+pub mod stream_reader;
 
 use crate::agent_event::{AgentEvent, ErrorSeverity};
 use crate::circuit_breaker::CircuitBreaker;
 use crate::normalizer::NormalizerRegistry;
 use event_bus::{AgentEventBus, AgentEventSubscriber, HistoryRecorder};
 #[allow(unused_imports)]
-use log::{info, warn, error, debug, trace};
+use log::{debug, error, info, trace, warn};
 use request::{AgentRequest, CliMode, SessionStatus};
 use retry::RetryPolicy;
 use session::AgentSession;
@@ -20,9 +20,9 @@ use stream_reader::spawn_stream_reader;
 
 use std::collections::HashMap;
 use std::path::Path;
+use std::process::Stdio;
 use std::sync::{Arc, Mutex};
 use tokio::process::Command;
-use std::process::Stdio;
 
 pub struct StructuredAgentTransport {
     registry: Arc<Mutex<NormalizerRegistry>>,
@@ -34,6 +34,11 @@ pub struct StructuredAgentTransport {
     retry_policies: Arc<Mutex<HashMap<String, RetryPolicy>>>,
     /// Circuit breaker for transport-level fault isolation per provider.
     circuit_breaker: Arc<CircuitBreaker>,
+    /// New EventBus v2 for dual-bus coexistence during migration.
+    /// `None` in tests and when the v2 bus hasn't been wired yet.
+    /// Uses `Mutex` for interior mutability so `set_event_bus_v2` can be
+    /// called through `&self` (Tauri `State` only provides shared refs).
+    event_bus_v2: Mutex<Option<Arc<crate::event_bus_v2::EventBus>>>,
 }
 
 impl StructuredAgentTransport {
@@ -59,18 +64,25 @@ impl StructuredAgentTransport {
             history,
             retry_policies: Arc::new(Mutex::new(HashMap::new())),
             circuit_breaker: Arc::new(CircuitBreaker::new()),
+            event_bus_v2: Mutex::new(None),
         }
     }
 
     pub fn new(normalizers_dir: &Path) -> Result<Self, crate::error::ReasonanceError> {
-        info!("StructuredAgentTransport: initializing from {}", normalizers_dir.display());
+        info!(
+            "StructuredAgentTransport: initializing from {}",
+            normalizers_dir.display()
+        );
         let registry = NormalizerRegistry::load_from_dir(normalizers_dir)
             .map_err(crate::error::ReasonanceError::config)?;
 
         let mut retry_policies = HashMap::new();
         for provider in registry.providers() {
             if let Some(config) = registry.get_config(&provider) {
-                debug!("StructuredAgentTransport: loaded retry policy for provider={}", provider);
+                debug!(
+                    "StructuredAgentTransport: loaded retry policy for provider={}",
+                    provider
+                );
                 retry_policies.insert(provider, RetryPolicy::from_toml_config(config));
             }
         }
@@ -88,7 +100,10 @@ impl StructuredAgentTransport {
 
         let circuit_breaker = Arc::new(CircuitBreaker::new());
 
-        info!("StructuredAgentTransport: initialized with {} providers", registry.providers().len());
+        info!(
+            "StructuredAgentTransport: initialized with {} providers",
+            registry.providers().len()
+        );
         Ok(Self {
             registry: Arc::new(Mutex::new(registry)),
             sessions: Arc::new(Mutex::new(HashMap::new())),
@@ -96,22 +111,40 @@ impl StructuredAgentTransport {
             history,
             retry_policies: Arc::new(Mutex::new(retry_policies)),
             circuit_breaker,
+            event_bus_v2: Mutex::new(None),
         })
     }
 
-    pub fn send(&self, request: AgentRequest, trust_store: &crate::workspace_trust::TrustStore) -> Result<String, crate::error::ReasonanceError> {
+    pub fn send(
+        &self,
+        request: AgentRequest,
+        trust_store: &crate::workspace_trust::TrustStore,
+    ) -> Result<String, crate::error::ReasonanceError> {
         let provider = request.provider.to_lowercase();
-        info!("Transport: send request provider={} model={:?} session_id={:?} yolo={} cwd={:?}", provider, request.model, request.session_id, request.yolo, request.cwd);
+        info!(
+            "Transport: send request provider={} model={:?} session_id={:?} yolo={} cwd={:?}",
+            provider, request.model, request.session_id, request.yolo, request.cwd
+        );
 
         // Backend safety net: query trust from the store, not from frontend-supplied value
-        let trust = request.cwd.as_deref().map(|cwd| {
-            trust_store.check_trust(cwd)
-        });
+        let trust = request
+            .cwd
+            .as_deref()
+            .map(|cwd| trust_store.check_trust(cwd));
         let trust_level = trust.as_ref().and_then(|r| r.level);
-        info!("Transport: trust_level={:?} yolo={}", trust_level, request.yolo);
+        info!(
+            "Transport: trust_level={:?} yolo={}",
+            trust_level, request.yolo
+        );
 
-        if matches!(trust_level, Some(crate::workspace_trust::TrustLevel::Blocked)) {
-            warn!("Transport: send blocked — workspace is not trusted cwd={:?}", request.cwd);
+        if matches!(
+            trust_level,
+            Some(crate::workspace_trust::TrustLevel::Blocked)
+        ) {
+            warn!(
+                "Transport: send blocked — workspace is not trusted cwd={:?}",
+                request.cwd
+            );
             return Err(crate::error::ReasonanceError::Security {
                 message: "Workspace is not trusted".to_string(),
                 code: crate::error::SecurityErrorCode::BlockedWorkspace,
@@ -119,7 +152,10 @@ impl StructuredAgentTransport {
         }
         // When yolo=true, skip the trust gate — user has explicitly opted into full permissions
         if !request.yolo && trust_level.is_none() && request.cwd.is_some() {
-            warn!("Transport: send blocked — workspace trust not established cwd={:?}", request.cwd);
+            warn!(
+                "Transport: send blocked — workspace trust not established cwd={:?}",
+                request.cwd
+            );
             return Err(crate::error::ReasonanceError::Security {
                 message: "Workspace trust has not been established".to_string(),
                 code: crate::error::SecurityErrorCode::UnauthorizedAccess,
@@ -133,20 +169,25 @@ impl StructuredAgentTransport {
 
         if !registry.has_provider(&provider) {
             warn!("Transport: unknown provider={}", provider);
-            return Err(crate::error::ReasonanceError::not_found("provider", &provider));
+            return Err(crate::error::ReasonanceError::not_found(
+                "provider", &provider,
+            ));
         }
 
         // Circuit breaker gate: reject early if provider circuit is open
         let circuit_id = format!("transport:{}", provider);
         self.circuit_breaker.check(&circuit_id)?;
 
-        let config = registry.get_config(&provider)
-            .ok_or_else(|| crate::error::ReasonanceError::not_found("provider config", &provider))?;
+        let config = registry.get_config(&provider).ok_or_else(|| {
+            crate::error::ReasonanceError::not_found("provider config", &provider)
+        })?;
 
         let binary = config.cli.binary.clone();
 
         // Determine session ID
-        let session_id = request.session_id.clone()
+        let session_id = request
+            .session_id
+            .clone()
             .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
 
         // Build CLI args and pipeline config while holding only the registry lock
@@ -155,9 +196,17 @@ impl StructuredAgentTransport {
         // needing the config reference (which is tied to the registry lock).
         let resume_args_template = config.cli.resume_args.clone();
         let args_for_new_session = Self::build_cli_args(config, &request, None);
-        let permission_args = Self::build_permission_args_with_trust(config, request.cwd.as_deref(), request.yolo, trust_level);
+        let permission_args = Self::build_permission_args_with_trust(
+            config,
+            request.cwd.as_deref(),
+            request.yolo,
+            trust_level,
+        );
         info!("Transport: permission_args={:?}", permission_args);
-        let allowed_tools_args = if matches!(trust_level, Some(crate::workspace_trust::TrustLevel::ReadOnly)) {
+        let allowed_tools_args = if matches!(
+            trust_level,
+            Some(crate::workspace_trust::TrustLevel::ReadOnly)
+        ) {
             Self::build_read_only_tools_args(config)
         } else {
             Self::build_allowed_tools_args(config, &request.allowed_tools)
@@ -166,16 +215,26 @@ impl StructuredAgentTransport {
         let session_id_path = config.session_id_path().map(|s| s.to_string());
         drop(registry);
 
-        let state_machine: Box<dyn crate::normalizer::state_machines::StateMachine> = match provider.as_str() {
-            "claude" => Box::new(crate::normalizer::state_machines::claude::ClaudeStateMachine::new()),
-            "gemini" => Box::new(crate::normalizer::state_machines::gemini::GeminiStateMachine::new()),
+        let state_machine: Box<dyn crate::normalizer::state_machines::StateMachine> = match provider
+            .as_str()
+        {
+            "claude" => {
+                Box::new(crate::normalizer::state_machines::claude::ClaudeStateMachine::new())
+            }
+            "gemini" => {
+                Box::new(crate::normalizer::state_machines::gemini::GeminiStateMachine::new())
+            }
             "kimi" => Box::new(crate::normalizer::state_machines::kimi::KimiStateMachine::new()),
             "qwen" => Box::new(crate::normalizer::state_machines::qwen::QwenStateMachine::new()),
             "codex" => Box::new(crate::normalizer::state_machines::codex::CodexStateMachine::new()),
             _ => Box::new(crate::normalizer::state_machines::generic::GenericStateMachine::new()),
         };
         let pipeline = Arc::new(Mutex::new(
-            crate::normalizer::pipeline::NormalizerPipeline::new(rules, state_machine, provider.clone())
+            crate::normalizer::pipeline::NormalizerPipeline::new(
+                rules,
+                state_machine,
+                provider.clone(),
+            ),
         ));
 
         // Atomic check-and-activate: single lock scope eliminates TOCTOU window.
@@ -191,9 +250,15 @@ impl StructuredAgentTransport {
                     if let Some(handle) = existing.abort_handle.take() {
                         handle.abort();
                     }
-                    warn!("Transport: force-stopped stale active session={} to allow new message", session_id);
+                    warn!(
+                        "Transport: force-stopped stale active session={} to allow new message",
+                        session_id
+                    );
                 }
-                debug!("Transport: reusing session={} cli_session_id={:?}", session_id, existing.cli_session_id);
+                debug!(
+                    "Transport: reusing session={} cli_session_id={:?}",
+                    session_id, existing.cli_session_id
+                );
                 let cli_session_id = existing.cli_session_id.clone();
                 // Set to Active immediately — while we still hold the lock
                 existing.set_status(SessionStatus::Active);
@@ -202,11 +267,14 @@ impl StructuredAgentTransport {
                 // Build args using pre-captured resume template if CLI session ID exists,
                 // otherwise use the pre-built new-session args (programmatic_args).
                 if let Some(ref cli_sid) = cli_session_id {
-                    resume_args_template.iter().map(|arg| {
-                        arg.replace("{prompt}", &request.prompt)
-                            .replace("{session_id}", cli_sid)
-                            .replace("{model}", request.model.as_deref().unwrap_or(""))
-                    }).collect()
+                    resume_args_template
+                        .iter()
+                        .map(|arg| {
+                            arg.replace("{prompt}", &request.prompt)
+                                .replace("{session_id}", cli_sid)
+                                .replace("{model}", request.model.as_deref().unwrap_or(""))
+                        })
+                        .collect()
                 } else {
                     args_for_new_session
                 }
@@ -224,7 +292,10 @@ impl StructuredAgentTransport {
 
         // Get retry policy for this provider (if configured)
         let retry_policy = {
-            let policies = self.retry_policies.lock().unwrap_or_else(|e| e.into_inner());
+            let policies = self
+                .retry_policies
+                .lock()
+                .unwrap_or_else(|e| e.into_inner());
             policies.get(&provider).cloned()
         };
 
@@ -262,7 +333,9 @@ impl StructuredAgentTransport {
                     // Check if we should retry this spawn failure.
                     // Map error::ErrorSeverity to agent_event::ErrorSeverity for the retry policy.
                     let agent_severity = match spawn_err.severity() {
-                        crate::error::ErrorSeverity::Recoverable => Some(ErrorSeverity::Recoverable),
+                        crate::error::ErrorSeverity::Recoverable => {
+                            Some(ErrorSeverity::Recoverable)
+                        }
                         crate::error::ErrorSeverity::Degraded => Some(ErrorSeverity::Degraded),
                         crate::error::ErrorSeverity::Fatal => Some(ErrorSeverity::Fatal),
                     };
@@ -286,23 +359,32 @@ impl StructuredAgentTransport {
                         continue;
                     }
 
-                    error!("Transport: failed to spawn {} (no retry): {}", binary, spawn_err);
+                    error!(
+                        "Transport: failed to spawn {} (no retry): {}",
+                        binary, spawn_err
+                    );
                     // Record failure in circuit breaker
                     self.circuit_breaker.record_failure(&circuit_id, &spawn_err);
                     // Restore session status since we set it to Active but spawn failed
                     let mut sessions = self.sessions.lock().unwrap_or_else(|e| e.into_inner());
                     if let Some(sess) = sessions.get_mut(&session_id) {
-                        sess.set_status(SessionStatus::Error { severity: ErrorSeverity::Fatal });
+                        sess.set_status(SessionStatus::Error {
+                            severity: ErrorSeverity::Fatal,
+                        });
                     }
                     return Err(spawn_err);
                 }
             }
         };
-        let stdout = child.stdout.take().ok_or_else(|| crate::error::ReasonanceError::Transport {
-            provider: provider.clone(),
-            message: "Failed to capture stdout".to_string(),
-            retryable: false,
-        })?;
+        let stdout =
+            child
+                .stdout
+                .take()
+                .ok_or_else(|| crate::error::ReasonanceError::Transport {
+                    provider: provider.clone(),
+                    message: "Failed to capture stdout".to_string(),
+                    retryable: false,
+                })?;
 
         // Capture stderr and emit as warning events
         if let Some(stderr) = child.stderr.take() {
@@ -337,19 +419,40 @@ impl StructuredAgentTransport {
 
         let cli_session_id_ref = Arc::new(Mutex::new(None::<String>));
         let cli_sid_for_reader = cli_session_id_ref.clone();
-        let rx = spawn_stream_reader(stdout, pipeline, event_bus, sid.clone(), session_id_path, cli_sid_for_reader, None);
+        let event_bus_v2 = self
+            .event_bus_v2
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone();
+        let rx = spawn_stream_reader(
+            stdout,
+            pipeline,
+            event_bus,
+            sid.clone(),
+            session_id_path,
+            cli_sid_for_reader,
+            None,
+            event_bus_v2,
+        );
 
         let join_handle = tokio::spawn(async move {
             let _ = child.wait().await;
 
             // Store captured CLI session ID in the session
             {
-                let captured = cli_session_id_ref.lock().unwrap_or_else(|e| e.into_inner()).clone();
+                let captured = cli_session_id_ref
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner())
+                    .clone();
                 if let Some(ref cli_sid) = captured {
                     let mut sessions = sessions_ref.lock().unwrap_or_else(|e| e.into_inner());
                     if let Some(sess) = sessions.get_mut(&sid) {
                         sess.set_cli_session_id(cli_sid.clone());
-                        log::info!("Transport: session={} stored CLI session ID={}", sid, cli_sid);
+                        log::info!(
+                            "Transport: session={} stored CLI session ID={}",
+                            sid,
+                            cli_sid
+                        );
                     }
                 }
             }
@@ -365,7 +468,9 @@ impl StructuredAgentTransport {
                             retryable: true,
                         };
                         cb_ref.record_failure(&cb_circuit_id, &err);
-                        sess.set_status(SessionStatus::Error { severity: ErrorSeverity::Fatal });
+                        sess.set_status(SessionStatus::Error {
+                            severity: ErrorSeverity::Fatal,
+                        });
                     } else {
                         cb_ref.record_success(&cb_circuit_id);
                         sess.set_status(SessionStatus::Terminated);
@@ -374,23 +479,30 @@ impl StructuredAgentTransport {
             }
         });
 
-        self.sessions.lock().unwrap_or_else(|e| e.into_inner())
+        self.sessions
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
             .get_mut(&session_id)
             .unwrap()
             .set_abort_handle(join_handle.abort_handle());
 
-        info!("Transport: session={} started for provider={}", session_id, provider);
+        info!(
+            "Transport: session={} started for provider={}",
+            session_id, provider
+        );
         Ok(session_id)
     }
 
     pub fn stop(&self, session_id: &str) -> Result<(), crate::error::ReasonanceError> {
         info!("Transport: stopping session={}", session_id);
         let mut sessions = self.sessions.lock().unwrap_or_else(|e| e.into_inner());
-        let session = sessions.get_mut(session_id)
-            .ok_or_else(|| {
-                warn!("Transport: stop requested for unknown session={}", session_id);
-                crate::error::ReasonanceError::not_found("session", session_id)
-            })?;
+        let session = sessions.get_mut(session_id).ok_or_else(|| {
+            warn!(
+                "Transport: stop requested for unknown session={}",
+                session_id
+            );
+            crate::error::ReasonanceError::not_found("session", session_id)
+        })?;
         if let Some(handle) = session.abort_handle.take() {
             handle.abort();
         }
@@ -399,13 +511,15 @@ impl StructuredAgentTransport {
         Ok(())
     }
 
-    pub fn get_status(&self, session_id: &str) -> Result<SessionStatus, crate::error::ReasonanceError> {
+    pub fn get_status(
+        &self,
+        session_id: &str,
+    ) -> Result<SessionStatus, crate::error::ReasonanceError> {
         let sessions = self.sessions.lock().unwrap_or_else(|e| e.into_inner());
-        let session = sessions.get(session_id)
-            .ok_or_else(|| {
-                warn!("Transport: get_status for unknown session={}", session_id);
-                crate::error::ReasonanceError::not_found("session", session_id)
-            })?;
+        let session = sessions.get(session_id).ok_or_else(|| {
+            warn!("Transport: get_status for unknown session={}", session_id);
+            crate::error::ReasonanceError::not_found("session", session_id)
+        })?;
         let status = session.status.clone();
         debug!("Transport: session={} status={:?}", session_id, status);
         Ok(status)
@@ -419,8 +533,19 @@ impl StructuredAgentTransport {
         self.event_bus.clone()
     }
 
+    /// Set the EventBus v2 for dual-bus coexistence.
+    /// Called from `setup()` after the bus is constructed.
+    pub fn set_event_bus_v2(&self, bus: Arc<crate::event_bus_v2::EventBus>) {
+        *self.event_bus_v2.lock().unwrap_or_else(|e| e.into_inner()) = Some(bus);
+    }
+
     pub fn active_sessions(&self) -> Vec<String> {
-        self.sessions.lock().unwrap_or_else(|e| e.into_inner()).keys().cloned().collect()
+        self.sessions
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .keys()
+            .cloned()
+            .collect()
     }
 
     pub fn registry(&self) -> Arc<Mutex<NormalizerRegistry>> {
@@ -432,18 +557,28 @@ impl StructuredAgentTransport {
     /// permission flags and auto-denies tool use (reporting `permission_denials` in the result event),
     /// which the UI renders as approval prompts.
     #[allow(dead_code)] // Superseded by build_permission_args_with_trust; kept for tests
-    fn build_permission_args(config: &crate::normalizer::TomlConfig, cwd: Option<&str>, yolo: bool) -> Vec<String> {
+    fn build_permission_args(
+        config: &crate::normalizer::TomlConfig,
+        cwd: Option<&str>,
+        yolo: bool,
+    ) -> Vec<String> {
         if !yolo {
             return Vec::new();
         }
         let project_root = cwd.unwrap_or(".");
-        config.cli.permission_args.iter().map(|arg| {
-            arg.replace("{project_root}", project_root)
-        }).collect()
+        config
+            .cli
+            .permission_args
+            .iter()
+            .map(|arg| arg.replace("{project_root}", project_root))
+            .collect()
     }
 
     /// Build `--allowedTools tool1,tool2` args if the provider supports it and tools are provided.
-    fn build_allowed_tools_args(config: &crate::normalizer::TomlConfig, allowed_tools: &Option<Vec<String>>) -> Vec<String> {
+    fn build_allowed_tools_args(
+        config: &crate::normalizer::TomlConfig,
+        allowed_tools: &Option<Vec<String>>,
+    ) -> Vec<String> {
         match (allowed_tools, &config.cli.allowed_tools_arg) {
             (Some(tools), Some(flag)) if !tools.is_empty() => {
                 vec![flag.clone(), tools.join(",")]
@@ -464,24 +599,33 @@ impl StructuredAgentTransport {
 
         // When yolo=true, always pass permission args regardless of trust level
         if yolo {
-            return config.cli.permission_args.iter().map(|arg| {
-                arg.replace("{project_root}", project_root)
-            }).collect();
+            return config
+                .cli
+                .permission_args
+                .iter()
+                .map(|arg| arg.replace("{project_root}", project_root))
+                .collect();
         }
 
         match trust_level {
             Some(TrustLevel::Trusted) => {
                 // Trusted workspace without yolo — still pass permission args for stdin=null CLIs
-                config.cli.permission_args.iter().map(|arg| {
-                    arg.replace("{project_root}", project_root)
-                }).collect()
+                config
+                    .cli
+                    .permission_args
+                    .iter()
+                    .map(|arg| arg.replace("{project_root}", project_root))
+                    .collect()
             }
             Some(TrustLevel::ReadOnly) => {
                 // Pass permission_args to avoid interactive prompts (stdin=null)
                 // Tool restriction handled separately via read_only_tools_args
-                config.cli.permission_args.iter().map(|arg| {
-                    arg.replace("{project_root}", project_root)
-                }).collect()
+                config
+                    .cli
+                    .permission_args
+                    .iter()
+                    .map(|arg| arg.replace("{project_root}", project_root))
+                    .collect()
             }
             _ => Vec::new(),
         }
@@ -500,18 +644,25 @@ impl StructuredAgentTransport {
     /// Build CLI args. `cli_session_id` is the session ID returned by the CLI
     /// (e.g., from a previous invocation), NOT the internal Reasonance session ID.
     /// Only when a real CLI session ID is provided do we use `resume_args`.
-    fn build_cli_args(config: &crate::normalizer::TomlConfig, request: &AgentRequest, cli_session_id: Option<&str>) -> Vec<String> {
+    fn build_cli_args(
+        config: &crate::normalizer::TomlConfig,
+        request: &AgentRequest,
+        cli_session_id: Option<&str>,
+    ) -> Vec<String> {
         let args_template = if cli_session_id.is_some() {
             &config.cli.resume_args
         } else {
             &config.cli.programmatic_args
         };
 
-        args_template.iter().map(|arg| {
-            arg.replace("{prompt}", &request.prompt)
-                .replace("{session_id}", cli_session_id.unwrap_or(""))
-                .replace("{model}", request.model.as_deref().unwrap_or(""))
-        }).collect()
+        args_template
+            .iter()
+            .map(|arg| {
+                arg.replace("{prompt}", &request.prompt)
+                    .replace("{session_id}", cli_session_id.unwrap_or(""))
+                    .replace("{model}", request.model.as_deref().unwrap_or(""))
+            })
+            .collect()
     }
 }
 
@@ -614,12 +765,16 @@ mod tests {
         let config = registry.get_config("claude").unwrap();
 
         // Permission args are only included when yolo=true
-        let args_off = StructuredAgentTransport::build_permission_args(config, Some("/project"), false);
+        let args_off =
+            StructuredAgentTransport::build_permission_args(config, Some("/project"), false);
         assert!(args_off.is_empty());
 
-        let args_on = StructuredAgentTransport::build_permission_args(config, Some("/project"), true);
+        let args_on =
+            StructuredAgentTransport::build_permission_args(config, Some("/project"), true);
         assert!(!args_on.is_empty());
-        assert!(args_on.iter().any(|a| a.contains("dangerously-skip-permissions")));
+        assert!(args_on
+            .iter()
+            .any(|a| a.contains("dangerously-skip-permissions")));
     }
 
     #[test]
@@ -631,7 +786,10 @@ mod tests {
         // With tools and supported provider
         let tools = Some(vec!["Read".to_string(), "Edit".to_string()]);
         let args = StructuredAgentTransport::build_allowed_tools_args(config, &tools);
-        assert_eq!(args, vec!["--allowedTools".to_string(), "Read,Edit".to_string()]);
+        assert_eq!(
+            args,
+            vec!["--allowedTools".to_string(), "Read,Edit".to_string()]
+        );
 
         // Without tools
         let args_none = StructuredAgentTransport::build_allowed_tools_args(config, &None);
@@ -687,43 +845,64 @@ mod tests {
 
         // Trusted + yolo → permission args
         let args = StructuredAgentTransport::build_permission_args_with_trust(
-            config, Some("/project"), true, Some(crate::workspace_trust::TrustLevel::Trusted)
+            config,
+            Some("/project"),
+            true,
+            Some(crate::workspace_trust::TrustLevel::Trusted),
         );
         assert!(!args.is_empty());
 
         // Trusted + not yolo → permission args (trusted workspace gets args for stdin=null CLIs)
         let args = StructuredAgentTransport::build_permission_args_with_trust(
-            config, Some("/project"), false, Some(crate::workspace_trust::TrustLevel::Trusted)
+            config,
+            Some("/project"),
+            false,
+            Some(crate::workspace_trust::TrustLevel::Trusted),
         );
         assert!(!args.is_empty());
 
         // ReadOnly → permission args (to avoid interactive prompt) regardless of yolo
         let args = StructuredAgentTransport::build_permission_args_with_trust(
-            config, Some("/project"), false, Some(crate::workspace_trust::TrustLevel::ReadOnly)
+            config,
+            Some("/project"),
+            false,
+            Some(crate::workspace_trust::TrustLevel::ReadOnly),
         );
         assert!(!args.is_empty());
 
         // yolo + Blocked → permission args (yolo overrides; send() blocks Blocked upstream)
         let args = StructuredAgentTransport::build_permission_args_with_trust(
-            config, Some("/project"), true, Some(crate::workspace_trust::TrustLevel::Blocked)
+            config,
+            Some("/project"),
+            true,
+            Some(crate::workspace_trust::TrustLevel::Blocked),
         );
         assert!(!args.is_empty());
 
         // yolo + None trust → permission args (yolo bypasses trust gate)
         let args = StructuredAgentTransport::build_permission_args_with_trust(
-            config, Some("/project"), true, None
+            config,
+            Some("/project"),
+            true,
+            None,
         );
         assert!(!args.is_empty());
 
         // not yolo + None trust → no permission args
         let args = StructuredAgentTransport::build_permission_args_with_trust(
-            config, Some("/project"), false, None
+            config,
+            Some("/project"),
+            false,
+            None,
         );
         assert!(args.is_empty());
 
         // not yolo + Blocked → no permission args
         let args = StructuredAgentTransport::build_permission_args_with_trust(
-            config, Some("/project"), false, Some(crate::workspace_trust::TrustLevel::Blocked)
+            config,
+            Some("/project"),
+            false,
+            Some(crate::workspace_trust::TrustLevel::Blocked),
         );
         assert!(args.is_empty());
     }

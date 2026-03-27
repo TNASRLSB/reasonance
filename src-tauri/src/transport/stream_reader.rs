@@ -20,6 +20,7 @@ pub fn spawn_stream_reader(
     session_id_path: Option<String>,
     cli_session_id: Arc<Mutex<Option<String>>>,
     line_timeout: Option<Duration>,
+    event_bus_v2: Option<Arc<crate::event_bus_v2::EventBus>>,
 ) -> oneshot::Receiver<StreamResult> {
     let (tx, rx) = oneshot::channel();
 
@@ -40,19 +41,36 @@ pub fn spawn_stream_reader(
 
                     // Parse JSON once for both debug logging and session ID extraction
                     let parsed_json = serde_json::from_str::<serde_json::Value>(&line).ok();
-                    let json_type = parsed_json.as_ref()
-                        .and_then(|v| v.get("type").and_then(|t| t.as_str().map(|s| s.to_string())));
-                    log::debug!("StreamReader[{}]: raw line type={:?} len={}", session_id, json_type, line.len());
+                    let json_type = parsed_json.as_ref().and_then(|v| {
+                        v.get("type")
+                            .and_then(|t| t.as_str().map(|s| s.to_string()))
+                    });
+                    log::debug!(
+                        "StreamReader[{}]: raw line type={:?} len={}",
+                        session_id,
+                        json_type,
+                        line.len()
+                    );
 
                     // Extract CLI session ID if configured and not yet captured
                     if let Some(ref sid_path) = session_id_path {
-                        let already_captured = cli_session_id.lock().unwrap_or_else(|e| e.into_inner()).is_some();
+                        let already_captured = cli_session_id
+                            .lock()
+                            .unwrap_or_else(|e| e.into_inner())
+                            .is_some();
                         if !already_captured {
                             if let Some(ref parsed) = parsed_json {
-                                if let Some(extracted) = crate::normalizer::rules_engine::resolve_path(parsed, sid_path) {
+                                if let Some(extracted) =
+                                    crate::normalizer::rules_engine::resolve_path(parsed, sid_path)
+                                {
                                     if let Some(id_str) = extracted.as_str() {
-                                        log::info!("StreamReader[{}]: captured CLI session ID: {}", session_id, id_str);
-                                        *cli_session_id.lock().unwrap_or_else(|e| e.into_inner()) = Some(id_str.to_string());
+                                        log::info!(
+                                            "StreamReader[{}]: captured CLI session ID: {}",
+                                            session_id,
+                                            id_str
+                                        );
+                                        *cli_session_id.lock().unwrap_or_else(|e| e.into_inner()) =
+                                            Some(id_str.to_string());
                                     }
                                 }
                             }
@@ -65,12 +83,27 @@ pub fn spawn_stream_reader(
                     };
 
                     if events.is_empty() {
-                        log::trace!("StreamReader[{}]: no events from line type={:?}", session_id, json_type);
+                        log::trace!(
+                            "StreamReader[{}]: no events from line type={:?}",
+                            session_id,
+                            json_type
+                        );
                     }
                     for event in &events {
                         events_count += 1;
-                        log::debug!("StreamReader[{}]: emitting {:?}", session_id, event.event_type);
+                        log::debug!(
+                            "StreamReader[{}]: emitting {:?}",
+                            session_id,
+                            event.event_type
+                        );
                         event_bus.publish(&session_id, event);
+                        if let Some(ref bus) = event_bus_v2 {
+                            bus.publish(crate::event_bus_v2::Event::from_agent_event(
+                                "transport:event",
+                                &session_id,
+                                event,
+                            ));
+                        }
                     }
                 }
                 Ok(Ok(None)) => {
@@ -78,6 +111,13 @@ pub fn spawn_stream_reader(
                     let done_event = crate::agent_event::AgentEvent::done(&session_id, "system");
                     events_count += 1;
                     event_bus.publish(&session_id, &done_event);
+                    if let Some(ref bus) = event_bus_v2 {
+                        bus.publish(crate::event_bus_v2::Event::from_agent_event(
+                            "transport:complete",
+                            &session_id,
+                            &done_event,
+                        ));
+                    }
                     break;
                 }
                 Ok(Err(e)) => {
@@ -92,11 +132,25 @@ pub fn spawn_stream_reader(
                         "system",
                     );
                     event_bus.publish(&session_id, &error_event);
+                    if let Some(ref bus) = event_bus_v2 {
+                        bus.publish(crate::event_bus_v2::Event::from_agent_event(
+                            "transport:error",
+                            &session_id,
+                            &error_event,
+                        ));
+                    }
                     events_count += 1;
 
                     // Publish done event so frontend clears streaming state
                     let done_event = crate::agent_event::AgentEvent::done(&session_id, "system");
                     event_bus.publish(&session_id, &done_event);
+                    if let Some(ref bus) = event_bus_v2 {
+                        bus.publish(crate::event_bus_v2::Event::from_agent_event(
+                            "transport:complete",
+                            &session_id,
+                            &done_event,
+                        ));
+                    }
                     events_count += 1;
 
                     error = Some(err_msg);
@@ -104,18 +158,37 @@ pub fn spawn_stream_reader(
                 }
                 Err(_elapsed) => {
                     // Timeout — CLI is hung
-                    let err_msg = format!("Stream timeout: no output for {} seconds", effective_timeout.as_secs());
+                    let err_msg = format!(
+                        "Stream timeout: no output for {} seconds",
+                        effective_timeout.as_secs()
+                    );
                     log::error!("StreamReader[{}]: {}", session_id, err_msg);
 
                     let error_event = crate::agent_event::AgentEvent::error(
-                        &err_msg, "STREAM_TIMEOUT",
-                        crate::agent_event::ErrorSeverity::Fatal, "system",
+                        &err_msg,
+                        "STREAM_TIMEOUT",
+                        crate::agent_event::ErrorSeverity::Fatal,
+                        "system",
                     );
                     event_bus.publish(&session_id, &error_event);
+                    if let Some(ref bus) = event_bus_v2 {
+                        bus.publish(crate::event_bus_v2::Event::from_agent_event(
+                            "transport:error",
+                            &session_id,
+                            &error_event,
+                        ));
+                    }
                     events_count += 1;
 
                     let done_event = crate::agent_event::AgentEvent::done(&session_id, "system");
                     event_bus.publish(&session_id, &done_event);
+                    if let Some(ref bus) = event_bus_v2 {
+                        bus.publish(crate::event_bus_v2::Event::from_agent_event(
+                            "transport:complete",
+                            &session_id,
+                            &done_event,
+                        ));
+                    }
                     events_count += 1;
 
                     error = Some(err_msg);
@@ -124,7 +197,10 @@ pub fn spawn_stream_reader(
             }
         }
 
-        let _ = tx.send(StreamResult { events_count, error });
+        let _ = tx.send(StreamResult {
+            events_count,
+            error,
+        });
     });
 
     rx
@@ -154,17 +230,19 @@ mod tests {
 
         let stdout = child.stdout.take().unwrap();
 
-        let registry = NormalizerRegistry::load_from_dir(
-            std::path::Path::new("normalizers")
-        ).unwrap();
+        let registry =
+            NormalizerRegistry::load_from_dir(std::path::Path::new("normalizers")).unwrap();
 
         let config = registry.get_config("claude").unwrap();
         let rules = config.to_rules();
-        let state_machine = Box::new(
-            crate::normalizer::state_machines::generic::GenericStateMachine::new()
-        );
+        let state_machine =
+            Box::new(crate::normalizer::state_machines::generic::GenericStateMachine::new());
         let pipeline = Arc::new(Mutex::new(
-            crate::normalizer::pipeline::NormalizerPipeline::new(rules, state_machine, "claude".to_string())
+            crate::normalizer::pipeline::NormalizerPipeline::new(
+                rules,
+                state_machine,
+                "claude".to_string(),
+            ),
         ));
 
         let bus = Arc::new(AgentEventBus::new());
@@ -179,7 +257,16 @@ mod tests {
         }
         bus.subscribe(Box::new(RecorderWrapper(recorder.clone())));
 
-        let rx = spawn_stream_reader(stdout, pipeline, bus, "test-session".to_string(), None, Arc::new(Mutex::new(None)), None);
+        let rx = spawn_stream_reader(
+            stdout,
+            pipeline,
+            bus,
+            "test-session".to_string(),
+            None,
+            Arc::new(Mutex::new(None)),
+            None,
+            None,
+        );
 
         let result = rx.await.unwrap();
 
@@ -204,24 +291,32 @@ mod tests {
 
         let stdout = child.stdout.take().unwrap();
 
-        let registry = NormalizerRegistry::load_from_dir(
-            std::path::Path::new("normalizers")
-        ).unwrap();
+        let registry =
+            NormalizerRegistry::load_from_dir(std::path::Path::new("normalizers")).unwrap();
         let config = registry.get_config("claude").unwrap();
         let rules = config.to_rules();
-        let state_machine = Box::new(
-            crate::normalizer::state_machines::generic::GenericStateMachine::new()
-        );
+        let state_machine =
+            Box::new(crate::normalizer::state_machines::generic::GenericStateMachine::new());
         let pipeline = Arc::new(Mutex::new(
-            crate::normalizer::pipeline::NormalizerPipeline::new(rules, state_machine, "claude".to_string())
+            crate::normalizer::pipeline::NormalizerPipeline::new(
+                rules,
+                state_machine,
+                "claude".to_string(),
+            ),
         ));
 
         let bus = Arc::new(AgentEventBus::new());
         let cli_sid = Arc::new(Mutex::new(None::<String>));
 
         let rx = spawn_stream_reader(
-            stdout, pipeline, bus, "test-session".to_string(),
-            Some("message.id".to_string()), cli_sid.clone(), None,
+            stdout,
+            pipeline,
+            bus,
+            "test-session".to_string(),
+            Some("message.id".to_string()),
+            cli_sid.clone(),
+            None,
+            None,
         );
 
         let result = rx.await.unwrap();
@@ -243,16 +338,18 @@ mod tests {
 
         let stdout = child.stdout.take().unwrap();
 
-        let registry = NormalizerRegistry::load_from_dir(
-            std::path::Path::new("normalizers")
-        ).unwrap();
+        let registry =
+            NormalizerRegistry::load_from_dir(std::path::Path::new("normalizers")).unwrap();
         let config = registry.get_config("claude").unwrap();
         let rules = config.to_rules();
-        let state_machine = Box::new(
-            crate::normalizer::state_machines::generic::GenericStateMachine::new()
-        );
+        let state_machine =
+            Box::new(crate::normalizer::state_machines::generic::GenericStateMachine::new());
         let pipeline = Arc::new(Mutex::new(
-            crate::normalizer::pipeline::NormalizerPipeline::new(rules, state_machine, "claude".to_string())
+            crate::normalizer::pipeline::NormalizerPipeline::new(
+                rules,
+                state_machine,
+                "claude".to_string(),
+            ),
         ));
 
         let bus = Arc::new(AgentEventBus::new());
@@ -268,20 +365,36 @@ mod tests {
 
         // Use a short timeout (2 seconds) to actually test the timeout path
         let rx = spawn_stream_reader(
-            stdout, pipeline, bus, "test-timeout".to_string(),
-            None, Arc::new(Mutex::new(None)),
+            stdout,
+            pipeline,
+            bus,
+            "test-timeout".to_string(),
+            None,
+            Arc::new(Mutex::new(None)),
             Some(Duration::from_secs(2)),
+            None,
         );
 
         let result = rx.await.unwrap();
         assert!(result.error.is_some(), "should have timeout error");
-        assert!(result.error.unwrap().contains("timeout"), "error should mention timeout");
+        assert!(
+            result.error.unwrap().contains("timeout"),
+            "error should mention timeout"
+        );
 
         let events = recorder.get_events("test-timeout");
-        assert!(events.iter().any(|e| e.event_type == crate::agent_event::AgentEventType::Error),
-            "should have error event");
-        assert!(events.iter().any(|e| e.event_type == crate::agent_event::AgentEventType::Done),
-            "should have done event after timeout");
+        assert!(
+            events
+                .iter()
+                .any(|e| e.event_type == crate::agent_event::AgentEventType::Error),
+            "should have error event"
+        );
+        assert!(
+            events
+                .iter()
+                .any(|e| e.event_type == crate::agent_event::AgentEventType::Done),
+            "should have done event after timeout"
+        );
 
         // Clean up the hanging process
         let _ = child.kill().await;

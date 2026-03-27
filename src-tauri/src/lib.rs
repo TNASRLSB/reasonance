@@ -243,7 +243,10 @@ pub fn run() {
             info!("🚀 Reasonance setup starting");
 
             // Build EventBus inside setup() where the tokio runtime is guaranteed active.
-            let bus = event_bus_v2::EventBus::new(tokio::runtime::Handle::current());
+            let bus = std::sync::Arc::new(event_bus_v2::EventBus::new(
+                tokio::runtime::Handle::current(),
+            ));
+            bus.register_channel("transport:event", true);
             bus.register_channel("transport:send", true);
             bus.register_channel("transport:complete", true);
             bus.register_channel("transport:error", true);
@@ -255,7 +258,7 @@ pub fn run() {
             bus.register_channel("workflow:node-state", true);
             bus.register_channel("workflow:run-status", true);
             bus.register_channel("lifecycle:sweep", false);
-            app.manage(bus);
+            app.manage(bus.clone());
             let transport: tauri::State<'_, transport::StructuredAgentTransport> = app.state();
 
             // Wire FrontendEmitter (existing)
@@ -298,6 +301,28 @@ pub fn run() {
             transport
                 .event_bus()
                 .subscribe(Box::new(AnalyticsWrapper(analytics.inner().clone())));
+
+            // Wire EventBus v2 subscribers (dual-bus coexistence)
+            info!("  ✓ Wiring EventBus v2 subscribers");
+            let history_v2 = std::sync::Arc::new(subscribers::history::HistoryRecorder::new());
+            let session_writer = std::sync::Arc::new(
+                subscribers::session_writer::SessionHistoryWriter::new(session_mgr.store()),
+            );
+
+            bus.subscribe("transport:event", history_v2.clone());
+            bus.subscribe("transport:complete", history_v2.clone());
+            bus.subscribe("transport:error", history_v2.clone());
+            bus.subscribe_async("transport:event", session_writer.clone());
+            bus.subscribe_async("transport:complete", session_writer.clone());
+
+            let bridge = std::sync::Arc::new(event_bus_v2::TauriFrontendBridge::new(
+                app.handle().clone(),
+                bus.clone(),
+            ));
+            bus.subscribe_to_visible(bridge);
+
+            // Pass v2 bus to the transport for dual-publishing
+            transport.set_event_bus_v2(bus.clone());
 
             // Load capability cache
             let negotiator: tauri::State<'_, capability::CapabilityNegotiator> = app.state();
