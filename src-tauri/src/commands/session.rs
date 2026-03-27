@@ -15,7 +15,7 @@ pub async fn session_create(
         "cmd::session_create(provider={}, model={})",
         provider, model
     );
-    let result = session_manager.create_session(&provider, &model);
+    let result = session_manager.create_session(&provider, &model).await;
     match &result {
         Ok(id) => debug!("cmd::session_create created session_id={}", id),
         Err(e) => error!("cmd::session_create failed: {}", e),
@@ -29,13 +29,16 @@ pub async fn session_restore(
     session_manager: State<'_, SessionManager>,
 ) -> Result<SessionHandle, ReasonanceError> {
     info!("cmd::session_restore(session_id={})", session_id);
-    let (handle, _events) = session_manager.restore_session(&session_id).map_err(|e| {
-        error!(
-            "cmd::session_restore failed for session_id={}: {}",
-            session_id, e
-        );
-        e
-    })?;
+    let (handle, _events) = session_manager
+        .restore_session(&session_id)
+        .await
+        .map_err(|e| {
+            error!(
+                "cmd::session_restore failed for session_id={}: {}",
+                session_id, e
+            );
+            e
+        })?;
     Ok(handle)
 }
 
@@ -46,7 +49,7 @@ pub async fn session_get_events(
 ) -> Result<Vec<AgentEvent>, ReasonanceError> {
     debug!("cmd::session_get_events(session_id={})", session_id);
     let store = session_manager.store();
-    store.read_events(&session_id)
+    store.read_events(&session_id).await
 }
 
 #[tauri::command]
@@ -63,7 +66,7 @@ pub async fn session_delete(
     session_manager: State<'_, SessionManager>,
 ) -> Result<(), ReasonanceError> {
     info!("cmd::session_delete(session_id={})", session_id);
-    session_manager.delete_session(&session_id)
+    session_manager.delete_session(&session_id).await
 }
 
 /// Maximum allowed length for a session title.
@@ -91,7 +94,7 @@ pub async fn session_rename(
             ),
         ));
     }
-    session_manager.rename_session(&session_id, &title)
+    session_manager.rename_session(&session_id, &title).await
 }
 
 #[tauri::command]
@@ -104,7 +107,9 @@ pub async fn session_fork(
         "cmd::session_fork(session_id={}, fork_event_index={})",
         session_id, fork_event_index
     );
-    session_manager.fork_session(&session_id, fork_event_index)
+    session_manager
+        .fork_session(&session_id, fork_event_index)
+        .await
 }
 
 #[tauri::command]
@@ -117,5 +122,5 @@ pub async fn session_set_view_mode(
         "cmd::session_set_view_mode(session_id={}, mode={:?})",
         session_id, mode
     );
-    session_manager.set_view_mode(&session_id, mode)
+    session_manager.set_view_mode(&session_id, mode).await
 }

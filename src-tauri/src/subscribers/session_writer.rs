@@ -90,8 +90,8 @@ impl AsyncEventHandler for SessionHistoryWriter {
             session_id
         );
 
-        // Append event to JSONL on disk.
-        if let Err(e) = self.store.append_event(&session_id, &agent_event) {
+        // Append event to storage.
+        if let Err(e) = self.store.append_event(&session_id, &agent_event).await {
             error!(
                 "SessionHistoryWriter: failed to append event for session={}: {}",
                 session_id, e
@@ -120,13 +120,13 @@ impl AsyncEventHandler for SessionHistoryWriter {
                 None
             }
         };
-        // Persist metadata outside the lock scope (disk I/O)
+        // Persist metadata outside the lock scope
         if let Some(ref handle) = metadata_to_persist {
             debug!(
                 "SessionHistoryWriter: persisting metadata for session={}",
                 session_id
             );
-            if let Err(e) = self.store.write_metadata(handle) {
+            if let Err(e) = self.store.write_metadata(handle).await {
                 error!(
                     "SessionHistoryWriter: failed to write metadata for session={}: {}",
                     session_id, e
@@ -147,6 +147,7 @@ mod tests {
     use super::*;
     use crate::agent_event::AgentEvent;
     use crate::event_bus::Event;
+    use crate::storage::InMemoryBackend;
     use crate::transport::session_handle::SessionHandle;
     use crate::transport::session_store::SessionStore;
 
@@ -155,14 +156,18 @@ mod tests {
         Event::from_agent_event("agent:stream", session_id, agent_event)
     }
 
+    fn setup() -> Arc<SessionStore> {
+        let backend = Arc::new(InMemoryBackend::new());
+        Arc::new(SessionStore::new(backend))
+    }
+
     #[tokio::test]
     async fn handle_appends_events_to_store() {
-        let dir = tempfile::TempDir::new().unwrap();
-        let store = Arc::new(SessionStore::new(dir.path()).unwrap());
+        let store = setup();
         let handle = SessionHandle::new("claude", "sonnet");
         let session_id = handle.id.clone();
 
-        store.create_session(&handle).unwrap();
+        store.create_session(&handle).await.unwrap();
 
         let writer = SessionHistoryWriter::new(store.clone());
         writer.track_session(handle);
@@ -173,20 +178,19 @@ mod tests {
         writer.handle(make_event(&session_id, &ae1)).await.unwrap();
         writer.handle(make_event(&session_id, &ae2)).await.unwrap();
 
-        // Verify events were written to disk.
-        let events = store.read_events(&session_id).unwrap();
+        // Verify events were written to storage.
+        let events = store.read_events(&session_id).await.unwrap();
         assert_eq!(events.len(), 2);
     }
 
     #[tokio::test]
     async fn handle_tracks_session_metadata() {
-        let dir = tempfile::TempDir::new().unwrap();
-        let store = Arc::new(SessionStore::new(dir.path()).unwrap());
+        let store = setup();
         let handle = SessionHandle::new("claude", "sonnet");
         let session_id = handle.id.clone();
         let original_last_active = handle.last_active_at;
 
-        store.create_session(&handle).unwrap();
+        store.create_session(&handle).await.unwrap();
 
         let writer = SessionHistoryWriter::new(store.clone());
         writer.track_session(handle);
@@ -207,12 +211,11 @@ mod tests {
 
     #[tokio::test]
     async fn handle_persists_metadata_every_10_events() {
-        let dir = tempfile::TempDir::new().unwrap();
-        let store = Arc::new(SessionStore::new(dir.path()).unwrap());
+        let store = setup();
         let handle = SessionHandle::new("claude", "sonnet");
         let session_id = handle.id.clone();
 
-        store.create_session(&handle).unwrap();
+        store.create_session(&handle).await.unwrap();
 
         let writer = SessionHistoryWriter::new(store.clone());
         writer.track_session(handle);
@@ -223,19 +226,18 @@ mod tests {
             writer.handle(make_event(&session_id, &ae)).await.unwrap();
         }
 
-        // Read metadata from disk — should reflect event_count=10.
-        let persisted = store.read_metadata(&session_id).unwrap();
+        // Read metadata from storage -- should reflect event_count=10.
+        let persisted = store.read_metadata(&session_id).await.unwrap();
         assert_eq!(persisted.event_count, 10);
     }
 
     #[tokio::test]
     async fn handle_ignores_events_for_untracked_sessions() {
-        let dir = tempfile::TempDir::new().unwrap();
-        let store = Arc::new(SessionStore::new(dir.path()).unwrap());
+        let store = setup();
 
         let writer = SessionHistoryWriter::new(store.clone());
 
-        // Do not call track_session — the session is unknown.
+        // Do not call track_session -- the session is unknown.
         let ae = AgentEvent::text("hello", "claude");
         let result = writer.handle(make_event("untracked-session", &ae)).await;
 
@@ -245,8 +247,7 @@ mod tests {
 
     #[tokio::test]
     async fn handle_ignores_invalid_payload() {
-        let dir = tempfile::TempDir::new().unwrap();
-        let store = Arc::new(SessionStore::new(dir.path()).unwrap());
+        let store = setup();
         let writer = SessionHistoryWriter::new(store.clone());
 
         let event = Event::new("agent:stream", serde_json::json!({"random": true}), "test");
