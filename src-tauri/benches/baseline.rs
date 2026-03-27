@@ -66,11 +66,59 @@ fn bench_sha256_hash(c: &mut Criterion) {
     });
 }
 
+fn bench_storage_put_get(c: &mut Criterion) {
+    use std::sync::Arc;
+
+    use reasonance_lib::storage::{InMemoryBackend, StorageBackend};
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let backend: Arc<dyn StorageBackend> = Arc::new(InMemoryBackend::new());
+
+    let value = serde_json::to_vec(&serde_json::json!({
+        "event_type": "text",
+        "content": "Hello world ".repeat(50),
+        "session_id": "bench-session-001"
+    }))
+    .unwrap();
+
+    c.bench_function("storage_put_inmemory", |b| {
+        let backend = backend.clone();
+        let value = value.clone();
+        b.iter(|| {
+            rt.block_on(backend.put("bench-ns", "key-1", &value))
+                .unwrap();
+        });
+    });
+
+    // Pre-populate for get benchmark
+    rt.block_on(backend.put("bench-ns", "get-key", &value))
+        .unwrap();
+    c.bench_function("storage_get_inmemory", |b| {
+        let backend = backend.clone();
+        b.iter(|| {
+            rt.block_on(backend.get("bench-ns", "get-key")).unwrap();
+        });
+    });
+
+    // Populate keys for list benchmark
+    for i in 0..100 {
+        rt.block_on(backend.put("bench-ns", &format!("item-{i:03}"), &value))
+            .unwrap();
+    }
+    c.bench_function("storage_list_keys_100", |b| {
+        let backend = backend.clone();
+        b.iter(|| {
+            rt.block_on(backend.list_keys("bench-ns", None)).unwrap();
+        });
+    });
+}
+
 criterion_group!(
     benches,
     bench_json_serialization,
     bench_toml_parsing,
     bench_uuid_generation,
-    bench_sha256_hash
+    bench_sha256_hash,
+    bench_storage_put_get
 );
 criterion_main!(benches);

@@ -53,11 +53,14 @@ mod workflow_engine;
 mod workflow_store;
 mod workspace_trust;
 
+mod perf;
+
 use commands::fs::ProjectRootState;
 use fs_watcher::FsWatcherState;
 use log::info;
 use pty_manager::PtyManager;
 use shadow_store::ShadowStore;
+use std::time::Instant;
 use tauri::{Emitter, Manager};
 
 /// Shared state for the resolved normalizers directory path.
@@ -233,9 +236,11 @@ pub fn run() {
         .manage(commands::file_ops::FileOpsState::new())
         .manage(std::sync::Mutex::new(settings::LayeredSettings::new()))
         .setup(|app| {
+            let setup_start = Instant::now();
             info!("🚀 Reasonance setup starting");
 
             // Build EventBus inside setup() where the tokio runtime is guaranteed active.
+            let t_bus = Instant::now();
             let bus =
                 std::sync::Arc::new(event_bus::EventBus::new(tokio::runtime::Handle::current()));
             bus.register_channel("transport:event", true);
@@ -253,46 +258,59 @@ pub fn run() {
             bus.register_channel("workflow:permission-request", true);
             bus.register_channel("lifecycle:sweep", true);
             bus.register_channel("lifecycle:update-check", true);
+            info!("  ⏱ EventBus init: {}ms", t_bus.elapsed().as_millis());
             app.manage(bus.clone());
 
-            // SessionManager: create backend + async init inside setup() where tokio is active.
-            {
-                let sessions_dir = dirs::data_dir()
-                    .unwrap_or_else(|| std::path::PathBuf::from("."))
-                    .join("reasonance")
-                    .join("sessions");
-                let session_backend = std::sync::Arc::new(
-                    storage::JsonFileBackend::new(&sessions_dir)
-                        .expect("Failed to initialize session storage backend"),
-                );
-                let rt = tokio::runtime::Handle::current();
-                let session_mgr = rt
-                    .block_on(transport::session_manager::SessionManager::new(
-                        session_backend,
+            // SessionManager + AnalyticsCollector: parallel async init inside setup()
+            // where the tokio runtime is active. These are independent so we use tokio::join!.
+            let rt = tokio::runtime::Handle::current();
+            let t_parallel = Instant::now();
+            let (session_mgr, analytics_collector) = rt
+                .block_on(async {
+                    let (sm_result, ac_result) = tokio::join!(
+                        async {
+                            let sessions_dir = dirs::data_dir()
+                                .unwrap_or_else(|| std::path::PathBuf::from("."))
+                                .join("reasonance")
+                                .join("sessions");
+                            let backend = std::sync::Arc::new(
+                                crate::storage::JsonFileBackend::new(&sessions_dir)
+                                    .expect("Failed to init session storage backend"),
+                            );
+                            transport::session_manager::SessionManager::new(backend).await
+                        },
+                        async {
+                            let analytics_dir = dirs::data_dir()
+                                .unwrap_or_else(|| std::path::PathBuf::from("."))
+                                .join("reasonance")
+                                .join("analytics");
+                            let backend = std::sync::Arc::new(
+                                crate::storage::JsonFileBackend::new(&analytics_dir)
+                                    .expect("Failed to init analytics storage backend"),
+                            );
+                            let store = std::sync::Arc::new(
+                                analytics::store::AnalyticsStore::new(backend)
+                                    .await
+                                    .expect("Failed to init analytics store"),
+                            );
+                            Ok::<_, crate::error::ReasonanceError>(std::sync::Arc::new(
+                                analytics::collector::AnalyticsCollector::new(store),
+                            ))
+                        },
+                    );
+                    Ok::<_, crate::error::ReasonanceError>((
+                        sm_result.expect("SessionManager init failed"),
+                        ac_result.expect("AnalyticsCollector init failed"),
                     ))
-                    .expect("Failed to initialize SessionManager");
-                app.manage(session_mgr);
-            }
-
-            // AnalyticsCollector: create backend + async init inside setup() where tokio is active.
-            {
-                let analytics_dir = dirs::data_dir()
-                    .unwrap_or_else(|| std::path::PathBuf::from("."))
-                    .join("reasonance")
-                    .join("analytics");
-                let analytics_backend = std::sync::Arc::new(
-                    storage::JsonFileBackend::new(&analytics_dir)
-                        .expect("Failed to init analytics storage backend"),
-                );
-                let rt = tokio::runtime::Handle::current();
-                let analytics_store = std::sync::Arc::new(
-                    rt.block_on(analytics::store::AnalyticsStore::new(analytics_backend))
-                        .expect("Failed to init analytics store"),
-                );
-                app.manage(std::sync::Arc::new(
-                    analytics::collector::AnalyticsCollector::new(analytics_store),
-                ));
-            }
+                })
+                .expect("Parallel init failed");
+            let parallel_init_ms = t_parallel.elapsed().as_millis();
+            info!(
+                "  ⏱ Parallel init (SessionManager + Analytics): {}ms",
+                parallel_init_ms
+            );
+            app.manage(session_mgr);
+            app.manage(analytics_collector);
 
             let transport: tauri::State<'_, transport::StructuredAgentTransport> = app.state();
             let session_mgr: tauri::State<'_, transport::session_manager::SessionManager> =
@@ -448,6 +466,15 @@ pub fn run() {
             let app_handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
                 cli_updater::run_background_updates(app_handle, updater_arc).await;
+            });
+
+            let total_setup_ms = setup_start.elapsed().as_millis() as u64;
+            info!("⏱ Total setup: {}ms", total_setup_ms);
+
+            perf::record_startup(&perf::StartupBaseline {
+                timestamp: chrono::Utc::now().to_rfc3339(),
+                total_setup_ms,
+                parallel_init_ms: parallel_init_ms as u64,
             });
 
             info!("🚀 Reasonance setup complete — all systems wired");
