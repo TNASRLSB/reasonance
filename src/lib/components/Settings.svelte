@@ -165,8 +165,17 @@
       llms = get(llmConfigs);
       settings = get(appSettings);
     }
-    localFontFamily = get(fontFamily);
-    localFontSize = get(fontSize);
+    // Load non-LLM settings from LayeredSettings backend (editor, terminal, etc.)
+    // These take precedence over Svelte store values when available.
+    try {
+      const all = (await adapter.getAllSettings()) as Record<string, Record<string, unknown>>;
+      const editor = all?.editor as Record<string, unknown> | undefined;
+      localFontFamily = (editor?.font_family as string) ?? get(fontFamily);
+      localFontSize = (editor?.font_size as number) ?? get(fontSize);
+    } catch {
+      localFontFamily = get(fontFamily);
+      localFontSize = get(fontSize);
+    }
     localTheme = get(themeMode);
     localActiveTheme = get(activeThemeName);
     localModifiers = [...get(activeModifierNames)];
