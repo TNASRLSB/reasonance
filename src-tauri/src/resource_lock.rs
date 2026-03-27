@@ -2,8 +2,12 @@ use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
 pub struct ResourceLockManager {
-    readers: Arc<Mutex<HashMap<String, HashSet<String>>>>, // resource_id -> agent_ids
-    writers: Arc<Mutex<HashMap<String, String>>>,          // resource_id -> agent_id
+    /// Reader lock sets — resource_id → agent_ids holding read locks.
+    /// Plain HashMap: mutex-set semantics (not lifecycle-tracked resources).
+    readers: Arc<Mutex<HashMap<String, HashSet<String>>>>,
+    /// Writer lock — resource_id → single agent_id holding write lock.
+    /// Plain HashMap: mutex-set semantics (not lifecycle-tracked resources).
+    writers: Arc<Mutex<HashMap<String, String>>>,
 }
 
 impl ResourceLockManager {

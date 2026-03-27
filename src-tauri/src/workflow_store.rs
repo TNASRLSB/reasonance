@@ -168,6 +168,8 @@ pub fn migrate(wf: &mut Workflow) {
 }
 
 pub struct WorkflowStore {
+    /// Workflow definitions loaded from disk. Plain HashMap: bounded (loaded from
+    /// finite config files), no dynamic lifecycle — entries persist until app exit.
     pub workflows: Arc<Mutex<HashMap<String, Workflow>>>,
 }
 
@@ -185,12 +187,15 @@ impl WorkflowStore {
 
     #[allow(dead_code)] // Used for project-scoped workflow storage
     pub fn project_dir(project_root: &str) -> PathBuf {
-        PathBuf::from(project_root).join(".reasonance").join("workflows")
+        PathBuf::from(project_root)
+            .join(".reasonance")
+            .join("workflows")
     }
 
     pub fn load(&self, file_path: &str) -> Result<Workflow, crate::error::ReasonanceError> {
-        let content = std::fs::read_to_string(file_path)
-            .map_err(|e| crate::error::ReasonanceError::io(format!("read workflow {}", file_path), e))?;
+        let content = std::fs::read_to_string(file_path).map_err(|e| {
+            crate::error::ReasonanceError::io(format!("read workflow {}", file_path), e)
+        })?;
         let mut workflow: Workflow = serde_json::from_str(&content)?;
         migrate(&mut workflow);
         self.workflows
@@ -200,15 +205,20 @@ impl WorkflowStore {
         Ok(workflow)
     }
 
-    pub fn save(&self, file_path: &str, workflow: &Workflow) -> Result<(), crate::error::ReasonanceError> {
-        let parent = std::path::Path::new(file_path)
-            .parent()
-            .ok_or_else(|| crate::error::ReasonanceError::validation("file_path", "Invalid file path"))?;
+    pub fn save(
+        &self,
+        file_path: &str,
+        workflow: &Workflow,
+    ) -> Result<(), crate::error::ReasonanceError> {
+        let parent = std::path::Path::new(file_path).parent().ok_or_else(|| {
+            crate::error::ReasonanceError::validation("file_path", "Invalid file path")
+        })?;
         std::fs::create_dir_all(parent)
             .map_err(|e| crate::error::ReasonanceError::io("create workflow directory", e))?;
         let json = serde_json::to_string_pretty(workflow)?;
-        std::fs::write(file_path, json)
-            .map_err(|e| crate::error::ReasonanceError::io(format!("write workflow {}", file_path), e))?;
+        std::fs::write(file_path, json).map_err(|e| {
+            crate::error::ReasonanceError::io(format!("write workflow {}", file_path), e)
+        })?;
         self.workflows
             .lock()
             .unwrap()
@@ -221,8 +231,9 @@ impl WorkflowStore {
         if !path.exists() {
             return Ok(vec![]);
         }
-        let entries =
-            std::fs::read_dir(path).map_err(|e| crate::error::ReasonanceError::io(format!("read workflow dir {}", dir), e))?;
+        let entries = std::fs::read_dir(path).map_err(|e| {
+            crate::error::ReasonanceError::io(format!("read workflow dir {}", dir), e)
+        })?;
         let mut workflows = Vec::new();
         for entry in entries.flatten() {
             let p = entry.path();
@@ -238,15 +249,23 @@ impl WorkflowStore {
 
     pub fn delete(&self, file_path: &str) -> Result<(), crate::error::ReasonanceError> {
         if std::path::Path::new(file_path).exists() {
-            std::fs::remove_file(file_path)
-                .map_err(|e| crate::error::ReasonanceError::io(format!("delete workflow {}", file_path), e))?;
+            std::fs::remove_file(file_path).map_err(|e| {
+                crate::error::ReasonanceError::io(format!("delete workflow {}", file_path), e)
+            })?;
         }
-        self.workflows.lock().unwrap_or_else(|e| e.into_inner()).remove(file_path);
+        self.workflows
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .remove(file_path);
         Ok(())
     }
 
     pub fn get(&self, file_path: &str) -> Option<Workflow> {
-        self.workflows.lock().unwrap_or_else(|e| e.into_inner()).get(file_path).cloned()
+        self.workflows
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .get(file_path)
+            .cloned()
     }
 
     pub fn create_empty(name: &str) -> Workflow {
@@ -293,14 +312,12 @@ mod tests {
                     position: Position { x: 300.0, y: 100.0 },
                 },
             ],
-            edges: vec![
-                WorkflowEdge {
-                    id: "e1".to_string(),
-                    from: "resource-1".to_string(),
-                    to: "agent-1".to_string(),
-                    label: None,
-                },
-            ],
+            edges: vec![WorkflowEdge {
+                id: "e1".to_string(),
+                from: "resource-1".to_string(),
+                to: "agent-1".to_string(),
+                label: None,
+            }],
             settings: WorkflowSettings::default(),
         }
     }
@@ -429,7 +446,10 @@ mod tests {
     #[test]
     fn test_project_dir() {
         let dir = WorkflowStore::project_dir("/my/project");
-        assert_eq!(dir, std::path::PathBuf::from("/my/project/.reasonance/workflows"));
+        assert_eq!(
+            dir,
+            std::path::PathBuf::from("/my/project/.reasonance/workflows")
+        );
     }
 
     #[test]
@@ -460,7 +480,8 @@ mod tests {
 
     #[test]
     fn test_agent_memory_config() {
-        let json = r#"{"llm":"claude","memory":{"enabled":true,"maxEntries":100,"persist":"workflow"}}"#;
+        let json =
+            r#"{"llm":"claude","memory":{"enabled":true,"maxEntries":100,"persist":"workflow"}}"#;
         let config: AgentNodeConfig = serde_json::from_str(json).unwrap();
         assert!(config.memory.is_some());
         let mem = config.memory.unwrap();

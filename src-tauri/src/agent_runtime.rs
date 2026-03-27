@@ -5,7 +5,17 @@ use std::sync::{Arc, Mutex};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
-pub enum AgentState { Idle, Queued, Running, Success, Failed, Retrying, Fallback, Error, Skipped }
+pub enum AgentState {
+    Idle,
+    Queued,
+    Running,
+    Success,
+    Failed,
+    Retrying,
+    Fallback,
+    Error,
+    Skipped,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentInstance {
@@ -33,6 +43,8 @@ pub struct AgentMessage {
 }
 
 pub struct AgentRuntime {
+    /// Registered agent instances. Plain HashMap: bounded by workflow node count,
+    /// entries added during workflow setup and removed on teardown.
     pub agents: Arc<Mutex<HashMap<String, AgentInstance>>>,
     pub messages: Arc<Mutex<Vec<AgentMessage>>>,
 }
@@ -45,22 +57,50 @@ impl AgentRuntime {
         }
     }
 
-    pub fn create_agent(&self, node_id: &str, workflow_path: &str, max_retries: u32, fallback_agent: Option<String>) -> String {
+    pub fn create_agent(
+        &self,
+        node_id: &str,
+        workflow_path: &str,
+        max_retries: u32,
+        fallback_agent: Option<String>,
+    ) -> String {
         let id = uuid::Uuid::new_v4().to_string();
-        info!("Agent created: id={}, node_id={}, workflow={}, max_retries={}", id, node_id, workflow_path, max_retries);
+        info!(
+            "Agent created: id={}, node_id={}, workflow={}, max_retries={}",
+            id, node_id, workflow_path, max_retries
+        );
         let agent = AgentInstance {
-            id: id.clone(), node_id: node_id.to_string(), workflow_path: workflow_path.to_string(),
-            state: AgentState::Idle, pty_id: None, retry_count: 0, max_retries,
-            fallback_agent, started_at: None, finished_at: None, error_message: None, output_buffer: Vec::new(),
+            id: id.clone(),
+            node_id: node_id.to_string(),
+            workflow_path: workflow_path.to_string(),
+            state: AgentState::Idle,
+            pty_id: None,
+            retry_count: 0,
+            max_retries,
+            fallback_agent,
+            started_at: None,
+            finished_at: None,
+            error_message: None,
+            output_buffer: Vec::new(),
         };
-        self.agents.lock().unwrap_or_else(|e| e.into_inner()).insert(id.clone(), agent);
+        self.agents
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .insert(id.clone(), agent);
         id
     }
 
-    pub fn transition(&self, agent_id: &str, new_state: AgentState) -> Result<AgentState, crate::error::ReasonanceError> {
+    pub fn transition(
+        &self,
+        agent_id: &str,
+        new_state: AgentState,
+    ) -> Result<AgentState, crate::error::ReasonanceError> {
         let mut agents = self.agents.lock().unwrap_or_else(|e| e.into_inner());
         let agent = agents.get_mut(agent_id).ok_or_else(|| {
-            error!("Agent state transition failed: agent {} not found", agent_id);
+            error!(
+                "Agent state transition failed: agent {} not found",
+                agent_id
+            );
             crate::error::ReasonanceError::not_found("agent", agent_id)
         })?;
         let valid = match (&agent.state, &new_state) {
@@ -77,74 +117,131 @@ impl AgentRuntime {
             _ => false,
         };
         if !valid {
-            warn!("Invalid state transition: {:?} -> {:?} for agent {}", agent.state, new_state, agent_id);
+            warn!(
+                "Invalid state transition: {:?} -> {:?} for agent {}",
+                agent.state, new_state, agent_id
+            );
             return Err(crate::error::ReasonanceError::validation(
                 "agent_state",
-                format!("Invalid transition: {:?} -> {:?} for agent {}", agent.state, new_state, agent_id),
+                format!(
+                    "Invalid transition: {:?} -> {:?} for agent {}",
+                    agent.state, new_state, agent_id
+                ),
             ));
         }
-        info!("Agent state transition: id={}, {:?} -> {:?}", agent_id, agent.state, new_state);
+        info!(
+            "Agent state transition: id={}, {:?} -> {:?}",
+            agent_id, agent.state, new_state
+        );
         let now = chrono::Utc::now().to_rfc3339();
         match &new_state {
-            AgentState::Running => { if agent.started_at.is_none() { agent.started_at = Some(now); } }
-            AgentState::Retrying => { agent.retry_count += 1; }
-            AgentState::Success | AgentState::Error | AgentState::Skipped => { agent.finished_at = Some(now); }
+            AgentState::Running => {
+                if agent.started_at.is_none() {
+                    agent.started_at = Some(now);
+                }
+            }
+            AgentState::Retrying => {
+                agent.retry_count += 1;
+            }
+            AgentState::Success | AgentState::Error | AgentState::Skipped => {
+                agent.finished_at = Some(now);
+            }
             _ => {}
         }
         agent.state = new_state.clone();
         Ok(new_state)
     }
 
-    pub fn set_pty(&self, agent_id: &str, pty_id: &str) -> Result<(), crate::error::ReasonanceError> {
+    pub fn set_pty(
+        &self,
+        agent_id: &str,
+        pty_id: &str,
+    ) -> Result<(), crate::error::ReasonanceError> {
         let mut agents = self.agents.lock().unwrap_or_else(|e| e.into_inner());
-        let agent = agents.get_mut(agent_id).ok_or_else(|| crate::error::ReasonanceError::not_found("agent", agent_id))?;
+        let agent = agents
+            .get_mut(agent_id)
+            .ok_or_else(|| crate::error::ReasonanceError::not_found("agent", agent_id))?;
         agent.pty_id = Some(pty_id.to_string());
         Ok(())
     }
 
-    pub fn set_error(&self, agent_id: &str, message: &str) -> Result<(), crate::error::ReasonanceError> {
+    pub fn set_error(
+        &self,
+        agent_id: &str,
+        message: &str,
+    ) -> Result<(), crate::error::ReasonanceError> {
         error!("Agent error set: id={}, message='{}'", agent_id, message);
         let mut agents = self.agents.lock().unwrap_or_else(|e| e.into_inner());
-        let agent = agents.get_mut(agent_id).ok_or_else(|| crate::error::ReasonanceError::not_found("agent", agent_id))?;
+        let agent = agents
+            .get_mut(agent_id)
+            .ok_or_else(|| crate::error::ReasonanceError::not_found("agent", agent_id))?;
         agent.error_message = Some(message.to_string());
         Ok(())
     }
 
     pub fn get_agent(&self, agent_id: &str) -> Option<AgentInstance> {
-        self.agents.lock().unwrap_or_else(|e| e.into_inner()).get(agent_id).cloned()
+        self.agents
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .get(agent_id)
+            .cloned()
     }
 
     pub fn get_workflow_agents(&self, workflow_path: &str) -> Vec<AgentInstance> {
-        self.agents.lock().unwrap_or_else(|e| e.into_inner()).values().filter(|a| a.workflow_path == workflow_path).cloned().collect()
+        self.agents
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .values()
+            .filter(|a| a.workflow_path == workflow_path)
+            .cloned()
+            .collect()
     }
 
     pub fn remove_agent(&self, agent_id: &str) -> Result<(), crate::error::ReasonanceError> {
         info!("Agent removed: id={}", agent_id);
-        self.agents.lock().unwrap_or_else(|e| e.into_inner()).remove(agent_id).ok_or_else(|| crate::error::ReasonanceError::not_found("agent", agent_id))?;
+        self.agents
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .remove(agent_id)
+            .ok_or_else(|| crate::error::ReasonanceError::not_found("agent", agent_id))?;
         Ok(())
     }
 
     pub fn remove_workflow_agents(&self, workflow_path: &str) {
         debug!("Removing all agents for workflow={}", workflow_path);
-        self.agents.lock().unwrap_or_else(|e| e.into_inner()).retain(|_, a| a.workflow_path != workflow_path);
+        self.agents
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .retain(|_, a| a.workflow_path != workflow_path);
     }
 
     pub fn send_message(&self, from: &str, to: &str, payload: serde_json::Value) {
         debug!("Agent message: from={}, to={}", from, to);
         let msg = AgentMessage {
-            from: from.to_string(), to: to.to_string(), payload,
+            from: from.to_string(),
+            to: to.to_string(),
+            payload,
             timestamp: chrono::Utc::now().to_rfc3339(),
         };
-        self.messages.lock().unwrap_or_else(|e| e.into_inner()).push(msg);
+        self.messages
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .push(msg);
     }
 
     #[allow(dead_code)] // Used by HIVE workflow engine
     const MAX_OUTPUT_LINES: usize = 200;
 
     #[allow(dead_code)] // Used by HIVE workflow engine
-    pub fn append_output(&self, agent_id: &str, line: &str) -> Result<(), crate::error::ReasonanceError> {
+    pub fn append_output(
+        &self,
+        agent_id: &str,
+        line: &str,
+    ) -> Result<(), crate::error::ReasonanceError> {
         let mut agents = self.agents.lock().unwrap_or_else(|e| e.into_inner());
-        let agent = agents.get_mut(agent_id).ok_or_else(|| crate::error::ReasonanceError::not_found("agent", agent_id))?;
+        let agent = agents
+            .get_mut(agent_id)
+            .ok_or_else(|| crate::error::ReasonanceError::not_found("agent", agent_id))?;
         agent.output_buffer.push(line.to_string());
         if agent.output_buffer.len() > Self::MAX_OUTPUT_LINES {
             let drain_count = agent.output_buffer.len() - Self::MAX_OUTPUT_LINES;
@@ -155,12 +252,20 @@ impl AgentRuntime {
 
     pub fn get_output(&self, agent_id: &str) -> Result<Vec<String>, crate::error::ReasonanceError> {
         let agents = self.agents.lock().unwrap_or_else(|e| e.into_inner());
-        let agent = agents.get(agent_id).ok_or_else(|| crate::error::ReasonanceError::not_found("agent", agent_id))?;
+        let agent = agents
+            .get(agent_id)
+            .ok_or_else(|| crate::error::ReasonanceError::not_found("agent", agent_id))?;
         Ok(agent.output_buffer.clone())
     }
 
     pub fn get_messages_for(&self, agent_id: &str) -> Vec<AgentMessage> {
-        self.messages.lock().unwrap_or_else(|e| e.into_inner()).iter().filter(|m| m.to == agent_id).cloned().collect()
+        self.messages
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .iter()
+            .filter(|m| m.to == agent_id)
+            .cloned()
+            .collect()
     }
 }
 
@@ -184,9 +289,18 @@ mod tests {
         let runtime = AgentRuntime::new();
         let id = runtime.create_agent("node-1", "wf", 2, None);
 
-        assert_eq!(runtime.transition(&id, AgentState::Queued).unwrap(), AgentState::Queued);
-        assert_eq!(runtime.transition(&id, AgentState::Running).unwrap(), AgentState::Running);
-        assert_eq!(runtime.transition(&id, AgentState::Success).unwrap(), AgentState::Success);
+        assert_eq!(
+            runtime.transition(&id, AgentState::Queued).unwrap(),
+            AgentState::Queued
+        );
+        assert_eq!(
+            runtime.transition(&id, AgentState::Running).unwrap(),
+            AgentState::Running
+        );
+        assert_eq!(
+            runtime.transition(&id, AgentState::Success).unwrap(),
+            AgentState::Success
+        );
     }
 
     #[test]

@@ -13,6 +13,9 @@ use crate::event_bus::{Event, EventHandler};
 /// Stores events grouped by session ID, extracted from the generic `Event.payload`.
 /// Replaces the former `transport::event_bus::HistoryRecorder`.
 pub struct HistoryRecorder {
+    /// In-memory event history grouped by session ID. Plain HashMap: bounded
+    /// by active session count, entries grow per-session but are read-only
+    /// lookups — no lifecycle tracking needed.
     history: Arc<Mutex<HashMap<String, Vec<AgentEvent>>>>,
 }
 

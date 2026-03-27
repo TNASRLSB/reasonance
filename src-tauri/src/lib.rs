@@ -318,13 +318,34 @@ pub fn run() {
 
             // Lifecycle signals: periodic timers bridged to EventBus so the
             // frontend can listen instead of polling with setInterval.
+            // The sweep timer also runs TrackedMap GC on transport + PTY maps.
             let sweep_signal = signal::Signal::new(());
             sweep_signal.bridge_to_event_bus(bus.clone(), "lifecycle:sweep");
+            let transport_sessions = transport.sessions_map().clone();
+            let pty_mgr: tauri::State<'_, pty_manager::PtyManager> = app.state();
+            let pty_instances = pty_mgr.instances_map().clone();
             tokio::spawn(async move {
                 let mut interval = tokio::time::interval(std::time::Duration::from_secs(60));
                 interval.tick().await; // skip initial immediate tick
                 loop {
                     interval.tick().await;
+                    // GC: sweep TrackedMap entries with no external strong refs
+                    let swept_sessions = transport_sessions
+                        .lock()
+                        .unwrap_or_else(|e| e.into_inner())
+                        .sweep_exclusive();
+                    let swept_ptys = pty_instances
+                        .lock()
+                        .unwrap_or_else(|e| e.into_inner())
+                        .sweep_exclusive();
+                    if swept_sessions > 0 || swept_ptys > 0 {
+                        log::info!(
+                            "Lifecycle sweep: removed {} transport sessions, {} PTY instances",
+                            swept_sessions,
+                            swept_ptys
+                        );
+                    }
+                    // Notify frontend
                     sweep_signal.send(());
                 }
             });

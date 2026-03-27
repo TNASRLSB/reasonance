@@ -16,6 +16,9 @@ use crate::transport::session_store::SessionStore;
 /// The bus dispatches via `tokio::spawn`, so async I/O is native — no manual thread needed.
 pub struct SessionHistoryWriter {
     store: Arc<SessionStore>,
+    /// Session file handles for async I/O. Plain HashMap: bounded by active
+    /// session count, handles are created on first event and closed on session
+    /// completion — no external lifecycle tracking needed.
     handles: Arc<Mutex<HashMap<String, SessionHandle>>>,
 }
 

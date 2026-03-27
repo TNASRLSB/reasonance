@@ -40,6 +40,8 @@ pub struct WorkflowRun {
 }
 
 pub struct WorkflowEngine {
+    /// Active workflow runs. Plain HashMap: bounded by concurrent workflow count
+    /// (typically 1-3), entries removed on completion.
     pub runs: Arc<Mutex<HashMap<String, WorkflowRun>>>,
     /// The sole event bus. `None` in tests and when the bus hasn't been wired yet.
     /// Uses `Mutex` for interior mutability so `set_event_bus` can be

@@ -28,6 +28,7 @@ pub struct StructuredAgentTransport {
     sessions: Arc<Mutex<TrackedMap<String, AgentSession>>>,
     /// Retry policies loaded from provider configs, keyed by provider name.
     /// Used by `send()` to retry failed CLI spawns with exponential backoff.
+    /// Plain HashMap: small, bounded (one entry per provider), loaded from disk on init.
     retry_policies: Arc<Mutex<HashMap<String, RetryPolicy>>>,
     /// Circuit breaker for transport-level fault isolation per provider.
     circuit_breaker: Arc<CircuitBreaker>,
@@ -531,6 +532,11 @@ impl StructuredAgentTransport {
 
     pub fn registry(&self) -> Arc<Mutex<NormalizerRegistry>> {
         self.registry.clone()
+    }
+
+    /// Access the underlying TrackedMap for sweep_exclusive (used by periodic GC).
+    pub fn sessions_map(&self) -> &Arc<Mutex<TrackedMap<String, AgentSession>>> {
+        &self.sessions
     }
 
     /// Build permission args from the normalizer config, substituting `{project_root}` with the actual path.
