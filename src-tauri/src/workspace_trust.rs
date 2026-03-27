@@ -229,7 +229,7 @@ impl TrustStore {
             .clone()
     }
 
-    pub fn folder_info(path: &str) -> Result<FolderInfo, String> {
+    pub fn folder_info(path: &str) -> Result<FolderInfo, crate::error::ReasonanceError> {
         let p = Path::new(path);
         let name = p
             .file_name()

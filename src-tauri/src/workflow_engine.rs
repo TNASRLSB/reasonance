@@ -1,5 +1,6 @@
 use crate::agent_memory::AgentMemoryStore;
 use crate::agent_runtime::{AgentRuntime, AgentState};
+use crate::error::ReasonanceError;
 use crate::pty_manager::PtyManager;
 use crate::resource_lock::ResourceLockManager;
 use crate::workflow_store::{
@@ -79,7 +80,7 @@ impl WorkflowEngine {
     }
 
     /// Topological sort using Kahn's algorithm. Returns Err if cycle detected.
-    pub fn topological_sort(workflow: &Workflow) -> Result<Vec<String>, String> {
+    pub fn topological_sort(workflow: &Workflow) -> Result<Vec<String>, ReasonanceError> {
         let mut in_degree: HashMap<String, usize> = HashMap::new();
         let mut adjacency: HashMap<String, Vec<String>> = HashMap::new();
         for node in &workflow.nodes {
@@ -120,7 +121,11 @@ impl WorkflowEngine {
                 result.len(),
                 workflow.nodes.len()
             );
-            return Err("Workflow graph contains a cycle".to_string());
+            return Err(ReasonanceError::workflow(
+                "",
+                "",
+                "Workflow graph contains a cycle",
+            ));
         }
         debug!("Topological sort completed: {} nodes", result.len());
         Ok(result)
@@ -173,7 +178,11 @@ impl WorkflowEngine {
 
     // --- Run lifecycle ---
 
-    pub fn create_run(&self, workflow: &Workflow, workflow_path: &str) -> Result<String, String> {
+    pub fn create_run(
+        &self,
+        workflow: &Workflow,
+        workflow_path: &str,
+    ) -> Result<String, ReasonanceError> {
         Self::topological_sort(workflow)?;
         let run_id = uuid::Uuid::new_v4().to_string();
         info!(
@@ -213,40 +222,48 @@ impl WorkflowEngine {
         Ok(run_id)
     }
 
-    pub fn stop_run(&self, run_id: &str) -> Result<(), String> {
+    pub fn stop_run(&self, run_id: &str) -> Result<(), ReasonanceError> {
         info!("Workflow run stopped: run_id={}", run_id);
         let mut runs = self.runs.lock().unwrap_or_else(|e| e.into_inner());
         let run = runs
             .get_mut(run_id)
-            .ok_or_else(|| format!("Run {} not found", run_id))?;
+            .ok_or_else(|| ReasonanceError::not_found("run", run_id))?;
         run.status = RunStatus::Stopped;
         run.finished_at = Some(chrono::Utc::now().to_rfc3339());
         Ok(())
     }
 
-    pub fn pause_run(&self, run_id: &str) -> Result<(), String> {
+    pub fn pause_run(&self, run_id: &str) -> Result<(), ReasonanceError> {
         info!("Workflow run paused: run_id={}", run_id);
         let mut runs = self.runs.lock().unwrap_or_else(|e| e.into_inner());
         let run = runs
             .get_mut(run_id)
-            .ok_or_else(|| format!("Run {} not found", run_id))?;
+            .ok_or_else(|| ReasonanceError::not_found("run", run_id))?;
         if run.status != RunStatus::Running {
             warn!("Cannot pause run {} in {:?} state", run_id, run.status);
-            return Err(format!("Cannot pause run in {:?} state", run.status));
+            return Err(ReasonanceError::workflow(
+                run_id,
+                "",
+                format!("Cannot pause run in {:?} state", run.status),
+            ));
         }
         run.status = RunStatus::Paused;
         Ok(())
     }
 
-    pub fn resume_run(&self, run_id: &str) -> Result<(), String> {
+    pub fn resume_run(&self, run_id: &str) -> Result<(), ReasonanceError> {
         info!("Workflow run resumed: run_id={}", run_id);
         let mut runs = self.runs.lock().unwrap_or_else(|e| e.into_inner());
         let run = runs
             .get_mut(run_id)
-            .ok_or_else(|| format!("Run {} not found", run_id))?;
+            .ok_or_else(|| ReasonanceError::not_found("run", run_id))?;
         if run.status != RunStatus::Paused {
             warn!("Cannot resume run {} in {:?} state", run_id, run.status);
-            return Err(format!("Cannot resume run in {:?} state", run.status));
+            return Err(ReasonanceError::workflow(
+                run_id,
+                "",
+                format!("Cannot resume run in {:?} state", run.status),
+            ));
         }
         run.status = RunStatus::Running;
         Ok(())
@@ -266,15 +283,15 @@ impl WorkflowEngine {
         node_id: &str,
         new_state: AgentState,
         agent_id: Option<String>,
-    ) -> Result<(), String> {
+    ) -> Result<(), ReasonanceError> {
         let mut runs = self.runs.lock().unwrap_or_else(|e| e.into_inner());
         let run = runs
             .get_mut(run_id)
-            .ok_or_else(|| format!("Run {} not found", run_id))?;
+            .ok_or_else(|| ReasonanceError::not_found("run", run_id))?;
         let node_state = run
             .node_states
             .get_mut(node_id)
-            .ok_or_else(|| format!("Node {} not found in run", node_id))?;
+            .ok_or_else(|| ReasonanceError::not_found("node", node_id))?;
         node_state.state = new_state;
         if agent_id.is_some() {
             node_state.agent_id = agent_id;
@@ -282,11 +299,11 @@ impl WorkflowEngine {
         Ok(())
     }
 
-    pub fn check_run_complete(&self, run_id: &str) -> Result<bool, String> {
+    pub fn check_run_complete(&self, run_id: &str) -> Result<bool, ReasonanceError> {
         let runs = self.runs.lock().unwrap_or_else(|e| e.into_inner());
         let run = runs
             .get(run_id)
-            .ok_or_else(|| format!("Run {} not found", run_id))?;
+            .ok_or_else(|| ReasonanceError::not_found("run", run_id))?;
         Ok(run.node_states.values().all(|ns| {
             matches!(
                 ns.state,
@@ -295,11 +312,11 @@ impl WorkflowEngine {
         }))
     }
 
-    pub fn finalize_run(&self, run_id: &str) -> Result<RunStatus, String> {
+    pub fn finalize_run(&self, run_id: &str) -> Result<RunStatus, ReasonanceError> {
         let mut runs = self.runs.lock().unwrap_or_else(|e| e.into_inner());
         let run = runs
             .get_mut(run_id)
-            .ok_or_else(|| format!("Run {} not found", run_id))?;
+            .ok_or_else(|| ReasonanceError::not_found("run", run_id))?;
         let has_errors = run
             .node_states
             .values()
@@ -332,12 +349,12 @@ impl WorkflowEngine {
         lock_manager: &ResourceLockManager,
         app: &AppHandle,
         cwd: &str,
-    ) -> Result<(), String> {
+    ) -> Result<(), ReasonanceError> {
         let node = workflow
             .nodes
             .iter()
             .find(|n| n.id == node_id)
-            .ok_or_else(|| format!("Node {} not in workflow", node_id))?;
+            .ok_or_else(|| ReasonanceError::not_found("node", node_id))?;
 
         // Acquire locks on connected Resource nodes before spawning
         let mut lock_failed = false;
@@ -377,9 +394,10 @@ impl WorkflowEngine {
             for rid in &acquired_resources {
                 lock_manager.release(rid, node_id);
             }
-            return Err(format!(
-                "Resource lock acquisition failed for node {}",
-                node_id
+            return Err(ReasonanceError::workflow(
+                run_id,
+                node_id,
+                "Resource lock acquisition failed",
             ));
         }
 
@@ -407,8 +425,11 @@ impl WorkflowEngine {
                     let mem_path = match mem_cfg.persist.as_str() {
                         "workflow" => {
                             let runs = self.runs.lock().unwrap_or_else(|e| e.into_inner());
-                            let wf_path = &runs.get(run_id).unwrap().workflow_path;
-                            AgentMemoryStore::workflow_memory_path(wf_path, node_id)
+                            let wf_path = runs
+                                .get(run_id)
+                                .map(|r| r.workflow_path.clone())
+                                .unwrap_or_default();
+                            AgentMemoryStore::workflow_memory_path(&wf_path, node_id)
                         }
                         "global" => AgentMemoryStore::global_memory_path(node_id),
                         _ => AgentMemoryStore::workflow_memory_path(".", node_id),
@@ -531,19 +552,22 @@ impl WorkflowEngine {
         app: &AppHandle,
         cwd: &str,
         lock_manager: &ResourceLockManager,
-    ) -> Result<Vec<String>, String> {
+    ) -> Result<Vec<String>, ReasonanceError> {
         {
             let runs = self.runs.lock().unwrap_or_else(|e| e.into_inner());
             let run = runs
                 .get(run_id)
-                .ok_or_else(|| format!("Run {} not found", run_id))?;
+                .ok_or_else(|| ReasonanceError::not_found("run", run_id))?;
             if run.status != RunStatus::Running {
                 return Ok(vec![]);
             }
         }
         let node_states = {
             let runs = self.runs.lock().unwrap_or_else(|e| e.into_inner());
-            runs.get(run_id).unwrap().node_states.clone()
+            runs.get(run_id)
+                .ok_or_else(|| ReasonanceError::not_found("run", run_id))?
+                .node_states
+                .clone()
         };
         let ready = Self::get_ready_nodes(&workflow.edges, &node_states);
         let running_count = node_states
@@ -573,7 +597,7 @@ impl WorkflowEngine {
                 .nodes
                 .iter()
                 .find(|n| n.id == node_id)
-                .ok_or_else(|| format!("Node {} not in workflow", node_id))?;
+                .ok_or_else(|| ReasonanceError::not_found("node", &node_id))?;
 
             match node.node_type {
                 NodeType::Agent => {
@@ -635,8 +659,13 @@ impl WorkflowEngine {
                 }
                 NodeType::Logic => {
                     let config: crate::workflow_store::LogicNodeConfig =
-                        serde_json::from_value(node.config.clone())
-                            .map_err(|e| format!("Invalid logic config: {}", e))?;
+                        serde_json::from_value(node.config.clone()).map_err(|e| {
+                            ReasonanceError::workflow(
+                                run_id,
+                                &node_id,
+                                format!("Invalid logic config: {}", e),
+                            )
+                        })?;
 
                     // Predecessor output is empty for now — full output capture is a future task
                     let predecessor_output = serde_json::json!({});
@@ -743,12 +772,12 @@ impl WorkflowEngine {
         app: &AppHandle,
         cwd: &str,
         lock_manager: &ResourceLockManager,
-    ) -> Result<(), String> {
+    ) -> Result<(), ReasonanceError> {
         let agent_id = {
             let runs = self.runs.lock().unwrap_or_else(|e| e.into_inner());
             let run = runs
                 .get(run_id)
-                .ok_or_else(|| format!("Run {} not found", run_id))?;
+                .ok_or_else(|| ReasonanceError::not_found("run", run_id))?;
             run.node_states
                 .get(node_id)
                 .and_then(|ns| ns.agent_id.clone())
@@ -834,8 +863,11 @@ impl WorkflowEngine {
                         let mem_path = match mem_cfg.persist.as_str() {
                             "workflow" => {
                                 let runs = self.runs.lock().unwrap_or_else(|e| e.into_inner());
-                                let wf_path = &runs.get(run_id).unwrap().workflow_path;
-                                AgentMemoryStore::workflow_memory_path(wf_path, node_id)
+                                let wf_path = runs
+                                    .get(run_id)
+                                    .map(|r| r.workflow_path.clone())
+                                    .unwrap_or_default();
+                                AgentMemoryStore::workflow_memory_path(&wf_path, node_id)
                             }
                             "global" => AgentMemoryStore::global_memory_path(node_id),
                             _ => AgentMemoryStore::workflow_memory_path(".", node_id),
@@ -919,16 +951,20 @@ impl WorkflowEngine {
         pty_manager: &PtyManager,
         app: &AppHandle,
         cwd: &str,
-    ) -> Result<bool, String> {
+    ) -> Result<bool, ReasonanceError> {
         let agent_id = {
             let runs = self.runs.lock().unwrap_or_else(|e| e.into_inner());
-            let run = runs.get(run_id).ok_or("Run not found")?;
+            let run = runs
+                .get(run_id)
+                .ok_or_else(|| ReasonanceError::not_found("run", run_id))?;
             run.node_states
                 .get(node_id)
                 .and_then(|ns| ns.agent_id.clone())
-                .ok_or("No agent for node")?
+                .ok_or_else(|| ReasonanceError::workflow(run_id, node_id, "No agent for node"))?
         };
-        let agent = runtime.get_agent(&agent_id).ok_or("Agent not found")?;
+        let agent = runtime
+            .get_agent(&agent_id)
+            .ok_or_else(|| ReasonanceError::not_found("agent", &agent_id))?;
 
         // Try retry
         if agent.retry_count < agent.max_retries {
@@ -942,7 +978,11 @@ impl WorkflowEngine {
             let _ = runtime.transition(&agent_id, AgentState::Retrying);
             let _ = runtime.transition(&agent_id, AgentState::Running);
             self.update_node_state(run_id, node_id, AgentState::Running, None)?;
-            let node = workflow.nodes.iter().find(|n| n.id == node_id).unwrap();
+            let node = workflow
+                .nodes
+                .iter()
+                .find(|n| n.id == node_id)
+                .ok_or_else(|| ReasonanceError::not_found("node", node_id))?;
             let llm = node
                 .config
                 .get("llm")
@@ -978,7 +1018,11 @@ impl WorkflowEngine {
             );
             let _ = runtime.transition(&agent_id, AgentState::Fallback);
             self.update_node_state(run_id, node_id, AgentState::Fallback, None)?;
-            let node = workflow.nodes.iter().find(|n| n.id == node_id).unwrap();
+            let node = workflow
+                .nodes
+                .iter()
+                .find(|n| n.id == node_id)
+                .ok_or_else(|| ReasonanceError::not_found("node", node_id))?;
             let fallback_llm = node
                 .config
                 .get("fallback")
@@ -1028,19 +1072,28 @@ impl WorkflowEngine {
         app: &AppHandle,
         cwd: &str,
         lock_manager: &ResourceLockManager,
-    ) -> Result<Option<String>, String> {
+    ) -> Result<Option<String>, ReasonanceError> {
         debug!("Stepping workflow run: run_id={}", run_id);
         {
             let mut runs = self.runs.lock().unwrap_or_else(|e| e.into_inner());
-            let run = runs.get_mut(run_id).ok_or("Run not found")?;
+            let run = runs
+                .get_mut(run_id)
+                .ok_or_else(|| ReasonanceError::not_found("run", run_id))?;
             if run.status != RunStatus::Paused && run.status != RunStatus::Running {
-                return Err(format!("Cannot step run in {:?} state", run.status));
+                return Err(ReasonanceError::workflow(
+                    run_id,
+                    "",
+                    format!("Cannot step run in {:?} state", run.status),
+                ));
             }
             run.status = RunStatus::Running;
         }
         let node_states = {
             let runs = self.runs.lock().unwrap_or_else(|e| e.into_inner());
-            runs.get(run_id).unwrap().node_states.clone()
+            runs.get(run_id)
+                .ok_or_else(|| ReasonanceError::not_found("run", run_id))?
+                .node_states
+                .clone()
         };
         let ready = Self::get_ready_nodes(&workflow.edges, &node_states);
 
@@ -1148,7 +1201,7 @@ mod tests {
         );
         let result = WorkflowEngine::topological_sort(&wf);
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("cycle"));
+        assert!(result.unwrap_err().to_string().contains("cycle"));
     }
 
     #[test]
