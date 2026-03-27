@@ -1,9 +1,11 @@
 //! JSON file storage backend with atomic writes.
 
 use async_trait::async_trait;
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 
-use super::StorageBackend;
+use super::{StorageBackend, TransactionId};
 use crate::error::ReasonanceError;
 
 /// A filesystem-backed implementation of `StorageBackend`.
@@ -11,8 +13,16 @@ use crate::error::ReasonanceError;
 /// Each namespace maps to a subdirectory under the base path.
 /// Each key maps to a file within that subdirectory.
 /// Writes are atomic: data is written to a `.tmp` file then renamed.
+/// Buffered writes for a single in-flight transaction.
+struct PendingTx {
+    namespace: String,
+    puts: Vec<(String, Vec<u8>)>,
+    appends: Vec<(String, Vec<u8>)>,
+}
+
 pub struct JsonFileBackend {
     base_dir: PathBuf,
+    transactions: Mutex<HashMap<String, PendingTx>>,
 }
 
 impl JsonFileBackend {
@@ -23,7 +33,10 @@ impl JsonFileBackend {
         let base_dir = base_dir.into();
         std::fs::create_dir_all(&base_dir)
             .map_err(|e| ReasonanceError::io("creating storage base directory", e))?;
-        Ok(Self { base_dir })
+        Ok(Self {
+            base_dir,
+            transactions: Mutex::new(HashMap::new()),
+        })
     }
 
     /// Build the path for a key within a namespace, sanitizing against path traversal.
@@ -265,6 +278,86 @@ impl StorageBackend for JsonFileBackend {
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(0),
             Err(e) => Err(ReasonanceError::io("reading version file", e)),
         }
+    }
+
+    async fn begin_transaction(&self, namespace: &str) -> Result<TransactionId, ReasonanceError> {
+        let id = uuid::Uuid::new_v4().to_string();
+        let pending = PendingTx {
+            namespace: namespace.to_string(),
+            puts: Vec::new(),
+            appends: Vec::new(),
+        };
+        let mut guard = self
+            .transactions
+            .lock()
+            .map_err(|e| ReasonanceError::internal(format!("lock poisoned: {e}")))?;
+        guard.insert(id.clone(), pending);
+        Ok(id)
+    }
+
+    async fn tx_put(
+        &self,
+        tx: &TransactionId,
+        key: &str,
+        value: &[u8],
+    ) -> Result<(), ReasonanceError> {
+        let mut guard = self
+            .transactions
+            .lock()
+            .map_err(|e| ReasonanceError::internal(format!("lock poisoned: {e}")))?;
+        let pending = guard
+            .get_mut(tx)
+            .ok_or_else(|| ReasonanceError::not_found("transaction", tx))?;
+        pending.puts.push((key.to_string(), value.to_vec()));
+        Ok(())
+    }
+
+    async fn tx_append(
+        &self,
+        tx: &TransactionId,
+        key: &str,
+        line: &[u8],
+    ) -> Result<(), ReasonanceError> {
+        let mut guard = self
+            .transactions
+            .lock()
+            .map_err(|e| ReasonanceError::internal(format!("lock poisoned: {e}")))?;
+        let pending = guard
+            .get_mut(tx)
+            .ok_or_else(|| ReasonanceError::not_found("transaction", tx))?;
+        pending.appends.push((key.to_string(), line.to_vec()));
+        Ok(())
+    }
+
+    async fn commit(&self, tx: TransactionId) -> Result<(), ReasonanceError> {
+        let pending = {
+            let mut guard = self
+                .transactions
+                .lock()
+                .map_err(|e| ReasonanceError::internal(format!("lock poisoned: {e}")))?;
+            guard
+                .remove(&tx)
+                .ok_or_else(|| ReasonanceError::not_found("transaction", &tx))?
+        };
+        let ns = &pending.namespace;
+        for (key, value) in &pending.puts {
+            self.put(ns, key, value).await?;
+        }
+        for (key, line) in &pending.appends {
+            self.append(ns, key, line).await?;
+        }
+        Ok(())
+    }
+
+    async fn rollback_transaction(&self, tx: TransactionId) -> Result<(), ReasonanceError> {
+        let mut guard = self
+            .transactions
+            .lock()
+            .map_err(|e| ReasonanceError::internal(format!("lock poisoned: {e}")))?;
+        guard
+            .remove(&tx)
+            .ok_or_else(|| ReasonanceError::not_found("transaction", &tx))?;
+        Ok(())
     }
 }
 
@@ -531,5 +624,37 @@ mod tests {
     async fn get_version_default_zero() {
         let (backend, _tmp) = make_backend();
         assert_eq!(backend.get_version("new-ns").await.unwrap(), 0);
+    }
+
+    #[tokio::test]
+    async fn transaction_commit_json_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let backend = JsonFileBackend::new(dir.path()).unwrap();
+        let tx = backend.begin_transaction("txns").await.unwrap();
+        backend
+            .tx_put(&tx, "meta", b"{\"id\":\"s1\"}")
+            .await
+            .unwrap();
+        backend
+            .tx_append(&tx, "events", b"{\"type\":\"text\"}")
+            .await
+            .unwrap();
+        assert!(backend.get("txns", "meta").await.unwrap().is_none());
+        backend.commit(tx).await.unwrap();
+        assert!(backend.get("txns", "meta").await.unwrap().is_some());
+        assert_eq!(
+            backend.read_stream("txns", "events").await.unwrap().len(),
+            1
+        );
+    }
+
+    #[tokio::test]
+    async fn transaction_rollback_json_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let backend = JsonFileBackend::new(dir.path()).unwrap();
+        let tx = backend.begin_transaction("txns").await.unwrap();
+        backend.tx_put(&tx, "meta", b"data").await.unwrap();
+        backend.rollback_transaction(tx).await.unwrap();
+        assert!(backend.get("txns", "meta").await.unwrap().is_none());
     }
 }

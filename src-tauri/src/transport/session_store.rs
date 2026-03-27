@@ -27,13 +27,19 @@ impl SessionStore {
         Self { backend }
     }
 
-    /// Create a new session by writing its metadata.
+    /// Create a new session by writing its metadata inside a transaction.
     pub async fn create_session(
         &self,
         handle: &SessionHandle,
     ) -> Result<(), crate::error::ReasonanceError> {
         debug!("SessionStore: creating session={}", handle.id);
-        self.write_metadata(handle).await?;
+        let tx = self.backend.begin_transaction(NAMESPACE).await?;
+        let meta_key = format!("{}:meta", handle.id);
+        let meta_bytes = serde_json::to_vec_pretty(handle).map_err(|e| {
+            crate::error::ReasonanceError::serialization("session metadata", e.to_string())
+        })?;
+        self.backend.tx_put(&tx, &meta_key, &meta_bytes).await?;
+        self.backend.commit(tx).await?;
         debug!("SessionStore: session={} created", handle.id);
         Ok(())
     }

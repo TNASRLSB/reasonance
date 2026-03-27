@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use std::collections::HashMap;
 use std::sync::Mutex;
 
-use super::StorageBackend;
+use super::{StorageBackend, TransactionId};
 use crate::error::ReasonanceError;
 
 /// A fast, in-memory implementation of `StorageBackend`.
@@ -13,10 +13,18 @@ use crate::error::ReasonanceError;
 /// and ephemeral caches.
 type NamespaceMap<V> = HashMap<String, HashMap<String, V>>;
 
+/// Buffered writes for a single in-flight transaction.
+struct PendingTx {
+    namespace: String,
+    puts: Vec<(String, Vec<u8>)>,
+    appends: Vec<(String, Vec<u8>)>,
+}
+
 pub struct InMemoryBackend {
     data: Mutex<NamespaceMap<Vec<u8>>>,
     streams: Mutex<NamespaceMap<Vec<Vec<u8>>>>,
     versions: Mutex<HashMap<String, u32>>,
+    transactions: Mutex<HashMap<String, PendingTx>>,
 }
 
 impl InMemoryBackend {
@@ -25,6 +33,7 @@ impl InMemoryBackend {
             data: Mutex::new(HashMap::new()),
             streams: Mutex::new(HashMap::new()),
             versions: Mutex::new(HashMap::new()),
+            transactions: Mutex::new(HashMap::new()),
         }
     }
 }
@@ -157,6 +166,86 @@ impl StorageBackend for InMemoryBackend {
             .map_err(|e| ReasonanceError::internal(format!("lock poisoned: {e}")))?;
         Ok(guard.get(namespace).copied().unwrap_or(0))
     }
+
+    async fn begin_transaction(&self, namespace: &str) -> Result<TransactionId, ReasonanceError> {
+        let id = uuid::Uuid::new_v4().to_string();
+        let pending = PendingTx {
+            namespace: namespace.to_string(),
+            puts: Vec::new(),
+            appends: Vec::new(),
+        };
+        let mut guard = self
+            .transactions
+            .lock()
+            .map_err(|e| ReasonanceError::internal(format!("lock poisoned: {e}")))?;
+        guard.insert(id.clone(), pending);
+        Ok(id)
+    }
+
+    async fn tx_put(
+        &self,
+        tx: &TransactionId,
+        key: &str,
+        value: &[u8],
+    ) -> Result<(), ReasonanceError> {
+        let mut guard = self
+            .transactions
+            .lock()
+            .map_err(|e| ReasonanceError::internal(format!("lock poisoned: {e}")))?;
+        let pending = guard
+            .get_mut(tx)
+            .ok_or_else(|| ReasonanceError::not_found("transaction", tx))?;
+        pending.puts.push((key.to_string(), value.to_vec()));
+        Ok(())
+    }
+
+    async fn tx_append(
+        &self,
+        tx: &TransactionId,
+        key: &str,
+        line: &[u8],
+    ) -> Result<(), ReasonanceError> {
+        let mut guard = self
+            .transactions
+            .lock()
+            .map_err(|e| ReasonanceError::internal(format!("lock poisoned: {e}")))?;
+        let pending = guard
+            .get_mut(tx)
+            .ok_or_else(|| ReasonanceError::not_found("transaction", tx))?;
+        pending.appends.push((key.to_string(), line.to_vec()));
+        Ok(())
+    }
+
+    async fn commit(&self, tx: TransactionId) -> Result<(), ReasonanceError> {
+        let pending = {
+            let mut guard = self
+                .transactions
+                .lock()
+                .map_err(|e| ReasonanceError::internal(format!("lock poisoned: {e}")))?;
+            guard
+                .remove(&tx)
+                .ok_or_else(|| ReasonanceError::not_found("transaction", &tx))?
+        };
+        let ns = &pending.namespace;
+        for (key, value) in &pending.puts {
+            self.put(ns, key, value).await?;
+        }
+        for (key, line) in &pending.appends {
+            self.append(ns, key, line).await?;
+        }
+        Ok(())
+    }
+
+    async fn rollback_transaction(&self, tx: TransactionId) -> Result<(), ReasonanceError> {
+        let mut guard = self
+            .transactions
+            .lock()
+            .map_err(|e| ReasonanceError::internal(format!("lock poisoned: {e}")))?;
+        guard
+            .remove(&tx)
+            .ok_or_else(|| ReasonanceError::not_found("transaction", &tx))?;
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -246,5 +335,29 @@ mod tests {
             backend.get("ns2", "key").await.unwrap(),
             Some(b"value2".to_vec())
         );
+    }
+
+    #[tokio::test]
+    async fn transaction_commit_applies_writes() {
+        let backend = InMemoryBackend::new();
+        let tx = backend.begin_transaction("ns").await.unwrap();
+        backend.tx_put(&tx, "key1", b"val1").await.unwrap();
+        backend.tx_append(&tx, "log", b"line1").await.unwrap();
+        assert!(backend.get("ns", "key1").await.unwrap().is_none());
+        backend.commit(tx).await.unwrap();
+        assert_eq!(
+            backend.get("ns", "key1").await.unwrap(),
+            Some(b"val1".to_vec())
+        );
+        assert_eq!(backend.read_stream("ns", "log").await.unwrap().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn transaction_rollback_discards_writes() {
+        let backend = InMemoryBackend::new();
+        let tx = backend.begin_transaction("ns").await.unwrap();
+        backend.tx_put(&tx, "key1", b"val1").await.unwrap();
+        backend.rollback_transaction(tx).await.unwrap();
+        assert!(backend.get("ns", "key1").await.unwrap().is_none());
     }
 }

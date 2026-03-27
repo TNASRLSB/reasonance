@@ -16,6 +16,9 @@ use std::sync::Arc;
 
 use crate::error::ReasonanceError;
 
+/// Opaque identifier for an in-progress transaction.
+pub type TransactionId = String;
+
 /// Async key-value storage backend with namespace isolation.
 ///
 /// All keys and namespaces are plain strings. Values are opaque byte slices.
@@ -60,6 +63,35 @@ pub trait StorageBackend: Send + Sync {
 
     /// Get current schema version for `namespace`. Returns 0 if never migrated.
     async fn get_version(&self, namespace: &str) -> Result<u32, ReasonanceError>;
+
+    /// Begin a new transaction scoped to `namespace`.
+    ///
+    /// Returns an opaque transaction ID. All subsequent `tx_put` / `tx_append`
+    /// calls referencing this ID are buffered in memory until `commit` or
+    /// `rollback_transaction` is called.
+    async fn begin_transaction(&self, namespace: &str) -> Result<TransactionId, ReasonanceError>;
+
+    /// Buffer a put operation inside an open transaction.
+    async fn tx_put(
+        &self,
+        tx: &TransactionId,
+        key: &str,
+        value: &[u8],
+    ) -> Result<(), ReasonanceError>;
+
+    /// Buffer an append operation inside an open transaction.
+    async fn tx_append(
+        &self,
+        tx: &TransactionId,
+        key: &str,
+        line: &[u8],
+    ) -> Result<(), ReasonanceError>;
+
+    /// Commit the transaction: apply all buffered puts and appends atomically.
+    async fn commit(&self, tx: TransactionId) -> Result<(), ReasonanceError>;
+
+    /// Roll back the transaction: discard all buffered writes.
+    async fn rollback_transaction(&self, tx: TransactionId) -> Result<(), ReasonanceError>;
 }
 
 /// A typed wrapper around a `StorageBackend` that handles JSON serialization.
