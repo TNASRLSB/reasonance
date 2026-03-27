@@ -37,7 +37,9 @@ impl SessionHistoryWriter {
         self.handles
             .lock()
             .unwrap_or_else(|e| {
-                warn!("SessionHistoryWriter(v2): handles lock poisoned in track_session, recovering");
+                warn!(
+                    "SessionHistoryWriter(v2): handles lock poisoned in track_session, recovering"
+                );
                 e.into_inner()
             })
             .insert(handle.id.clone(), handle);
@@ -95,33 +97,40 @@ impl AsyncEventHandler for SessionHistoryWriter {
             );
         }
 
-        // Update session handle metadata.
-        let mut handles_lock = self.handles.lock().unwrap_or_else(|e| {
-            warn!("SessionHistoryWriter(v2): handles lock poisoned in handle, recovering");
-            e.into_inner()
-        });
-        if let Some(handle) = handles_lock.get_mut(&session_id) {
-            handle.event_count += 1;
-            handle.touch();
-
-            // Persist metadata periodically (every 10 events) to reduce I/O.
-            if handle.event_count % 10 == 0 {
-                debug!(
-                    "SessionHistoryWriter(v2): persisting metadata for session={} (event_count={})",
-                    session_id, handle.event_count
-                );
-                if let Err(e) = self.store.write_metadata(handle) {
-                    error!(
-                        "SessionHistoryWriter(v2): failed to write metadata for session={}: {}",
-                        session_id, e
-                    );
+        // Update handle metadata (separate from I/O to minimize lock scope)
+        let metadata_to_persist = {
+            let mut handles_lock = self.handles.lock().unwrap_or_else(|e| {
+                warn!("SessionHistoryWriter: handles lock poisoned, recovering");
+                e.into_inner()
+            });
+            if let Some(handle) = handles_lock.get_mut(&session_id) {
+                handle.event_count += 1;
+                handle.touch();
+                if handle.event_count % 10 == 0 {
+                    Some(handle.clone())
+                } else {
+                    None
                 }
+            } else {
+                warn!(
+                    "SessionHistoryWriter: event for untracked session={}",
+                    session_id
+                );
+                None
             }
-        } else {
-            warn!(
-                "SessionHistoryWriter(v2): received event for untracked session={}",
+        };
+        // Persist metadata outside the lock scope (disk I/O)
+        if let Some(ref handle) = metadata_to_persist {
+            debug!(
+                "SessionHistoryWriter: persisting metadata for session={}",
                 session_id
             );
+            if let Err(e) = self.store.write_metadata(handle) {
+                error!(
+                    "SessionHistoryWriter: failed to write metadata for session={}: {}",
+                    session_id, e
+                );
+            }
         }
 
         Ok(())
@@ -227,9 +236,7 @@ mod tests {
 
         // Do not call track_session — the session is unknown.
         let ae = AgentEvent::text("hello", "claude");
-        let result = writer
-            .handle(make_event("untracked-session", &ae))
-            .await;
+        let result = writer.handle(make_event("untracked-session", &ae)).await;
 
         // Should succeed (warning logged, no panic).
         assert!(result.is_ok());
