@@ -162,6 +162,47 @@ impl LayeredSettings {
         self.get_value(path).and_then(|v| v.clone().try_into().ok())
     }
 
+    /// Set a value at a dotted path in a named layer.
+    ///
+    /// Creates intermediate tables as needed. After setting, the resolved
+    /// tree is recomputed. Layer must be one of: "user", "project", "workspace".
+    pub fn set(&mut self, path: &str, value: toml::Value, layer: &str) -> Result<(), String> {
+        let layer_val = match layer {
+            "user" => &mut self.user,
+            "project" => &mut self.project,
+            "workspace" => &mut self.workspace,
+            _ => return Err(format!("Unknown layer: {}", layer)),
+        };
+
+        // Ensure the layer exists
+        if layer_val.is_none() {
+            *layer_val = Some(toml::Value::Table(toml::map::Map::new()));
+        }
+        let layer_root = layer_val.as_mut().unwrap();
+
+        let parts: Vec<&str> = path.split('.').collect();
+        let (key, parents) = parts.split_last().ok_or_else(|| "Empty path".to_string())?;
+
+        // Navigate/create intermediate tables
+        let mut current = layer_root;
+        for part in parents {
+            if current.get(*part).map_or(true, |v| !v.is_table()) {
+                current
+                    .as_table_mut()
+                    .ok_or_else(|| "Not a table".to_string())?
+                    .insert(part.to_string(), toml::Value::Table(toml::map::Map::new()));
+            }
+            current = current.get_mut(*part).unwrap();
+        }
+
+        current
+            .as_table_mut()
+            .ok_or_else(|| "Not a table".to_string())?
+            .insert(key.to_string(), value);
+        self.resolve();
+        Ok(())
+    }
+
     /// Access the fully resolved settings tree.
     pub fn resolved(&self) -> &toml::Value {
         &self.resolved

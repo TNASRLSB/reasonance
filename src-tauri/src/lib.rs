@@ -248,6 +248,7 @@ pub fn run() {
         })
         .manage(std::sync::Mutex::new(model_slots::ModelSlotRegistry::new()))
         .manage(commands::file_ops::FileOpsState::new())
+        .manage(std::sync::Mutex::new(settings::LayeredSettings::new()))
         .setup(|app| {
             info!("🚀 Reasonance setup starting");
 
@@ -556,6 +557,10 @@ pub fn run() {
             commands::file_ops::file_ops_undo,
             commands::file_ops::file_ops_record_create,
             commands::file_ops::file_ops_record_rename,
+            commands::settings::get_setting,
+            commands::settings::set_setting,
+            commands::settings::get_all_settings,
+            commands::settings::reload_settings,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
