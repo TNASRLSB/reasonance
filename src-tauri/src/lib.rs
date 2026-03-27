@@ -63,6 +63,14 @@ use tauri::{Emitter, Manager};
 /// Shared state for the resolved normalizers directory path.
 pub struct NormalizersDir(pub std::path::PathBuf);
 
+/// Holds strong references to EventBus v2 subscribers to keep them alive.
+/// The EventBus stores Weak references; these Arcs are the strong owners.
+pub struct EventBusSubscribers {
+    pub history: std::sync::Arc<subscribers::history::HistoryRecorder>,
+    pub session_writer: std::sync::Arc<subscribers::session_writer::SessionHistoryWriter>,
+    pub bridge: std::sync::Arc<event_bus_v2::TauriFrontendBridge>,
+}
+
 /// Resolve the normalizers directory.
 /// Search order:
 ///   1. `normalizers/` relative to CWD (dev mode)
@@ -314,12 +322,21 @@ pub fn run() {
             bus.subscribe("transport:error", history_v2.clone());
             bus.subscribe_async("transport:event", session_writer.clone());
             bus.subscribe_async("transport:complete", session_writer.clone());
+            bus.subscribe_async("transport:error", session_writer.clone());
 
             let bridge = std::sync::Arc::new(event_bus_v2::TauriFrontendBridge::new(
                 app.handle().clone(),
                 bus.clone(),
             ));
-            bus.subscribe_to_visible(bridge);
+            bus.subscribe_to_visible(bridge.clone());
+
+            // Store strong Arcs so the Weak refs inside EventBus stay alive
+            // for the application lifetime.
+            app.manage(EventBusSubscribers {
+                history: history_v2,
+                session_writer,
+                bridge,
+            });
 
             // Pass v2 bus to the transport for dual-publishing
             transport.set_event_bus_v2(bus.clone());

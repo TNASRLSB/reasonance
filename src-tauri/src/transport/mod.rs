@@ -389,6 +389,11 @@ impl StructuredAgentTransport {
         // Capture stderr and emit as warning events
         if let Some(stderr) = child.stderr.take() {
             let stderr_bus = self.event_bus.clone();
+            let stderr_v2_bus = self
+                .event_bus_v2
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .clone();
             let stderr_sid = session_id.clone();
             tokio::spawn(async move {
                 use tokio::io::{AsyncBufReadExt, BufReader};
@@ -396,13 +401,20 @@ impl StructuredAgentTransport {
                 let mut lines = reader.lines();
                 while let Ok(Some(line)) = lines.next_line().await {
                     if !line.trim().is_empty() {
-                        let event = AgentEvent::error(
+                        let error_event = AgentEvent::error(
                             &format!("[stderr] {}", line),
                             "STDERR",
                             ErrorSeverity::Recoverable,
                             "system",
                         );
-                        stderr_bus.publish(&stderr_sid, &event);
+                        stderr_bus.publish(&stderr_sid, &error_event);
+                        if let Some(ref bus) = stderr_v2_bus {
+                            bus.publish(crate::event_bus_v2::Event::from_agent_event(
+                                "transport:error",
+                                &stderr_sid,
+                                &error_event,
+                            ));
+                        }
                     }
                 }
             });
