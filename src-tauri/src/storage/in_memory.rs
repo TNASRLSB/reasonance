@@ -11,9 +11,11 @@ use crate::error::ReasonanceError;
 ///
 /// Data lives only for the lifetime of the struct — intended for tests
 /// and ephemeral caches.
+type NamespaceMap<V> = HashMap<String, HashMap<String, V>>;
+
 pub struct InMemoryBackend {
-    data: Mutex<HashMap<String, HashMap<String, Vec<u8>>>>,
-    streams: Mutex<HashMap<String, HashMap<String, Vec<Vec<u8>>>>>,
+    data: Mutex<NamespaceMap<Vec<u8>>>,
+    streams: Mutex<NamespaceMap<Vec<Vec<u8>>>>,
     versions: Mutex<HashMap<String, u32>>,
 }
 
