@@ -9,6 +9,7 @@ pub mod stream_reader;
 use crate::agent_event::{AgentEvent, ErrorSeverity};
 use crate::circuit_breaker::CircuitBreaker;
 use crate::normalizer::NormalizerRegistry;
+use crate::tracked_map::TrackedMap;
 #[allow(unused_imports)]
 use log::{debug, error, info, trace, warn};
 use request::{AgentRequest, CliMode, SessionStatus};
@@ -24,7 +25,7 @@ use tokio::process::Command;
 
 pub struct StructuredAgentTransport {
     registry: Arc<Mutex<NormalizerRegistry>>,
-    sessions: Arc<Mutex<HashMap<String, AgentSession>>>,
+    sessions: Arc<Mutex<TrackedMap<String, AgentSession>>>,
     /// Retry policies loaded from provider configs, keyed by provider name.
     /// Used by `send()` to retry failed CLI spawns with exponential backoff.
     retry_policies: Arc<Mutex<HashMap<String, RetryPolicy>>>,
@@ -43,7 +44,7 @@ impl StructuredAgentTransport {
         warn!("StructuredAgentTransport: starting with empty registry (no normalizers found)");
         Self {
             registry: Arc::new(Mutex::new(NormalizerRegistry::default())),
-            sessions: Arc::new(Mutex::new(HashMap::new())),
+            sessions: Arc::new(Mutex::new(TrackedMap::new())),
             retry_policies: Arc::new(Mutex::new(HashMap::new())),
             circuit_breaker: Arc::new(CircuitBreaker::new()),
             event_bus: Mutex::new(None),
@@ -77,7 +78,7 @@ impl StructuredAgentTransport {
         );
         Ok(Self {
             registry: Arc::new(Mutex::new(registry)),
-            sessions: Arc::new(Mutex::new(HashMap::new())),
+            sessions: Arc::new(Mutex::new(TrackedMap::new())),
             retry_policies: Arc::new(Mutex::new(retry_policies)),
             circuit_breaker,
             event_bus: Mutex::new(None),
@@ -211,7 +212,8 @@ impl StructuredAgentTransport {
         // can observe the session as non-Active and also proceed to spawn.
         let args = {
             let mut sessions = self.sessions.lock().unwrap_or_else(|e| e.into_inner());
-            if let Some(existing) = sessions.get_mut(&session_id) {
+            if let Some(arc) = sessions.get(&session_id) {
+                let mut existing = arc.lock().unwrap_or_else(|e| e.into_inner());
                 if existing.status == SessionStatus::Active {
                     // The frontend already received the done event (which re-enabled input),
                     // but the async task that updates session status hasn't completed yet.
@@ -253,7 +255,7 @@ impl StructuredAgentTransport {
                 session.id = session_id.clone();
                 // Session starts as Active (set by AgentSession::new)
                 debug!("Transport: created agent session={}", session_id);
-                sessions.insert(session_id.clone(), session);
+                sessions.insert(session_id.clone(), session, session_id.clone());
                 // New session — use pre-built args (no CLI session ID)
                 args_for_new_session
             }
@@ -335,11 +337,13 @@ impl StructuredAgentTransport {
                     // Record failure in circuit breaker
                     self.circuit_breaker.record_failure(&circuit_id, &spawn_err);
                     // Restore session status since we set it to Active but spawn failed
-                    let mut sessions = self.sessions.lock().unwrap_or_else(|e| e.into_inner());
-                    if let Some(sess) = sessions.get_mut(&session_id) {
-                        sess.set_status(SessionStatus::Error {
-                            severity: ErrorSeverity::Fatal,
-                        });
+                    let sessions = self.sessions.lock().unwrap_or_else(|e| e.into_inner());
+                    if let Some(arc) = sessions.get(&session_id) {
+                        arc.lock().unwrap_or_else(|e| e.into_inner()).set_status(
+                            SessionStatus::Error {
+                                severity: ErrorSeverity::Fatal,
+                            },
+                        );
                     }
                     return Err(spawn_err);
                 }
@@ -391,7 +395,14 @@ impl StructuredAgentTransport {
         self.circuit_breaker.record_success(&circuit_id);
 
         let sid = session_id.clone();
-        let sessions_ref = self.sessions.clone();
+        // Get the session Arc directly — the spawned task only needs this session,
+        // not the whole map. This avoids locking the map from the async task.
+        let session_arc = self
+            .sessions
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .get(&session_id)
+            .expect("session must exist after send setup");
         let cb_ref = self.circuit_breaker.clone();
         let cb_circuit_id = circuit_id.clone();
 
@@ -413,6 +424,7 @@ impl StructuredAgentTransport {
             None,
         );
 
+        let session_for_task = session_arc.clone();
         let join_handle = tokio::spawn(async move {
             let _ = child.wait().await;
 
@@ -423,45 +435,39 @@ impl StructuredAgentTransport {
                     .unwrap_or_else(|e| e.into_inner())
                     .clone();
                 if let Some(ref cli_sid) = captured {
-                    let mut sessions = sessions_ref.lock().unwrap_or_else(|e| e.into_inner());
-                    if let Some(sess) = sessions.get_mut(&sid) {
-                        sess.set_cli_session_id(cli_sid.clone());
-                        log::info!(
-                            "Transport: session={} stored CLI session ID={}",
-                            sid,
-                            cli_sid
-                        );
-                    }
+                    let mut sess = session_for_task.lock().unwrap_or_else(|e| e.into_inner());
+                    sess.set_cli_session_id(cli_sid.clone());
+                    log::info!(
+                        "Transport: session={} stored CLI session ID={}",
+                        sid,
+                        cli_sid
+                    );
                 }
             }
 
             if let Ok(result) = rx.await {
-                let mut sessions = sessions_ref.lock().unwrap_or_else(|e| e.into_inner());
-                if let Some(sess) = sessions.get_mut(&sid) {
-                    if result.error.is_some() {
-                        // Record failure in circuit breaker for CLI-level errors
-                        let err = crate::error::ReasonanceError::Transport {
-                            provider: cb_circuit_id.clone(),
-                            message: result.error.clone().unwrap_or_default(),
-                            retryable: true,
-                        };
-                        cb_ref.record_failure(&cb_circuit_id, &err);
-                        sess.set_status(SessionStatus::Error {
-                            severity: ErrorSeverity::Fatal,
-                        });
-                    } else {
-                        cb_ref.record_success(&cb_circuit_id);
-                        sess.set_status(SessionStatus::Terminated);
-                    }
+                let mut sess = session_for_task.lock().unwrap_or_else(|e| e.into_inner());
+                if result.error.is_some() {
+                    // Record failure in circuit breaker for CLI-level errors
+                    let err = crate::error::ReasonanceError::Transport {
+                        provider: cb_circuit_id.clone(),
+                        message: result.error.clone().unwrap_or_default(),
+                        retryable: true,
+                    };
+                    cb_ref.record_failure(&cb_circuit_id, &err);
+                    sess.set_status(SessionStatus::Error {
+                        severity: ErrorSeverity::Fatal,
+                    });
+                } else {
+                    cb_ref.record_success(&cb_circuit_id);
+                    sess.set_status(SessionStatus::Terminated);
                 }
             }
         });
 
-        self.sessions
+        session_arc
             .lock()
             .unwrap_or_else(|e| e.into_inner())
-            .get_mut(&session_id)
-            .unwrap()
             .set_abort_handle(join_handle.abort_handle());
 
         info!(
@@ -473,14 +479,17 @@ impl StructuredAgentTransport {
 
     pub fn stop(&self, session_id: &str) -> Result<(), crate::error::ReasonanceError> {
         info!("Transport: stopping session={}", session_id);
-        let mut sessions = self.sessions.lock().unwrap_or_else(|e| e.into_inner());
-        let session = sessions.get_mut(session_id).ok_or_else(|| {
-            warn!(
-                "Transport: stop requested for unknown session={}",
-                session_id
-            );
-            crate::error::ReasonanceError::not_found("session", session_id)
-        })?;
+        let session_arc = {
+            let sessions = self.sessions.lock().unwrap_or_else(|e| e.into_inner());
+            sessions.get(session_id).ok_or_else(|| {
+                warn!(
+                    "Transport: stop requested for unknown session={}",
+                    session_id
+                );
+                crate::error::ReasonanceError::not_found("session", session_id)
+            })?
+        };
+        let mut session = session_arc.lock().unwrap_or_else(|e| e.into_inner());
         if let Some(handle) = session.abort_handle.take() {
             handle.abort();
         }
@@ -493,11 +502,14 @@ impl StructuredAgentTransport {
         &self,
         session_id: &str,
     ) -> Result<SessionStatus, crate::error::ReasonanceError> {
-        let sessions = self.sessions.lock().unwrap_or_else(|e| e.into_inner());
-        let session = sessions.get(session_id).ok_or_else(|| {
-            warn!("Transport: get_status for unknown session={}", session_id);
-            crate::error::ReasonanceError::not_found("session", session_id)
-        })?;
+        let session_arc = {
+            let sessions = self.sessions.lock().unwrap_or_else(|e| e.into_inner());
+            sessions.get(session_id).ok_or_else(|| {
+                warn!("Transport: get_status for unknown session={}", session_id);
+                crate::error::ReasonanceError::not_found("session", session_id)
+            })?
+        };
+        let session = session_arc.lock().unwrap_or_else(|e| e.into_inner());
         let status = session.status.clone();
         debug!("Transport: session={} status={:?}", session_id, status);
         Ok(status)

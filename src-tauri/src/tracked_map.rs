@@ -9,6 +9,7 @@
 //! simple GC-style cleanup for idle resources.
 
 use std::{
+    borrow::Borrow,
     collections::HashMap,
     hash::Hash,
     sync::{Arc, Mutex, Weak},
@@ -84,7 +85,14 @@ where
     }
 
     /// Retrieve a clone of the `Arc` stored under `key`, if present.
-    pub fn get(&self, key: &K) -> Option<Arc<Mutex<V>>> {
+    ///
+    /// Accepts any type that `K` borrows as (e.g. `&str` for `String` keys),
+    /// matching `HashMap::get` ergonomics.
+    pub fn get<Q>(&self, key: &Q) -> Option<Arc<Mutex<V>>>
+    where
+        K: Borrow<Q>,
+        Q: Hash + Eq + ?Sized,
+    {
         self.inner.get(key).cloned()
     }
 
@@ -93,7 +101,11 @@ where
     /// Returns `true` if an entry was removed.  After this the `Arc`'s
     /// strong count drops by 1; if no external holder exists it reaches 0
     /// and the value is freed.
-    pub fn remove(&mut self, key: &K) -> bool {
+    pub fn remove<Q>(&mut self, key: &Q) -> bool
+    where
+        K: Borrow<Q>,
+        Q: Hash + Eq + ?Sized,
+    {
         self.inner.remove(key).is_some()
     }
 
