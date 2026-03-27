@@ -1,6 +1,6 @@
 use crate::error::ReasonanceError;
 use crate::fs_watcher::FsWatcherState;
-use log::{info, error, debug};
+use log::{debug, error, info};
 use serde::Serialize;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -20,17 +20,29 @@ impl ProjectRootState {
 
 /// Set (or clear) the project root. Called by the frontend whenever a folder is opened.
 #[tauri::command]
-pub fn set_project_root(path: String, state: State<'_, ProjectRootState>) -> Result<(), ReasonanceError> {
+pub fn set_project_root(
+    path: String,
+    state: State<'_, ProjectRootState>,
+    settings: State<'_, std::sync::Mutex<crate::settings::LayeredSettings>>,
+) -> Result<(), ReasonanceError> {
     info!("cmd::set_project_root(path={})", path);
-    let canonical = if path.is_empty() {
-        None
-    } else {
-        Some(
-            std::fs::canonicalize(&path)
-                .map_err(|e| ReasonanceError::io(format!("canonicalize project root '{}'", path), e))?,
-        )
-    };
+    let canonical =
+        if path.is_empty() {
+            None
+        } else {
+            Some(std::fs::canonicalize(&path).map_err(|e| {
+                ReasonanceError::io(format!("canonicalize project root '{}'", path), e)
+            })?)
+        };
     *state.0.lock().unwrap_or_else(|e| e.into_inner()) = canonical.clone();
+
+    // Load project-level and workspace-level settings overrides
+    if let Some(ref root) = canonical {
+        settings
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .set_project_root(root);
+    }
 
     // Install prepare-commit-msg hook to add Reasonance co-author trailer
     if let Some(ref root) = canonical {
@@ -88,9 +100,13 @@ fi
             #[cfg(unix)]
             {
                 use std::os::unix::fs::PermissionsExt;
-                let _ = std::fs::set_permissions(&hook_path, std::fs::Permissions::from_mode(0o755));
+                let _ =
+                    std::fs::set_permissions(&hook_path, std::fs::Permissions::from_mode(0o755));
             }
-            info!("Installed Reasonance prepare-commit-msg hook at {:?}", hook_path);
+            info!(
+                "Installed Reasonance prepare-commit-msg hook at {:?}",
+                hook_path
+            );
         }
         Err(e) => {
             debug!("Failed to write prepare-commit-msg hook: {}", e);
@@ -104,12 +120,15 @@ fi
 /// Uses `canonicalize()` which follows all symlinks to the final target.
 /// Returns the canonicalized path if safe, or a `Security::PathTraversal` error.
 pub fn resolve_safe_path(path: &Path, project_root: &Path) -> Result<PathBuf, ReasonanceError> {
-    let resolved = path.canonicalize().map_err(|e| {
-        ReasonanceError::io(format!("Cannot resolve path '{}'", path.display()), e)
-    })?;
+    let resolved = path
+        .canonicalize()
+        .map_err(|e| ReasonanceError::io(format!("Cannot resolve path '{}'", path.display()), e))?;
 
     let root_resolved = project_root.canonicalize().map_err(|e| {
-        ReasonanceError::io(format!("Cannot resolve project root '{}'", project_root.display()), e)
+        ReasonanceError::io(
+            format!("Cannot resolve project root '{}'", project_root.display()),
+            e,
+        )
     })?;
 
     if !resolved.starts_with(&root_resolved) {
@@ -129,19 +148,28 @@ pub fn resolve_safe_path(path: &Path, project_root: &Path) -> Result<PathBuf, Re
 
 /// Resolve a path for writing (file may not exist yet).
 /// Canonicalizes the parent directory and checks the result is within root.
-pub fn resolve_safe_write_path(path: &Path, project_root: &Path) -> Result<PathBuf, ReasonanceError> {
+pub fn resolve_safe_write_path(
+    path: &Path,
+    project_root: &Path,
+) -> Result<PathBuf, ReasonanceError> {
     if path.exists() {
         return resolve_safe_path(path, project_root);
     }
 
-    let parent = path
-        .parent()
-        .ok_or_else(|| ReasonanceError::validation("path", format!("No parent directory for '{}'", path.display())))?;
+    let parent = path.parent().ok_or_else(|| {
+        ReasonanceError::validation(
+            "path",
+            format!("No parent directory for '{}'", path.display()),
+        )
+    })?;
     let canon_parent = parent.canonicalize().map_err(|e| {
         ReasonanceError::io(format!("Cannot resolve parent '{}'", parent.display()), e)
     })?;
     let root_resolved = project_root.canonicalize().map_err(|e| {
-        ReasonanceError::io(format!("Cannot resolve project root '{}'", project_root.display()), e)
+        ReasonanceError::io(
+            format!("Cannot resolve project root '{}'", project_root.display()),
+            e,
+        )
     })?;
 
     if !canon_parent.starts_with(&root_resolved) {
@@ -232,11 +260,15 @@ fn validate_write_path(path: &Path, state: &ProjectRootState) -> Result<(), Reas
         std::fs::canonicalize(path)
             .map_err(|e| ReasonanceError::io(format!("resolve path '{}'", path.display()), e))?
     } else {
-        let parent = path
-            .parent()
-            .ok_or_else(|| ReasonanceError::validation("path", format!("No parent directory for '{}'", path.display())))?;
-        let canon_parent = std::fs::canonicalize(parent)
-            .map_err(|e| ReasonanceError::io(format!("resolve parent '{}'", parent.display()), e))?;
+        let parent = path.parent().ok_or_else(|| {
+            ReasonanceError::validation(
+                "path",
+                format!("No parent directory for '{}'", path.display()),
+            )
+        })?;
+        let canon_parent = std::fs::canonicalize(parent).map_err(|e| {
+            ReasonanceError::io(format!("resolve parent '{}'", parent.display()), e)
+        })?;
         canon_parent.join(path.file_name().unwrap_or_default())
     };
 
@@ -281,14 +313,21 @@ pub struct FileEntry {
 const MAX_READ_FILE_SIZE: u64 = 10 * 1024 * 1024;
 
 #[tauri::command]
-pub fn read_file(path: String, state: State<'_, ProjectRootState>) -> Result<String, ReasonanceError> {
+pub fn read_file(
+    path: String,
+    state: State<'_, ProjectRootState>,
+) -> Result<String, ReasonanceError> {
     info!("cmd::read_file(path={})", path);
     validate_read_path(Path::new(&path), &state)?;
 
-    let metadata = fs::metadata(&path)
-        .map_err(|e| ReasonanceError::io(format!("stat '{}'", path), e))?;
+    let metadata =
+        fs::metadata(&path).map_err(|e| ReasonanceError::io(format!("stat '{}'", path), e))?;
     if metadata.len() > MAX_READ_FILE_SIZE {
-        error!("cmd::read_file file too large: {} bytes at {}", metadata.len(), path);
+        error!(
+            "cmd::read_file file too large: {} bytes at {}",
+            metadata.len(),
+            path
+        );
         return Err(ReasonanceError::validation(
             "file_size",
             format!(
@@ -302,7 +341,10 @@ pub fn read_file(path: String, state: State<'_, ProjectRootState>) -> Result<Str
     fs::read_to_string(&path).map_err(|e| {
         if e.kind() == std::io::ErrorKind::InvalidData {
             error!("cmd::read_file error for {}: binary file", path);
-            ReasonanceError::validation("file_content", "Cannot open binary file: the file contains non-UTF-8 data.")
+            ReasonanceError::validation(
+                "file_content",
+                "Cannot open binary file: the file contains non-UTF-8 data.",
+            )
         } else {
             error!("cmd::read_file error for {}: {}", path, e);
             ReasonanceError::io(format!("read '{}'", path), e)
@@ -322,36 +364,45 @@ pub fn write_file(
     // Atomic write: write to a temp file in the same directory, then rename.
     // This prevents partial writes on crash (rename is atomic on the same filesystem).
     let target = Path::new(&path);
-    let parent = target
-        .parent()
-        .ok_or_else(|| ReasonanceError::validation("path", format!("No parent directory for '{}'", path)))?;
-    let file_name = target
-        .file_name()
-        .ok_or_else(|| ReasonanceError::validation("path", format!("No file name for '{}'", path)))?;
+    let parent = target.parent().ok_or_else(|| {
+        ReasonanceError::validation("path", format!("No parent directory for '{}'", path))
+    })?;
+    let file_name = target.file_name().ok_or_else(|| {
+        ReasonanceError::validation("path", format!("No file name for '{}'", path))
+    })?;
 
     let tmp_name = format!(".{}.tmp", file_name.to_string_lossy());
     let tmp_path = parent.join(&tmp_name);
 
-    fs::write(&tmp_path, &content)
-        .map_err(|e| {
-            error!("cmd::write_file failed to write temp file {}: {}", tmp_path.display(), e);
-            ReasonanceError::io(format!("write temp file '{}'", tmp_path.display()), e)
-        })?;
-    fs::rename(&tmp_path, target)
-        .map_err(|e| {
-            // Clean up temp file on rename failure
-            let _ = fs::remove_file(&tmp_path);
-            error!("cmd::write_file failed to rename temp file to {}: {}", path, e);
-            ReasonanceError::io(format!("rename temp file to '{}'", path), e)
-        })
+    fs::write(&tmp_path, &content).map_err(|e| {
+        error!(
+            "cmd::write_file failed to write temp file {}: {}",
+            tmp_path.display(),
+            e
+        );
+        ReasonanceError::io(format!("write temp file '{}'", tmp_path.display()), e)
+    })?;
+    fs::rename(&tmp_path, target).map_err(|e| {
+        // Clean up temp file on rename failure
+        let _ = fs::remove_file(&tmp_path);
+        error!(
+            "cmd::write_file failed to rename temp file to {}: {}",
+            path, e
+        );
+        ReasonanceError::io(format!("rename temp file to '{}'", path), e)
+    })
 }
 
 #[tauri::command]
-pub fn list_dir(path: String, respect_gitignore: bool, state: State<'_, ProjectRootState>) -> Result<Vec<FileEntry>, ReasonanceError> {
+pub fn list_dir(
+    path: String,
+    respect_gitignore: bool,
+    state: State<'_, ProjectRootState>,
+) -> Result<Vec<FileEntry>, ReasonanceError> {
     info!("cmd::list_dir(path={})", path);
     validate_read_path(Path::new(&path), &state)?;
-    let entries = fs::read_dir(&path)
-        .map_err(|e| ReasonanceError::io(format!("read dir '{}'", path), e))?;
+    let entries =
+        fs::read_dir(&path).map_err(|e| ReasonanceError::io(format!("read dir '{}'", path), e))?;
 
     let gitignore = if respect_gitignore {
         ignore::gitignore::Gitignore::new(Path::new(&path).join(".gitignore")).0
@@ -362,7 +413,9 @@ pub fn list_dir(path: String, respect_gitignore: bool, state: State<'_, ProjectR
     let mut result = Vec::new();
     for entry in entries {
         let entry = entry.map_err(|e| ReasonanceError::io("read dir entry", e))?;
-        let metadata = entry.metadata().map_err(|e| ReasonanceError::io("read entry metadata", e))?;
+        let metadata = entry
+            .metadata()
+            .map_err(|e| ReasonanceError::io("read entry metadata", e))?;
 
         let is_ignored = if respect_gitignore {
             let matched = gitignore.matched_path_or_any_parents(&entry.path(), metadata.is_dir());
@@ -391,7 +444,11 @@ pub fn list_dir(path: String, respect_gitignore: bool, state: State<'_, ProjectR
             .cmp(&a.is_dir)
             .then(a.name.to_lowercase().cmp(&b.name.to_lowercase()))
     });
-    debug!("cmd::list_dir returned {} entries for {}", result.len(), path);
+    debug!(
+        "cmd::list_dir returned {} entries for {}",
+        result.len(),
+        path
+    );
     Ok(result)
 }
 
@@ -436,7 +493,10 @@ pub fn grep_files(
                             line,
                         });
                         if results.len() >= 500 {
-                            debug!("cmd::grep_files hit 500 result limit for pattern={}", pattern);
+                            debug!(
+                                "cmd::grep_files hit 500 result limit for pattern={}",
+                                pattern
+                            );
                             return Ok(results);
                         }
                     }
@@ -444,12 +504,18 @@ pub fn grep_files(
             }
         }
     }
-    debug!("cmd::grep_files found {} matches for pattern={}", results.len(), pattern);
+    debug!(
+        "cmd::grep_files found {} matches for pattern={}",
+        results.len(),
+        pattern
+    );
     Ok(results)
 }
 
 #[tauri::command]
-pub async fn get_git_status(project_root: String) -> Result<std::collections::HashMap<String, String>, ReasonanceError> {
+pub async fn get_git_status(
+    project_root: String,
+) -> Result<std::collections::HashMap<String, String>, ReasonanceError> {
     use std::collections::HashMap;
 
     let output = std::process::Command::new("git")
@@ -467,7 +533,9 @@ pub async fn get_git_status(project_root: String) -> Result<std::collections::Ha
     let mut statuses = HashMap::new();
 
     for line in stdout.lines() {
-        if line.len() < 4 { continue; }
+        if line.len() < 4 {
+            continue;
+        }
         let xy = &line[0..2];
         let path = line[3..].trim();
 
@@ -491,7 +559,11 @@ pub async fn get_git_status(project_root: String) -> Result<std::collections::Ha
         statuses.insert(effective_path.to_string(), status.to_string());
     }
 
-    debug!("cmd::get_git_status returned {} entries for {}", statuses.len(), project_root);
+    debug!(
+        "cmd::get_git_status returned {} entries for {}",
+        statuses.len(),
+        project_root
+    );
     Ok(statuses)
 }
 
@@ -519,7 +591,8 @@ mod tests {
     fn make_root_state(root: Option<&Path>) -> ProjectRootState {
         let state = ProjectRootState::new();
         if let Some(r) = root {
-            *state.0.lock().unwrap_or_else(|e| e.into_inner()) = Some(std::fs::canonicalize(r).unwrap());
+            *state.0.lock().unwrap_or_else(|e| e.into_inner()) =
+                Some(std::fs::canonicalize(r).unwrap());
         }
         state
     }
@@ -654,7 +727,10 @@ mod tests {
                 (e.file_name().to_string_lossy().to_string(), md.is_dir())
             })
             .collect();
-        entries_vec.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.to_lowercase().cmp(&b.0.to_lowercase())));
+        entries_vec.sort_by(|a, b| {
+            b.1.cmp(&a.1)
+                .then(a.0.to_lowercase().cmp(&b.0.to_lowercase()))
+        });
         assert!(entries_vec[0].1); // first is dir
         assert_eq!(entries_vec[1].0, "a.txt");
         assert_eq!(entries_vec[2].0, "z.txt");
@@ -684,7 +760,9 @@ mod tests {
         let mut results = Vec::new();
         let walker = WalkBuilder::new(dir.path()).git_ignore(false).build();
         for entry in walker.flatten() {
-            if !entry.file_type().map_or(false, |ft| ft.is_file()) { continue; }
+            if !entry.file_type().map_or(false, |ft| ft.is_file()) {
+                continue;
+            }
             if let Ok(file) = std::fs::File::open(entry.path()) {
                 let reader = std::io::BufReader::new(file);
                 for (i, line_result) in reader.lines().enumerate() {
@@ -714,7 +792,9 @@ mod tests {
         let mut results = Vec::new();
         let walker = WalkBuilder::new(dir.path()).git_ignore(false).build();
         for entry in walker.flatten() {
-            if !entry.file_type().map_or(false, |ft| ft.is_file()) { continue; }
+            if !entry.file_type().map_or(false, |ft| ft.is_file()) {
+                continue;
+            }
             if let Ok(file) = std::fs::File::open(entry.path()) {
                 let reader = std::io::BufReader::new(file);
                 for (_i, line_result) in reader.lines().enumerate() {
@@ -753,7 +833,10 @@ mod tests {
         // Should be a Security error with PathTraversal code
         match result.unwrap_err() {
             ReasonanceError::Security { code, .. } => {
-                assert!(matches!(code, crate::error::SecurityErrorCode::PathTraversal));
+                assert!(matches!(
+                    code,
+                    crate::error::SecurityErrorCode::PathTraversal
+                ));
             }
             other => panic!("Expected Security::PathTraversal, got: {:?}", other),
         }
@@ -782,7 +865,10 @@ mod tests {
         assert!(result.is_err());
         match result.unwrap_err() {
             ReasonanceError::Security { code, .. } => {
-                assert!(matches!(code, crate::error::SecurityErrorCode::PathTraversal));
+                assert!(matches!(
+                    code,
+                    crate::error::SecurityErrorCode::PathTraversal
+                ));
             }
             other => panic!("Expected Security::PathTraversal, got: {:?}", other),
         }
@@ -820,7 +906,10 @@ mod tests {
         assert!(result.is_err());
         match result.unwrap_err() {
             ReasonanceError::Security { code, .. } => {
-                assert!(matches!(code, crate::error::SecurityErrorCode::PathTraversal));
+                assert!(matches!(
+                    code,
+                    crate::error::SecurityErrorCode::PathTraversal
+                ));
             }
             other => panic!("Expected Security::PathTraversal, got: {:?}", other),
         }
@@ -837,6 +926,14 @@ mod tests {
         let metadata = std::fs::metadata(&file_path).unwrap();
         assert!(!metadata.is_dir());
         assert_eq!(metadata.len(), 12); // "content here" = 12 bytes
-        assert!(metadata.modified().unwrap().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis() > 0);
+        assert!(
+            metadata
+                .modified()
+                .unwrap()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_millis()
+                > 0
+        );
     }
 }

@@ -492,6 +492,18 @@ export function createMockAdapter(overrides?: Partial<Adapter>): Adapter {
     saveAppState(_state: AppState): Promise<void> {
       return Promise.resolve();
     },
+    getSetting(_key: string): Promise<unknown> {
+      return Promise.resolve(null);
+    },
+    setSetting(_key: string, _value: unknown, _layer?: string): Promise<void> {
+      return Promise.resolve();
+    },
+    getAllSettings(): Promise<Record<string, unknown>> {
+      return Promise.resolve({});
+    },
+    reloadSettings(): Promise<void> {
+      return Promise.resolve();
+    },
     getProjectState(_projectId: string): Promise<ProjectState> {
       return Promise.resolve({
         active_session_id: null,

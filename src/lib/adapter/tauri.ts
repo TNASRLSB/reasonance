@@ -392,6 +392,22 @@ export class TauriAdapter implements Adapter {
     await invoke('add_project', { id, rootPath, trustLevel });
   }
 
+  async getSetting(key: string): Promise<unknown> {
+    return invoke('get_setting', { key });
+  }
+
+  async setSetting(key: string, value: unknown, layer?: string): Promise<void> {
+    await invoke('set_setting', { key, value, layer: layer ?? 'user' });
+  }
+
+  async getAllSettings(): Promise<Record<string, unknown>> {
+    return invoke('get_all_settings');
+  }
+
+  async reloadSettings(): Promise<void> {
+    await invoke('reload_settings');
+  }
+
   async removeProject(id: string): Promise<void> {
     await invoke('remove_project', { id });
   }

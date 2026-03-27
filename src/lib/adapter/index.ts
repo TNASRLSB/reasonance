@@ -152,6 +152,12 @@ export interface Adapter {
   getProjectState(projectId: string): Promise<ProjectState>;
   saveProjectState(projectId: string, state: ProjectState): Promise<void>;
 
+  // --- Layered Settings ---
+  getSetting(key: string): Promise<unknown>;
+  setSetting(key: string, value: unknown, layer?: string): Promise<void>;
+  getAllSettings(): Promise<Record<string, unknown>>;
+  reloadSettings(): Promise<void>;
+
   // --- File Operations (undo/trash) ---
   fileOpsSetProject(path: string): Promise<void>;
   fileOpsDelete(path: string): Promise<void>;
