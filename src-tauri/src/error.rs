@@ -75,10 +75,7 @@ pub enum ReasonanceError {
     },
 
     #[error("Operation timed out ({operation}): {duration_ms}ms")]
-    Timeout {
-        operation: String,
-        duration_ms: u64,
-    },
+    Timeout { operation: String, duration_ms: u64 },
 
     #[error("Internal error: {message}")]
     Internal { message: String },
@@ -156,6 +153,37 @@ impl ReasonanceError {
             message: message.into(),
         }
     }
+
+    pub fn workflow(
+        workflow_id: impl Into<String>,
+        node_id: impl Into<String>,
+        message: impl Into<String>,
+    ) -> Self {
+        Self::Workflow {
+            workflow_id: workflow_id.into(),
+            node_id: node_id.into(),
+            message: message.into(),
+        }
+    }
+
+    pub fn serialization(context: impl Into<String>, message: impl Into<String>) -> Self {
+        Self::Serialization {
+            context: context.into(),
+            message: message.into(),
+        }
+    }
+
+    pub fn transport(
+        provider: impl Into<String>,
+        message: impl Into<String>,
+        retryable: bool,
+    ) -> Self {
+        Self::Transport {
+            provider: provider.into(),
+            message: message.into(),
+            retryable,
+        }
+    }
 }
 
 // ── From impls ──────────────────────────────────────────────────────────────
@@ -199,6 +227,12 @@ impl From<toml::ser::Error> for ReasonanceError {
 // Tauri 2 has a blanket impl `From<T: Serialize> for InvokeError`, so
 // ReasonanceError (which derives Serialize) works directly as a command error type.
 // The frontend receives the serialized JSON with `type` and `details` fields.
+
+impl From<String> for ReasonanceError {
+    fn from(s: String) -> Self {
+        Self::Internal { message: s }
+    }
+}
 
 // Keep From<ReasonanceError> for String so modules can propagate
 // errors through String-based boundaries without explicit conversion.
@@ -325,5 +359,30 @@ mod tests {
         let err = ReasonanceError::internal("something broke");
         let s: String = err.into();
         assert!(s.contains("something broke"));
+    }
+
+    #[test]
+    fn test_from_string() {
+        let err: ReasonanceError = "something failed".to_string().into();
+        assert!(matches!(err, ReasonanceError::Internal { .. }));
+        assert!(err.to_string().contains("something failed"));
+    }
+
+    #[test]
+    fn test_workflow_constructor() {
+        let err = ReasonanceError::workflow("wf-1", "node-a", "cycle detected");
+        assert!(matches!(err, ReasonanceError::Workflow { .. }));
+    }
+
+    #[test]
+    fn test_serialization_constructor() {
+        let err = ReasonanceError::serialization("JSON", "parse error");
+        assert!(matches!(err, ReasonanceError::Serialization { .. }));
+    }
+
+    #[test]
+    fn test_transport_constructor() {
+        let err = ReasonanceError::transport("claude", "rate limited", true);
+        assert!(err.is_retryable());
     }
 }
