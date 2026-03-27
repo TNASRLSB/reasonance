@@ -205,6 +205,67 @@ impl StorageBackend for JsonFileBackend {
         let path = self.key_path(namespace, key);
         Ok(path.is_file())
     }
+
+    async fn append(&self, namespace: &str, key: &str, line: &[u8]) -> Result<(), ReasonanceError> {
+        self.ensure_ns_dir(namespace)?;
+        let path = self.key_path(namespace, key);
+        let line_str = std::str::from_utf8(line).map_err(|e| {
+            ReasonanceError::io(
+                "converting append bytes to UTF-8",
+                std::io::Error::new(std::io::ErrorKind::InvalidData, e),
+            )
+        })?;
+        safe_append(&path, line_str)
+    }
+
+    async fn read_stream(
+        &self,
+        namespace: &str,
+        key: &str,
+    ) -> Result<Vec<Vec<u8>>, ReasonanceError> {
+        let path = self.key_path(namespace, key);
+        let content = match std::fs::read_to_string(&path) {
+            Ok(s) => s,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(vec![]),
+            Err(e) => return Err(ReasonanceError::io("reading stream file", e)),
+        };
+        let lines = content
+            .lines()
+            .filter(|l| !l.trim().is_empty())
+            .map(|l| l.as_bytes().to_vec())
+            .collect();
+        Ok(lines)
+    }
+
+    async fn migrate(&self, namespace: &str, version: u32) -> Result<(), ReasonanceError> {
+        let ns_dir = self.ensure_ns_dir(namespace)?;
+        let version_path = ns_dir.join("_version");
+        atomic_write(&version_path, version.to_string().as_bytes())
+    }
+
+    async fn rollback(&self, namespace: &str, version: u32) -> Result<(), ReasonanceError> {
+        let ns_dir = self.ensure_ns_dir(namespace)?;
+        let version_path = ns_dir.join("_version");
+        atomic_write(&version_path, version.to_string().as_bytes())
+    }
+
+    async fn get_version(&self, namespace: &str) -> Result<u32, ReasonanceError> {
+        let safe_ns = sanitize_path_component(namespace);
+        let version_path = self.base_dir.join(safe_ns).join("_version");
+        match std::fs::read_to_string(&version_path) {
+            Ok(s) => {
+                let v = s.trim().parse::<u32>().map_err(|e| {
+                    ReasonanceError::io(
+                        "parsing version file",
+                        std::io::Error::new(std::io::ErrorKind::InvalidData, e),
+                    )
+                })?;
+                Ok(v)
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(0),
+            Err(e) => Err(ReasonanceError::io("reading version file", e)),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -432,5 +493,43 @@ mod tests {
 
         // File remains empty
         assert_eq!(std::fs::metadata(&path).unwrap().len(), 0);
+    }
+
+    // ── append / read_stream ──────────────────────────────────────────────────
+
+    #[tokio::test]
+    async fn append_and_read_stream() {
+        let (backend, _tmp) = make_backend();
+        backend.append("ns", "stream", b"{\"n\":1}").await.unwrap();
+        backend.append("ns", "stream", b"{\"n\":2}").await.unwrap();
+
+        let lines = backend.read_stream("ns", "stream").await.unwrap();
+        assert_eq!(lines.len(), 2);
+        assert_eq!(lines[0], b"{\"n\":1}");
+        assert_eq!(lines[1], b"{\"n\":2}");
+    }
+
+    #[tokio::test]
+    async fn read_stream_empty() {
+        let (backend, _tmp) = make_backend();
+        let lines = backend.read_stream("ns", "nonexistent").await.unwrap();
+        assert!(lines.is_empty());
+    }
+
+    // ── migrate / rollback / get_version ─────────────────────────────────────
+
+    #[tokio::test]
+    async fn migrate_and_get_version() {
+        let (backend, _tmp) = make_backend();
+        backend.migrate("ns", 1).await.unwrap();
+        assert_eq!(backend.get_version("ns").await.unwrap(), 1);
+        backend.migrate("ns", 2).await.unwrap();
+        assert_eq!(backend.get_version("ns").await.unwrap(), 2);
+    }
+
+    #[tokio::test]
+    async fn get_version_default_zero() {
+        let (backend, _tmp) = make_backend();
+        assert_eq!(backend.get_version("new-ns").await.unwrap(), 0);
     }
 }

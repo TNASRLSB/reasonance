@@ -40,6 +40,26 @@ pub trait StorageBackend: Send + Sync {
 
     /// Check whether `key` exists in `namespace`.
     async fn exists(&self, namespace: &str, key: &str) -> Result<bool, ReasonanceError>;
+
+    /// Append a line of bytes to a stream (JSONL-style) under `key` in `namespace`.
+    async fn append(&self, namespace: &str, key: &str, line: &[u8]) -> Result<(), ReasonanceError>;
+
+    /// Read all lines from a stream under `key` in `namespace`.
+    /// Returns empty Vec if the stream doesn't exist.
+    async fn read_stream(
+        &self,
+        namespace: &str,
+        key: &str,
+    ) -> Result<Vec<Vec<u8>>, ReasonanceError>;
+
+    /// Record that `namespace` has been migrated to `version`.
+    async fn migrate(&self, namespace: &str, version: u32) -> Result<(), ReasonanceError>;
+
+    /// Roll back `namespace` to `version`.
+    async fn rollback(&self, namespace: &str, version: u32) -> Result<(), ReasonanceError>;
+
+    /// Get current schema version for `namespace`. Returns 0 if never migrated.
+    async fn get_version(&self, namespace: &str) -> Result<u32, ReasonanceError>;
 }
 
 /// A typed wrapper around a `StorageBackend` that handles JSON serialization.
@@ -94,6 +114,27 @@ impl<T: Serialize + DeserializeOwned> TypedStore<T> {
     /// Check whether `key` exists.
     pub async fn exists(&self, key: &str) -> Result<bool, ReasonanceError> {
         self.backend.exists(&self.namespace, key).await
+    }
+
+    /// Serialize and append `value` as a JSONL line to the stream under `key`.
+    pub async fn append(&self, key: &str, value: &T) -> Result<(), ReasonanceError> {
+        let bytes = serde_json::to_vec(value).map_err(|e| ReasonanceError::Serialization {
+            context: "TypedStore::append".to_string(),
+            message: e.to_string(),
+        })?;
+        self.backend.append(&self.namespace, key, &bytes).await
+    }
+
+    /// Read and deserialize all lines from the stream under `key`.
+    pub async fn read_stream<U: DeserializeOwned>(
+        &self,
+        key: &str,
+    ) -> Result<Vec<U>, ReasonanceError> {
+        let lines = self.backend.read_stream(&self.namespace, key).await?;
+        Ok(lines
+            .iter()
+            .filter_map(|bytes| serde_json::from_slice(bytes).ok())
+            .collect())
     }
 }
 
@@ -166,5 +207,36 @@ mod tests {
 
         let all = store.list_keys(None).await.unwrap();
         assert_eq!(all.len(), 3);
+    }
+
+    #[tokio::test]
+    async fn typed_store_append_and_read_stream() {
+        let backend = Arc::new(InMemoryBackend::new());
+        let store: TypedStore<TestItem> = TypedStore::new(backend, "test");
+
+        let item1 = TestItem {
+            name: "first".to_string(),
+            count: 1,
+        };
+        let item2 = TestItem {
+            name: "second".to_string(),
+            count: 2,
+        };
+        store.append("stream1", &item1).await.unwrap();
+        store.append("stream1", &item2).await.unwrap();
+
+        let results: Vec<TestItem> = store.read_stream("stream1").await.unwrap();
+        assert_eq!(results.len(), 2);
+        assert_eq!(results[0], item1);
+        assert_eq!(results[1], item2);
+    }
+
+    #[tokio::test]
+    async fn typed_store_read_stream_empty() {
+        let backend = Arc::new(InMemoryBackend::new());
+        let store: TypedStore<TestItem> = TypedStore::new(backend, "test");
+
+        let results: Vec<TestItem> = store.read_stream("nonexistent").await.unwrap();
+        assert!(results.is_empty());
     }
 }

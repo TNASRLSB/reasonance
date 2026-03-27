@@ -13,12 +13,16 @@ use crate::error::ReasonanceError;
 /// and ephemeral caches.
 pub struct InMemoryBackend {
     data: Mutex<HashMap<String, HashMap<String, Vec<u8>>>>,
+    streams: Mutex<HashMap<String, HashMap<String, Vec<Vec<u8>>>>>,
+    versions: Mutex<HashMap<String, u32>>,
 }
 
 impl InMemoryBackend {
     pub fn new() -> Self {
         Self {
             data: Mutex::new(HashMap::new()),
+            streams: Mutex::new(HashMap::new()),
+            versions: Mutex::new(HashMap::new()),
         }
     }
 }
@@ -94,6 +98,62 @@ impl StorageBackend for InMemoryBackend {
             .get(namespace)
             .map(|ns| ns.contains_key(key))
             .unwrap_or(false))
+    }
+
+    async fn append(&self, namespace: &str, key: &str, line: &[u8]) -> Result<(), ReasonanceError> {
+        let mut guard = self
+            .streams
+            .lock()
+            .map_err(|e| ReasonanceError::internal(format!("lock poisoned: {e}")))?;
+        guard
+            .entry(namespace.to_string())
+            .or_default()
+            .entry(key.to_string())
+            .or_default()
+            .push(line.to_vec());
+        Ok(())
+    }
+
+    async fn read_stream(
+        &self,
+        namespace: &str,
+        key: &str,
+    ) -> Result<Vec<Vec<u8>>, ReasonanceError> {
+        let guard = self
+            .streams
+            .lock()
+            .map_err(|e| ReasonanceError::internal(format!("lock poisoned: {e}")))?;
+        Ok(guard
+            .get(namespace)
+            .and_then(|ns| ns.get(key))
+            .cloned()
+            .unwrap_or_default())
+    }
+
+    async fn migrate(&self, namespace: &str, version: u32) -> Result<(), ReasonanceError> {
+        let mut guard = self
+            .versions
+            .lock()
+            .map_err(|e| ReasonanceError::internal(format!("lock poisoned: {e}")))?;
+        guard.insert(namespace.to_string(), version);
+        Ok(())
+    }
+
+    async fn rollback(&self, namespace: &str, version: u32) -> Result<(), ReasonanceError> {
+        let mut guard = self
+            .versions
+            .lock()
+            .map_err(|e| ReasonanceError::internal(format!("lock poisoned: {e}")))?;
+        guard.insert(namespace.to_string(), version);
+        Ok(())
+    }
+
+    async fn get_version(&self, namespace: &str) -> Result<u32, ReasonanceError> {
+        let guard = self
+            .versions
+            .lock()
+            .map_err(|e| ReasonanceError::internal(format!("lock poisoned: {e}")))?;
+        Ok(guard.get(namespace).copied().unwrap_or(0))
     }
 }
 
