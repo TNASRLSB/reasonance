@@ -71,6 +71,10 @@ pub fn extract_opt<T: serde::de::DeserializeOwned>(
     }
 }
 
+// ── Constants ────────────────────────────────────────────────────────────────
+
+const BATCH_CALL_TIMEOUT: Duration = Duration::from_secs(5);
+
 // ── Dispatcher ───────────────────────────────────────────────────────────────
 
 /// Dispatch a single command by name, extracting state from the AppHandle
@@ -93,7 +97,7 @@ async fn dispatch(app: &AppHandle, cmd: &str, args: Value) -> Result<Value, Reas
         }
         "list_dir" => {
             let path: String = extract(&args, "path")?;
-            let respect_gitignore: bool = extract(&args, "respectGitignore")?;
+            let respect_gitignore: bool = extract_opt(&args, "respectGitignore")?.unwrap_or(true);
             let state = app.state::<fs::ProjectRootState>();
             let result = fs::list_dir_inner(&path, respect_gitignore, &state)?;
             Ok(serde_json::to_value(result).unwrap())
@@ -101,7 +105,7 @@ async fn dispatch(app: &AppHandle, cmd: &str, args: Value) -> Result<Value, Reas
         "grep_files" => {
             let path: String = extract(&args, "path")?;
             let pattern: String = extract(&args, "pattern")?;
-            let respect_gitignore: bool = extract(&args, "respectGitignore")?;
+            let respect_gitignore: bool = extract_opt(&args, "respectGitignore")?.unwrap_or(true);
             let state = app.state::<fs::ProjectRootState>();
             let result = fs::grep_files_inner(&path, &pattern, respect_gitignore, &state)?;
             Ok(serde_json::to_value(result).unwrap())
@@ -266,13 +270,13 @@ pub async fn batch_invoke(calls: Vec<BatchCall>, app: AppHandle) -> Vec<BatchCal
             let args = call.args;
             async move {
                 let cmd_name = cmd.clone();
-                match tokio::time::timeout(Duration::from_secs(5), dispatch(&app, &cmd, args)).await
-                {
+                match tokio::time::timeout(BATCH_CALL_TIMEOUT, dispatch(&app, &cmd, args)).await {
                     Ok(Ok(value)) => BatchCallResult::success(value),
                     Ok(Err(e)) => BatchCallResult::error(e),
-                    Err(_elapsed) => {
-                        BatchCallResult::error(ReasonanceError::timeout(cmd_name, 5000))
-                    }
+                    Err(_elapsed) => BatchCallResult::error(ReasonanceError::timeout(
+                        cmd_name,
+                        BATCH_CALL_TIMEOUT.as_millis() as u64,
+                    )),
                 }
             }
         })
