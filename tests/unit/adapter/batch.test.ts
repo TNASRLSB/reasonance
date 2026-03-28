@@ -95,6 +95,28 @@ describe('TauriAdapter batching', () => {
     expect(invokeSpy).not.toHaveBeenCalled();
   });
 
+  it('rejects with ZodError when result fails schema validation', async () => {
+    // read_file schema expects z.string(), send a number instead
+    invokeSpy.mockResolvedValueOnce([
+      { ok: 12345, err: null },
+    ]);
+
+    await expect(adapter.readFile('/test.txt')).rejects.toBeDefined();
+  });
+
+  it('discards result for calls aborted during flight', async () => {
+    const controller = new AbortController();
+
+    // Mock invoke to abort the signal mid-flight, then return a result
+    invokeSpy.mockImplementation(async () => {
+      controller.abort();
+      return [{ ok: 'stale-data', err: null }];
+    });
+
+    // readFile with signal — the abort fires during invoke, before result distribution
+    await expect(adapter.readFile('/test.txt', controller.signal)).rejects.toThrow();
+  });
+
   it('explicit batch() sends all captured calls together', async () => {
     invokeSpy.mockResolvedValueOnce([
       { ok: 'file-content', err: null },

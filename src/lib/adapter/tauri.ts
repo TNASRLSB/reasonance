@@ -102,7 +102,9 @@ export class TauriAdapter implements Adapter {
         const result = results[i];
         const { entries } = groups[i];
         if (result.err !== null && result.err !== undefined) {
-          for (const e of entries) e.reject(result.err);
+          for (const e of entries) {
+            if (!e.signal?.aborted) e.reject(result.err);
+          }
         } else {
           // Validate via Zod if a schema exists for this command
           const schema = batchSchemas[groups[i].command];
@@ -110,12 +112,16 @@ export class TauriAdapter implements Adapter {
           if (schema) {
             const parsed = schema.safeParse(value);
             if (!parsed.success) {
-              for (const e of entries) e.reject(parsed.error);
+              for (const e of entries) {
+                if (!e.signal?.aborted) e.reject(parsed.error);
+              }
               continue;
             }
             value = parsed.data;
           }
-          for (const e of entries) e.resolve(value);
+          for (const e of entries) {
+            if (!e.signal?.aborted) e.resolve(value);
+          }
         }
       }
     } catch (err) {
