@@ -12,6 +12,8 @@
   let expandedDirs = $state(new Set<string>());
   let childrenCache = $state(new Map<string, FileEntry[]>());
   let clickTimer: ReturnType<typeof setTimeout> | null = null;
+  let readAbortController: AbortController | null = null;
+  let gitAbortController: AbortController | null = null;
 
   let currentRoot = $derived($projectRoot || '.');
 
@@ -20,10 +22,15 @@
   let gitRefreshTimer: ReturnType<typeof setTimeout> | null = null;
 
   async function refreshGitStatus() {
+    // Cancel any in-flight git status request (e.g. rapid project root changes)
+    gitAbortController?.abort();
+    gitAbortController = new AbortController();
+    const signal = gitAbortController.signal;
     try {
-      const statuses = await adapter.getGitStatus(currentRoot);
+      const statuses = await adapter.getGitStatus(currentRoot, signal);
       gitStatuses = statuses;
-    } catch {
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return;
       // non-git project or git not available — ignore
       gitStatuses = {};
     }
@@ -228,10 +235,15 @@
     }
     clickTimer = setTimeout(async () => {
       clickTimer = null;
+      // Cancel any previous in-flight readFile (e.g. user clicks a different file before the first loads)
+      readAbortController?.abort();
+      readAbortController = new AbortController();
+      const signal = readAbortController.signal;
       try {
-        const content = await adapter.readFile(entry.path);
+        const content = await adapter.readFile(entry.path, signal);
         addOpenFile(entry.path, content);
       } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') return;
         const msg = (err as Error)?.message ?? String(err);
         // Binary files: open externally instead of showing error
         if (msg.includes('non-UTF-8') || msg.includes('binary')) {

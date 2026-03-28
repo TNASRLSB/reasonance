@@ -72,6 +72,7 @@
   let loading = $state(false);
   let inputEl = $state<HTMLInputElement | null>(null);
   let dialogEl = $state<HTMLElement | null>(null);
+  let readAbortController: AbortController | null = null;
 
   $effect(() => {
     if (visible && dialogEl) {
@@ -104,6 +105,9 @@
     if (visible) {
       loadFiles();
     } else {
+      // Abort any in-flight readFile when the palette closes
+      readAbortController?.abort();
+      readAbortController = null;
       query = '';
       results = [];
       selectedIndex = 0;
@@ -194,10 +198,15 @@
       // Defer execution so the palette closes first
       setTimeout(() => item.command!.execute(), 50);
     } else if (item.type === 'file' && item.path) {
+      // Cancel any previous in-flight read (e.g. quick successive selections)
+      readAbortController?.abort();
+      readAbortController = new AbortController();
+      const signal = readAbortController.signal;
       try {
-        const content = await adapter.readFile(item.path);
+        const content = await adapter.readFile(item.path, signal);
         addOpenFile(item.path, content);
       } catch (e) {
+        if (e instanceof DOMException && e.name === 'AbortError') return;
         const msg = (e as Error)?.message ?? String(e);
         if (msg.includes('non-UTF-8') || msg.includes('binary')) {
           showToast('info', 'Binary file', `Opening "${item.label}" externally`);
