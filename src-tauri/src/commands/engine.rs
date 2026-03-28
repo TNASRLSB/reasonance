@@ -143,10 +143,14 @@ pub fn step_workflow(
     )
 }
 
+pub fn get_run_status_inner(run_id: &str, engine: &WorkflowEngine) -> Option<WorkflowRun> {
+    debug!("cmd::get_run_status(run_id={})", run_id);
+    engine.get_run(run_id)
+}
+
 #[tauri::command]
 pub fn get_run_status(run_id: String, engine: State<'_, WorkflowEngine>) -> Option<WorkflowRun> {
-    debug!("cmd::get_run_status(run_id={})", run_id);
-    engine.get_run(&run_id)
+    get_run_status_inner(&run_id, &engine)
 }
 
 #[tauri::command]

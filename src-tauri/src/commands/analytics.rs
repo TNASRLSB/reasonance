@@ -21,11 +21,10 @@ pub fn analytics_provider(
     Ok(collector.get_provider_analytics(&provider, range))
 }
 
-#[tauri::command]
-pub fn analytics_compare(
+pub fn analytics_compare_inner(
     from: Option<u64>,
     to: Option<u64>,
-    collector: State<'_, Arc<AnalyticsCollector>>,
+    collector: &AnalyticsCollector,
 ) -> Result<Vec<ProviderAnalytics>, ReasonanceError> {
     info!("cmd::analytics_compare called");
     let range = if from.is_some() || to.is_some() {
@@ -37,11 +36,19 @@ pub fn analytics_compare(
 }
 
 #[tauri::command]
-pub fn analytics_model_breakdown(
-    provider: String,
+pub fn analytics_compare(
     from: Option<u64>,
     to: Option<u64>,
     collector: State<'_, Arc<AnalyticsCollector>>,
+) -> Result<Vec<ProviderAnalytics>, ReasonanceError> {
+    analytics_compare_inner(from, to, &collector)
+}
+
+pub fn analytics_model_breakdown_inner(
+    provider: &str,
+    from: Option<u64>,
+    to: Option<u64>,
+    collector: &AnalyticsCollector,
 ) -> Result<Vec<ModelAnalytics>, ReasonanceError> {
     info!("cmd::analytics_model_breakdown(provider={})", provider);
     let range = if from.is_some() || to.is_some() {
@@ -49,7 +56,17 @@ pub fn analytics_model_breakdown(
     } else {
         None
     };
-    Ok(collector.get_model_breakdown(&provider, range))
+    Ok(collector.get_model_breakdown(provider, range))
+}
+
+#[tauri::command]
+pub fn analytics_model_breakdown(
+    provider: String,
+    from: Option<u64>,
+    to: Option<u64>,
+    collector: State<'_, Arc<AnalyticsCollector>>,
+) -> Result<Vec<ModelAnalytics>, ReasonanceError> {
+    analytics_model_breakdown_inner(&provider, from, to, &collector)
 }
 
 #[tauri::command]
@@ -61,17 +78,25 @@ pub fn analytics_session(
     Ok(collector.get_session_metrics(&session_id))
 }
 
+pub fn analytics_daily_inner(
+    provider: Option<&str>,
+    days: Option<u32>,
+    collector: &AnalyticsCollector,
+) -> Result<Vec<DailyStats>, ReasonanceError> {
+    info!(
+        "cmd::analytics_daily(provider={:?}, days={:?})",
+        provider, days
+    );
+    Ok(collector.get_daily_stats(provider, days.unwrap_or(30)))
+}
+
 #[tauri::command]
 pub fn analytics_daily(
     provider: Option<String>,
     days: Option<u32>,
     collector: State<'_, Arc<AnalyticsCollector>>,
 ) -> Result<Vec<DailyStats>, ReasonanceError> {
-    info!(
-        "cmd::analytics_daily(provider={:?}, days={:?})",
-        provider, days
-    );
-    Ok(collector.get_daily_stats(provider.as_deref(), days.unwrap_or(30)))
+    analytics_daily_inner(provider.as_deref(), days, &collector)
 }
 
 #[tauri::command]

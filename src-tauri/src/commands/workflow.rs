@@ -105,18 +105,26 @@ fn validate_workflow_dir(dir: &Path, state: &ProjectRootState) -> Result<(), Rea
 
 // -- Workflow commands --------------------------------------------------------
 
+pub fn load_workflow_inner(
+    file_path: &str,
+    store: &WorkflowStore,
+    state: &ProjectRootState,
+) -> Result<Workflow, ReasonanceError> {
+    info!("cmd::load_workflow(path={})", file_path);
+    validate_workflow_path(Path::new(file_path), state, false)?;
+    store.load(file_path).map_err(|e| {
+        error!("cmd::load_workflow failed for {}: {}", file_path, e);
+        e
+    })
+}
+
 #[tauri::command]
 pub fn load_workflow(
     file_path: String,
     store: State<'_, WorkflowStore>,
     state: State<'_, ProjectRootState>,
 ) -> Result<Workflow, ReasonanceError> {
-    info!("cmd::load_workflow(path={})", file_path);
-    validate_workflow_path(Path::new(&file_path), &state, false)?;
-    store.load(&file_path).map_err(|e| {
-        error!("cmd::load_workflow failed for {}: {}", file_path, e);
-        e
-    })
+    load_workflow_inner(&file_path, &store, &state)
 }
 
 #[tauri::command]
@@ -131,14 +139,21 @@ pub fn save_workflow(
     store.save(&file_path, &workflow)
 }
 
+pub fn list_workflows_inner(
+    dir: &str,
+    state: &ProjectRootState,
+) -> Result<Vec<String>, ReasonanceError> {
+    info!("cmd::list_workflows(dir={})", dir);
+    validate_workflow_dir(Path::new(dir), state)?;
+    WorkflowStore::list_workflows(dir)
+}
+
 #[tauri::command]
 pub fn list_workflows(
     dir: String,
     state: State<'_, ProjectRootState>,
 ) -> Result<Vec<String>, ReasonanceError> {
-    info!("cmd::list_workflows(dir={})", dir);
-    validate_workflow_dir(Path::new(&dir), &state)?;
-    WorkflowStore::list_workflows(&dir)
+    list_workflows_inner(&dir, &state)
 }
 
 #[tauri::command]

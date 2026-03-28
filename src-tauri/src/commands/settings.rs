@@ -4,14 +4,13 @@ use log::info;
 use std::sync::Mutex;
 use tauri::State;
 
-#[tauri::command]
-pub fn get_setting(
-    settings: State<'_, Mutex<LayeredSettings>>,
-    key: String,
+pub fn get_setting_inner(
+    settings: &Mutex<LayeredSettings>,
+    key: &str,
 ) -> Result<Option<serde_json::Value>, ReasonanceError> {
     info!("cmd::get_setting key={}", key);
     let s = settings.lock().unwrap_or_else(|e| e.into_inner());
-    match s.get_value(&key) {
+    match s.get_value(key) {
         Some(toml_val) => {
             let json =
                 serde_json::to_value(toml_val).map_err(|e| ReasonanceError::Serialization {
@@ -22,6 +21,14 @@ pub fn get_setting(
         }
         None => Ok(None),
     }
+}
+
+#[tauri::command]
+pub fn get_setting(
+    settings: State<'_, Mutex<LayeredSettings>>,
+    key: String,
+) -> Result<Option<serde_json::Value>, ReasonanceError> {
+    get_setting_inner(&settings, &key)
 }
 
 #[tauri::command]
