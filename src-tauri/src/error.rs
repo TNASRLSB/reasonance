@@ -184,6 +184,13 @@ impl ReasonanceError {
             retryable,
         }
     }
+
+    pub fn timeout(operation: impl Into<String>, duration_ms: u64) -> Self {
+        Self::Timeout {
+            operation: operation.into(),
+            duration_ms,
+        }
+    }
 }
 
 // ── From impls ──────────────────────────────────────────────────────────────

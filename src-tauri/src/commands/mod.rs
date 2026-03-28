@@ -2,6 +2,7 @@ pub mod agent;
 pub mod agent_comms;
 pub mod analytics;
 pub mod app_state;
+pub mod batch;
 pub mod capability;
 pub mod config;
 pub mod discovery;
