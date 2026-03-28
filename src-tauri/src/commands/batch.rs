@@ -1,6 +1,24 @@
-use serde::{Deserialize, Serialize};
+use std::sync::Arc;
+use std::time::Duration;
 
+use futures::future::join_all;
+use log::info;
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use tauri::{AppHandle, Manager};
+
+use crate::analytics::collector::AnalyticsCollector;
+use crate::app_state_store::AppStateStore;
+use crate::commands::{
+    analytics, app_state, config, engine, fs, session, settings, shadow, workflow,
+};
 use crate::error::ReasonanceError;
+use crate::event_bus::{Event, EventBus};
+use crate::settings::LayeredSettings;
+use crate::shadow_store::ShadowStore;
+use crate::transport::session_manager::SessionManager;
+use crate::workflow_engine::WorkflowEngine;
+use crate::workflow_store::WorkflowStore;
 
 #[derive(Debug, Deserialize)]
 pub struct BatchCall {
@@ -51,6 +69,242 @@ pub fn extract_opt<T: serde::de::DeserializeOwned>(
             ReasonanceError::validation(field, format!("failed to deserialize '{}': {}", field, e))
         }),
     }
+}
+
+// ── Dispatcher ───────────────────────────────────────────────────────────────
+
+/// Dispatch a single command by name, extracting state from the AppHandle
+/// and parsing args from the JSON payload.
+async fn dispatch(app: &AppHandle, cmd: &str, args: Value) -> Result<Value, ReasonanceError> {
+    match cmd {
+        // ── fs (sync, except get_git_status) ─────────────────────────────
+        "read_file" => {
+            let path: String = extract(&args, "path")?;
+            let state = app.state::<fs::ProjectRootState>();
+            let result = fs::read_file_inner(&path, &state)?;
+            Ok(serde_json::to_value(result).unwrap())
+        }
+        "write_file" => {
+            let path: String = extract(&args, "path")?;
+            let content: String = extract(&args, "content")?;
+            let state = app.state::<fs::ProjectRootState>();
+            fs::write_file_inner(&path, &content, &state)?;
+            Ok(Value::Null)
+        }
+        "list_dir" => {
+            let path: String = extract(&args, "path")?;
+            let respect_gitignore: bool = extract(&args, "respectGitignore")?;
+            let state = app.state::<fs::ProjectRootState>();
+            let result = fs::list_dir_inner(&path, respect_gitignore, &state)?;
+            Ok(serde_json::to_value(result).unwrap())
+        }
+        "grep_files" => {
+            let path: String = extract(&args, "path")?;
+            let pattern: String = extract(&args, "pattern")?;
+            let respect_gitignore: bool = extract(&args, "respectGitignore")?;
+            let state = app.state::<fs::ProjectRootState>();
+            let result = fs::grep_files_inner(&path, &pattern, respect_gitignore, &state)?;
+            Ok(serde_json::to_value(result).unwrap())
+        }
+        "get_git_status" => {
+            let project_root: String = extract(&args, "projectRoot")?;
+            let result = fs::get_git_status(project_root).await?;
+            Ok(serde_json::to_value(result).unwrap())
+        }
+
+        // ── session (all async) ──────────────────────────────────────────
+        "session_create" => {
+            let provider: String = extract(&args, "provider")?;
+            let model: String = extract(&args, "model")?;
+            let sm = app.state::<SessionManager>();
+            let result = session::session_create_inner(&provider, &model, &sm).await?;
+            Ok(serde_json::to_value(result).unwrap())
+        }
+        "session_list" => {
+            let sm = app.state::<SessionManager>();
+            let result = session::session_list_inner(&sm).await?;
+            Ok(serde_json::to_value(result).unwrap())
+        }
+        "session_get_events" => {
+            let session_id: String = extract(&args, "sessionId")?;
+            let sm = app.state::<SessionManager>();
+            let result = session::session_get_events_inner(&session_id, &sm).await?;
+            Ok(serde_json::to_value(result).unwrap())
+        }
+        "session_restore" => {
+            let session_id: String = extract(&args, "sessionId")?;
+            let sm = app.state::<SessionManager>();
+            let result = session::session_restore_inner(&session_id, &sm).await?;
+            Ok(serde_json::to_value(result).unwrap())
+        }
+
+        // ── app_state (all sync) ─────────────────────────────────────────
+        "get_app_state" => {
+            let store = app.state::<AppStateStore>();
+            let result = app_state::get_app_state_inner(&store)?;
+            Ok(serde_json::to_value(result).unwrap())
+        }
+        "get_project_state" => {
+            let project_id: String = extract(&args, "projectId")?;
+            let store = app.state::<AppStateStore>();
+            let result = app_state::get_project_state_inner(&store, &project_id)?;
+            Ok(serde_json::to_value(result).unwrap())
+        }
+        "save_app_state" => {
+            let state: crate::app_state_store::AppState = extract(&args, "state")?;
+            let store = app.state::<AppStateStore>();
+            app_state::save_app_state_inner(&store, &state)?;
+            Ok(Value::Null)
+        }
+        "save_project_state" => {
+            let project_id: String = extract(&args, "projectId")?;
+            let state: crate::app_state_store::ProjectState = extract(&args, "state")?;
+            let store = app.state::<AppStateStore>();
+            app_state::save_project_state_inner(&store, &project_id, &state)?;
+            Ok(Value::Null)
+        }
+
+        // ── workflow/engine (all sync) ───────────────────────────────────
+        "get_run_status" => {
+            let run_id: String = extract(&args, "runId")?;
+            let eng = app.state::<WorkflowEngine>();
+            let result = engine::get_run_status_inner(&run_id, &eng);
+            Ok(serde_json::to_value(result).unwrap())
+        }
+        "load_workflow" => {
+            let file_path: String = extract(&args, "filePath")?;
+            let store = app.state::<WorkflowStore>();
+            let root_state = app.state::<fs::ProjectRootState>();
+            let result = workflow::load_workflow_inner(&file_path, &store, &root_state)?;
+            Ok(serde_json::to_value(result).unwrap())
+        }
+        "list_workflows" => {
+            let dir: String = extract(&args, "dir")?;
+            let root_state = app.state::<fs::ProjectRootState>();
+            let result = workflow::list_workflows_inner(&dir, &root_state)?;
+            Ok(serde_json::to_value(result).unwrap())
+        }
+
+        // ── analytics (all sync) ─────────────────────────────────────────
+        "analytics_daily" => {
+            let provider: Option<String> = extract_opt(&args, "provider")?;
+            let days: Option<u32> = extract_opt(&args, "days")?;
+            let collector = app.state::<Arc<AnalyticsCollector>>();
+            let result = analytics::analytics_daily_inner(provider.as_deref(), days, &collector)?;
+            Ok(serde_json::to_value(result).unwrap())
+        }
+        "analytics_compare" => {
+            let from: Option<u64> = extract_opt(&args, "from")?;
+            let to: Option<u64> = extract_opt(&args, "to")?;
+            let collector = app.state::<Arc<AnalyticsCollector>>();
+            let result = analytics::analytics_compare_inner(from, to, &collector)?;
+            Ok(serde_json::to_value(result).unwrap())
+        }
+        "analytics_model_breakdown" => {
+            let provider: String = extract(&args, "provider")?;
+            let from: Option<u64> = extract_opt(&args, "from")?;
+            let to: Option<u64> = extract_opt(&args, "to")?;
+            let collector = app.state::<Arc<AnalyticsCollector>>();
+            let result =
+                analytics::analytics_model_breakdown_inner(&provider, from, to, &collector)?;
+            Ok(serde_json::to_value(result).unwrap())
+        }
+
+        // ── shadow (all sync) ────────────────────────────────────────────
+        "store_shadow" => {
+            let path: String = extract(&args, "path")?;
+            let content: String = extract(&args, "content")?;
+            let store = app.state::<ShadowStore>();
+            shadow::store_shadow_inner(&path, &content, &store)?;
+            Ok(Value::Null)
+        }
+        "get_shadow" => {
+            let path: String = extract(&args, "path")?;
+            let store = app.state::<ShadowStore>();
+            let result = shadow::get_shadow_inner(&path, &store)?;
+            Ok(serde_json::to_value(result).unwrap())
+        }
+
+        // ── config/settings ──────────────────────────────────────────────
+        "read_config" => {
+            let result = config::read_config()?;
+            Ok(serde_json::to_value(result).unwrap())
+        }
+        "get_setting" => {
+            let key: String = extract(&args, "key")?;
+            let settings_state = app.state::<std::sync::Mutex<LayeredSettings>>();
+            let result = settings::get_setting_inner(&settings_state, &key)?;
+            Ok(serde_json::to_value(result).unwrap())
+        }
+
+        // ── unknown command ──────────────────────────────────────────────
+        other => Err(ReasonanceError::validation(
+            "command",
+            format!("not batchable: {}", other),
+        )),
+    }
+}
+
+// ── batch_invoke command ─────────────────────────────────────────────────────
+
+#[tauri::command]
+pub async fn batch_invoke(calls: Vec<BatchCall>, app: AppHandle) -> Vec<BatchCallResult> {
+    let call_count = calls.len();
+    let call_names: Vec<String> = calls.iter().map(|c| c.command.clone()).collect();
+    let start = std::time::Instant::now();
+
+    info!(
+        "batch_invoke: dispatching {} calls: {:?}",
+        call_count, call_names
+    );
+
+    let futures: Vec<_> = calls
+        .into_iter()
+        .map(|call| {
+            let app = app.clone();
+            let cmd = call.command;
+            let args = call.args;
+            async move {
+                let cmd_name = cmd.clone();
+                match tokio::time::timeout(Duration::from_secs(5), dispatch(&app, &cmd, args)).await
+                {
+                    Ok(Ok(value)) => BatchCallResult::success(value),
+                    Ok(Err(e)) => BatchCallResult::error(e),
+                    Err(_elapsed) => {
+                        BatchCallResult::error(ReasonanceError::timeout(cmd_name, 5000))
+                    }
+                }
+            }
+        })
+        .collect();
+
+    let results = join_all(futures).await;
+
+    let elapsed = start.elapsed();
+    let error_count = results.iter().filter(|r| r.err.is_some()).count();
+
+    info!(
+        "batch_invoke: completed {} calls in {}ms ({} errors)",
+        call_count,
+        elapsed.as_millis(),
+        error_count
+    );
+
+    // Publish telemetry to EventBus (may not be available during tests)
+    if let Some(event_bus) = app.try_state::<Arc<EventBus>>() {
+        event_bus.publish(Event::new(
+            "ipc:batch_executed",
+            serde_json::json!({
+                "batch_size": call_count,
+                "duration_ms": elapsed.as_millis() as u64,
+                "commands": call_names,
+                "errors": error_count,
+            }),
+            "batch_invoke",
+        ));
+    }
+
+    results
 }
 
 #[cfg(test)]
