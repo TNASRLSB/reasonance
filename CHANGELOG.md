@@ -1,5 +1,82 @@
 # Changelog
 
+## [1.9.0] - 2026-03-28
+
+### Features
+
+- feat(batch): wire AbortController and explicit batch() at critical call sites
+- feat(batch): add transparent IPC batching with dedup, abort, Zod validation, and explicit batch API
+- feat(batch): add Zod schema registry for batch result validation
+- feat(batch): add batch_invoke command with parallel dispatch, timeout, and EventBus telemetry
+- feat(batch): add futures dep, BatchCall types, timeout constructor
+
+### Bug Fixes
+
+- fix(batch): add abort check in result loop, add Zod and abort-during-flight tests
+- fix(batch): use extract_opt for respectGitignore, extract BATCH_CALL_TIMEOUT constant
+
+### Other
+
+-   stale requests when user navigates to a different file or project root changes
+- - SearchPalette: AbortController on readFile, abort on palette close to prevent
+-   stale file content from landing after the palette is dismissed
+- 
+- No explicit batch() call sites added — project-switch state (getProjectState,
+- sessionList, getAppState) is not co-located in any single component; the
+- existing auto-batcher in TauriAdapter covers sequential restoreSession reads.
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- refactor(analytics,workflow,engine,settings): extract _inner functions for batch dispatch
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- refactor(session,app_state,shadow): extract _inner functions for batch dispatch
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- refactor(fs): extract _inner functions for batch dispatch
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- ReasonanceError, and the new commands/batch module with BatchCall types,
+- BatchCallResult, and extract/extract_opt JSON helpers.
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- docs: add W1.11 IPC batching implementation plan
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- docs(W1.11): add cancellation, dedup, and timeout to IPC batching spec
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- docs: add W1.11 IPC batching design spec
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+
+
+
 ## [1.8.0] - 2026-03-28
 
 ### Features
