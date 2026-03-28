@@ -21,9 +21,6 @@
     configName: string;
   } = $props();
 
-  // Per-session approved tools (not persisted — only for this session)
-  let sessionApprovedTools = $state<Set<string>>(new Set());
-
   // Session-local permission override (not persisted)
   let sessionPermissionOverride = $state<'yolo' | 'ask' | 'locked' | null>(null);
 
@@ -126,8 +123,7 @@
       incrementTurnCount(sessionId);
       const cwd = get(projectRoot) || undefined;
       const isYolo = permissionLevel === 'yolo';
-      const mergedTools = [...configAllowedTools, ...sessionApprovedTools];
-      const tools = mergedTools.length > 0 ? mergedTools : undefined;
+      const tools = configAllowedTools.length > 0 ? configAllowedTools : undefined;
       await adapter.agentSend(text, provider, model, sessionId, cwd, isYolo, tools);
     } catch (e) {
       console.error('Failed to send message:', e);
@@ -144,33 +140,18 @@
     }
   }
 
-  async function handleApproveTools(tools: string[], remember: boolean) {
-    for (const t of tools) sessionApprovedTools.add(t);
-    sessionApprovedTools = new Set(sessionApprovedTools);
-
-    if (remember && modelConfig) {
-      // Persist to config
-      const existing = modelConfig.allowedTools ?? [];
-      const merged = [...new Set([...existing, ...tools])];
-      llmConfigs.update((list) =>
-        list.map((c) => c.name === configName ? { ...c, allowedTools: merged } : c)
-      );
-    }
-
-    // Replay: re-send last user message with updated allowed tools + new session ID
+  async function handleApproveTools(tools: string[]) {
     const lastUserEvent = [...events].reverse().find(
       (e) => e.metadata.provider === 'user' && e.event_type === 'text'
     );
     if (!lastUserEvent || lastUserEvent.content.type !== 'text') return;
 
-    const newSessionId = crypto.randomUUID();
-    const cwd = get(projectRoot) || undefined;
-    const mergedTools = [...(modelConfig?.allowedTools ?? []), ...sessionApprovedTools];
-
     try {
       setStreaming(sessionId, true);
+      const cwd = get(projectRoot) || undefined;
       const isYolo = permissionLevel === 'yolo';
-      await adapter.agentSend(lastUserEvent.content.value, provider, model, newSessionId, cwd, isYolo, mergedTools);
+      const cfgTools = configAllowedTools.length > 0 ? configAllowedTools : undefined;
+      await adapter.agentSend(lastUserEvent.content.value, provider, model, sessionId, cwd, isYolo, cfgTools);
     } catch (e) {
       console.error('Replay failed:', e);
       setStreaming(sessionId, false);
@@ -179,7 +160,7 @@
 </script>
 
 <div class="chat-view">
-  <ChatMessages {events} {streaming} {adapter} onFork={handleFork} {permissionLevel} onApproveTools={handleApproveTools} />
+  <ChatMessages {events} {streaming} {adapter} onFork={handleFork} {permissionLevel} onApproveTools={handleApproveTools} {sessionId} />
   {#if trustSuspended}
     <div class="trust-suspended-banner">
       {$tr('trust.revokedBanner')}
