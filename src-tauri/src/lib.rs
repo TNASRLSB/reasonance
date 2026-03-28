@@ -36,6 +36,7 @@ mod normalizer;
 mod normalizer_health;
 mod normalizer_version;
 pub mod permission_engine;
+pub mod policy_file;
 mod project_manager;
 mod pty_manager;
 mod resource_lock;
@@ -170,6 +171,7 @@ pub fn run() {
             }
         }))
         .manage(permission_engine::PermissionMemory::new())
+        .manage(policy_file::PolicyFile::new())
         .manage(PtyManager::new())
         .manage(project_manager::ProjectsState::new())
         .manage(project_manager::ActiveProjectState::new())
