@@ -5,17 +5,16 @@ use crate::transport::session_manager::SessionManager;
 use log::{debug, error, info};
 use tauri::State;
 
-#[tauri::command]
-pub async fn session_create(
-    provider: String,
-    model: String,
-    session_manager: State<'_, SessionManager>,
+pub async fn session_create_inner(
+    provider: &str,
+    model: &str,
+    session_manager: &SessionManager,
 ) -> Result<String, ReasonanceError> {
     info!(
         "cmd::session_create(provider={}, model={})",
         provider, model
     );
-    let result = session_manager.create_session(&provider, &model).await;
+    let result = session_manager.create_session(provider, model).await;
     match &result {
         Ok(id) => debug!("cmd::session_create created session_id={}", id),
         Err(e) => error!("cmd::session_create failed: {}", e),
@@ -24,13 +23,21 @@ pub async fn session_create(
 }
 
 #[tauri::command]
-pub async fn session_restore(
-    session_id: String,
+pub async fn session_create(
+    provider: String,
+    model: String,
     session_manager: State<'_, SessionManager>,
+) -> Result<String, ReasonanceError> {
+    session_create_inner(&provider, &model, &session_manager).await
+}
+
+pub async fn session_restore_inner(
+    session_id: &str,
+    session_manager: &SessionManager,
 ) -> Result<SessionHandle, ReasonanceError> {
     info!("cmd::session_restore(session_id={})", session_id);
     let (handle, _events) = session_manager
-        .restore_session(&session_id)
+        .restore_session(session_id)
         .await
         .map_err(|e| {
             error!(
@@ -43,21 +50,50 @@ pub async fn session_restore(
 }
 
 #[tauri::command]
+pub async fn session_restore(
+    session_id: String,
+    session_manager: State<'_, SessionManager>,
+) -> Result<SessionHandle, ReasonanceError> {
+    session_restore_inner(&session_id, &session_manager).await
+}
+
+pub async fn session_get_events_inner(
+    session_id: &str,
+    session_manager: &SessionManager,
+) -> Result<Vec<AgentEvent>, ReasonanceError> {
+    debug!("cmd::session_get_events(session_id={})", session_id);
+    let store = session_manager.store();
+    store.read_events(session_id).await
+}
+
+#[tauri::command]
 pub async fn session_get_events(
     session_id: String,
     session_manager: State<'_, SessionManager>,
 ) -> Result<Vec<AgentEvent>, ReasonanceError> {
-    debug!("cmd::session_get_events(session_id={})", session_id);
-    let store = session_manager.store();
-    store.read_events(&session_id).await
+    session_get_events_inner(&session_id, &session_manager).await
+}
+
+pub async fn session_list_inner(
+    session_manager: &SessionManager,
+) -> Result<Vec<SessionSummary>, ReasonanceError> {
+    info!("cmd::session_list called");
+    Ok(session_manager.list_sessions())
 }
 
 #[tauri::command]
 pub async fn session_list(
     session_manager: State<'_, SessionManager>,
 ) -> Result<Vec<SessionSummary>, ReasonanceError> {
-    info!("cmd::session_list called");
-    Ok(session_manager.list_sessions())
+    session_list_inner(&session_manager).await
+}
+
+pub async fn session_delete_inner(
+    session_id: &str,
+    session_manager: &SessionManager,
+) -> Result<(), ReasonanceError> {
+    info!("cmd::session_delete(session_id={})", session_id);
+    session_manager.delete_session(session_id).await
 }
 
 #[tauri::command]
@@ -65,18 +101,16 @@ pub async fn session_delete(
     session_id: String,
     session_manager: State<'_, SessionManager>,
 ) -> Result<(), ReasonanceError> {
-    info!("cmd::session_delete(session_id={})", session_id);
-    session_manager.delete_session(&session_id).await
+    session_delete_inner(&session_id, &session_manager).await
 }
 
 /// Maximum allowed length for a session title.
 const MAX_SESSION_TITLE_LENGTH: usize = 200;
 
-#[tauri::command]
-pub async fn session_rename(
-    session_id: String,
-    title: String,
-    session_manager: State<'_, SessionManager>,
+pub async fn session_rename_inner(
+    session_id: &str,
+    title: &str,
+    session_manager: &SessionManager,
 ) -> Result<(), ReasonanceError> {
     info!("cmd::session_rename(session_id={})", session_id);
     if title.len() > MAX_SESSION_TITLE_LENGTH {
@@ -94,7 +128,30 @@ pub async fn session_rename(
             ),
         ));
     }
-    session_manager.rename_session(&session_id, &title).await
+    session_manager.rename_session(session_id, title).await
+}
+
+#[tauri::command]
+pub async fn session_rename(
+    session_id: String,
+    title: String,
+    session_manager: State<'_, SessionManager>,
+) -> Result<(), ReasonanceError> {
+    session_rename_inner(&session_id, &title, &session_manager).await
+}
+
+pub async fn session_fork_inner(
+    session_id: &str,
+    fork_event_index: u32,
+    session_manager: &SessionManager,
+) -> Result<String, ReasonanceError> {
+    info!(
+        "cmd::session_fork(session_id={}, fork_event_index={})",
+        session_id, fork_event_index
+    );
+    session_manager
+        .fork_session(session_id, fork_event_index)
+        .await
 }
 
 #[tauri::command]
@@ -103,13 +160,19 @@ pub async fn session_fork(
     fork_event_index: u32,
     session_manager: State<'_, SessionManager>,
 ) -> Result<String, ReasonanceError> {
+    session_fork_inner(&session_id, fork_event_index, &session_manager).await
+}
+
+pub async fn session_set_view_mode_inner(
+    session_id: &str,
+    mode: ViewMode,
+    session_manager: &SessionManager,
+) -> Result<(), ReasonanceError> {
     info!(
-        "cmd::session_fork(session_id={}, fork_event_index={})",
-        session_id, fork_event_index
+        "cmd::session_set_view_mode(session_id={}, mode={:?})",
+        session_id, mode
     );
-    session_manager
-        .fork_session(&session_id, fork_event_index)
-        .await
+    session_manager.set_view_mode(session_id, mode).await
 }
 
 #[tauri::command]
@@ -118,9 +181,5 @@ pub async fn session_set_view_mode(
     mode: ViewMode,
     session_manager: State<'_, SessionManager>,
 ) -> Result<(), ReasonanceError> {
-    info!(
-        "cmd::session_set_view_mode(session_id={}, mode={:?})",
-        session_id, mode
-    );
-    session_manager.set_view_mode(&session_id, mode).await
+    session_set_view_mode_inner(&session_id, mode, &session_manager).await
 }
