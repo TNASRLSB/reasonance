@@ -184,4 +184,7 @@ export const batchSchemas: Record<string, z.ZodType> = {
   get_shadow: z.string().nullable(),
   read_config: z.string(),
   get_setting: z.unknown().nullable(),
+  record_permission_decision: z.null(),
+  lookup_permission_decision: z.unknown().nullable(),
+  clear_permission_session: z.null(),
 };

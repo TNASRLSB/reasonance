@@ -241,6 +241,68 @@ async fn dispatch(app: &AppHandle, cmd: &str, args: Value) -> Result<Value, Reas
             Ok(serde_json::to_value(result).unwrap())
         }
 
+        // ── permissions ──────────────────────────────────────────────────
+        "record_permission_decision" => {
+            let session_id: String = extract(&args, "sessionId")?;
+            let tool_name: String = extract(&args, "toolName")?;
+            let action: String = extract(&args, "action")?;
+            let scope: String = extract(&args, "scope")?;
+            let memory = app.state::<crate::permission_engine::PermissionMemory>();
+            let policy = app.state::<crate::policy_file::PolicyFile>();
+            let decision = match action.as_str() {
+                "allow" => crate::permission_engine::PermissionDecision::Allow,
+                "deny" => crate::permission_engine::PermissionDecision::Deny {
+                    reason: "User denied".into(),
+                },
+                other => {
+                    return Err(ReasonanceError::validation(
+                        "action",
+                        format!("must be 'allow' or 'deny', got '{}'", other),
+                    ))
+                }
+            };
+            match scope.as_str() {
+                "once" => memory.record(
+                    &session_id,
+                    &tool_name,
+                    decision,
+                    crate::permission_engine::DecisionScope::Once,
+                ),
+                "session" => memory.record(
+                    &session_id,
+                    &tool_name,
+                    decision,
+                    crate::permission_engine::DecisionScope::Session,
+                ),
+                "project" => {
+                    let d = if action == "allow" { "allow" } else { "deny" };
+                    policy
+                        .add_policy_rule(&tool_name, d)
+                        .map_err(|e| ReasonanceError::validation("policy", e))?;
+                }
+                other => {
+                    return Err(ReasonanceError::validation(
+                        "scope",
+                        format!("must be 'once', 'session', or 'project', got '{}'", other),
+                    ))
+                }
+            }
+            Ok(Value::Null)
+        }
+        "lookup_permission_decision" => {
+            let session_id: String = extract(&args, "sessionId")?;
+            let tool_name: String = extract(&args, "toolName")?;
+            let memory = app.state::<crate::permission_engine::PermissionMemory>();
+            let result = memory.lookup(&session_id, &tool_name);
+            Ok(serde_json::to_value(result).unwrap())
+        }
+        "clear_permission_session" => {
+            let session_id: String = extract(&args, "sessionId")?;
+            let memory = app.state::<crate::permission_engine::PermissionMemory>();
+            memory.clear_session(&session_id);
+            Ok(Value::Null)
+        }
+
         // ── unknown command ──────────────────────────────────────────────
         other => Err(ReasonanceError::validation(
             "command",

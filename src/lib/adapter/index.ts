@@ -167,6 +167,11 @@ export interface Adapter {
   fileOpsUndo(): Promise<string>;
   fileOpsRecordCreate(path: string): Promise<void>;
   fileOpsRecordRename(oldPath: string, newPath: string): Promise<void>;
+
+  // Permissions
+  recordPermissionDecision(sessionId: string, toolName: string, action: string, scope: string): Promise<void>;
+  lookupPermissionDecision(sessionId: string, toolName: string): Promise<unknown>;
+  clearPermissionSession(sessionId: string): Promise<void>;
 }
 
 export interface GrepResult {

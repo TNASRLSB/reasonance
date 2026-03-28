@@ -517,6 +517,11 @@ export function createMockAdapter(overrides?: Partial<Adapter>): Adapter {
       return Promise.resolve();
     },
 
+    // Permissions
+    async recordPermissionDecision() {},
+    async lookupPermissionDecision() { return null; },
+    async clearPermissionSession() {},
+
     // Batching (pass-through in mock — just runs the callback)
     async batch<T extends unknown[]>(
       fn: (ctx: Adapter) => [...{ [K in keyof T]: Promise<T[K]> }],

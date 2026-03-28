@@ -537,6 +537,17 @@ export class TauriAdapter implements Adapter {
     return invoke('file_ops_record_rename', { oldPath, newPath });
   }
 
+  // Permissions
+  async recordPermissionDecision(sessionId: string, toolName: string, action: string, scope: string): Promise<void> {
+    return this.enqueue('record_permission_decision', { sessionId, toolName, action, scope }) as Promise<void>;
+  }
+  async lookupPermissionDecision(sessionId: string, toolName: string): Promise<unknown> {
+    return this.enqueue('lookup_permission_decision', { sessionId, toolName }) as Promise<unknown>;
+  }
+  async clearPermissionSession(sessionId: string): Promise<void> {
+    return this.enqueue('clear_permission_session', { sessionId }) as Promise<void>;
+  }
+
   // Multi-project
   async addProject(id: string, rootPath: string, trustLevel: string): Promise<void> {
     await invoke('add_project', { id, rootPath, trustLevel });
