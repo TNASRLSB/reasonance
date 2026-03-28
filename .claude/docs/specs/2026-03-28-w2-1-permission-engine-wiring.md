@@ -20,23 +20,36 @@ Wire `PermissionEngine::evaluate()` as the sole decision point in transport. Imp
 | Engine placement | Pre-CLI (builds --allowedTools) + post-CLI (handles denials) | Pre-filter reduces unnecessary denials; post-filter gives rich approval UX |
 | Layer 1 in yolo mode | Always active | `rm -rf /` and force-push to main are blocked unconditionally |
 | Session memory in evaluate | Layer 5 inside evaluate(), not external | Single pass through all layers, consistent priority ordering |
-| Project scope persistence | Writes to permissions.toml (Layer 3 file) | Decisions survive app restart without duplicating storage |
+| Project scope persistence | permissions.toml only (Layer 3), NOT in PermissionMemory | Single source of truth — no dual-state sync bugs |
+| evaluate() purity | Returns EvaluationResult, no side effects | Testable without mocking EventBus; caller publishes audit events |
+| Pattern matching | Regex compiled at parse time | `contains("rm")` matches `"inform"` — word-boundary/regex prevents false positives |
+| Policy file loading | Pre-loaded at startup + fs event reload, not lazy | evaluate() always reads from in-memory cache, zero I/O, consistent < 1ms |
 | Frontend approval | Per-tool with 4 scopes | Matches Claude Code's granularity: once, session, project, deny |
-| Resume after approval | --resume if CLI supports, full replay otherwise | Best UX when possible, graceful fallback |
+| Resume after approval | --resume if CLI supports (via capability negotiation), full replay otherwise | Best UX when possible, graceful fallback |
 
 ## Architecture
 
 ### Backend: Engine as sole decision point
 
-#### Updated `evaluate()` signature
+#### Updated `evaluate()` signature — pure function, no side effects
 
 ```rust
+pub struct EvaluationResult {
+    pub decision: PermissionDecision,
+    pub deciding_layer: u8,       // 1-6, which layer made the decision
+    pub tool_name: String,
+    pub permission_level: String,
+    pub trust_level: String,
+}
+
 pub fn evaluate(
     &self,
     ctx: &PermissionContext,
-    memory: &PermissionMemory,
-) -> PermissionDecision
+    memory: &PermissionMemory,  // Once + Session scope only
+) -> EvaluationResult
 ```
+
+The caller (transport) publishes the audit event from the result. The engine itself does zero I/O, zero side effects.
 
 #### Layer evaluation order
 
@@ -60,11 +73,12 @@ pub fn evaluate(
    - `locked` → Deny all non-read-only
    - `ask` → continue to Layer 5
 
-5. **Layer 5 — Session memory** (`PermissionMemory::lookup()`):
-   - Found `Allow` (Session/Project scope) → Allow
-   - Found `Deny` (Session/Project scope) → Deny
-   - Found `Allow` (Once scope) → Allow + consume
+5. **Layer 5 — Session memory** (`PermissionMemory::lookup()`, Once + Session scope only):
+   - Found `Allow` (Session scope) → Allow
+   - Found `Deny` (Session scope) → Deny
+   - Found `Allow` (Once scope) → Allow + consume (removed from memory after use)
    - Not found → continue to Layer 6
+   - Note: Project scope is NOT in PermissionMemory — it lives in permissions.toml (Layer 3)
 
 6. **Layer 6 — Default**: Confirm (ask the user)
 
@@ -107,18 +121,21 @@ Methods absorbed into engine:
 
 #### Audit events
 
-Every `evaluate()` publishes to EventBus `permission:decision`:
+The **caller** (transport) publishes audit events — `evaluate()` itself is pure. After every `evaluate()` call:
 
 ```rust
+let result = engine.evaluate(&ctx, &memory);
+
+// Caller publishes — engine stays pure
 event_bus.publish(Event::new(
     "permission:decision",
     json!({
-        "tool": ctx.tool_name,
-        "decision": decision_str,
-        "layer": deciding_layer,
+        "tool": result.tool_name,
+        "decision": format!("{:?}", result.decision),
+        "layer": result.deciding_layer,
         "session_id": session_id,
-        "trust_level": ctx.trust_level,
-        "permission_level": ctx.permission_level,
+        "trust_level": result.trust_level,
+        "permission_level": result.permission_level,
     }),
     "permission_engine",
 ));
@@ -132,8 +149,8 @@ event_bus.publish(Event::new(
 ```toml
 [tools.Bash]
 decision = "confirm"
-patterns_deny = ["rm -rf", "DROP TABLE"]
-patterns_allow = ["ls", "cat", "grep", "npm test"]
+patterns_deny = ["^rm\\s+-rf", "^DROP\\s+TABLE", "^chmod\\s+777"]
+patterns_allow = ["^ls\\b", "^cat\\b", "^grep\\b", "^npm\\s+test"]
 
 [tools.Write]
 decision = "allow"
@@ -144,19 +161,34 @@ decision = "deny"
 
 **Parsing rules:**
 - `decision`: "allow" | "deny" | "confirm"
-- `patterns_deny`: if tool args contain any pattern → Deny (checked first)
-- `patterns_allow`: if tool args contain any pattern → Allow
-- If both patterns exist and neither matches → fall through to `decision`
+- `patterns_deny` / `patterns_allow`: **regex patterns** (compiled at parse time via `regex::Regex`). Matched against tool arguments. This prevents false positives — `"rm"` as `contains()` would match `"inform"`, but `"^rm\\s+-rf"` as regex only matches the actual command.
+- `patterns_deny` checked first: if any deny pattern matches → Deny
+- `patterns_allow` checked second: if any allow pattern matches → Allow
+- If both exist and neither matches → fall through to `decision` field
+- If tool not in file → fall through to Layer 4
 - Project-level file takes priority over global (LayeredSettings pattern)
 
-**Caching:** parsed on first access, stored in `PermissionEngine`. Invalidated when fs watcher detects change to the file. Re-parsed lazily on next `evaluate()`.
+**Pre-loading (not lazy):** policy file is loaded at startup and on fs events. `evaluate()` reads only from the in-memory cache — zero I/O on the hot path.
 
-**Project scope persistence:** when a user approves a tool with scope "Project", the decision is appended to the project-level `permissions.toml`:
+```rust
+// At app startup (lib.rs setup):
+engine.load_policy(&project_root);
+
+// On fs change event (EventBus subscriber):
+if path.ends_with("permissions.toml") {
+    engine.reload_policy();
+}
+```
+
+Compiled regexes are cached alongside the parsed TOML. Re-parse only on file change.
+
+**Project scope persistence:** when a user approves a tool with scope "Project", the decision is written to the project-level `permissions.toml` (Layer 3's file). This is the **single source of truth** for project-scoped decisions — `PermissionMemory` does NOT store Project scope.
+
 ```rust
 // In record_permission_decision when scope == Project:
-policy_file.set_tool_decision(&tool_name, "allow");
-policy_file.save()?;
-engine.invalidate_policy_cache(); // force re-read
+engine.add_policy_rule(&tool_name, "allow");
+engine.save_and_reload_policy()?;
+// Next evaluate() reads the updated in-memory cache
 ```
 
 ### Backend: Layer 5 — Session memory in evaluate
@@ -165,14 +197,15 @@ engine.invalidate_policy_cache(); // force re-read
 // Inside evaluate(), after Layer 4:
 if let Some(stored) = memory.lookup(session_id, &ctx.tool_name) {
     match stored.action {
-        Action::Allow => return PermissionDecision::Allow,
-        Action::Deny => return PermissionDecision::Deny { reason: "denied by user".into() },
+        Action::Allow => return EvaluationResult { decision: Allow, deciding_layer: 5, .. },
+        Action::Deny => return EvaluationResult { decision: Deny { reason: "denied by user".into() }, deciding_layer: 5, .. },
     }
 }
 // Layer 6: default Confirm
+return EvaluationResult { decision: Confirm, deciding_layer: 6, .. };
 ```
 
-`lookup()` already handles Once scope consumption (returns + removes). Session scope persists in memory. Project scope persists in memory AND permissions.toml.
+`lookup()` already handles Once scope consumption (returns + removes). Session scope persists in memory. Project scope is NOT in PermissionMemory — it lives exclusively in `permissions.toml` (Layer 3), ensuring a single source of truth.
 
 ### Frontend: Per-tool approval UI
 
@@ -223,18 +256,21 @@ All routed through `enqueue()` (batchable).
 
 ### Rust tests
 
-**Engine integration:**
+**Engine integration (evaluate is pure — no EventBus mocking needed):**
 - Yolo mode: Layer 1 blocks `rm -rf /` even with yolo (existing test, maintain)
 - Yolo mode: Layer 1 allows normal Bash commands
-- Ask mode: Layer 5 returns Allow for previously approved tool
+- Ask mode: Layer 5 returns Allow for previously approved tool (Session scope)
 - Ask mode: Layer 5 Once scope consumed after first use
+- Ask mode: Layer 3 returns Allow for Project-scoped tool in permissions.toml
 - Locked mode: everything Deny except read-only tools
-- Layer 3: valid TOML parsed, decisions applied
+- EvaluationResult includes correct `deciding_layer` for each case
+- Layer 3: valid TOML parsed, regex patterns compiled, decisions applied
 - Layer 3: absent file → skip (no error)
-- Layer 3: patterns_deny blocks matching args
-- Layer 3: patterns_allow allows matching args
-- Layer 3: project scope decision writes to file
-- Layer 3: cache invalidation on file change
+- Layer 3: `patterns_deny` regex blocks matching args (no false positives on substrings)
+- Layer 3: `patterns_allow` regex allows matching args
+- Layer 3: project scope decision writes to file and reloads cache
+- Layer 3: pre-loaded at startup, reloaded on fs event (not lazy)
+- Layer 5: does NOT contain Project scope decisions (only Once + Session)
 
 **Transport integration:**
 - `send()` calls `evaluate()` — no inline trust checks remain
@@ -256,16 +292,20 @@ All routed through `enqueue()` (batchable).
 ## Migration Strategy
 
 ### Phase 1 — Layer 3 implementation
-- Add `PolicyFile` struct with TOML parsing, caching, invalidation
-- Add `patterns_deny` / `patterns_allow` matching
+- Add `regex` crate to Cargo.toml (if not already present)
+- Add `PolicyFile` struct with TOML parsing, regex compilation, in-memory cache
+- Pre-load at startup, reload on fs event
+- Add `patterns_deny` / `patterns_allow` regex matching
 - Integration with LayeredSettings for global + project levels
+- Add `add_policy_rule()` + `save_and_reload_policy()` for Project scope persistence
 - Tests
 
-### Phase 2 — Layer 5 integration
-- Add `memory` parameter to `evaluate()`
+### Phase 2 — Layer 5 integration + EvaluationResult
+- Change `evaluate()` return type to `EvaluationResult` (decision + deciding_layer + context)
+- Add `memory` parameter to `evaluate()` (Once + Session scope only)
 - Implement lookup inside evaluate flow
-- Project scope writes to permissions.toml
-- Tests
+- Project scope writes to permissions.toml via `add_policy_rule()` (NOT to PermissionMemory)
+- Tests (no EventBus mocking needed — engine is pure)
 
 ### Phase 3 — Transport wiring
 - Replace inline trust checks with `engine.evaluate()` call
@@ -288,14 +328,17 @@ All routed through `enqueue()` (batchable).
 ## Exit Criteria
 
 - Permission engine is sole decision point (zero inline checks in transport)
+- `evaluate()` is a pure function — zero side effects, zero I/O
 - All 6 layers functional (hardcoded, trust, policy file, model config, session memory, default)
+- `EvaluationResult` includes `deciding_layer` for audit trail
 - Layer 1 hardcoded non-overridable even in yolo mode
-- Layer 3 parses `.reasonance/permissions.toml` with pattern matching
-- Layer 5 integrated in `evaluate()`, scope Project persists to file
+- Layer 3 parses `.reasonance/permissions.toml` with regex pattern matching (no substring false positives)
+- Layer 3 pre-loaded at startup, reloaded on fs event (not lazy)
+- Layer 5 handles Once + Session scope only; Project scope lives in permissions.toml (single source of truth)
 - Destructive commands always denied regardless of any setting
-- Untrusted workspaces restricted to read-only tools
-- All decisions emit audit events on EventBus `permission:decision`
+- Untrusted workspaces restricted to read-only tools (from normalizer config)
+- Audit events published by caller (transport), not by engine
 - Frontend per-tool approval with 4 scopes (once, session, project, deny)
 - `sessionApprovedTools` eliminated from ChatView
-- Benchmark: < 1ms per `evaluate()` invocation
+- Benchmark: < 1ms per `evaluate()` invocation (zero I/O on hot path)
 - Inline trust checks in transport replaced by engine
