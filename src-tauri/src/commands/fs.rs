@@ -312,16 +312,12 @@ pub struct FileEntry {
 /// Maximum file size allowed for reading (10 MB).
 const MAX_READ_FILE_SIZE: u64 = 10 * 1024 * 1024;
 
-#[tauri::command]
-pub fn read_file(
-    path: String,
-    state: State<'_, ProjectRootState>,
-) -> Result<String, ReasonanceError> {
+pub fn read_file_inner(path: &str, state: &ProjectRootState) -> Result<String, ReasonanceError> {
     info!("cmd::read_file(path={})", path);
-    validate_read_path(Path::new(&path), &state)?;
+    validate_read_path(Path::new(path), state)?;
 
     let metadata =
-        fs::metadata(&path).map_err(|e| ReasonanceError::io(format!("stat '{}'", path), e))?;
+        fs::metadata(path).map_err(|e| ReasonanceError::io(format!("stat '{}'", path), e))?;
     if metadata.len() > MAX_READ_FILE_SIZE {
         error!(
             "cmd::read_file file too large: {} bytes at {}",
@@ -338,7 +334,7 @@ pub fn read_file(
         ));
     }
 
-    fs::read_to_string(&path).map_err(|e| {
+    fs::read_to_string(path).map_err(|e| {
         if e.kind() == std::io::ErrorKind::InvalidData {
             error!("cmd::read_file error for {}: binary file", path);
             ReasonanceError::validation(
@@ -353,17 +349,24 @@ pub fn read_file(
 }
 
 #[tauri::command]
-pub fn write_file(
+pub fn read_file(
     path: String,
-    content: String,
     state: State<'_, ProjectRootState>,
+) -> Result<String, ReasonanceError> {
+    read_file_inner(&path, &state)
+}
+
+pub fn write_file_inner(
+    path: &str,
+    content: &str,
+    state: &ProjectRootState,
 ) -> Result<(), ReasonanceError> {
     info!("cmd::write_file(path={})", path);
-    validate_write_path(Path::new(&path), &state)?;
+    validate_write_path(Path::new(path), state)?;
 
     // Atomic write: write to a temp file in the same directory, then rename.
     // This prevents partial writes on crash (rename is atomic on the same filesystem).
-    let target = Path::new(&path);
+    let target = Path::new(path);
     let parent = target.parent().ok_or_else(|| {
         ReasonanceError::validation("path", format!("No parent directory for '{}'", path))
     })?;
@@ -374,7 +377,7 @@ pub fn write_file(
     let tmp_name = format!(".{}.tmp", file_name.to_string_lossy());
     let tmp_path = parent.join(&tmp_name);
 
-    fs::write(&tmp_path, &content).map_err(|e| {
+    fs::write(&tmp_path, content).map_err(|e| {
         error!(
             "cmd::write_file failed to write temp file {}: {}",
             tmp_path.display(),
@@ -394,18 +397,26 @@ pub fn write_file(
 }
 
 #[tauri::command]
-pub fn list_dir(
+pub fn write_file(
     path: String,
-    respect_gitignore: bool,
+    content: String,
     state: State<'_, ProjectRootState>,
+) -> Result<(), ReasonanceError> {
+    write_file_inner(&path, &content, &state)
+}
+
+pub fn list_dir_inner(
+    path: &str,
+    respect_gitignore: bool,
+    state: &ProjectRootState,
 ) -> Result<Vec<FileEntry>, ReasonanceError> {
     info!("cmd::list_dir(path={})", path);
-    validate_read_path(Path::new(&path), &state)?;
+    validate_read_path(Path::new(path), state)?;
     let entries =
-        fs::read_dir(&path).map_err(|e| ReasonanceError::io(format!("read dir '{}'", path), e))?;
+        fs::read_dir(path).map_err(|e| ReasonanceError::io(format!("read dir '{}'", path), e))?;
 
     let gitignore = if respect_gitignore {
-        ignore::gitignore::Gitignore::new(Path::new(&path).join(".gitignore")).0
+        ignore::gitignore::Gitignore::new(Path::new(path).join(".gitignore")).0
     } else {
         ignore::gitignore::Gitignore::empty()
     };
@@ -452,6 +463,15 @@ pub fn list_dir(
     Ok(result)
 }
 
+#[tauri::command]
+pub fn list_dir(
+    path: String,
+    respect_gitignore: bool,
+    state: State<'_, ProjectRootState>,
+) -> Result<Vec<FileEntry>, ReasonanceError> {
+    list_dir_inner(&path, respect_gitignore, &state)
+}
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GrepResult {
@@ -460,22 +480,19 @@ pub struct GrepResult {
     pub line: String,
 }
 
-#[tauri::command]
-pub fn grep_files(
-    path: String,
-    pattern: String,
+pub fn grep_files_inner(
+    path: &str,
+    pattern: &str,
     respect_gitignore: bool,
-    state: State<'_, ProjectRootState>,
+    state: &ProjectRootState,
 ) -> Result<Vec<GrepResult>, ReasonanceError> {
     info!("cmd::grep_files(path={}, pattern={})", path, pattern);
-    validate_read_path(Path::new(&path), &state)?;
+    validate_read_path(Path::new(path), state)?;
     use ignore::WalkBuilder;
     use std::io::BufRead;
 
     let mut results = Vec::new();
-    let walker = WalkBuilder::new(&path)
-        .git_ignore(respect_gitignore)
-        .build();
+    let walker = WalkBuilder::new(path).git_ignore(respect_gitignore).build();
 
     for entry in walker.flatten() {
         if !entry.file_type().map_or(false, |ft| ft.is_file()) {
@@ -486,7 +503,7 @@ pub fn grep_files(
             let reader = std::io::BufReader::new(file);
             for (i, line_result) in reader.lines().enumerate() {
                 if let Ok(line) = line_result {
-                    if line.contains(&pattern) {
+                    if line.contains(pattern) {
                         results.push(GrepResult {
                             path: file_path.to_string_lossy().to_string(),
                             line_number: i + 1,
@@ -510,6 +527,16 @@ pub fn grep_files(
         pattern
     );
     Ok(results)
+}
+
+#[tauri::command]
+pub fn grep_files(
+    path: String,
+    pattern: String,
+    respect_gitignore: bool,
+    state: State<'_, ProjectRootState>,
+) -> Result<Vec<GrepResult>, ReasonanceError> {
+    grep_files_inner(&path, &pattern, respect_gitignore, &state)
 }
 
 #[tauri::command]
