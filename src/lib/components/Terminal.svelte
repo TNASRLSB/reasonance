@@ -14,10 +14,7 @@
   import { isDark } from '$lib/stores/theme';
   import { tr } from '$lib/i18n/index';
   import { showToast } from '$lib/stores/toast';
-
-  function getToken(name: string): string {
-    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-  }
+  import { getCssToken as getToken } from '$lib/utils/css-tokens';
 
   // ANSI palette colors are intentional semantic terminal colors — kept as fixed hex.
   // Only chrome colors (background/foreground/cursor/selection) are mapped to design tokens.

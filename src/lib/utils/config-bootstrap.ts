@@ -10,7 +10,7 @@ import { get } from 'svelte/store';
 import { parse } from 'smol-toml';
 import { llmConfigs, appSettings } from '$lib/stores/config';
 import { showToast } from '$lib/stores/toast';
-import { parseLlmConfig } from '$lib/utils/config-parser';
+import { parseLlmConfig, validatePermissionLevel } from '$lib/utils/config-parser';
 import { t } from '$lib/i18n/index';
 import type { Adapter } from '$lib/adapter/index';
 import type { LlmConfig } from '$lib/stores/config';
@@ -36,13 +36,12 @@ export async function loadInitialConfig(adapter: Adapter): Promise<void> {
     llmConfigs.set(parseLlmConfig(rawLlms));
 
     const s = parsed.settings ?? {};
-    const dpl = String(s.default_permission_level ?? '');
-    const validDpl = ['yolo', 'ask', 'locked'].includes(dpl) ? dpl : undefined;
+    const validDpl = validatePermissionLevel(s.default_permission_level);
     appSettings.set({
       default: s.default !== undefined ? String(s.default) : undefined,
       contextMenuLlm:
         s.context_menu_llm !== undefined ? String(s.context_menu_llm) : undefined,
-      defaultPermissionLevel: validDpl as 'yolo' | 'ask' | 'locked' | undefined,
+      defaultPermissionLevel: validDpl,
       keybindings: s.keybindings ? {
         cycle_permission: s.keybindings.cycle_permission ? String(s.keybindings.cycle_permission) : undefined,
       } : undefined,

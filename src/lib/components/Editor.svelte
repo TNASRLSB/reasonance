@@ -16,10 +16,7 @@
   import ResponsePanel from './ResponsePanel.svelte';
   import type { Adapter } from '$lib/adapter';
   import { tr } from '$lib/i18n/index';
-
-  function getToken(name: string): string {
-    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-  }
+  import { getCssToken as getToken } from '$lib/utils/css-tokens';
 
   function buildDarkEditorTheme() {
     const accent = getToken('--accent');

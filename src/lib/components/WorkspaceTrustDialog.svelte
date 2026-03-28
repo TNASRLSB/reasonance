@@ -1,5 +1,6 @@
 <script lang="ts">
   import { tr } from '$lib/i18n/index';
+  import { trapFocus } from '$lib/utils/a11y';
   import type { FolderInfo } from '$lib/stores/workspace-trust';
   import type { TrustLevel } from '$lib/stores/workspace-trust';
 
@@ -10,28 +11,11 @@
 
   let dialogEl = $state<HTMLElement | null>(null);
 
-  // Focus trap: keep focus within dialog
-  function handleKeydown(e: KeyboardEvent) {
-    if (e.key === 'Tab' && dialogEl) {
-      const focusable = dialogEl.querySelectorAll<HTMLElement>('button');
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (e.shiftKey && document.activeElement === first) {
-        e.preventDefault();
-        last.focus();
-      } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault();
-        first.focus();
-      }
-    }
-    // Escape does NOT dismiss (deliberate — force explicit choice)
-  }
-
-  // Auto-focus first button on mount
+  // Escape does NOT dismiss (deliberate — force explicit choice)
   $effect(() => {
     if (dialogEl) {
-      const first = dialogEl.querySelector<HTMLElement>('button');
-      first?.focus();
+      const destroy = trapFocus(dialogEl);
+      return destroy;
     }
   });
 </script>
@@ -45,7 +29,6 @@
     aria-modal="true"
     aria-labelledby="trust-title"
     aria-describedby="trust-desc"
-    onkeydown={handleKeydown}
   >
     <h2 id="trust-title">{$tr('trust.title')}</h2>
 

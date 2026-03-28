@@ -7,10 +7,7 @@
   import type { Adapter } from '$lib/adapter';
   import { isDark } from '$lib/stores/theme';
   import { tr } from '$lib/i18n/index';
-
-  function getToken(name: string): string {
-    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-  }
+  import { getCssToken as getToken } from '$lib/utils/css-tokens';
 
   function buildDarkDiffTheme() {
     return EditorView.theme({

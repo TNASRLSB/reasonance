@@ -3,15 +3,6 @@
 
 import { writable } from 'svelte/store';
 
-/** @deprecated Use ProjectFileState from '$lib/stores/projects' */
-export interface OpenFile {
-  path: string;
-  name: string;
-  content: string;
-  isDirty: boolean;
-  isDeleted: boolean;
-}
-
 // Re-export from namespace layer
 export {
   projectRoot,

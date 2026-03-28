@@ -64,6 +64,8 @@ This is my memory. I update it as I learn. I check it before making claims.
 | `build_event` | `src-tauri/src/normalizer/pipeline.rs` | — | Builds AgentEvents from normalizer rules; special JSON handling for PermissionDenial |
 | `permission_denial` | `src-tauri/src/agent_event.rs` | — | Constructor for PermissionDenial AgentEvent with JSON denials content |
 | `handleApproveTools` | `src/lib/components/chat/ChatView.svelte` | — | Replay mechanism: adds tools to session set, generates new session ID, re-invokes agentSend |
+| `getCssToken` | `src/lib/utils/css-tokens.ts` | — | Reads CSS custom property from :root (SSR-safe) |
+| `validatePermissionLevel` | `src/lib/utils/config-parser.ts` | — | Validates permission level string → 'yolo' \| 'ask' \| 'locked' \| undefined |
 | `parseLlmConfigs` | `src/lib/utils/config-parser.ts` | — | Parses TOML → LlmConfig including permissionLevel and allowedTools |
 | `serializeLlmConfigs` | `src/lib/utils/config-bootstrap.ts` | — | Serializes LlmConfig → TOML including permission fields |
 | `addProject` | `src/lib/stores/projects/registry.ts` | — | Adds project to registry, auto-assigns color, sets as active |

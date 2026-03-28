@@ -3,7 +3,6 @@ import { writable, derived, get } from 'svelte/store';
 export type Locale = 'en' | 'it' | 'de' | 'es' | 'fr' | 'pt' | 'zh' | 'hi' | 'ar';
 
 export const locale = writable<Locale>('en');
-export const isRTL = derived(locale, ($l) => $l === 'ar');
 
 import en from './en.json';
 

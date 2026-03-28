@@ -1,5 +1,14 @@
 import type { LlmConfig } from '$lib/stores/config';
 
+export type PermissionLevel = 'yolo' | 'ask' | 'locked';
+
+export function validatePermissionLevel(value: unknown): PermissionLevel | undefined {
+  const str = String(value ?? '');
+  return (['yolo', 'ask', 'locked'] as const).includes(str as PermissionLevel)
+    ? (str as PermissionLevel)
+    : undefined;
+}
+
 export function parseLlmConfig(rawLlms: Array<Record<string, unknown>>): LlmConfig[] {
   return rawLlms.map((l) => ({
     name: String(l.name ?? ''),
@@ -10,9 +19,7 @@ export function parseLlmConfig(rawLlms: Array<Record<string, unknown>>): LlmConf
     imageMode: (['path', 'base64', 'none'].includes(String(l.image_mode))
       ? l.image_mode
       : 'path') as 'path' | 'base64' | 'none',
-    permissionLevel: (['yolo', 'ask', 'locked'].includes(String(l.permission_level))
-      ? l.permission_level
-      : undefined) as 'yolo' | 'ask' | 'locked' | undefined,
+    permissionLevel: validatePermissionLevel(l.permission_level),
     allowedTools: Array.isArray(l.allowed_tools) ? l.allowed_tools.map(String) : undefined,
     provider: l.provider !== undefined ? String(l.provider) : undefined,
     apiKeyEnv: l.api_key_env !== undefined ? String(l.api_key_env) : undefined,

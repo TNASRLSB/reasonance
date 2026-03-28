@@ -34,3 +34,7 @@ __pycache__/
 test-results/
 test.md
 playwright-report/
+
+# Backup artifacts
+*.vibe-*-backup-*.zip
+vibe-*-cleanup.sh

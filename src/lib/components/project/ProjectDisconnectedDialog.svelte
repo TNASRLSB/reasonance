@@ -1,6 +1,7 @@
 <script lang="ts">
   import { open } from '@tauri-apps/plugin-dialog';
   import { removeProject, updateProjectContext } from '$lib/stores/projects';
+  import { trapFocus } from '$lib/utils/a11y';
 
   let {
     projectId,
@@ -20,32 +21,10 @@
 
   $effect(() => {
     if (isOpen && dialogEl) {
-      const first = dialogEl.querySelector<HTMLElement>('button');
-      first?.focus();
+      const destroy = trapFocus(dialogEl);
+      return destroy;
     }
   });
-
-  function handleKeydown(e: KeyboardEvent) {
-    if (e.key === 'Escape') {
-      onClose();
-      return;
-    }
-    if (e.key === 'Tab' && dialogEl) {
-      const focusable = Array.from(
-        dialogEl.querySelectorAll<HTMLElement>('button')
-      ).filter((el) => !(el as HTMLButtonElement).disabled);
-      if (focusable.length === 0) return;
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (e.shiftKey && document.activeElement === first) {
-        e.preventDefault();
-        last.focus();
-      } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault();
-        first.focus();
-      }
-    }
-  }
 
   async function handleLocate() {
     const selected = await open({ directory: true });
@@ -71,7 +50,7 @@
       aria-labelledby="disconnected-title"
       aria-describedby="disconnected-desc"
       tabindex="-1"
-      onkeydown={handleKeydown}
+      onkeydown={(e) => { if (e.key === 'Escape') onClose(); }}
     >
       <h2 id="disconnected-title">Folder Not Found</h2>
 
