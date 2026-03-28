@@ -260,8 +260,17 @@ pub fn run() {
             bus.register_channel("workflow:permission-request", true);
             bus.register_channel("lifecycle:sweep", true);
             bus.register_channel("lifecycle:update-check", true);
+            bus.register_channel("permission:decision", false);
             info!("  ⏱ EventBus init: {}ms", t_bus.elapsed().as_millis());
             app.manage(bus.clone());
+
+            // Pre-load global policy file. Project-level policy will be loaded
+            // when set_project_root is called by the frontend.
+            {
+                let policy: tauri::State<'_, policy_file::PolicyFile> = app.state();
+                let global_config = dirs::config_dir().map(|d| d.join("reasonance"));
+                policy.load_optional(None, global_config.as_deref());
+            }
 
             // SessionManager + AnalyticsCollector: parallel async init inside setup()
             // where the tokio runtime is active. These are independent so we use tokio::join!.

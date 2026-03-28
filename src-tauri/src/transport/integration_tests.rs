@@ -18,10 +18,14 @@ mod tests {
 
     #[test]
     fn test_transport_rejects_unknown_provider() {
+        use crate::permission_engine::PermissionMemory;
+        use crate::policy_file::PolicyFile;
         use crate::workspace_trust::TrustStore;
         use tempfile::TempDir;
         let tmp = TempDir::new().unwrap();
         let trust_store = TrustStore::new(tmp.path().join("trust.json"));
+        let memory = PermissionMemory::new();
+        let policy = PolicyFile::new();
 
         let transport = StructuredAgentTransport::new(Path::new("normalizers")).unwrap();
 
@@ -35,10 +39,10 @@ mod tests {
             max_tokens: None,
             allowed_tools: None,
             cwd: None,
-            yolo: false,
+            yolo: true, // yolo so engine doesn't block on untrusted
         };
 
-        assert!(transport.send(req, &trust_store).is_err());
+        assert!(transport.send(req, &trust_store, &memory, &policy).is_err());
     }
 
     #[tokio::test]

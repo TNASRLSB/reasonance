@@ -9,6 +9,10 @@ pub mod stream_reader;
 use crate::agent_event::{AgentEvent, ErrorSeverity};
 use crate::circuit_breaker::CircuitBreaker;
 use crate::normalizer::NormalizerRegistry;
+use crate::permission_engine::{
+    EvaluationResult, PermissionContext, PermissionDecision, PermissionEngine, PermissionMemory,
+};
+use crate::policy_file::PolicyFile;
 use crate::tracked_map::TrackedMap;
 #[allow(unused_imports)]
 use log::{debug, error, info, trace, warn};
@@ -90,6 +94,8 @@ impl StructuredAgentTransport {
         &self,
         request: AgentRequest,
         trust_store: &crate::workspace_trust::TrustStore,
+        memory: &PermissionMemory,
+        policy: &PolicyFile,
     ) -> Result<String, crate::error::ReasonanceError> {
         let provider = request.provider.to_lowercase();
         info!(
@@ -108,29 +114,50 @@ impl StructuredAgentTransport {
             trust_level, request.yolo
         );
 
-        if matches!(
-            trust_level,
-            Some(crate::workspace_trust::TrustLevel::Blocked)
-        ) {
-            warn!(
-                "Transport: send blocked — workspace is not trusted cwd={:?}",
-                request.cwd
-            );
-            return Err(crate::error::ReasonanceError::Security {
-                message: "Workspace is not trusted".to_string(),
-                code: crate::error::SecurityErrorCode::BlockedWorkspace,
-            });
-        }
-        // When yolo=true, skip the trust gate — user has explicitly opted into full permissions
-        if !request.yolo && trust_level.is_none() && request.cwd.is_some() {
-            warn!(
-                "Transport: send blocked — workspace trust not established cwd={:?}",
-                request.cwd
-            );
-            return Err(crate::error::ReasonanceError::Security {
-                message: "Workspace trust has not been established".to_string(),
-                code: crate::error::SecurityErrorCode::UnauthorizedAccess,
-            });
+        // Map workspace trust to the string key used by PermissionEngine
+        let trust_level_str = match trust_level {
+            Some(crate::workspace_trust::TrustLevel::Trusted) => "trusted",
+            Some(crate::workspace_trust::TrustLevel::ReadOnly) => "read_only",
+            Some(crate::workspace_trust::TrustLevel::Blocked) => "blocked",
+            None => {
+                if request.yolo {
+                    "trusted"
+                } else {
+                    "untrusted"
+                }
+            }
+        };
+
+        let permission_level = if request.yolo { "yolo" } else { "ask" };
+
+        let ctx = PermissionContext {
+            tool_name: "*".to_string(), // pre-flight overall mode check
+            tool_args: None,
+            provider: provider.clone(),
+            permission_level: permission_level.to_string(),
+            trust_level: trust_level_str.to_string(),
+            project_root: request.cwd.clone(),
+        };
+
+        let session_id_for_eval = request.session_id.as_deref().unwrap_or("");
+        let eval_result =
+            PermissionEngine::evaluate_with_session(&ctx, memory, policy, session_id_for_eval);
+
+        // Publish audit event via the EventBus
+        Self::publish_permission_audit(&self.event_bus, &eval_result, session_id_for_eval);
+
+        match eval_result.decision {
+            PermissionDecision::Deny { reason } => {
+                warn!(
+                    "Transport: send blocked by PermissionEngine layer={} reason={}",
+                    eval_result.deciding_layer, reason
+                );
+                return Err(crate::error::ReasonanceError::PermissionDenied {
+                    action: reason,
+                    tool: None,
+                });
+            }
+            _ => { /* Allow or Confirm — proceed */ }
         }
 
         let registry = self.registry.lock().unwrap_or_else(|e| {
@@ -167,10 +194,14 @@ impl StructuredAgentTransport {
         // needing the config reference (which is tied to the registry lock).
         let resume_args_template = config.cli.resume_args.clone();
         let args_for_new_session = Self::build_cli_args(config, &request, None);
-        let permission_args = Self::build_permission_args_with_trust(
+        // Use the engine's decision to determine permission args:
+        // - Allow (yolo/trusted) → pass --dangerously-skip-permissions
+        // - Confirm (ask mode) → pass permission args for stdin=null CLIs if trusted
+        // - ReadOnly trust → restrict to read-only tools
+        let permission_args = Self::build_permission_args_from_eval(
             config,
             request.cwd.as_deref(),
-            request.yolo,
+            &eval_result,
             trust_level,
         );
         info!("Transport: permission_args={:?}", permission_args);
@@ -575,6 +606,7 @@ impl StructuredAgentTransport {
     }
 
     /// Build permission args considering both yolo flag and workspace trust level.
+    #[allow(dead_code)] // Superseded by build_permission_args_from_eval; kept for tests
     fn build_permission_args_with_trust(
         config: &crate::normalizer::TomlConfig,
         cwd: Option<&str>,
@@ -625,6 +657,74 @@ impl StructuredAgentTransport {
                 vec![flag.clone(), config.cli.read_only_tools.join(",")]
             }
             _ => Vec::new(),
+        }
+    }
+
+    /// Build permission args based on the engine's evaluation result.
+    ///
+    /// - `Allow` (yolo or trusted) -> pass `--dangerously-skip-permissions` from normalizer config
+    /// - `Confirm` with trusted/read_only trust -> pass permission args (stdin=null CLIs need them)
+    /// - `Confirm` with untrusted -> no permission args (CLI handles interactively)
+    fn build_permission_args_from_eval(
+        config: &crate::normalizer::TomlConfig,
+        cwd: Option<&str>,
+        eval_result: &EvaluationResult,
+        trust_level: Option<crate::workspace_trust::TrustLevel>,
+    ) -> Vec<String> {
+        let project_root = cwd.unwrap_or(".");
+
+        match eval_result.decision {
+            PermissionDecision::Allow => {
+                // Engine says Allow — pass permission args to skip interactive prompts
+                config
+                    .cli
+                    .permission_args
+                    .iter()
+                    .map(|arg| arg.replace("{project_root}", project_root))
+                    .collect()
+            }
+            PermissionDecision::Confirm => {
+                // Confirm mode: pass permission args only if workspace is trusted or
+                // read-only (stdin=null CLIs need them to avoid hanging)
+                match trust_level {
+                    Some(crate::workspace_trust::TrustLevel::Trusted)
+                    | Some(crate::workspace_trust::TrustLevel::ReadOnly) => config
+                        .cli
+                        .permission_args
+                        .iter()
+                        .map(|arg| arg.replace("{project_root}", project_root))
+                        .collect(),
+                    _ => Vec::new(),
+                }
+            }
+            PermissionDecision::Deny { .. } => {
+                // Deny is handled before we reach arg building — this branch
+                // should never execute, but return empty for safety.
+                Vec::new()
+            }
+        }
+    }
+
+    /// Publish an audit event for a permission engine decision.
+    fn publish_permission_audit(
+        event_bus: &Mutex<Option<Arc<crate::event_bus::EventBus>>>,
+        eval_result: &EvaluationResult,
+        session_id: &str,
+    ) {
+        let bus = event_bus.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some(ref bus) = *bus {
+            bus.publish(crate::event_bus::Event::new(
+                "permission:decision",
+                serde_json::json!({
+                    "tool": eval_result.tool_name,
+                    "decision": format!("{:?}", eval_result.decision),
+                    "layer": eval_result.deciding_layer,
+                    "session_id": session_id,
+                    "trust_level": eval_result.trust_level,
+                    "permission_level": eval_result.permission_level,
+                }),
+                "permission_engine",
+            ));
         }
     }
 
@@ -680,6 +780,8 @@ mod tests {
         use tempfile::TempDir;
         let tmp = TempDir::new().unwrap();
         let trust_store = TrustStore::new(tmp.path().join("trust.json"));
+        let memory = PermissionMemory::new();
+        let policy = PolicyFile::new();
 
         let transport = StructuredAgentTransport::new(Path::new("normalizers")).unwrap();
         let request = AgentRequest {
@@ -692,9 +794,9 @@ mod tests {
             max_tokens: None,
             allowed_tools: None,
             cwd: None,
-            yolo: false,
+            yolo: true, // yolo so engine doesn't block on untrusted
         };
-        let result = transport.send(request, &trust_store);
+        let result = transport.send(request, &trust_store, &memory, &policy);
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("not found"));
     }
@@ -882,6 +984,105 @@ mod tests {
             config,
             Some("/project"),
             false,
+            Some(crate::workspace_trust::TrustLevel::Blocked),
+        );
+        assert!(args.is_empty());
+    }
+
+    #[test]
+    fn test_build_permission_args_from_eval_allow() {
+        let transport = StructuredAgentTransport::new(Path::new("normalizers")).unwrap();
+        let registry = transport.registry.lock().unwrap_or_else(|e| e.into_inner());
+        let config = registry.get_config("claude").unwrap();
+
+        let eval = EvaluationResult {
+            decision: PermissionDecision::Allow,
+            deciding_layer: 4,
+            tool_name: "*".to_string(),
+            permission_level: "yolo".to_string(),
+            trust_level: "trusted".to_string(),
+        };
+
+        let args = StructuredAgentTransport::build_permission_args_from_eval(
+            config,
+            Some("/project"),
+            &eval,
+            Some(crate::workspace_trust::TrustLevel::Trusted),
+        );
+        assert!(!args.is_empty());
+        assert!(args
+            .iter()
+            .any(|a| a.contains("dangerously-skip-permissions")));
+    }
+
+    #[test]
+    fn test_build_permission_args_from_eval_confirm_trusted() {
+        let transport = StructuredAgentTransport::new(Path::new("normalizers")).unwrap();
+        let registry = transport.registry.lock().unwrap_or_else(|e| e.into_inner());
+        let config = registry.get_config("claude").unwrap();
+
+        let eval = EvaluationResult {
+            decision: PermissionDecision::Confirm,
+            deciding_layer: 6,
+            tool_name: "*".to_string(),
+            permission_level: "ask".to_string(),
+            trust_level: "trusted".to_string(),
+        };
+
+        // Confirm + trusted -> permission args (stdin=null CLIs)
+        let args = StructuredAgentTransport::build_permission_args_from_eval(
+            config,
+            Some("/project"),
+            &eval,
+            Some(crate::workspace_trust::TrustLevel::Trusted),
+        );
+        assert!(!args.is_empty());
+    }
+
+    #[test]
+    fn test_build_permission_args_from_eval_confirm_untrusted() {
+        let transport = StructuredAgentTransport::new(Path::new("normalizers")).unwrap();
+        let registry = transport.registry.lock().unwrap_or_else(|e| e.into_inner());
+        let config = registry.get_config("claude").unwrap();
+
+        let eval = EvaluationResult {
+            decision: PermissionDecision::Confirm,
+            deciding_layer: 6,
+            tool_name: "*".to_string(),
+            permission_level: "ask".to_string(),
+            trust_level: "untrusted".to_string(),
+        };
+
+        // Confirm + no trust -> no permission args
+        let args = StructuredAgentTransport::build_permission_args_from_eval(
+            config,
+            Some("/project"),
+            &eval,
+            None,
+        );
+        assert!(args.is_empty());
+    }
+
+    #[test]
+    fn test_build_permission_args_from_eval_deny() {
+        let transport = StructuredAgentTransport::new(Path::new("normalizers")).unwrap();
+        let registry = transport.registry.lock().unwrap_or_else(|e| e.into_inner());
+        let config = registry.get_config("claude").unwrap();
+
+        let eval = EvaluationResult {
+            decision: PermissionDecision::Deny {
+                reason: "blocked".to_string(),
+            },
+            deciding_layer: 2,
+            tool_name: "*".to_string(),
+            permission_level: "ask".to_string(),
+            trust_level: "blocked".to_string(),
+        };
+
+        let args = StructuredAgentTransport::build_permission_args_from_eval(
+            config,
+            Some("/project"),
+            &eval,
             Some(crate::workspace_trust::TrustLevel::Blocked),
         );
         assert!(args.is_empty());

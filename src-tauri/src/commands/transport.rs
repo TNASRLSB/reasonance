@@ -10,15 +10,19 @@ pub async fn agent_send(
     request: AgentRequest,
     transport: State<'_, StructuredAgentTransport>,
     trust_store: State<'_, crate::workspace_trust::TrustStore>,
+    memory: State<'_, crate::permission_engine::PermissionMemory>,
+    policy: State<'_, crate::policy_file::PolicyFile>,
 ) -> Result<String, ReasonanceError> {
     info!(
         "cmd::agent_send(session_id={:?}, provider={})",
         request.session_id, request.provider
     );
-    transport.send(request, &trust_store).map_err(|e| {
-        error!("cmd::agent_send failed: {}", e);
-        e
-    })
+    transport
+        .send(request, &trust_store, &memory, &policy)
+        .map_err(|e| {
+            error!("cmd::agent_send failed: {}", e);
+            e
+        })
 }
 
 #[tauri::command]

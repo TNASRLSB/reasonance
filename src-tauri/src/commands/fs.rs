@@ -24,6 +24,7 @@ pub fn set_project_root(
     path: String,
     state: State<'_, ProjectRootState>,
     settings: State<'_, std::sync::Mutex<crate::settings::LayeredSettings>>,
+    policy: State<'_, crate::policy_file::PolicyFile>,
 ) -> Result<(), ReasonanceError> {
     info!("cmd::set_project_root(path={})", path);
     let canonical =
@@ -42,6 +43,13 @@ pub fn set_project_root(
             .lock()
             .unwrap_or_else(|e| e.into_inner())
             .set_project_root(root);
+    }
+
+    // Reload policy file with the new project root so permission rules
+    // from `.reasonance/permissions.toml` take effect immediately.
+    if let Some(ref root) = canonical {
+        let global_config = dirs::config_dir().map(|d| d.join("reasonance"));
+        policy.load_optional(Some(root), global_config.as_deref());
     }
 
     // Install prepare-commit-msg hook to add Reasonance co-author trailer

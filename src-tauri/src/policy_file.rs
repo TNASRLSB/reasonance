@@ -107,6 +107,36 @@ impl PolicyFile {
         inner.global_path = Some(global_file);
     }
 
+    /// Load policy rules with an optional project root.
+    ///
+    /// When `project_root` is `None`, only the global policy file is loaded.
+    /// When `global_config_dir` is `None`, no global rules are loaded.
+    pub fn load_optional(&self, project_root: Option<&Path>, global_config_dir: Option<&Path>) {
+        let project_file = project_root.map(|r| r.join(".reasonance").join("permissions.toml"));
+        let global_file = global_config_dir.map(|d| d.join("permissions.toml"));
+
+        let global_rules = global_file
+            .as_deref()
+            .map(Self::parse_file)
+            .unwrap_or_default();
+        let project_rules = project_file
+            .as_deref()
+            .map(Self::parse_file)
+            .unwrap_or_default();
+
+        let mut merged = global_rules;
+        merged.extend(project_rules);
+
+        let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+        inner.rules = merged;
+        if let Some(pf) = project_file {
+            inner.project_path = Some(pf);
+        }
+        if let Some(gf) = global_file {
+            inner.global_path = Some(gf);
+        }
+    }
+
     /// Reload from the previously configured paths.
     pub fn reload(&self) {
         let (project_path, global_path) = {
