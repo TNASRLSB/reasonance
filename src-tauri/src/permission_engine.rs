@@ -57,44 +57,108 @@ const DESTRUCTIVE_PATTERNS: &[&str] = &["rm -rf /", "rm -rf ~", "rm -rf .", "chm
 /// Git branches that must never receive a force-push
 const PROTECTED_BRANCHES: &[&str] = &["main", "master"];
 
+/// The result of evaluating a permission request through the 6-layer engine.
+#[derive(Debug, Clone)]
+pub struct EvaluationResult {
+    pub decision: PermissionDecision,
+    pub deciding_layer: u8,
+    pub tool_name: String,
+    pub permission_level: String,
+    pub trust_level: String,
+}
+
 pub struct PermissionEngine;
 
 impl PermissionEngine {
-    /// Evaluate the 6-layer decision tree. First match wins.
+    /// Convenience wrapper: evaluate without a session context.
+    ///
+    /// Calls `evaluate_with_session` with an empty session ID so that Layer 5
+    /// (session memory) will never match.
+    pub fn evaluate(
+        ctx: &PermissionContext,
+        memory: &PermissionMemory,
+        policy: &crate::policy_file::PolicyFile,
+    ) -> EvaluationResult {
+        Self::evaluate_with_session(ctx, memory, policy, "")
+    }
+
+    /// Full 6-layer permission evaluation.
     ///
     /// Layer 1: Hardcoded security rules (non-overridable)
     /// Layer 2: Workspace trust level
-    /// Layer 3: Policy file (.reasonance/permissions.toml) — placeholder
+    /// Layer 3: Policy file (.reasonance/permissions.toml)
     /// Layer 4: Model-level permission setting
-    /// Layer 5: Session memory — placeholder, checked externally
+    /// Layer 5: Session memory (skipped when Layer 4 returns Allow / yolo)
     /// Layer 6: Default → Confirm
-    pub fn evaluate(ctx: &PermissionContext) -> PermissionDecision {
+    pub fn evaluate_with_session(
+        ctx: &PermissionContext,
+        memory: &PermissionMemory,
+        policy: &crate::policy_file::PolicyFile,
+        session_id: &str,
+    ) -> EvaluationResult {
+        let make_result = |decision: PermissionDecision, layer: u8| EvaluationResult {
+            decision,
+            deciding_layer: layer,
+            tool_name: ctx.tool_name.clone(),
+            permission_level: ctx.permission_level.clone(),
+            trust_level: ctx.trust_level.clone(),
+        };
+
         // Layer 1: Hardcoded security rules (non-overridable)
         if let Some(decision) = Self::check_hardcoded_rules(ctx) {
             debug!("Permission: hardcoded rule -> {:?}", decision);
-            return decision;
+            return make_result(decision, 1);
         }
 
         // Layer 2: Workspace trust level
         if let Some(decision) = Self::check_trust_level(ctx) {
             debug!("Permission: trust level -> {:?}", decision);
-            return decision;
+            return make_result(decision, 2);
         }
 
         // Layer 3: Policy file (.reasonance/permissions.toml)
-        // Placeholder — will check settings for allowed/denied tool lists
+        let tool_args_str = ctx
+            .tool_args
+            .as_ref()
+            .map(|v| {
+                // For Bash, extract the "command" field for cleaner matching
+                if ctx.tool_name == "Bash" || ctx.tool_name == "bash" {
+                    if let Some(cmd) = v.get("command").and_then(|c| c.as_str()) {
+                        return cmd.to_string();
+                    }
+                }
+                v.to_string()
+            })
+            .unwrap_or_default();
+
+        if let Some(policy_decision) = policy.evaluate(&ctx.tool_name, &tool_args_str) {
+            let decision = match policy_decision {
+                crate::policy_file::PolicyDecision::Allow => PermissionDecision::Allow,
+                crate::policy_file::PolicyDecision::Deny { reason } => {
+                    PermissionDecision::Deny { reason }
+                }
+                crate::policy_file::PolicyDecision::Confirm => PermissionDecision::Confirm,
+            };
+            debug!("Permission: policy file -> {:?}", decision);
+            return make_result(decision, 3);
+        }
 
         // Layer 4: Model-level permission setting
         if let Some(decision) = Self::check_model_permission(ctx) {
             debug!("Permission: model config -> {:?}", decision);
-            return decision;
+            // In yolo mode (Allow), skip Layer 5 — return immediately
+            return make_result(decision, 4);
         }
 
-        // Layer 5: Session memory (handled externally by PermissionMemory in 1.3)
+        // Layer 5: Session memory
+        if let Some(decision) = memory.lookup(session_id, &ctx.tool_name) {
+            debug!("Permission: session memory -> {:?}", decision);
+            return make_result(decision, 5);
+        }
 
         // Layer 6: Default
         debug!("Permission: default -> Confirm");
-        PermissionDecision::Confirm
+        make_result(PermissionDecision::Confirm, 6)
     }
 
     /// Layer 1: Hardcoded security rules — ALWAYS enforced, even in yolo mode
@@ -297,6 +361,14 @@ mod tests {
         }
     }
 
+    /// Helper: default empty memory + policy for tests that don't need them.
+    fn empty_deps() -> (PermissionMemory, crate::policy_file::PolicyFile) {
+        (
+            PermissionMemory::new(),
+            crate::policy_file::PolicyFile::new(),
+        )
+    }
+
     // ── Layer 1: Hardcoded security rules ──────────────────────────────
 
     #[test]
@@ -305,11 +377,12 @@ mod tests {
         ctx.tool_name = "Bash".to_string();
         ctx.tool_args = Some(json!({"command": "rm -rf /"}));
 
-        let decision = PermissionEngine::evaluate(&ctx);
+        let (mem, policy) = empty_deps();
+        let result = PermissionEngine::evaluate(&ctx, &mem, &policy);
         assert!(
-            matches!(decision, PermissionDecision::Deny { ref reason } if reason.contains("rm -rf /")),
+            matches!(result.decision, PermissionDecision::Deny { ref reason } if reason.contains("rm -rf /")),
             "Expected deny for rm -rf /, got {:?}",
-            decision
+            result.decision
         );
     }
 
@@ -319,11 +392,12 @@ mod tests {
         ctx.tool_name = "Bash".to_string();
         ctx.tool_args = Some(json!({"command": "rm -rf ~"}));
 
-        let decision = PermissionEngine::evaluate(&ctx);
+        let (mem, policy) = empty_deps();
+        let result = PermissionEngine::evaluate(&ctx, &mem, &policy);
         assert!(
-            matches!(decision, PermissionDecision::Deny { ref reason } if reason.contains("rm -rf ~")),
+            matches!(result.decision, PermissionDecision::Deny { ref reason } if reason.contains("rm -rf ~")),
             "Expected deny for rm -rf ~, got {:?}",
-            decision
+            result.decision
         );
     }
 
@@ -333,11 +407,12 @@ mod tests {
         ctx.tool_name = "Bash".to_string();
         ctx.tool_args = Some(json!({"command": "git push --force origin main"}));
 
-        let decision = PermissionEngine::evaluate(&ctx);
+        let (mem, policy) = empty_deps();
+        let result = PermissionEngine::evaluate(&ctx, &mem, &policy);
         assert!(
-            matches!(decision, PermissionDecision::Deny { ref reason } if reason.contains("main")),
+            matches!(result.decision, PermissionDecision::Deny { ref reason } if reason.contains("main")),
             "Expected deny for force-push to main, got {:?}",
-            decision
+            result.decision
         );
     }
 
@@ -346,11 +421,12 @@ mod tests {
         let mut ctx = base_context();
         ctx.tool_args = Some(json!({"file_path": "/etc/passwd"}));
 
-        let decision = PermissionEngine::evaluate(&ctx);
+        let (mem, policy) = empty_deps();
+        let result = PermissionEngine::evaluate(&ctx, &mem, &policy);
         assert!(
-            matches!(decision, PermissionDecision::Deny { ref reason } if reason.contains("outside project root")),
+            matches!(result.decision, PermissionDecision::Deny { ref reason } if reason.contains("outside project root")),
             "Expected deny for write outside project, got {:?}",
-            decision
+            result.decision
         );
     }
 
@@ -361,11 +437,12 @@ mod tests {
         ctx.tool_name = "Bash".to_string();
         ctx.tool_args = Some(json!({"command": "rm -rf /"}));
 
-        let decision = PermissionEngine::evaluate(&ctx);
+        let (mem, policy) = empty_deps();
+        let result = PermissionEngine::evaluate(&ctx, &mem, &policy);
         assert!(
-            matches!(decision, PermissionDecision::Deny { .. }),
+            matches!(result.decision, PermissionDecision::Deny { .. }),
             "Hardcoded rules must override yolo mode, got {:?}",
-            decision
+            result.decision
         );
     }
 
@@ -377,11 +454,12 @@ mod tests {
         ctx.trust_level = "untrusted".to_string();
         ctx.tool_name = "Write".to_string();
 
-        let decision = PermissionEngine::evaluate(&ctx);
+        let (mem, policy) = empty_deps();
+        let result = PermissionEngine::evaluate(&ctx, &mem, &policy);
         assert!(
-            matches!(decision, PermissionDecision::Deny { ref reason } if reason.contains("untrusted")),
+            matches!(result.decision, PermissionDecision::Deny { ref reason } if reason.contains("untrusted")),
             "Expected deny for Write in untrusted workspace, got {:?}",
-            decision
+            result.decision
         );
     }
 
@@ -391,12 +469,13 @@ mod tests {
         ctx.trust_level = "untrusted".to_string();
         ctx.tool_name = "Read".to_string();
 
-        let decision = PermissionEngine::evaluate(&ctx);
-        // Should not be denied by trust level — falls through to model permission (ask → Confirm)
+        let (mem, policy) = empty_deps();
+        let result = PermissionEngine::evaluate(&ctx, &mem, &policy);
+        // Should not be denied by trust level — falls through to model permission (ask -> Confirm)
         assert!(
-            !matches!(decision, PermissionDecision::Deny { ref reason } if reason.contains("untrusted")),
+            !matches!(result.decision, PermissionDecision::Deny { ref reason } if reason.contains("untrusted")),
             "Read should not be blocked in untrusted workspace, got {:?}",
-            decision
+            result.decision
         );
     }
 
@@ -406,8 +485,9 @@ mod tests {
         ctx.trust_level = "full".to_string();
         ctx.tool_name = "Write".to_string();
 
-        let decision = PermissionEngine::evaluate(&ctx);
-        assert_eq!(decision, PermissionDecision::Allow);
+        let (mem, policy) = empty_deps();
+        let result = PermissionEngine::evaluate(&ctx, &mem, &policy);
+        assert_eq!(result.decision, PermissionDecision::Allow);
     }
 
     // ── Layer 4: Model-level permission ────────────────────────────────
@@ -419,8 +499,9 @@ mod tests {
         ctx.tool_name = "Write".to_string();
         ctx.tool_args = Some(json!({"file_path": "/home/user/project/test.txt"}));
 
-        let decision = PermissionEngine::evaluate(&ctx);
-        assert_eq!(decision, PermissionDecision::Allow);
+        let (mem, policy) = empty_deps();
+        let result = PermissionEngine::evaluate(&ctx, &mem, &policy);
+        assert_eq!(result.decision, PermissionDecision::Allow);
     }
 
     #[test]
@@ -428,11 +509,12 @@ mod tests {
         let mut ctx = base_context();
         ctx.permission_level = "locked".to_string();
 
-        let decision = PermissionEngine::evaluate(&ctx);
+        let (mem, policy) = empty_deps();
+        let result = PermissionEngine::evaluate(&ctx, &mem, &policy);
         assert!(
-            matches!(decision, PermissionDecision::Deny { ref reason } if reason.contains("locked")),
+            matches!(result.decision, PermissionDecision::Deny { ref reason } if reason.contains("locked")),
             "Expected deny for locked mode, got {:?}",
-            decision
+            result.decision
         );
     }
 
@@ -440,8 +522,9 @@ mod tests {
     fn test_ask_defaults_to_confirm() {
         let ctx = base_context(); // permission_level = "ask", trust = "trusted"
 
-        let decision = PermissionEngine::evaluate(&ctx);
-        assert_eq!(decision, PermissionDecision::Confirm);
+        let (mem, policy) = empty_deps();
+        let result = PermissionEngine::evaluate(&ctx, &mem, &policy);
+        assert_eq!(result.decision, PermissionDecision::Confirm);
     }
 
     // ── Integration / priority tests ───────────────────────────────────
@@ -454,11 +537,12 @@ mod tests {
         ctx.tool_name = "Bash".to_string();
         ctx.tool_args = Some(json!({"command": "rm -rf /"}));
 
-        let decision = PermissionEngine::evaluate(&ctx);
+        let (mem, policy) = empty_deps();
+        let result = PermissionEngine::evaluate(&ctx, &mem, &policy);
         assert!(
-            matches!(decision, PermissionDecision::Deny { .. }),
+            matches!(result.decision, PermissionDecision::Deny { .. }),
             "Hardcoded deny must beat yolo + full trust, got {:?}",
-            decision
+            result.decision
         );
     }
 
@@ -652,5 +736,129 @@ mod tests {
 
         let result = mem.lookup("s1", "Write");
         assert!(matches!(result, Some(PermissionDecision::Deny { .. })));
+    }
+
+    // ── EvaluationResult & layer integration tests ────────────────────
+
+    #[test]
+    fn test_evaluation_result_includes_deciding_layer() {
+        // Hardcoded deny (rm -rf) should report layer=1
+        let mut ctx = base_context();
+        ctx.tool_name = "Bash".to_string();
+        ctx.tool_args = Some(json!({"command": "rm -rf /"}));
+
+        let (mem, policy) = empty_deps();
+        let result = PermissionEngine::evaluate(&ctx, &mem, &policy);
+        assert!(matches!(result.decision, PermissionDecision::Deny { .. }));
+        assert_eq!(result.deciding_layer, 1, "Hardcoded deny should be layer 1");
+        assert_eq!(result.tool_name, "Bash");
+    }
+
+    #[test]
+    fn test_layer5_session_memory_allow() {
+        // Record Allow in memory for (sess1, Write), evaluate should return layer=5
+        let mut ctx = base_context();
+        ctx.tool_name = "Write".to_string();
+        ctx.tool_args = Some(json!({"file_path": "/home/user/project/foo.txt"}));
+
+        let mem = PermissionMemory::new();
+        mem.record(
+            "sess1",
+            "Write",
+            PermissionDecision::Allow,
+            DecisionScope::Session,
+        );
+        let policy = crate::policy_file::PolicyFile::new();
+
+        let result = PermissionEngine::evaluate_with_session(&ctx, &mem, &policy, "sess1");
+        assert_eq!(result.decision, PermissionDecision::Allow);
+        assert_eq!(result.deciding_layer, 5, "Session memory should be layer 5");
+    }
+
+    #[test]
+    fn test_layer5_once_consumed() {
+        // Once scope: first call -> Allow layer=5, second call -> Confirm layer=6
+        let mut ctx = base_context();
+        ctx.tool_name = "Write".to_string();
+        ctx.tool_args = Some(json!({"file_path": "/home/user/project/foo.txt"}));
+
+        let mem = PermissionMemory::new();
+        mem.record(
+            "sess1",
+            "Write",
+            PermissionDecision::Allow,
+            DecisionScope::Once,
+        );
+        let policy = crate::policy_file::PolicyFile::new();
+
+        let r1 = PermissionEngine::evaluate_with_session(&ctx, &mem, &policy, "sess1");
+        assert_eq!(r1.decision, PermissionDecision::Allow);
+        assert_eq!(r1.deciding_layer, 5, "First call should hit layer 5");
+
+        let r2 = PermissionEngine::evaluate_with_session(&ctx, &mem, &policy, "sess1");
+        assert_eq!(r2.decision, PermissionDecision::Confirm);
+        assert_eq!(
+            r2.deciding_layer, 6,
+            "Second call should fall through to layer 6"
+        );
+    }
+
+    #[test]
+    fn test_layer3_policy_applies() {
+        // Create a temp permissions.toml denying WebSearch, evaluate -> layer=3, Deny
+        let project = tempfile::TempDir::new().unwrap();
+        let global = tempfile::TempDir::new().unwrap();
+
+        // Write policy file that denies WebSearch
+        let policy_dir = project.path().join(".reasonance");
+        std::fs::create_dir_all(&policy_dir).unwrap();
+        std::fs::write(
+            policy_dir.join("permissions.toml"),
+            r#"
+[tools.WebSearch]
+decision = "deny"
+"#,
+        )
+        .unwrap();
+
+        let policy = crate::policy_file::PolicyFile::new();
+        policy.load(project.path(), global.path());
+
+        let mut ctx = base_context();
+        ctx.tool_name = "WebSearch".to_string();
+        ctx.tool_args = None;
+
+        let mem = PermissionMemory::new();
+        let result = PermissionEngine::evaluate(&ctx, &mem, &policy);
+        assert!(matches!(result.decision, PermissionDecision::Deny { .. }));
+        assert_eq!(result.deciding_layer, 3, "Policy file should be layer 3");
+    }
+
+    #[test]
+    fn test_yolo_skips_layer5() {
+        // Even with Deny in memory, yolo mode -> layer=4, Allow
+        // Layer 4 returns Allow before reaching Layer 5.
+        let mut ctx = base_context();
+        ctx.permission_level = "yolo".to_string();
+        ctx.tool_name = "Write".to_string();
+        ctx.tool_args = Some(json!({"file_path": "/home/user/project/foo.txt"}));
+
+        let mem = PermissionMemory::new();
+        mem.record(
+            "sess1",
+            "Write",
+            PermissionDecision::Deny {
+                reason: "user denied".to_string(),
+            },
+            DecisionScope::Session,
+        );
+        let policy = crate::policy_file::PolicyFile::new();
+
+        let result = PermissionEngine::evaluate_with_session(&ctx, &mem, &policy, "sess1");
+        assert_eq!(result.decision, PermissionDecision::Allow);
+        assert_eq!(
+            result.deciding_layer, 4,
+            "Yolo should return at layer 4, skipping layer 5"
+        );
     }
 }
