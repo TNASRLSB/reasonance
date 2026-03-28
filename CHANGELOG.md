@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.9.1] - 2026-03-28
+
+### Other
+
+- docs: add W2.11-W2.14 (normalizer health, versioning, CLI updater, circuit breaker) + Phase 5 backlog
+- - W2.12: normalizer_version auto-backups + retention
+- - W2.13: cli_updater user notification + approval
+- - W2.14: circuit_breaker wire into transport
+- - Phase 5 backlog: self_heal.rs, W1.10 dead code cleanup (deferred)
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+
+
+
 ## [1.9.0] - 2026-03-28
 
 ### Features
