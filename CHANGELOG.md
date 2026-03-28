@@ -1,5 +1,376 @@
 # Changelog
 
+## [1.8.0] - 2026-03-28
+
+### Features
+
+- feat(storage): add transaction semantics to StorageBackend + wire SessionStore
+- feat(perf): parallelize startup, add timing instrumentation and baseline recording
+- feat(storage): add append/read_stream + migrate/rollback to StorageBackend trait
+- feat(errors): add From<String>, workflow/serialization/transport constructors
+- feat(settings): migrate Settings UI to use LayeredSettings adapter
+- feat(settings): wire frontend adapter methods + project root hook
+- feat(settings): add Tauri commands for layered settings CRUD
+- feat(weak-refs): wire periodic sweep, document remaining HashMap patterns
+- feat(signal): replace frontend polling with EventBus-bridged signals
+- feat(signal): add EventBus bridge and coalescing documentation
+- feat(event-bus): dual-emit workflow events through EventBus v2 channels
+- feat(event-bus): wire new EventBus into transport (dual-bus coexistence)
+- feat(event-bus): add new EventHandler subscriber implementations (history, session writer)
+- feat(event-bus): add AsyncEventHandler trait, backpressure, and mixed subscriber support
+- feat(file-ops): initialize FileOpsManager when project root changes
+- feat(file-ops): add delete with undo to FileTree context menu and Delete key
+- feat(file-ops): add file operations adapter methods (delete, undo, create, rename)
+- feat(state): wire app state persistence to mount/close/switch lifecycle
+- feat(state): add app state persistence types, adapter methods, and utility helpers
+
+### Bug Fixes
+
+- fix(clippy): reduce type complexity in InMemoryBackend with type alias
+- fix(event-bus): restore frontend event compatibility for agent-event listener
+- fix(event-bus): keep subscriber Arcs alive via managed state, dual-publish stderr, subscribe writer to errors
+- fix(subscribers): revert accidental transport formatting, release lock before I/O
+- fix(event-bus): correct backpressure to track pending async events, restore read lock, emit dropped events
+- fix: resolve all clippy warnings (Default impls, collapsible replace, dead_code annotations)
+- fix(tests): add scrollIntoView and CSS.escape polyfills for jsdom
+- fix(tests): add ResizeObserver polyfill, fix DiffView assertions, update mock adapter
+- fix: prevent Hive event listener leaks with proper cleanup
+- fix: critical fixes (gemini TOML, about version, normalizer done rules, CSP unsafe-eval)
+
+### Other
+
+- refactor: extract shared utilities, remove dead code, add CI pipeline
+- - Replace inline focus traps with shared trapFocus (WorkspaceTrust, ProjectDisconnected)
+- - Add validatePermissionLevel to config-parser, DRY permission validation
+- - Remove dead code: a11y-focus.ts (FocusManager), OpenFile interface, isRTL export
+- - Add GitHub Actions CI workflow (frontend + Rust checks)
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- docs: add W1.9 transactions implementation plan
+- 
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- docs: add W1.8 perf baselines implementation plan
+- 
+- refactor(storage): wire SessionStore to StorageBackend
+- All methods are now async. Metadata uses put/get, events use
+- append/read_stream, index uses put/get. SessionManager accepts
+- Arc<dyn StorageBackend> instead of directory path. Tests use
+- InMemoryBackend.
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- 
+- refactor(storage): wire AnalyticsStore to StorageBackend
+- The store now uses async append/read_stream for metrics persistence,
+- with an in-memory cache for sync query access. Collector's on_event
+- uses block_in_place for the sync-to-async bridge when flushing
+- completed sessions.
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- get_version) on JsonFileBackend, using the existing safe_append and atomic_write
+- helpers. Adds 4 integration tests covering all new methods.
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- docs: add W1.6 storage abstraction implementation plan
+- migrate/rollback, then wire SessionStore and AnalyticsStore as real
+- consumers.
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- refactor(errors): migrate workflow_engine and workspace_trust to ReasonanceError
+- with Result<T, ReasonanceError>, using typed constructors (not_found, workflow,
+- internal) and eliminating 6 dangerous .unwrap() calls on HashMap lookups.
+- Simplify commands/engine.rs callers to use ? directly. Change workspace_trust
+- folder_info to return ReasonanceError.
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- refactor(errors): migrate storage/data/command modules to ReasonanceError
+- across analytics, normalizer, normalizer_version, capability, discovery,
+- and all command modules. Also migrated many supporting modules (file_ops,
+- config, shadow_store, model_slots, theme_manager, etc.).
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- refactor(errors): migrate leaf modules to ReasonanceError
+- resource_lock, logic_eval, settings/mod, and agent_memory.
+- Update commands/settings to use ? instead of map_err(internal).
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- docs: add W1.5 structured errors implementation plan
+- functions across 10 files) and fix 14 dangerous unwraps in production
+- code. Bottom-up by dependency order.
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- LayeredSettings backend via adapter.getAllSettings(), falling back to
+- Svelte store values. LLM configs remain on readConfig/writeConfig.
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- interface, TauriAdapter, and mock adapter. Wire set_project_root to
+- call LayeredSettings::set_project_root() for loading project-level
+- and workspace-level settings overrides.
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- Tauri commands with JSON↔TOML conversion. Add LayeredSettings::set()
+- for per-layer value updates with automatic re-resolve. Register
+- LayeredSettings in Tauri managed state.
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- on both transport sessions and PTY instances, removing entries with
+- no external strong refs. All remaining Arc<Mutex<HashMap>> patterns
+- documented with justification (bounded, no lifecycle, different
+- semantics).
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- refactor(pty): migrate instances to TrackedMap with weak handles
+- Session-level locking now allows concurrent access to different PTYs.
+- project_map stays as plain HashMap (documented: small, bounded, no
+- lifecycle tracking needed). Add instances_map() accessor for periodic
+- sweep wiring.
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- refactor(transport): migrate sessions to TrackedMap with weak handles
+- Arc<Mutex<TrackedMap<String, AgentSession>>>. Spawned tasks now hold
+- an Arc to their specific session instead of the whole map, reducing
+- lock contention. Also add Borrow-based get/remove to TrackedMap for
+- HashMap-compatible ergonomics (&str for String keys).
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- Rust setup, bridge them to EventBus, and replace frontend setInterval
+- patterns with Tauri event listeners.
+- 
+- - TerminalManager: listen('lifecycle:sweep') replaces setInterval
+- - updater.ts: listen('lifecycle:update-check') replaces setInterval
+- - Both lifecycle channels now frontend-visible via TauriFrontendBridge
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- an EventBus channel via a spawned tokio task. Document that tokio::watch
+- naturally coalesces rapid updates (no additional debouncing needed).
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- bench(event-bus): add Criterion benchmark for publish throughput
+- and 10 sync-only) using noop handlers; both benchmarks run well under
+- 1μs per publish (~257ns and ~269ns respectively).
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- inner payload ({session_id, event}) matching what the frontend expects,
+- and maps workflow:* channels to their legacy hive:// names for engine.ts.
+- Also removes stale (v2) suffixes from subscriber log messages and IDs.
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- refactor(event-bus): remove old transport/event_bus.rs, rename event_bus_v2 to event_bus
+- system. The old AgentEventBus, FrontendEmitter, HistoryRecorder (v1),
+- and SessionHistoryRecorder are deleted. All event publishing now goes
+- exclusively through the channel-based EventBus with weak-ref subscribers.
+- 
+- Key changes:
+- - Delete transport/event_bus.rs (old bus, traits, and all subscribers)
+- - Rename event_bus_v2.rs to event_bus.rs, update all imports
+- - Add subscribers/analytics.rs to bridge AnalyticsCollector to new bus
+- - Convert AnalyticsCollector.on_event from trait impl to direct method
+- - Remove old bus fields from StructuredAgentTransport and WorkflowEngine
+- - Remove all dual-publish calls from stream_reader and transport/mod.rs
+- - Remove all app.emit("hive://...") calls from workflow_engine.rs
+- - Update SessionManager to use SessionHistoryWriter instead of old recorder
+- - Update agent_get_events command to read from v2 HistoryRecorder
+- - Rewrite all transport tests to use the new EventBus
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- app.emit("hive://...") calls. All 15 workflow event emit sites now
+- publish through both the old Tauri emit path and the new EventBus v2
+- channels (workflow:node-state, workflow:run-status, workflow:agent-output,
+- workflow:permission-request). Registers the two new channels and wires
+- the bus into WorkflowEngine during app setup.
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- managed state so they outlive setup(). The EventBus holds Weak refs
+- that would otherwise go dead immediately. Also dual-publish stderr
+- error events to the v2 bus and subscribe SessionHistoryWriter to
+- transport:error so errors are persisted to session history.
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- receive every event during the migration period. The old bus continues
+- working unchanged; stream_reader now dual-publishes to both buses using
+- transport:event, transport:complete, and transport:error channels.
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- their pre-fmt state (cosmetic-only changes from cargo fmt reverted).
+- 
+- Refactor SessionHistoryWriter::handle to drop the handles Mutex before
+- calling store.write_metadata(), eliminating lock-held disk I/O.
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- that work with the new EventBus channel-based pub/sub system:
+- 
+- - HistoryRecorder: sync EventHandler that stores AgentEvents in-memory
+-   per session, extracted from generic Event payloads
+- - SessionHistoryWriter: async AsyncEventHandler that appends events to
+-   disk via SessionStore and periodically persists session metadata
+- 
+- These coexist with the old transport::event_bus subscribers until the
+- full migration cutover in sub-task 1.6.
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- refactor(event-bus): fix TOCTOU race, remove unsafe impls, clean up Channel construction
+-   concurrent threads from both passing the processing check
+- - I1: Remove unsafe impl Send/Sync for EventBus (all fields auto-derive)
+- - I2: Remove dead Channel.name field and its #[allow(dead_code)]
+- - I3: Extract Channel::new() constructor, replacing 4 duplicated inline constructions
+- - I4: Capture pending_count once in dispatch() backpressure check to avoid
+-   TOCTOU between the comparison and the log message
+- - M2: Extract magic numbers into named constants (DEFAULT_CHANNEL_BUFFER,
+-   MAX_DEFERRED_ITERATIONS, SLOW_HANDLER_THRESHOLD)
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- and mixed sync/async subscriber storage. This is the foundation for migrating
+- all event consumers to the unified EventBus.
+- 
+- - Add AsyncEventHandler trait (via async-trait) with tokio::spawn dispatch
+- - Add Subscriber enum wrapping both Sync and Async weak refs
+- - Change EventBus::new() to take tokio::runtime::Handle for async spawning
+- - Add subscribe_async(), register_channel_with_buffer(), drop_count() methods
+- - Add per-channel publish_count tracking with configurable max_buffer_size
+- - Add slow sync handler detection (>100ms warning)
+- - Update lib.rs call site to pass runtime handle
+- - All 8 existing tests updated and passing
+- - 5 new tests: async handler, backpressure, mixed subscribers, drop_count, custom buffer
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- in FileTree with trash-based undo, context menu danger button, and Delete key handler.
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- chore: data/config fixes (shortcut i18n, console.log, deep-link, file watcher, CSS)
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- chore: remove dead code (2 stores, 1 component, 3 schema files, ~25 unused exports)
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- 
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- in HiveCanvas.svelte onDestroy. Also deduplicate pty-data listeners
+- with a Map to prevent accumulation on repeated agent-output events.
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+
+
+
 ## [1.7.0] - 2026-03-26
 
 ### Features
