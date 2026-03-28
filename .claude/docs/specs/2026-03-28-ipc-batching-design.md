@@ -23,6 +23,9 @@ Both converge on a single Rust `batch_invoke` command that executes calls in par
 | Zod validation | Included in W1.11 | Marginal cost to add during batch result mapping; avoids reopening the path later |
 | Single-call fallback | No fallback — always goes through `batch_invoke` | Single code path: one validation point, one logging point, one test suite |
 | Dispatch scope | ~20 high-frequency commands at launch | Long-running commands (`agent_send`, `call_llm_api`, `spawn_process`) excluded by design |
+| Cancellation | AbortController per-call | Prevents stale content flash when user navigates faster than IPC roundtrip |
+| Deduplication | Intra-batch, by `(command, args)` key | Multiple components requesting same data in one tick share a single IPC call |
+| Timeout | Per-call, 5s default, Rust-side | A hung command returns `ReasonanceError::Timeout`, doesn't block other calls in batch |
 
 ## Architecture
 
@@ -83,15 +86,24 @@ async fn dispatch(app: &AppHandle, cmd: &str, args: Value) -> Result<Value, Reas
 }
 ```
 
-Parallel execution via `futures::future::join_all`:
+Parallel execution via `futures::future::join_all`, with per-call timeout (5s default):
 
 ```rust
+const BATCH_CALL_TIMEOUT: Duration = Duration::from_secs(5);
+
 let futures = calls.into_iter().map(|c| {
     let app = app.clone();
-    async move { dispatch(&app, &c.command, c.args).await }
+    async move {
+        match tokio::time::timeout(BATCH_CALL_TIMEOUT, dispatch(&app, &c.command, c.args)).await {
+            Ok(result) => result,
+            Err(_) => Err(ReasonanceError::timeout(&c.command, BATCH_CALL_TIMEOUT.as_millis() as u64)),
+        }
+    }
 });
 let results = futures::future::join_all(futures).await;
 ```
+
+A timed-out call returns `ReasonanceError::Timeout` for that slot only — other calls in the batch are unaffected since they run in parallel.
 
 ### Rust: Batchable commands (initial set)
 
@@ -114,15 +126,28 @@ interface PendingCall {
   args: Record<string, unknown>;
   resolve: (value: unknown) => void;
   reject: (error: unknown) => void;
+  signal?: AbortSignal;
 }
 
 class TauriAdapter implements Adapter {
   private queue: PendingCall[] = [];
   private flushScheduled = false;
 
-  private enqueue(command: string, args: Record<string, unknown>): Promise<unknown> {
+  private enqueue(
+    command: string,
+    args: Record<string, unknown>,
+    signal?: AbortSignal,
+  ): Promise<unknown> {
     return new Promise((resolve, reject) => {
-      this.queue.push({ command, args, resolve, reject });
+      if (signal?.aborted) {
+        reject(new DOMException('Aborted', 'AbortError'));
+        return;
+      }
+      const entry: PendingCall = { command, args, resolve, reject, signal };
+      signal?.addEventListener('abort', () => {
+        reject(new DOMException('Aborted', 'AbortError'));
+      }, { once: true });
+      this.queue.push(entry);
       if (!this.flushScheduled) {
         this.flushScheduled = true;
         queueMicrotask(() => this.flush());
@@ -135,33 +160,55 @@ class TauriAdapter implements Adapter {
     this.queue = [];
     this.flushScheduled = false;
 
+    // Deduplicate: group by (command, args) key
+    const keyMap = new Map<string, { call: PendingCall; subscribers: PendingCall[] }>();
+    for (const entry of batch) {
+      const key = `${entry.command}::${JSON.stringify(entry.args)}`;
+      const existing = keyMap.get(key);
+      if (existing) {
+        existing.subscribers.push(entry);
+      } else {
+        keyMap.set(key, { call: entry, subscribers: [entry] });
+      }
+    }
+    const groups = [...keyMap.values()];
+
     const t0 = performance.now();
     const results = await invoke<BatchCallResult[]>('batch_invoke', {
-      calls: batch.map(c => ({ command: c.command, args: c.args })),
+      calls: groups.map(g => ({ command: g.call.command, args: g.call.args })),
     });
     const elapsed = performance.now() - t0;
 
     if (import.meta.env.DEV) {
-      console.debug(`[batch] ${batch.length} calls in ${elapsed.toFixed(1)}ms`,
-        batch.map(c => c.command));
+      console.debug(
+        `[batch] ${groups.length} calls (${batch.length} deduped) in ${elapsed.toFixed(1)}ms`,
+        groups.map(g => g.call.command),
+      );
     }
 
-    for (let i = 0; i < batch.length; i++) {
+    for (let i = 0; i < groups.length; i++) {
       const r = results[i];
-      if (r.err) {
-        batch[i].reject(r.err);
-      } else {
-        const schema = batchSchemas[batch[i].command];
-        if (schema) {
-          const parsed = schema.safeParse(r.ok);
-          if (!parsed.success) {
-            console.error(`[batch] Zod failed for ${batch[i].command}:`, parsed.error);
-            batch[i].reject(parsed.error);
-            continue;
-          }
-          batch[i].resolve(parsed.data);
+      const { subscribers } = groups[i];
+
+      for (const sub of subscribers) {
+        // Skip aborted calls — promise already rejected by abort listener
+        if (sub.signal?.aborted) continue;
+
+        if (r.err) {
+          sub.reject(r.err);
         } else {
-          batch[i].resolve(r.ok);
+          const schema = batchSchemas[sub.command];
+          if (schema) {
+            const parsed = schema.safeParse(r.ok);
+            if (!parsed.success) {
+              console.error(`[batch] Zod failed for ${sub.command}:`, parsed.error);
+              sub.reject(parsed.error);
+              continue;
+            }
+            sub.resolve(parsed.data);
+          } else {
+            sub.resolve(r.ok);
+          }
         }
       }
     }
@@ -169,12 +216,16 @@ class TauriAdapter implements Adapter {
 }
 ```
 
-Adapter methods migrate from `invoke()` to `this.enqueue()`:
+Adapter methods migrate from `invoke()` to `this.enqueue()`. Methods that represent user-navigable state (file reads, project loads) accept an optional `AbortSignal`:
 
 ```typescript
-// Batchable commands → enqueue
-async readFile(path: string): Promise<string> {
-  return this.enqueue('read_file', { path }) as Promise<string>;
+// Batchable commands → enqueue, with optional cancellation
+async readFile(path: string, signal?: AbortSignal): Promise<string> {
+  return this.enqueue('read_file', { path }, signal) as Promise<string>;
+}
+
+async getGitStatus(path: string, signal?: AbortSignal): Promise<GitStatus> {
+  return this.enqueue('get_git_status', { path }, signal) as Promise<GitStatus>;
 }
 
 // Long-running commands → direct invoke (unchanged)
@@ -301,6 +352,7 @@ In DEV mode, each flush logs batch size, elapsed time, and command names. Produc
 - **Unknown command**: dispatcher returns `Validation` error, not panic
 - **Parallel execution**: N calls with `tokio::time::sleep(100ms)` each — total time must be ~100ms, not N×100ms
 - **Partial failure**: batch of 3 where one fails — other 2 succeed with correct values
+- **Timeout**: call with `tokio::time::sleep(10s)` against 5s timeout → `ReasonanceError::Timeout`, other calls in batch unaffected
 
 ### Frontend tests (Vitest)
 
@@ -309,6 +361,9 @@ In DEV mode, each flush logs batch size, elapsed time, and command names. Produc
 - **Zod rejection**: mock result that fails schema → promise rejected with `ZodError`
 - **Partial error**: one `err` in batch results → only that promise rejected, others resolve
 - **Long-running exclusion**: `agentSend` still calls `invoke()` directly, not `enqueue()`
+- **Deduplication**: two `readFile('/same')` in same tick → single IPC call, both promises resolve with same value
+- **Abort before flush**: enqueue with pre-aborted signal → immediate reject, call not sent in batch
+- **Abort during flight**: enqueue, abort signal after flush starts → promise rejected with `AbortError`, result discarded
 
 ## Migration Strategy
 
@@ -344,3 +399,6 @@ Four phases, each independently committable and deployable:
 - Zod validation per-call within batch results
 - Partial failure isolation (one call fails, others succeed)
 - EventBus telemetry publishing batch metrics
+- Intra-batch deduplication: duplicate `(command, args)` pairs send one IPC call
+- AbortController support: aborted calls rejected without applying stale state
+- Per-call timeout (5s): hung commands return `Timeout` error, don't block batch
