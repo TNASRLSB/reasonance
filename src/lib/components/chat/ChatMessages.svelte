@@ -11,13 +11,14 @@
   import ActionableMessage from './ActionableMessage.svelte';
   import { tr } from '$lib/i18n';
 
-  let { events = [], streaming = false, adapter, onFork, permissionLevel = 'ask', onApproveTools }: {
+  let { events = [], streaming = false, adapter, onFork, permissionLevel = 'ask', onApproveTools, sessionId }: {
     events: AgentEvent[];
     streaming: boolean;
     adapter?: Adapter;
     onFork?: (eventIndex: number) => void;
     permissionLevel?: 'yolo' | 'ask' | 'locked';
-    onApproveTools?: (tools: string[], remember: boolean) => void;
+    onApproveTools?: (tools: string[]) => void;
+    sessionId: string;
   } = $props();
 
   let messagesEl: HTMLElement | undefined = $state();
@@ -130,11 +131,19 @@
                   code={event.metadata.error_code ?? ''}
                 />
               {:else if event.event_type === 'permission_denial'}
-                {#if permissionLevel === 'ask' && onApproveTools}
+                {#if permissionLevel === 'ask' && adapter}
                   <PermissionRequestBlock
-                    denials={event.content.type === 'json' ? event.content.value : []}
-                    onApprove={(tools) => onApproveTools(tools, false)}
-                    onApproveRemember={(tools) => onApproveTools(tools, true)}
+                    denials={event.content.type === 'json' ? event.content.value as Array<{ tool_name?: string; name?: string; args?: unknown }> : []}
+                    {sessionId}
+                    {adapter}
+                    onAllDecided={() => {
+                      if (onApproveTools) {
+                        const tools = (event.content.type === 'json' && Array.isArray(event.content.value))
+                          ? event.content.value.map((d: { tool_name?: string; name?: string }) => d.tool_name ?? d.name ?? '')
+                          : [];
+                        onApproveTools(tools);
+                      }
+                    }}
                   />
                 {:else}
                   <PermissionDenialBlock
