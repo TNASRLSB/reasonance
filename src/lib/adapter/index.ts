@@ -18,13 +18,16 @@ export interface PtyHandle {
 }
 
 export interface Adapter {
+  // Batching
+  batch<T extends unknown[]>(fn: (ctx: Adapter) => [...{ [K in keyof T]: Promise<T[K]> }]): Promise<T>;
+
   // Filesystem
   setProjectRoot(path: string): Promise<void>;
-  readFile(path: string): Promise<string>;
+  readFile(path: string, signal?: AbortSignal): Promise<string>;
   writeFile(path: string, content: string): Promise<void>;
-  listDir(path: string, respectGitignore?: boolean): Promise<FileEntry[]>;
+  listDir(path: string, respectGitignore?: boolean, signal?: AbortSignal): Promise<FileEntry[]>;
   watchFiles(path: string, callback: (event: FsEvent) => void): Promise<() => void>;
-  getGitStatus(projectRoot: string): Promise<Record<string, string>>;
+  getGitStatus(projectRoot: string, signal?: AbortSignal): Promise<Record<string, string>>;
 
   // System
   openExternal(path: string): Promise<void>;

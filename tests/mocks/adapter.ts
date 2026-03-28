@@ -516,6 +516,13 @@ export function createMockAdapter(overrides?: Partial<Adapter>): Adapter {
     saveProjectState(_projectId: string, _state: ProjectState): Promise<void> {
       return Promise.resolve();
     },
+
+    // Batching (pass-through in mock — just runs the callback)
+    async batch<T extends unknown[]>(
+      fn: (ctx: Adapter) => [...{ [K in keyof T]: Promise<T[K]> }],
+    ): Promise<T> {
+      return Promise.all(fn(base)) as Promise<T>;
+    },
   };
 
   return { ...base, ...overrides };

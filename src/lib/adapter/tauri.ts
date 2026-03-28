@@ -5,19 +5,163 @@ import type { NegotiatedCapabilities, CliVersionInfo, VersionEntry, HealthReport
 import type { ProviderAnalytics, ModelAnalytics, DailyStats, SessionMetrics, ConnectionTestStep } from '$lib/types/analytics';
 import type { TrustCheckResult, TrustLevel, TrustEntry } from '$lib/stores/workspace-trust';
 import type { AppState, ProjectState } from '$lib/types/app-state';
+import { batchSchemas } from './batch-schemas';
+
+interface PendingCall {
+  command: string;
+  args: Record<string, unknown>;
+  resolve: (value: unknown) => void;
+  reject: (error: unknown) => void;
+  signal?: AbortSignal;
+}
+
+interface BatchCallResult {
+  ok: unknown;
+  err: unknown;
+}
 
 export class TauriAdapter implements Adapter {
+  private queue: PendingCall[] = [];
+  private flushScheduled = false;
+
+  /**
+   * Queue an IPC call for batched execution on the next microtask.
+   */
+  private enqueue<T>(command: string, args: Record<string, unknown>, signal?: AbortSignal): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      if (signal?.aborted) {
+        reject(signal.reason ?? new DOMException('Aborted', 'AbortError'));
+        return;
+      }
+
+      const entry: PendingCall = {
+        command,
+        args,
+        resolve: resolve as (value: unknown) => void,
+        reject,
+        signal,
+      };
+
+      if (signal) {
+        const onAbort = () => {
+          entry.reject(signal.reason ?? new DOMException('Aborted', 'AbortError'));
+        };
+        signal.addEventListener('abort', onAbort, { once: true });
+      }
+
+      this.queue.push(entry);
+
+      if (!this.flushScheduled) {
+        this.flushScheduled = true;
+        queueMicrotask(() => this.flush());
+      }
+    });
+  }
+
+  /**
+   * Flush the pending queue: deduplicate, send a single batch_invoke, distribute results.
+   */
+  private async flush(): Promise<void> {
+    this.flushScheduled = false;
+    const pending = this.queue;
+    this.queue = [];
+    if (pending.length === 0) return;
+
+    // Filter out already-aborted entries
+    const live = pending.filter((p) => !p.signal?.aborted);
+    if (live.length === 0) return;
+
+    // Deduplicate by (command, JSON.stringify(args))
+    const keyMap = new Map<string, { command: string; args: Record<string, unknown>; entries: PendingCall[] }>();
+    for (const entry of live) {
+      const key = entry.command + '\0' + JSON.stringify(entry.args);
+      const group = keyMap.get(key);
+      if (group) {
+        group.entries.push(entry);
+      } else {
+        keyMap.set(key, { command: entry.command, args: entry.args, entries: [entry] });
+      }
+    }
+
+    const calls = [...keyMap.values()].map(({ command, args }) => ({ command, args }));
+    const groups = [...keyMap.values()];
+
+    const t0 = performance.now();
+
+    try {
+      const results = await invoke<BatchCallResult[]>('batch_invoke', { calls });
+      const elapsed = performance.now() - t0;
+
+      if (import.meta.env.DEV) {
+        console.debug(
+          `[batch] ${calls.length} calls (${live.length} queued, ${live.length - calls.length} deduped) in ${elapsed.toFixed(1)}ms`,
+        );
+      }
+
+      for (let i = 0; i < groups.length; i++) {
+        const result = results[i];
+        const { entries } = groups[i];
+        if (result.err !== null && result.err !== undefined) {
+          for (const e of entries) e.reject(result.err);
+        } else {
+          // Validate via Zod if a schema exists for this command
+          const schema = batchSchemas[groups[i].command];
+          let value = result.ok;
+          if (schema) {
+            const parsed = schema.safeParse(value);
+            if (!parsed.success) {
+              for (const e of entries) e.reject(parsed.error);
+              continue;
+            }
+            value = parsed.data;
+          }
+          for (const e of entries) e.resolve(value);
+        }
+      }
+    } catch (err) {
+      // Total failure — reject everything
+      for (const group of groups) {
+        for (const e of group.entries) e.reject(err);
+      }
+    }
+  }
+
+  /**
+   * Explicit batch API: captures calls made inside `fn` and flushes them as one batch.
+   */
+  async batch<T extends unknown[]>(
+    fn: (ctx: Adapter) => [...{ [K in keyof T]: Promise<T[K]> }],
+  ): Promise<T> {
+    const saved = this.queue;
+    this.queue = [];
+
+    const promises = fn(this);
+
+    const captured = this.queue;
+    this.queue = saved;
+
+    // Flush captured batch directly (bypass microtask scheduling)
+    if (captured.length > 0) {
+      const prev = this.queue;
+      this.queue = captured;
+      await this.flush();
+      this.queue = prev;
+    }
+
+    return Promise.all(promises) as Promise<T>;
+  }
+
   async setProjectRoot(path: string): Promise<void> {
     return invoke<void>('set_project_root', { path });
   }
-  async readFile(path: string): Promise<string> {
-    return invoke<string>('read_file', { path });
+  async readFile(path: string, signal?: AbortSignal): Promise<string> {
+    return this.enqueue<string>('read_file', { path }, signal);
   }
   async writeFile(path: string, content: string): Promise<void> {
-    return invoke<void>('write_file', { path, content });
+    return this.enqueue<void>('write_file', { path, content });
   }
-  async listDir(path: string, respectGitignore?: boolean): Promise<FileEntry[]> {
-    return invoke<FileEntry[]>('list_dir', { path, respectGitignore: respectGitignore ?? true });
+  async listDir(path: string, respectGitignore?: boolean, signal?: AbortSignal): Promise<FileEntry[]> {
+    return this.enqueue<FileEntry[]>('list_dir', { path, respectGitignore: respectGitignore ?? true }, signal);
   }
   async watchFiles(path: string, callback: (event: FsEvent) => void): Promise<() => void> {
     const { listen } = await import('@tauri-apps/api/event');
@@ -25,8 +169,8 @@ export class TauriAdapter implements Adapter {
     await invoke('start_watching', { path });
     return unlisten;
   }
-  async getGitStatus(projectRoot: string): Promise<Record<string, string>> {
-    return invoke<Record<string, string>>('get_git_status', { projectRoot });
+  async getGitStatus(projectRoot: string, signal?: AbortSignal): Promise<Record<string, string>> {
+    return this.enqueue<Record<string, string>>('get_git_status', { projectRoot }, signal);
   }
   async openExternal(path: string): Promise<void> {
     return invoke<void>('open_external', { path });
@@ -67,7 +211,7 @@ export class TauriAdapter implements Adapter {
     return invoke<Array<{ name: string; command: string; found: boolean }>>('discover_llms');
   }
   async grepFiles(path: string, pattern: string, respectGitignore: boolean): Promise<GrepResult[]> {
-    return invoke<GrepResult[]>('grep_files', { path, pattern, respectGitignore });
+    return this.enqueue<GrepResult[]>('grep_files', { path, pattern, respectGitignore });
   }
   async openFolderDialog(): Promise<string | null> {
     const { open } = await import('@tauri-apps/plugin-dialog');
@@ -128,16 +272,16 @@ export class TauriAdapter implements Adapter {
     return invoke<string[]>('sweep_ptys');
   }
   async readConfig(): Promise<string> {
-    return invoke<string>('read_config');
+    return this.enqueue<string>('read_config', {});
   }
   async writeConfig(content: string): Promise<void> {
     return invoke('write_config', { content });
   }
   async storeShadow(path: string, content: string): Promise<void> {
-    return invoke('store_shadow', { path, content });
+    return this.enqueue<void>('store_shadow', { path, content });
   }
   async getShadow(path: string): Promise<string | null> {
-    return invoke<string | null>('get_shadow', { path });
+    return this.enqueue<string | null>('get_shadow', { path });
   }
 
   // Discovery
@@ -150,13 +294,13 @@ export class TauriAdapter implements Adapter {
 
   // Workflows
   async loadWorkflow(filePath: string): Promise<Workflow> {
-    return invoke<Workflow>('load_workflow', { filePath });
+    return this.enqueue<Workflow>('load_workflow', { filePath });
   }
   async saveWorkflow(filePath: string, workflow: Workflow): Promise<void> {
     return invoke('save_workflow', { filePath, workflow });
   }
   async listWorkflows(dir: string): Promise<string[]> {
-    return invoke<string[]>('list_workflows', { dir });
+    return this.enqueue<string[]>('list_workflows', { dir });
   }
   async deleteWorkflow(filePath: string): Promise<void> {
     return invoke('delete_workflow', { filePath });
@@ -229,7 +373,7 @@ export class TauriAdapter implements Adapter {
     return invoke<string | null>('step_workflow', { runId, workflowPath, cwd });
   }
   async getRunStatus(runId: string): Promise<WorkflowRun | null> {
-    return invoke<WorkflowRun | null>('get_run_status', { runId });
+    return this.enqueue<WorkflowRun | null>('get_run_status', { runId });
   }
   async notifyNodeCompleted(runId: string, nodeId: string, success: boolean, workflowPath: string, cwd: string): Promise<void> {
     return invoke('notify_node_completed', { runId, nodeId, success, workflowPath, cwd });
@@ -257,16 +401,16 @@ export class TauriAdapter implements Adapter {
 
   // Session Management
   async sessionCreate(provider: string, model: string): Promise<string> {
-    return invoke<string>('session_create', { provider, model });
+    return this.enqueue<string>('session_create', { provider, model });
   }
   async sessionRestore(sessionId: string): Promise<SessionHandle> {
-    return invoke<SessionHandle>('session_restore', { sessionId });
+    return this.enqueue<SessionHandle>('session_restore', { sessionId });
   }
   async sessionGetEvents(sessionId: string): Promise<AgentEvent[]> {
-    return invoke<AgentEvent[]>('session_get_events', { sessionId });
+    return this.enqueue<AgentEvent[]>('session_get_events', { sessionId });
   }
   async sessionList(): Promise<SessionSummary[]> {
-    return invoke<SessionSummary[]>('session_list');
+    return this.enqueue<SessionSummary[]>('session_list', {});
   }
   async sessionDelete(sessionId: string): Promise<void> {
     return invoke<void>('session_delete', { sessionId });
@@ -308,16 +452,16 @@ export class TauriAdapter implements Adapter {
     return invoke<ProviderAnalytics>('analytics_provider', { provider, from, to });
   }
   async analyticsCompare(from?: number, to?: number): Promise<ProviderAnalytics[]> {
-    return invoke<ProviderAnalytics[]>('analytics_compare', { from, to });
+    return this.enqueue<ProviderAnalytics[]>('analytics_compare', { from, to });
   }
   async analyticsModelBreakdown(provider: string, from?: number, to?: number): Promise<ModelAnalytics[]> {
-    return invoke<ModelAnalytics[]>('analytics_model_breakdown', { provider, from, to });
+    return this.enqueue<ModelAnalytics[]>('analytics_model_breakdown', { provider, from, to });
   }
   async analyticsSession(sessionId: string): Promise<SessionMetrics | null> {
     return invoke<SessionMetrics | null>('analytics_session', { sessionId });
   }
   async analyticsDaily(provider?: string, days?: number): Promise<DailyStats[]> {
-    return invoke<DailyStats[]>('analytics_daily', { provider, days });
+    return this.enqueue<DailyStats[]>('analytics_daily', { provider, days });
   }
   async analyticsActive(): Promise<SessionMetrics[]> {
     return invoke<SessionMetrics[]>('analytics_active');
@@ -358,16 +502,16 @@ export class TauriAdapter implements Adapter {
 
   // App State Persistence
   async getAppState(): Promise<AppState> {
-    return invoke('get_app_state');
+    return this.enqueue<AppState>('get_app_state', {});
   }
   async saveAppState(state: AppState): Promise<void> {
-    return invoke('save_app_state', { state });
+    return this.enqueue<void>('save_app_state', { state });
   }
   async getProjectState(projectId: string): Promise<ProjectState> {
-    return invoke('get_project_state', { projectId });
+    return this.enqueue<ProjectState>('get_project_state', { projectId });
   }
   async saveProjectState(projectId: string, state: ProjectState): Promise<void> {
-    return invoke('save_project_state', { projectId, state });
+    return this.enqueue<void>('save_project_state', { projectId, state });
   }
 
   // File Operations (undo/trash)
@@ -393,7 +537,7 @@ export class TauriAdapter implements Adapter {
   }
 
   async getSetting(key: string): Promise<unknown> {
-    return invoke('get_setting', { key });
+    return this.enqueue<unknown>('get_setting', { key });
   }
 
   async setSetting(key: string, value: unknown, layer?: string): Promise<void> {
