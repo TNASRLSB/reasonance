@@ -11,6 +11,7 @@ pub async fn record_permission_decision(
     action: String,
     scope: String,
     memory: State<'_, PermissionMemory>,
+    policy: State<'_, crate::policy_file::PolicyFile>,
 ) -> Result<(), crate::error::ReasonanceError> {
     let decision = match action.as_str() {
         "allow" => PermissionDecision::Allow,
@@ -24,18 +25,26 @@ pub async fn record_permission_decision(
             ))
         }
     };
-    let scope = match scope.as_str() {
-        "once" => DecisionScope::Once,
-        "session" => DecisionScope::Session,
-        "project" => DecisionScope::Project,
+    match scope.as_str() {
+        "once" => {
+            memory.record(&session_id, &tool_name, decision, DecisionScope::Once);
+        }
+        "session" => {
+            memory.record(&session_id, &tool_name, decision, DecisionScope::Session);
+        }
+        "project" => {
+            let action_str = if action == "allow" { "allow" } else { "deny" };
+            policy
+                .add_policy_rule(&tool_name, action_str)
+                .map_err(|e| crate::error::ReasonanceError::validation("policy", e))?;
+        }
         _ => {
             return Err(crate::error::ReasonanceError::validation(
                 "scope",
                 "must be 'once', 'session', or 'project'",
             ))
         }
-    };
-    memory.record(&session_id, &tool_name, decision, scope);
+    }
     Ok(())
 }
 
