@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.1.0] - 2026-03-29
+
+### Features
+
+- feat(permissions): add countdown timer with auto-deny on timeout to PermissionRequestBlock
+
+### Other
+
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+
+
+
 ## [2.0.0] - 2026-03-29
 
 ### Features
