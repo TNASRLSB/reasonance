@@ -262,6 +262,8 @@ pub fn run() {
             bus.register_channel("lifecycle:update-check", true);
             bus.register_channel("permission:decision", false);
             bus.register_channel("comms:message_published", true);
+            bus.register_channel("normalizer:health", true);
+            bus.register_channel("normalizer:version-created", true);
             info!("  ⏱ EventBus init: {}ms", t_bus.elapsed().as_millis());
             app.manage(bus.clone());
 
@@ -419,6 +421,20 @@ pub fn run() {
 
             // Pass bus to the transport
             transport.set_event_bus(bus.clone());
+
+            // W2.11 + W2.12: run structural health checks and create initial version
+            // snapshots for all loaded normalizer providers.
+            {
+                let health: tauri::State<'_, normalizer_health::NormalizerHealth> = app.state();
+                let version_store: tauri::State<'_, normalizer_version::NormalizerVersionStore> =
+                    app.state();
+                commands::provider::run_startup_health_checks(
+                    &transport,
+                    &health,
+                    &version_store,
+                    &bus,
+                );
+            }
 
             // Pass bus to the workflow engine
             let workflow_engine: tauri::State<'_, workflow_engine::WorkflowEngine> = app.state();

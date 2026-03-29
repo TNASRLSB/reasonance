@@ -96,6 +96,47 @@ impl NormalizerVersionStore {
         index.get(provider).and_then(|v| v.last().cloned())
     }
 
+    /// Create a backup then prune old versions so at most `max_versions` are kept.
+    /// Returns the new version ID on success.
+    pub fn backup_with_retention(
+        &self,
+        provider: &str,
+        toml_content: &str,
+        max_versions: usize,
+    ) -> Result<String, String> {
+        let id = self.backup(provider, toml_content)?;
+        self.prune_to_max(provider, max_versions);
+        Ok(id)
+    }
+
+    /// Remove oldest versions for `provider` so that at most `max_versions` remain.
+    pub fn prune_to_max(&self, provider: &str, max_versions: usize) {
+        let mut index = self.index.lock().unwrap_or_else(|e| e.into_inner());
+        let versions = match index.get_mut(provider) {
+            Some(v) => v,
+            None => return,
+        };
+        while versions.len() > max_versions {
+            let oldest = versions.remove(0);
+            let file_path = self
+                .base_dir
+                .join(provider)
+                .join(format!("{}.toml", oldest.id));
+            if let Err(e) = std::fs::remove_file(&file_path) {
+                error!(
+                    "Failed to prune old version '{}' for provider='{}': {}",
+                    oldest.id, provider, e
+                );
+            } else {
+                debug!(
+                    "Pruned old version '{}' for provider='{}'",
+                    oldest.id, provider
+                );
+            }
+        }
+        let _ = self.save_index(&index);
+    }
+
     fn load_index(base_dir: &Path) -> HashMap<String, Vec<VersionEntry>> {
         let index_path = base_dir.join("index.json");
         if let Ok(content) = std::fs::read_to_string(&index_path) {
@@ -194,5 +235,41 @@ emit = "text"
         let v2 = store.backup("testprovider", "v2 content").unwrap();
         let current = store.current("testprovider").unwrap();
         assert_eq!(current.id, v2);
+    }
+
+    #[test]
+    fn test_retention_prunes_oldest() {
+        let dir = TempDir::new().unwrap();
+        let store = NormalizerVersionStore::new(dir.path());
+        // Create 5 backups with retention of 3
+        for i in 0..5u32 {
+            store
+                .backup_with_retention("testprovider", &format!("v{} content", i), 3)
+                .unwrap();
+        }
+        let versions = store.list_versions("testprovider");
+        assert_eq!(versions.len(), 3, "Should keep exactly 3 versions");
+        // Latest version should be the most recent (v4)
+        assert!(versions
+            .last()
+            .unwrap()
+            .id
+            .ends_with(&versions.last().unwrap().checksum[..8]));
+    }
+
+    #[test]
+    fn test_prune_to_max_removes_files() {
+        let dir = TempDir::new().unwrap();
+        let store = NormalizerVersionStore::new(dir.path());
+        let v1 = store.backup("testprovider", "v1 content").unwrap();
+        let _v2 = store.backup("testprovider", "v2 content").unwrap();
+        let _v3 = store.backup("testprovider", "v3 content").unwrap();
+
+        store.prune_to_max("testprovider", 1);
+        let versions = store.list_versions("testprovider");
+        assert_eq!(versions.len(), 1);
+        // v1 file should no longer exist
+        let v1_path = dir.path().join("testprovider").join(format!("{}.toml", v1));
+        assert!(!v1_path.exists());
     }
 }

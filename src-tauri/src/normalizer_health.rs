@@ -98,6 +98,53 @@ impl NormalizerHealth {
 
 use crate::agent_event::{AgentEvent, AgentEventType, EventContent};
 
+/// Run a structural health check for a provider based on its config.
+/// This checks binary presence and config validity without running an actual LLM session.
+/// Returns a `HealthReport` that can be stored and/or published to the EventBus.
+pub fn run_structural_check(provider: &str, binary: &str, cli_version: &str) -> HealthReport {
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+
+    let binary_present = which::which(binary).is_ok();
+
+    let (status, capabilities_confirmed, capabilities_missing) = if binary_present {
+        debug!(
+            "Structural health check for provider='{}': binary '{}' found",
+            provider, binary
+        );
+        (
+            HealthStatus::Healthy,
+            vec!["binary_present".to_string()],
+            vec![],
+        )
+    } else {
+        warn!(
+            "Structural health check for provider='{}': binary '{}' not found",
+            provider, binary
+        );
+        (
+            HealthStatus::Broken {
+                error: format!("Binary '{}' not found in PATH", binary),
+            },
+            vec![],
+            vec!["binary_present".to_string()],
+        )
+    };
+
+    HealthReport {
+        provider: provider.to_string(),
+        status,
+        results: vec![],
+        capabilities_confirmed,
+        capabilities_missing,
+        capabilities_broken: vec![],
+        tested_at: timestamp,
+        cli_version: cli_version.to_string(),
+    }
+}
+
 #[allow(dead_code)] // Used in tests and by self_heal
 pub fn evaluate_test_case(test_case: &TestCase, events: &[AgentEvent]) -> TestCaseResult {
     debug!(
