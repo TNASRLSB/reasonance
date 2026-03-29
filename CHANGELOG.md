@@ -1,5 +1,123 @@
 # Changelog
 
+## [2.3.0] - 2026-03-29
+
+### Features
+
+- feat(circuit): complete circuit breaker wiring with EventBus state events
+- feat(updater): publish update-available events to EventBus
+- feat(normalizer): auto health checks + versioned backups with retention
+- feat(state): add terminal state persistence with debounced auto-save
+- feat(registry): wire node palette from get_node_types, add workflow validation
+- feat(pty): add kill-all-ptys on app shutdown (Rust + frontend)
+- feat(pty): wire reconnection with exponential backoff and UI overlay
+- feat(slots): wire ModelSlotRegistry into transport, workflow engine, and frontend adapter
+- feat(comms): add comms adapter methods, batch dispatch, and Zod schemas
+- feat(comms): wire AgentCommsBus into WorkflowEngine for edge-implicit messaging
+- feat(memory): replace v1 AgentMemoryStore with v2 in WorkflowEngine
+- feat(memory): add v2 adapter methods, batch dispatch, and Zod schemas
+
+### Other
+
+- state pairs so callers can detect transitions. In transport send(), publish
+- transport:circuit-state events on all transitions — at spawn-failure site
+- (sync path), at CLI-completion site (async task), and at successful spawn.
+- Register the transport:circuit-state channel as frontend-visible in lib.rs.
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- EventBus when a CLI version change is detected post-update. Add
+- updates.auto_check setting (default true) that skips the entire update
+- cycle when disabled. Register the lifecycle:update-available channel as
+- frontend-visible in lib.rs.
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- stored in NormalizerHealth and published to normalizer:health EventBus
+- channel (frontend-visible).
+- 
+- W2.12: backup_with_retention (max 20) on startup and reload_normalizers;
+- version ID published to normalizer:version-created EventBus channel.
+- 
+- Both channels registered in lib.rs setup(). Fixed unused-import warning
+- in batch.rs (pre-existing HiveNodeRegistry import).
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- and TypeScript, saves active PTY terminals on lifecycle events and project
+- switches, restores them on load via a custom event to TerminalManager, and
+- auto-saves project state every 30s via setInterval.
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- via Builder::build().run(callback) and adds a frontend backup call to
+- killAllPtys() inside the onWindowClose handler in +page.svelte.
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- wires handlePtyExit in Terminal.svelte with 10-attempt 1s→30s×2 backoff,
+- shows a corner overlay during reconnect, and adds Zod schema + mock stub.
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- stack. Transport send() now resolves through LayeredSettings then
+- ModelSlotRegistry when no explicit model is provided. WorkflowEngine
+- resolves node LLM values through slots when the config value is a slot
+- name. Frontend adapter exposes getModelForSlot, setModelSlot, and
+- listModelSlots with batch dispatch and Zod validation.
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- commsGetTopicMessages, commsGetBroadcastMessages, commsSweep,
+- commsClearWorkflow). Implement in TauriAdapter via enqueue(), add batch
+- dispatch arms, Zod validation schemas, and mock adapter stubs.
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- Direct channel in on_node_completed and spawn_single_node. Add Broadcast
+- messages for HiveInspector visualization. Clean up CommsBus on workflow
+- stop/finalize. Register comms:message_published EventBus channel.
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- spawn_single_node (load) and on_node_completed (save). Add memory:added
+- and memory:evicted EventBus events. Mark v1 module as retained for
+- migration only.
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- memory_list, memory_get) into the frontend adapter layer with batched IPC
+- dispatch, Zod response validation, and mock stubs for testing.
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+
+
+
 ## [2.2.0] - 2026-03-29
 
 ### Features
