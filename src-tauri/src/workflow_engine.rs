@@ -1,3 +1,4 @@
+use crate::agent_comms::{AgentCommsBus, AgentMessage as CommsMessage, ChannelType};
 use crate::agent_memory_v2::{AgentMemoryV2, MemoryEntryV2, MemoryScope, SortBy};
 use crate::agent_runtime::{AgentRuntime, AgentState};
 use crate::error::ReasonanceError;
@@ -349,6 +350,7 @@ impl WorkflowEngine {
         lock_manager: &ResourceLockManager,
         app: &AppHandle,
         cwd: &str,
+        comms_bus: &AgentCommsBus,
     ) -> Result<(), ReasonanceError> {
         let node = workflow
             .nodes
@@ -474,7 +476,7 @@ impl WorkflowEngine {
             .and_then(|v| v.as_str())
             .unwrap_or("")
             .to_string();
-        let input_msgs = runtime.get_messages_for(node_id);
+        let input_msgs = comms_bus.get_messages(node_id, None);
         let routed_input = if input_msgs.is_empty() {
             String::new()
         } else {
@@ -557,6 +559,7 @@ impl WorkflowEngine {
         app: &AppHandle,
         cwd: &str,
         lock_manager: &ResourceLockManager,
+        comms_bus: &AgentCommsBus,
     ) -> Result<Vec<String>, ReasonanceError> {
         {
             let runs = self.runs.lock().unwrap_or_else(|e| e.into_inner());
@@ -657,6 +660,7 @@ impl WorkflowEngine {
                                 lock_manager,
                                 app,
                                 cwd,
+                                comms_bus,
                             )?;
                             started.push(node_id);
                         }
@@ -755,6 +759,14 @@ impl WorkflowEngine {
 
         if self.check_run_complete(run_id)? {
             let final_status = self.finalize_run(run_id)?;
+            // Clean up CommsBus broadcast channel for this workflow run
+            let workflow_path = {
+                let runs = self.runs.lock().unwrap_or_else(|e| e.into_inner());
+                runs.get(run_id)
+                    .map(|r| r.workflow_path.clone())
+                    .unwrap_or_default()
+            };
+            comms_bus.clear_workflow(&workflow_path);
             self.emit_to_bus(
                 "workflow:run-status",
                 serde_json::json!({
@@ -777,6 +789,7 @@ impl WorkflowEngine {
         app: &AppHandle,
         cwd: &str,
         lock_manager: &ResourceLockManager,
+        comms_bus: &AgentCommsBus,
     ) -> Result<(), ReasonanceError> {
         let agent_id = {
             let runs = self.runs.lock().unwrap_or_else(|e| e.into_inner());
@@ -810,7 +823,7 @@ impl WorkflowEngine {
                 }),
             );
 
-            // Route output to successor nodes via agent messaging
+            // Route output to successor nodes via AgentCommsBus (Direct channel)
             let output = agent_id
                 .as_ref()
                 .and_then(|aid| runtime.get_output(aid).ok())
@@ -821,15 +834,66 @@ impl WorkflowEngine {
                     "from_node": node_id,
                     "output": output.join("\n"),
                 });
+                let workflow_path = {
+                    let runs = self.runs.lock().unwrap_or_else(|e| e.into_inner());
+                    runs.get(run_id)
+                        .map(|r| r.workflow_path.clone())
+                        .unwrap_or_default()
+                };
                 for succ_id in &successors {
-                    runtime.send_message(node_id, succ_id, payload.clone());
+                    let msg = CommsMessage {
+                        id: uuid::Uuid::new_v4().to_string(),
+                        from: node_id.to_string(),
+                        channel: ChannelType::Direct {
+                            target_id: succ_id.to_string(),
+                        },
+                        payload: payload.clone(),
+                        timestamp: chrono::Utc::now().to_rfc3339(),
+                        reply_to: None,
+                        ttl_secs: None,
+                    };
+                    if let Err(e) = comms_bus.publish(msg) {
+                        warn!(
+                            "Failed to publish direct message from {} to {}: {}",
+                            node_id, succ_id, e
+                        );
+                    }
                     debug!(
-                        "Routed output from {} to {} ({} lines)",
+                        "Routed output from {} to {} via CommsBus ({} lines)",
                         node_id,
                         succ_id,
                         output.len()
                     );
                 }
+                // Broadcast for HiveInspector visualization
+                let broadcast_msg = CommsMessage {
+                    id: uuid::Uuid::new_v4().to_string(),
+                    from: node_id.to_string(),
+                    channel: ChannelType::Broadcast {
+                        workflow_id: workflow_path.clone(),
+                    },
+                    payload: serde_json::json!({
+                        "event": "node_output",
+                        "node_id": node_id,
+                        "successors": successors,
+                    }),
+                    timestamp: chrono::Utc::now().to_rfc3339(),
+                    reply_to: None,
+                    ttl_secs: Some(300), // 5 min TTL for UI messages
+                };
+                if let Err(e) = comms_bus.publish(broadcast_msg) {
+                    warn!("Failed to publish broadcast for node {}: {}", node_id, e);
+                }
+                // Emit EventBus event for comms telemetry
+                self.emit_to_bus(
+                    "comms:message_published",
+                    serde_json::json!({
+                        "from": node_id,
+                        "successor_count": successors.len(),
+                        "workflow_path": workflow_path,
+                        "run_id": run_id,
+                    }),
+                );
             }
         } else {
             warn!(
@@ -885,8 +949,8 @@ impl WorkflowEngine {
                                 _ => (MemoryScope::Node(node_id.to_string()), None),
                             };
 
-                            // Build input summary from messages routed to this node
-                            let input_msgs = runtime.get_messages_for(node_id);
+                            // Build input summary from messages routed to this node via CommsBus
+                            let input_msgs = comms_bus.get_messages(node_id, None);
                             let input_summary = if input_msgs.is_empty() {
                                 String::new()
                             } else {
@@ -988,6 +1052,7 @@ impl WorkflowEngine {
             app,
             cwd,
             lock_manager,
+            comms_bus,
         )?;
         Ok(())
     }
@@ -1122,6 +1187,7 @@ impl WorkflowEngine {
         app: &AppHandle,
         cwd: &str,
         lock_manager: &ResourceLockManager,
+        comms_bus: &AgentCommsBus,
     ) -> Result<Option<String>, ReasonanceError> {
         debug!("Stepping workflow run: run_id={}", run_id);
         {
@@ -1163,6 +1229,7 @@ impl WorkflowEngine {
             app,
             cwd,
             lock_manager,
+            comms_bus,
         )?;
         {
             let mut runs = self.runs.lock().unwrap_or_else(|e| e.into_inner());

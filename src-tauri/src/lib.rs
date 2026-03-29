@@ -261,6 +261,7 @@ pub fn run() {
             bus.register_channel("lifecycle:sweep", true);
             bus.register_channel("lifecycle:update-check", true);
             bus.register_channel("permission:decision", false);
+            bus.register_channel("comms:message_published", true);
             info!("  ⏱ EventBus init: {}ms", t_bus.elapsed().as_millis());
             app.manage(bus.clone());
 

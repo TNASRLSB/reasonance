@@ -1,3 +1,4 @@
+use crate::agent_comms::AgentCommsBus;
 use crate::agent_runtime::AgentRuntime;
 use crate::error::ReasonanceError;
 use crate::pty_manager::PtyManager;
@@ -17,6 +18,7 @@ pub fn play_workflow(
     runtime: State<'_, AgentRuntime>,
     pty_manager: State<'_, PtyManager>,
     lock_manager: State<'_, ResourceLockManager>,
+    comms_bus: State<'_, AgentCommsBus>,
 ) -> Result<String, ReasonanceError> {
     info!(
         "cmd::play_workflow(workflow_path={}, cwd={})",
@@ -36,6 +38,7 @@ pub fn play_workflow(
         &app,
         &cwd,
         &lock_manager,
+        &comms_bus,
     )?;
     let _ = app.emit(
         "hive://run-status-changed",
@@ -67,6 +70,7 @@ pub fn resume_workflow(
     runtime: State<'_, AgentRuntime>,
     pty_manager: State<'_, PtyManager>,
     lock_manager: State<'_, ResourceLockManager>,
+    comms_bus: State<'_, AgentCommsBus>,
 ) -> Result<(), ReasonanceError> {
     info!("cmd::resume_workflow(run_id={})", run_id);
     engine.resume_run(&run_id)?;
@@ -81,6 +85,7 @@ pub fn resume_workflow(
         &app,
         &cwd,
         &lock_manager,
+        &comms_bus,
     )?;
     Ok(())
 }
@@ -93,9 +98,12 @@ pub fn stop_workflow(
     runtime: State<'_, AgentRuntime>,
     pty_manager: State<'_, PtyManager>,
     lock_manager: State<'_, ResourceLockManager>,
+    comms_bus: State<'_, AgentCommsBus>,
 ) -> Result<(), ReasonanceError> {
     info!("cmd::stop_workflow(run_id={})", run_id);
     if let Some(run) = engine.get_run(&run_id) {
+        // Clean up CommsBus broadcast channel for this workflow
+        comms_bus.clear_workflow(&run.workflow_path);
         for ns in run.node_states.values() {
             // Release all resource locks held by this node
             lock_manager.release_all(&ns.node_id);
@@ -127,6 +135,7 @@ pub fn step_workflow(
     runtime: State<'_, AgentRuntime>,
     pty_manager: State<'_, PtyManager>,
     lock_manager: State<'_, ResourceLockManager>,
+    comms_bus: State<'_, AgentCommsBus>,
 ) -> Result<Option<String>, ReasonanceError> {
     info!("cmd::step_workflow(run_id={})", run_id);
     let workflow = store
@@ -140,6 +149,7 @@ pub fn step_workflow(
         &app,
         &cwd,
         &lock_manager,
+        &comms_bus,
     )
 }
 
@@ -165,6 +175,7 @@ pub fn approve_node(
     runtime: State<'_, AgentRuntime>,
     pty_manager: State<'_, PtyManager>,
     lock_manager: State<'_, ResourceLockManager>,
+    comms_bus: State<'_, AgentCommsBus>,
 ) -> Result<(), ReasonanceError> {
     info!("cmd::approve_node(run_id={}, node_id={})", run_id, node_id);
     let workflow = store
@@ -179,6 +190,7 @@ pub fn approve_node(
         &lock_manager,
         &app,
         &cwd,
+        &comms_bus,
     )
 }
 
@@ -195,6 +207,7 @@ pub fn notify_node_completed(
     runtime: State<'_, AgentRuntime>,
     pty_manager: State<'_, PtyManager>,
     lock_manager: State<'_, ResourceLockManager>,
+    comms_bus: State<'_, AgentCommsBus>,
 ) -> Result<(), ReasonanceError> {
     info!(
         "cmd::notify_node_completed(run_id={}, node_id={}, success={})",
@@ -213,5 +226,6 @@ pub fn notify_node_completed(
         &app,
         &cwd,
         &lock_manager,
+        &comms_bus,
     )
 }
