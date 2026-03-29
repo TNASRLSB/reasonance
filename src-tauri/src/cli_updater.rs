@@ -137,7 +137,20 @@ struct CliUpdateEvent {
 
 /// Run version-check + update for every auto-update provider.
 /// Designed to be spawned as a fire-and-forget background task at app startup.
-pub async fn run_background_updates(app: AppHandle, updater: Arc<CliUpdater>) {
+///
+/// `event_bus` — when provided, publishes `lifecycle:update-available` on version changes.
+/// `auto_check` — when `false`, skips the entire update cycle (respects user setting).
+pub async fn run_background_updates(
+    app: AppHandle,
+    updater: Arc<CliUpdater>,
+    event_bus: Option<Arc<crate::event_bus::EventBus>>,
+    auto_check: bool,
+) {
+    if !auto_check {
+        info!("CLI updater: auto-check disabled by settings — skipping");
+        return;
+    }
+
     // Let the app settle before hitting the network / spawning subprocesses.
     tokio::time::sleep(std::time::Duration::from_secs(10)).await;
 
@@ -244,6 +257,18 @@ pub async fn run_background_updates(app: AppHandle, updater: Arc<CliUpdater>) {
                     old_version.as_deref().unwrap_or("?"),
                     new_version.as_deref().unwrap_or("?")
                 );
+                // Notify via EventBus so the frontend can display an update banner.
+                if let Some(ref bus) = event_bus {
+                    bus.publish(crate::event_bus::Event::new(
+                        "lifecycle:update-available",
+                        serde_json::json!({
+                            "provider": provider,
+                            "current": old_version,
+                            "available": new_version,
+                        }),
+                        "cli_updater",
+                    ));
+                }
             } else {
                 info!("CLI updater: '{provider}' already up to date");
             }

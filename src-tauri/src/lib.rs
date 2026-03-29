@@ -264,6 +264,8 @@ pub fn run() {
             bus.register_channel("comms:message_published", true);
             bus.register_channel("normalizer:health", true);
             bus.register_channel("normalizer:version-created", true);
+            bus.register_channel("lifecycle:update-available", true);
+            bus.register_channel("transport:circuit-state", true);
             info!("  ⏱ EventBus init: {}ms", t_bus.elapsed().as_millis());
             app.manage(bus.clone());
 
@@ -492,8 +494,23 @@ pub fn run() {
             info!("  ✓ Scheduling background CLI updates");
             let updater_arc = updater.inner().clone();
             let app_handle = app.handle().clone();
+            let updater_bus = bus.clone();
+            let auto_check = {
+                let s = app
+                    .state::<std::sync::Mutex<settings::LayeredSettings>>()
+                    .inner()
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner());
+                s.get::<bool>("updates.auto_check").unwrap_or(true)
+            };
             tauri::async_runtime::spawn(async move {
-                cli_updater::run_background_updates(app_handle, updater_arc).await;
+                cli_updater::run_background_updates(
+                    app_handle,
+                    updater_arc,
+                    Some(updater_bus),
+                    auto_check,
+                )
+                .await;
             });
 
             let total_setup_ms = setup_start.elapsed().as_millis() as u64;

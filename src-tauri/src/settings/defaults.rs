@@ -14,6 +14,9 @@ font_size = 13
 [analytics]
 enabled = true
 
+[updates]
+auto_check = true
+
 [filetree]
 auto_fold = false
 show_git_status = true
