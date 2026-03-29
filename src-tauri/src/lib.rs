@@ -625,6 +625,17 @@ pub fn run() {
             commands::settings::reload_settings,
             commands::batch::batch_invoke,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app, event| {
+            if matches!(
+                event,
+                tauri::RunEvent::ExitRequested { .. } | tauri::RunEvent::Exit
+            ) {
+                if let Some(pty_manager) = app.try_state::<PtyManager>() {
+                    let killed = pty_manager.kill_all();
+                    log::info!("Shutdown: killed {} PTY instances", killed);
+                }
+            }
+        });
 }

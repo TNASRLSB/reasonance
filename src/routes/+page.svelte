@@ -329,6 +329,8 @@
 
     // Listen for window close to save session state (preferences) and app layout state
     await adapter.onWindowClose(async () => {
+      // Best-effort PTY cleanup before the window closes (backup for Rust-side shutdown hook)
+      try { await adapter.killAllPtys(); } catch { /* non-fatal */ }
       await saveSession();
       const activeId = get(activeProjectId);
       const recent = get(recentProjectsList);
