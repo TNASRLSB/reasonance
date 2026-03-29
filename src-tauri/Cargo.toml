@@ -1,6 +1,6 @@
 [package]
 name = "reasonance"
-version = "1.9.1"
+version = "2.0.0"
 description = "A lightweight desktop IDE for vibecoders"
 authors = ["you"]
 edition = "2021"

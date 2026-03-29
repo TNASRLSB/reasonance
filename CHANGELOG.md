@@ -1,5 +1,67 @@
 # Changelog
 
+## [2.0.0] - 2026-03-29
+
+### Features
+
+- feat(permissions): redesign PermissionRequestBlock for per-tool approval with 4 scopes
+- feat(permissions): add permission adapter methods with batch dispatch and Zod schemas
+- feat(permissions): route Project scope to PolicyFile instead of PermissionMemory
+- feat(permissions): wire engine into transport, replace inline trust checks, add audit events
+- feat(permissions): add EvaluationResult, integrate Layer 3 + Layer 5 in evaluate()
+- feat(permissions): add PolicyFile with TOML parsing, regex patterns, caching
+
+### Other
+
+- refactor(permissions): remove sessionApprovedTools, use PermissionMemory via adapter
+- recorded through adapter.recordPermissionDecision from PermissionRequestBlock.
+- handleSend and handleApproveTools simplified to use only configAllowedTools.
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- Allow project / Deny buttons. Decisions are recorded via adapter.recordPermissionDecision
+- and decided rows are dimmed. ChatMessages passes sessionId and adapter through.
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- docs: add W2.1 permission engine wiring implementation plan
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- docs(W2.1): pure evaluate(), regex patterns, single source of truth, pre-loaded policy
+- - Pattern matching via compiled regex (no substring false positives)
+- - Project scope in permissions.toml only (not PermissionMemory)
+- - Policy file pre-loaded at startup + fs event reload
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- docs: add W2.1 permission engine wiring design spec
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+
+
+
 ## [1.9.1] - 2026-03-28
 
 ### Other
