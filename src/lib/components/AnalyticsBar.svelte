@@ -13,6 +13,16 @@
 
   let { adapter, onOpenDashboard }: { adapter: Adapter | undefined; onOpenDashboard: () => void } = $props();
 
+  // Quota window hours loaded from LayeredSettings (default 5h)
+  let quotaWindowHours = $state(5);
+
+  $effect(() => {
+    if (!adapter) return;
+    adapter.getSetting('analytics.quota_window_hours').then(val => {
+      if (typeof val === 'number' && val > 0) quotaWindowHours = val;
+    }).catch(() => { /* keep default */ });
+  });
+
   const metrics = $derived($liveMetrics);
   const alerts = $derived($budgetAlerts);
   const hasBudgetWarning = $derived(alerts.length > 0 && alerts.some(a => a.type === 'approaching'));
@@ -46,8 +56,7 @@
   const paceMetrics = $derived((() => {
     if (!metrics?.duration_ms || !metrics?.context_percent) return null;
 
-    // Assume 5-hour window (configurable later via settings)
-    const windowSecs = 5 * 3600;
+    const windowSecs = quotaWindowHours * 3600;
     const elapsedSecs = metrics.duration_ms / 1000;
     const remainingSecs = Math.max(0, windowSecs - elapsedSecs);
     const usagePercent = metrics.context_percent;
@@ -186,6 +195,13 @@
           use:tooltip={`Pace relative to quota window. ${paceMetrics.paceDelta > 0 ? 'Consuming faster than sustainable' : 'On pace or below'}`}
         >
           ⟳ {paceMetrics.paceDelta > 0 ? '+' : ''}{paceMetrics.paceDelta}%
+        </span>
+        <span
+          class="metric reset-countdown"
+          use:tooltip={`Quota window: ${quotaWindowHours}h. Resets in ${paceMetrics.resetCountdown}`}
+          aria-label={`Quota resets in ${paceMetrics.resetCountdown}`}
+        >
+          ↺ {paceMetrics.resetCountdown}
         </span>
       {/if}
 
@@ -409,6 +425,12 @@
     font-weight: 600;
   }
 
+  .metric.reset-countdown {
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+    opacity: 0.85;
+  }
+
   .metric.provider {
     font-weight: 600;
     max-width: 100px;
@@ -533,7 +555,8 @@
 
     .metric.velocity,
     .metric.projection,
-    .metric.pace {
+    .metric.pace,
+    .metric.reset-countdown {
       display: none;
     }
 

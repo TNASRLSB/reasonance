@@ -13,6 +13,7 @@ font_size = 13
 
 [analytics]
 enabled = true
+quota_window_hours = 5
 
 [updates]
 auto_check = true
