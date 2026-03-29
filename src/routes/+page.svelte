@@ -6,8 +6,6 @@
   import DiffView from '$lib/components/DiffView.svelte';
   import HelpPanel from '$lib/components/HelpPanel.svelte';
   import TerminalManager from '$lib/components/TerminalManager.svelte';
-  import Settings from '$lib/components/Settings.svelte';
-  import ThemeEditor from '$lib/components/theme-editor/ThemeEditor.svelte';
   import SearchPalette from '$lib/components/SearchPalette.svelte';
   import FindInFiles from '$lib/components/FindInFiles.svelte';
   import WelcomeScreen from '$lib/components/WelcomeScreen.svelte';
@@ -24,16 +22,54 @@
   import { sanitizeId } from '$lib/utils/a11y';
   import { showToast } from '$lib/stores/toast';
   import { appAnnouncer } from '$lib/utils/a11y-announcer';
-  import HiveCanvas from '$lib/components/hive/HiveCanvas.svelte';
-  import ShortcutsDialog from '$lib/components/ShortcutsDialog.svelte';
-  import SessionPanel from '$lib/components/SessionPanel.svelte';
   import { saveSession, restoreSession, initShadowTracking } from '$lib/utils/session';
   import { loadInitialConfig, discoverAndApplyLlms } from '$lib/utils/config-bootstrap';
   import { onMount, onDestroy } from 'svelte';
   import { get } from 'svelte/store';
   import { attachConsole } from '@tauri-apps/plugin-log';
   import { listen } from '@tauri-apps/api/event';
+  import type Settings from '$lib/components/Settings.svelte';
+  import type ThemeEditor from '$lib/components/theme-editor/ThemeEditor.svelte';
+  import type HiveCanvas from '$lib/components/hive/HiveCanvas.svelte';
+  import type ShortcutsDialog from '$lib/components/ShortcutsDialog.svelte';
+  import type SessionPanel from '$lib/components/SessionPanel.svelte';
   import '../app.css';
+
+  // W3.6 — Lazy-loaded heavy components (behind-a-toggle only).
+  // Each is only downloaded when first needed, giving faster initial load.
+  // In Svelte 5 runes mode, dynamic components are assigned as the constructor itself.
+  let SettingsCmp = $state<typeof Settings | null>(null);
+  let ThemeEditorCmp = $state<typeof ThemeEditor | null>(null);
+  let HiveCanvasCmp = $state<typeof HiveCanvas | null>(null);
+  let ShortcutsDialogCmp = $state<typeof ShortcutsDialog | null>(null);
+  let SessionPanelCmp = $state<typeof SessionPanel | null>(null);
+
+  // Trigger lazy loads the first time each toggle is activated
+  $effect(() => {
+    if ($showSettings && !SettingsCmp) {
+      import('$lib/components/Settings.svelte').then((m) => { SettingsCmp = m.default; });
+    }
+  });
+  $effect(() => {
+    if ($showThemeEditor && !ThemeEditorCmp) {
+      import('$lib/components/theme-editor/ThemeEditor.svelte').then((m) => { ThemeEditorCmp = m.default; });
+    }
+  });
+  $effect(() => {
+    if (hiveVisible && !HiveCanvasCmp) {
+      import('$lib/components/hive/HiveCanvas.svelte').then((m) => { HiveCanvasCmp = m.default; });
+    }
+  });
+  $effect(() => {
+    if (showShortcuts && !ShortcutsDialogCmp) {
+      import('$lib/components/ShortcutsDialog.svelte').then((m) => { ShortcutsDialogCmp = m.default; });
+    }
+  });
+  $effect(() => {
+    if (showSessions && !SessionPanelCmp) {
+      import('$lib/components/SessionPanel.svelte').then((m) => { SessionPanelCmp = m.default; });
+    }
+  });
 
   function isActiveSessionYolo(): boolean {
     const inst = get(activeInstance);
@@ -398,6 +434,26 @@
     registerKeybinding('ctrl+s', () => saveActiveFile());
     initKeybindings();
 
+    // Context-aware Ctrl+Z: file ops undo when focus is outside the editor.
+    // When focus is inside a CodeMirror editor (.cm-editor), let CodeMirror
+    // handle undo natively. Otherwise trigger file ops undo.
+    const handleCtrlZ = async (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== 'z') return;
+      const active = document.activeElement;
+      if (active && active.closest('.cm-editor')) return; // let CodeMirror handle it
+      e.preventDefault();
+      try {
+        const result = await adapter.fileOpsUndo();
+        if (result) {
+          showToast('success', 'Undone', result);
+        }
+      } catch (err) {
+        showToast('error', 'Undo failed', String(err));
+      }
+    };
+    window.addEventListener('keydown', handleCtrlZ);
+    cleanups.push(() => window.removeEventListener('keydown', handleCtrlZ));
+
     // Listen for openFolder custom event from MenuBar
     const handleOpenFolder = () => openFolder();
     window.addEventListener('reasonance:openFolder', handleOpenFolder);
@@ -505,7 +561,11 @@
 
     {#snippet editor()}
       {#if hiveVisible}
-        <HiveCanvas {adapter} />
+        {#if HiveCanvasCmp}
+          <HiveCanvasCmp {adapter} />
+        {:else}
+          <div class="lazy-skeleton" aria-label="Loading canvas..."></div>
+        {/if}
       {:else}
         <EditorTabs>
           {#snippet actions()}
@@ -555,18 +615,20 @@
   </App>
 {/if}
 
-{#if $showSettings}
-  <Settings
+{#if $showSettings && SettingsCmp}
+  <SettingsCmp
     {adapter}
     visible={$showSettings}
     onClose={() => showSettings.set(false)}
   />
 {/if}
 
-<ThemeEditor
-  open={$showThemeEditor}
-  onClose={() => showThemeEditor.set(false)}
-/>
+{#if ThemeEditorCmp}
+  <ThemeEditorCmp
+    open={$showThemeEditor}
+    onClose={() => showThemeEditor.set(false)}
+  />
+{/if}
 
 <SearchPalette
   {adapter}
@@ -603,16 +665,32 @@
   </div>
 {/if}
 
-<ShortcutsDialog visible={showShortcuts} onClose={() => { showShortcuts = false; }} />
+{#if ShortcutsDialogCmp}
+  <ShortcutsDialogCmp visible={showShortcuts} onClose={() => { showShortcuts = false; }} />
+{/if}
 
-<SessionPanel
-  {adapter}
-  visible={showSessions}
-  onClose={() => { showSessions = false; }}
-  onRestore={(id) => { /* TODO: wire session restore */ }}
-/>
+{#if SessionPanelCmp}
+  <SessionPanelCmp
+    {adapter}
+    visible={showSessions}
+    onClose={() => { showSessions = false; }}
+    onRestore={(id) => { /* TODO: wire session restore */ }}
+  />
+{/if}
 
 <style>
+
+  /* W3.6 — Skeleton placeholder shown while lazy component chunks load */
+  .lazy-skeleton {
+    flex: 1;
+    background: var(--bg-secondary);
+    animation: lazy-pulse 1.4s ease-in-out infinite;
+  }
+
+  @keyframes lazy-pulse {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 0.7; }
+  }
 
   .about-overlay {
     position: fixed;
