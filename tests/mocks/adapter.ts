@@ -13,6 +13,7 @@ import type {
   WorkflowRun,
   CommsChannelType,
   CommsMessage,
+  NodeDescriptor,
 } from '$lib/adapter/index';
 import type { AgentEvent, AgentEventPayload, SessionHandle, SessionSummary, ViewMode } from '$lib/types/agent-event';
 import type { NegotiatedCapabilities, CliVersionInfo, VersionEntry, HealthReport } from '$lib/types/capability';
@@ -573,6 +574,15 @@ export function createMockAdapter(overrides?: Partial<Adapter>): Adapter {
     },
     commsClearWorkflow(_workflowId: string): Promise<void> {
       return Promise.resolve();
+    },
+
+    // Node Registry
+    getNodeTypes(): Promise<NodeDescriptor[]> {
+      return Promise.resolve([
+        { type_id: 'agent', display_name: 'Agent', description: 'LLM-powered agent node', category: 'agent', config_schema: {} },
+        { type_id: 'resource', display_name: 'Resource', description: 'File, folder, API, or database resource node', category: 'resource', config_schema: {} },
+        { type_id: 'logic', display_name: 'Logic', description: 'Conditional branching and routing node', category: 'logic', config_schema: {} },
+      ]);
     },
 
     // Batching (pass-through in mock — just runs the callback)

@@ -16,6 +16,7 @@ use crate::commands::{
 };
 use crate::error::ReasonanceError;
 use crate::event_bus::{Event, EventBus};
+use crate::node_registry::HiveNodeRegistry;
 use crate::settings::LayeredSettings;
 use crate::shadow_store::ShadowStore;
 use crate::transport::session_manager::SessionManager;

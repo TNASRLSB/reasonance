@@ -196,6 +196,16 @@ export const CommsMessageSchema = z.object({
   ttl_secs: z.number().nullable(),
 });
 
+// === Node Registry ===
+
+export const NodeDescriptorSchema = z.object({
+  type_id: z.string(),
+  display_name: z.string(),
+  description: z.string(),
+  category: z.string(),
+  config_schema: z.unknown(),
+});
+
 // === Model Slots ===
 
 const ModelSlotSchema = z.enum(['chat', 'workflow', 'summary', 'quick']);
@@ -238,6 +248,8 @@ export const batchSchemas: Record<string, z.ZodType> = {
   list_model_slots: z.array(ModelSlotEntrySchema),
   // PTY
   reconnect_pty: z.string(),
+  // Node Registry
+  get_node_types: z.array(NodeDescriptorSchema),
   // Agent Communications (CommsBus)
   agent_publish_message: z.string(),
   agent_get_messages: z.array(CommsMessageSchema),

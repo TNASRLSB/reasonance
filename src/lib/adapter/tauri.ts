@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { Adapter, FileEntry, FsEvent, GrepResult, PtyHandle, DiscoveredAgent, Workflow, AgentState, AgentInstance, AgentMessage, MemoryEntry, WorkflowRun, CommsChannelType, CommsMessage } from './index';
+import type { Adapter, FileEntry, FsEvent, GrepResult, PtyHandle, DiscoveredAgent, Workflow, AgentState, AgentInstance, AgentMessage, MemoryEntry, WorkflowRun, CommsChannelType, CommsMessage, NodeDescriptor } from './index';
 import type { AgentEvent, AgentEventPayload, SessionHandle, SessionSummary, ViewMode } from '$lib/types/agent-event';
 import type { NegotiatedCapabilities, CliVersionInfo, VersionEntry, HealthReport } from '$lib/types/capability';
 import type { ProviderAnalytics, ModelAnalytics, DailyStats, SessionMetrics, ConnectionTestStep } from '$lib/types/analytics';
@@ -640,5 +640,10 @@ export class TauriAdapter implements Adapter {
 
   async killProjectProcesses(id: string): Promise<string[]> {
     return invoke('kill_project_ptys', { projectId: id });
+  }
+
+  // Node Registry
+  async getNodeTypes(): Promise<NodeDescriptor[]> {
+    return this.enqueue<NodeDescriptor[]>('get_node_types', {});
   }
 }

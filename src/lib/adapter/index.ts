@@ -195,6 +195,9 @@ export interface Adapter {
   commsGetBroadcastMessages(workflowId: string, sinceId?: string): Promise<CommsMessage[]>;
   commsSweep(): Promise<number>;
   commsClearWorkflow(workflowId: string): Promise<void>;
+
+  // Node Registry
+  getNodeTypes(): Promise<NodeDescriptor[]>;
 }
 
 export interface GrepResult {
@@ -331,4 +334,14 @@ export interface WorkflowRun {
   node_states: Record<string, NodeRunState>;
   started_at: string | null;
   finished_at: string | null;
+}
+
+// === Node Registry Types ===
+
+export interface NodeDescriptor {
+  type_id: string;
+  display_name: string;
+  description: string;
+  category: string;
+  config_schema: unknown;
 }

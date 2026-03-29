@@ -271,7 +271,7 @@
   <!-- Toolbar -->
   <div class="canvas-toolbar">
     <WorkflowMenu {adapter} {cwd} />
-    <NodeCatalog onadd={addNode} />
+    <NodeCatalog {adapter} onadd={addNode} />
     <div class="toolbar-spacer"></div>
     <HiveControls {adapter} {cwd} />
     {#if $currentWorkflow?.settings?.permissionLevel}
