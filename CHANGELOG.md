@@ -1,5 +1,31 @@
 # Changelog
 
+## [2.6.0] - 2026-03-29
+
+### Features
+
+- feat(memory): add browse/search panel for agent memory v2
+
+### Other
+
+- chore: frontend cleanup — remove unused components, exports, and tests
+- - Remove createFocusTrap (unused), keep findFocusFallback (used by layerManager)
+- - Remove colorblindDistinct (unused dev utility)
+- - Remove corresponding tests
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- sort controls, paginated listing, and detail view. Accessible from toolbar MEMORY
+- button or Ctrl+Shift+M. Includes full i18n coverage across all 9 locales.
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+
+
+
 ## [2.5.0] - 2026-03-29
 
 ### Features
