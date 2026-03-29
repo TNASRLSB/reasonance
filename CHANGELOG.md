@@ -1,5 +1,37 @@
 # Changelog
 
+## [2.6.2] - 2026-03-29
+
+### Bug Fixes
+
+- fix: full-stack audit — security, a11y, and code quality (20 fixes)
+
+### Other
+
+- 
+- Security: remove Bash from READ_ONLY_TOOLS (permission escalation in untrusted
+- workspaces), validate [cli] section in self-heal TOML, sanitize FTS5 MATCH
+- queries, redact API key values in get_env_var IPC, fix npm CVEs (picomatch,
+- smol-toml).
+- 
+- Accessibility: move FileTree git status colors to theme variables with WCAG AA
+- light-theme values and high-contrast overrides, add focus traps to ThemeEditor
+- and ThemeStartDialog, fix StreamingIndicator aria-live to polite, add
+- role=menuitem + keyboard nav to FileTree context menu, audit and fix 9
+- outline:none instances across 8 components, add visually-hidden h1, add
+- divider ARIA value attributes, fix ::selection color.
+- 
+- Quality: wire session restore, migrate Result<T,String> to ReasonanceError,
+- install @vitest/coverage-v8, replace {@html} with Unicode in NodeCatalog,
+- remove no-op ProjectSidebar menu items, replace hardcoded colors with theme
+- variables in WelcomeScreen and ThemeStartDialog.
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+
+
+
 ## [2.6.1] - 2026-03-29
 
 ### Bug Fixes
