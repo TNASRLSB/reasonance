@@ -21,6 +21,27 @@
   let gitStatuses = $state<Record<string, string>>({});
   let gitRefreshTimer: ReturnType<typeof setTimeout> | null = null;
 
+  /**
+   * Propagate file-level git statuses upward to parent directories.
+   * Each directory that contains any changed file gets an 'aggregated' status
+   * so the tree can show a dot/badge indicator on collapsed dirs.
+   */
+  function aggregateGitStatus(statuses: Record<string, string>): Record<string, string> {
+    const result = { ...statuses };
+    for (const [path] of Object.entries(statuses)) {
+      let dir = path;
+      while (true) {
+        const slash = dir.lastIndexOf('/');
+        if (slash <= 0) break;
+        dir = dir.substring(0, slash);
+        if (!result[dir]) {
+          result[dir] = 'aggregated';
+        }
+      }
+    }
+    return result;
+  }
+
   async function refreshGitStatus() {
     // Cancel any in-flight git status request (e.g. rapid project root changes)
     gitAbortController?.abort();
@@ -28,7 +49,7 @@
     const signal = gitAbortController.signal;
     try {
       const statuses = await adapter.getGitStatus(currentRoot, signal);
-      gitStatuses = statuses;
+      gitStatuses = aggregateGitStatus(statuses);
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') return;
       // non-git project or git not available — ignore
@@ -55,8 +76,17 @@
       case 'renamed': return 'R';
       case 'untracked': return 'U';
       case 'conflicted': return 'C';
+      case 'copied': return 'C';
+      case 'ignored': return '!';
+      // 'aggregated' for directories is handled separately
       default: return '';
     }
+  }
+
+  /** Returns true if a directory has children with git changes. */
+  function dirHasGitChanges(path: string): boolean {
+    const relativePath = path.replace(currentRoot + '/', '');
+    return gitStatuses[relativePath] === 'aggregated';
   }
 
   // --- Virtual scroll constants ---
@@ -492,7 +522,9 @@
           >
             <span class="icon">{getFileIcon(item.entry.name, item.isDir)}</span>
             <span class="name">{item.displayName}</span>
-            {#if !item.isDir && getGitStatusLetter(item.entry.path)}
+            {#if item.isDir && dirHasGitChanges(item.foldedEntry.path)}
+              <span class="git-status git-dir-dot" aria-label="directory has git changes">&#11044;</span>
+            {:else if !item.isDir && getGitStatusLetter(item.entry.path)}
               <span class="git-status git-{getGitStatus(item.entry.path)}" aria-label="git: {getGitStatus(item.entry.path)}">{getGitStatusLetter(item.entry.path)}</span>
             {/if}
           </button>
@@ -667,6 +699,14 @@
   .git-conflicted {
     color: #e06c75;
     font-weight: 800;
+  }
+
+  .git-dir-dot {
+    color: #e5c07b;
+    font-size: 0.45rem;
+    margin-left: auto;
+    flex-shrink: 0;
+    opacity: 0.8;
   }
 
   .tree-header-actions {

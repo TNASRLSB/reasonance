@@ -266,6 +266,8 @@ pub fn run() {
             bus.register_channel("normalizer:version-created", true);
             bus.register_channel("lifecycle:update-available", true);
             bus.register_channel("transport:circuit-state", true);
+            bus.register_channel("fileop:execute", true);
+            bus.register_channel("fileop:undo", true);
             info!("  ⏱ EventBus init: {}ms", t_bus.elapsed().as_millis());
             app.manage(bus.clone());
 
@@ -652,6 +654,7 @@ pub fn run() {
             commands::file_ops::file_ops_undo,
             commands::file_ops::file_ops_record_create,
             commands::file_ops::file_ops_record_rename,
+            commands::file_ops::file_ops_move,
             commands::settings::get_setting,
             commands::settings::set_setting,
             commands::settings::get_all_settings,

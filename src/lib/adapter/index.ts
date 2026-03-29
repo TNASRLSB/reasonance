@@ -176,6 +176,7 @@ export interface Adapter {
   fileOpsUndo(): Promise<string>;
   fileOpsRecordCreate(path: string): Promise<void>;
   fileOpsRecordRename(oldPath: string, newPath: string): Promise<void>;
+  fileOpsMove(oldPath: string, newPath: string): Promise<void>;
 
   // Permissions
   recordPermissionDecision(sessionId: string, toolName: string, action: string, scope: string): Promise<void>;

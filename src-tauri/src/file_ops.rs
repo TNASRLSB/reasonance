@@ -9,6 +9,7 @@ pub enum FileOperation {
     Create { path: String },
     Delete { path: String, trash_path: String },
     Rename { old_path: String, new_path: String },
+    Move { old_path: String, new_path: String },
 }
 
 pub struct FileOpsManager {
@@ -70,6 +71,35 @@ impl FileOpsManager {
         });
     }
 
+    /// Record a move (for undo). Move a file/directory from old_path to new_path.
+    #[allow(dead_code)]
+    pub fn record_move(&self, old_path: &str, new_path: &str) {
+        self.push_undo(FileOperation::Move {
+            old_path: old_path.to_string(),
+            new_path: new_path.to_string(),
+        });
+    }
+
+    /// Perform a move and record it for undo.
+    pub fn move_file(&self, old_path: &str, new_path: &str) -> Result<(), ReasonanceError> {
+        let src = Path::new(old_path);
+        if !src.exists() {
+            return Err(ReasonanceError::not_found("file", old_path));
+        }
+        if let Some(parent) = Path::new(new_path).parent() {
+            if !parent.exists() {
+                std::fs::create_dir_all(parent)
+                    .map_err(|e| ReasonanceError::io("create destination dir", e))?;
+            }
+        }
+        std::fs::rename(src, new_path).map_err(|e| ReasonanceError::io("move file", e))?;
+        self.push_undo(FileOperation::Move {
+            old_path: old_path.to_string(),
+            new_path: new_path.to_string(),
+        });
+        Ok(())
+    }
+
     /// Undo the last operation. Returns a description of what was undone, or None
     /// if the stack is empty.
     pub fn undo(&self) -> Result<Option<String>, ReasonanceError> {
@@ -111,6 +141,23 @@ impl FileOpsManager {
                     .unwrap()
                     .push(FileOperation::Rename { old_path, new_path });
                 Ok(Some("Rename undone".to_string()))
+            }
+            Some(FileOperation::Move { old_path, new_path }) => {
+                // Restore destination parent if needed
+                if let Some(parent) = Path::new(&old_path).parent() {
+                    if !parent.exists() {
+                        std::fs::create_dir_all(parent).map_err(|e| {
+                            ReasonanceError::io("recreate source dir for move undo", e)
+                        })?;
+                    }
+                }
+                std::fs::rename(&new_path, &old_path)
+                    .map_err(|e| ReasonanceError::io("undo move", e))?;
+                self.redo_stack.lock().unwrap().push(FileOperation::Move {
+                    old_path: old_path.clone(),
+                    new_path,
+                });
+                Ok(Some(format!("Move undone: {}", old_path)))
             }
             None => Ok(None),
         }

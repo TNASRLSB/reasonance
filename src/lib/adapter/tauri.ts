@@ -542,6 +542,9 @@ export class TauriAdapter implements Adapter {
   async fileOpsRecordRename(oldPath: string, newPath: string): Promise<void> {
     return invoke('file_ops_record_rename', { oldPath, newPath });
   }
+  async fileOpsMove(oldPath: string, newPath: string): Promise<void> {
+    return invoke('file_ops_move', { oldPath, newPath });
+  }
 
   // Permissions
   async recordPermissionDecision(sessionId: string, toolName: string, action: string, scope: string): Promise<void> {

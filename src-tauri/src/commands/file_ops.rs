@@ -1,7 +1,8 @@
 use crate::error::ReasonanceError;
+use crate::event_bus::{Event, EventBus};
 use crate::file_ops::FileOpsManager;
 use log::info;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use tauri::State;
 
 /// Managed state wrapping the FileOpsManager.
@@ -40,19 +41,37 @@ pub fn file_ops_set_project(
 pub fn file_ops_delete(
     path: String,
     state: State<'_, FileOpsState>,
+    bus: State<'_, Arc<EventBus>>,
 ) -> Result<(), ReasonanceError> {
     info!("cmd::file_ops_delete(path={})", path);
     let mgr = state.0.lock().unwrap();
-    mgr.delete_file(&path)
+    mgr.delete_file(&path)?;
+    bus.publish(Event::new(
+        "fileop:execute",
+        serde_json::json!({ "op": "delete", "path": path }),
+        "file-ops",
+    ));
+    Ok(())
 }
 
 /// Undo the last file operation.
 /// Returns a description of what was undone, or null if the stack is empty.
 #[tauri::command]
-pub fn file_ops_undo(state: State<'_, FileOpsState>) -> Result<Option<String>, ReasonanceError> {
+pub fn file_ops_undo(
+    state: State<'_, FileOpsState>,
+    bus: State<'_, Arc<EventBus>>,
+) -> Result<Option<String>, ReasonanceError> {
     info!("cmd::file_ops_undo");
     let mgr = state.0.lock().unwrap();
-    mgr.undo()
+    let result = mgr.undo()?;
+    if let Some(ref desc) = result {
+        bus.publish(Event::new(
+            "fileop:undo",
+            serde_json::json!({ "description": desc }),
+            "file-ops",
+        ));
+    }
+    Ok(result)
 }
 
 /// Record that a file was created, so it can be undone later.
@@ -60,10 +79,16 @@ pub fn file_ops_undo(state: State<'_, FileOpsState>) -> Result<Option<String>, R
 pub fn file_ops_record_create(
     path: String,
     state: State<'_, FileOpsState>,
+    bus: State<'_, Arc<EventBus>>,
 ) -> Result<(), ReasonanceError> {
     info!("cmd::file_ops_record_create(path={})", path);
     let mgr = state.0.lock().unwrap();
     mgr.record_create(&path);
+    bus.publish(Event::new(
+        "fileop:execute",
+        serde_json::json!({ "op": "create", "path": path }),
+        "file-ops",
+    ));
     Ok(())
 }
 
@@ -73,6 +98,7 @@ pub fn file_ops_record_rename(
     old_path: String,
     new_path: String,
     state: State<'_, FileOpsState>,
+    bus: State<'_, Arc<EventBus>>,
 ) -> Result<(), ReasonanceError> {
     info!(
         "cmd::file_ops_record_rename(old={}, new={})",
@@ -80,5 +106,29 @@ pub fn file_ops_record_rename(
     );
     let mgr = state.0.lock().unwrap();
     mgr.record_rename(&old_path, &new_path);
+    bus.publish(Event::new(
+        "fileop:execute",
+        serde_json::json!({ "op": "rename", "old_path": old_path, "new_path": new_path }),
+        "file-ops",
+    ));
+    Ok(())
+}
+
+/// Move a file/directory and record it for undo.
+#[tauri::command]
+pub fn file_ops_move(
+    old_path: String,
+    new_path: String,
+    state: State<'_, FileOpsState>,
+    bus: State<'_, Arc<EventBus>>,
+) -> Result<(), ReasonanceError> {
+    info!("cmd::file_ops_move(old={}, new={})", old_path, new_path);
+    let mgr = state.0.lock().unwrap();
+    mgr.move_file(&old_path, &new_path)?;
+    bus.publish(Event::new(
+        "fileop:execute",
+        serde_json::json!({ "op": "move", "old_path": old_path, "new_path": new_path }),
+        "file-ops",
+    ));
     Ok(())
 }
