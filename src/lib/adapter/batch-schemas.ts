@@ -206,6 +206,14 @@ export const NodeDescriptorSchema = z.object({
   config_schema: z.unknown(),
 });
 
+// === Self-Heal ===
+
+export const HealNormalizerResultSchema = z.object({
+  status: z.string(),
+  message: z.string(),
+  iterations: z.number(),
+});
+
 // === Model Slots ===
 
 const ModelSlotSchema = z.enum(['chat', 'workflow', 'summary', 'quick']);
@@ -257,4 +265,6 @@ export const batchSchemas: Record<string, z.ZodType> = {
   agent_get_broadcast_messages: z.array(CommsMessageSchema),
   agent_sweep_messages: z.number(),
   agent_clear_workflow_messages: z.null(),
+  // Self-Heal
+  heal_normalizer: HealNormalizerResultSchema,
 };

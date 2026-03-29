@@ -264,6 +264,7 @@ pub fn run() {
             bus.register_channel("comms:message_published", true);
             bus.register_channel("normalizer:health", true);
             bus.register_channel("normalizer:version-created", true);
+            bus.register_channel("normalizer:heal-attempted", true);
             bus.register_channel("lifecycle:update-available", true);
             bus.register_channel("transport:circuit-state", true);
             bus.register_channel("fileop:execute", true);
@@ -612,6 +613,7 @@ pub fn run() {
             commands::analytics::analytics_active,
             commands::provider::test_provider_connection,
             commands::provider::reload_normalizers,
+            commands::self_heal::heal_normalizer,
             commands::workspace_trust::check_workspace_trust,
             commands::workspace_trust::set_workspace_trust,
             commands::workspace_trust::revoke_workspace_trust,

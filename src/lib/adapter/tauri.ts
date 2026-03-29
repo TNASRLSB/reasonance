@@ -490,6 +490,9 @@ export class TauriAdapter implements Adapter {
   async reloadNormalizers(): Promise<void> {
     return invoke<void>('reload_normalizers');
   }
+  async healNormalizer(provider: string): Promise<{ status: 'fixed' | 'failed'; message: string }> {
+    return invoke<{ status: 'fixed' | 'failed'; message: string }>('heal_normalizer', { provider });
+  }
 
   // Workspace Trust
   async checkWorkspaceTrust(path: string): Promise<TrustCheckResult> {

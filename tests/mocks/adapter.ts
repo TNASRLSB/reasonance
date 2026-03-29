@@ -466,6 +466,9 @@ export function createMockAdapter(overrides?: Partial<Adapter>): Adapter {
     reloadNormalizers(): Promise<void> {
       return Promise.resolve();
     },
+    healNormalizer(_provider: string): Promise<{ status: 'fixed' | 'failed'; message: string }> {
+      return Promise.resolve({ status: 'fixed', message: 'Mock heal successful' });
+    },
 
     // Workspace Trust
     checkWorkspaceTrust(_path: string): Promise<TrustCheckResult> {

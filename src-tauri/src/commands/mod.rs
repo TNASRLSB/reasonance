@@ -14,6 +14,7 @@ pub mod memory;
 pub mod permission;
 pub mod provider;
 pub mod pty;
+pub mod self_heal;
 pub mod session;
 pub mod settings;
 pub mod shadow;

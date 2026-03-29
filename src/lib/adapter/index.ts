@@ -145,6 +145,7 @@ export interface Adapter {
   testProviderConnection(provider: string): Promise<void>;
   onConnectionTest(callback: (step: ConnectionTestStep) => void): Promise<() => void>;
   reloadNormalizers(): Promise<void>;
+  healNormalizer(provider: string): Promise<{ status: 'fixed' | 'failed'; message: string }>;
 
   // Workspace Trust
   checkWorkspaceTrust(path: string): Promise<TrustCheckResult>;

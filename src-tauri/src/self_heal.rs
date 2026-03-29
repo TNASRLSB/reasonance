@@ -2,7 +2,6 @@ use log::{debug, info, warn};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[allow(dead_code)] // Used in tests; roadmap: self-healing normalizer loop
 pub struct SelfHealConfig {
     pub max_iterations: u32,
     pub feedback_to_llm: bool,
@@ -19,7 +18,7 @@ impl Default for SelfHealConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "status")]
-#[allow(dead_code)] // Used in tests; roadmap: self-healing normalizer loop
+#[allow(dead_code)] // Used in tests; reserved for future structured return from heal command
 pub enum SelfHealResult {
     Fixed {
         new_toml: String,
@@ -39,7 +38,6 @@ impl SelfHealResult {
     }
 }
 
-#[allow(dead_code)] // Used in tests; roadmap: self-healing normalizer loop
 /// Build the prompt sent to the LLM to fix a broken normalizer TOML.
 pub fn build_heal_prompt(
     current_toml: &str,
@@ -79,7 +77,6 @@ pub fn build_heal_prompt(
     prompt
 }
 
-#[allow(dead_code)] // Used in tests; roadmap: self-healing normalizer loop
 /// Extract TOML content from an LLM response that wraps it in a code block.
 pub fn extract_toml_from_response(response: &str) -> Option<String> {
     debug!(
