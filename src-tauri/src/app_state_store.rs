@@ -40,6 +40,15 @@ pub struct WindowState {
     pub maximized: bool,
 }
 
+/// Saved state for a single terminal (PTY) instance.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct TerminalState {
+    pub command: String,
+    pub args: Vec<String>,
+    pub cwd: String,
+    pub provider: String,
+}
+
 /// Per-project state.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ProjectState {
@@ -48,6 +57,8 @@ pub struct ProjectState {
     pub active_file_path: Option<String>,
     pub panel_layout: Option<PanelLayout>,
     pub last_model_used: Option<String>,
+    #[serde(default)]
+    pub terminals: Vec<TerminalState>,
 }
 
 /// State for a single open editor tab.
@@ -243,6 +254,7 @@ mod tests {
                 bottom_panel_height: None,
             }),
             last_model_used: Some("claude-sonnet".to_string()),
+            terminals: vec![],
         };
 
         let store = AppStateStore::new(tmp.path()).unwrap();

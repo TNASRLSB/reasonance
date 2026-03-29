@@ -531,6 +531,7 @@ export function createMockAdapter(overrides?: Partial<Adapter>): Adapter {
         active_file_path: null,
         panel_layout: null,
         last_model_used: null,
+        terminals: [],
       });
     },
     saveProjectState(_projectId: string, _state: ProjectState): Promise<void> {

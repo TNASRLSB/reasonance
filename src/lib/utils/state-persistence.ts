@@ -1,4 +1,4 @@
-import type { AppState, ProjectState, PanelLayout } from '$lib/types/app-state';
+import type { AppState, ProjectState, PanelLayout, TerminalState } from '$lib/types/app-state';
 import type { Adapter } from '$lib/adapter/index';
 
 export interface FileStateInput {
@@ -35,6 +35,7 @@ export function gatherProjectState(
   panelLayout: PanelLayout | null,
   lastModelUsed: string | null,
   activeSessionId: string | null,
+  terminals: TerminalState[] = [],
 ): ProjectState {
   return {
     active_session_id: activeSessionId,
@@ -47,6 +48,7 @@ export function gatherProjectState(
     active_file_path: activeFilePath,
     panel_layout: panelLayout,
     last_model_used: lastModelUsed,
+    terminals,
   };
 }
 
@@ -77,7 +79,9 @@ export async function loadAppState(adapter: Adapter): Promise<AppState> {
 
 export async function loadProjectState(adapter: Adapter, projectId: string): Promise<ProjectState> {
   try {
-    return await adapter.getProjectState(projectId);
+    const state = await adapter.getProjectState(projectId);
+    // Ensure terminals array is always present (backward compat with older saved state)
+    return { ...state, terminals: state.terminals ?? [] };
   } catch {
     return {
       active_session_id: null,
@@ -85,6 +89,7 @@ export async function loadProjectState(adapter: Adapter, projectId: string): Pro
       active_file_path: null,
       panel_layout: null,
       last_model_used: null,
+      terminals: [],
     };
   }
 }

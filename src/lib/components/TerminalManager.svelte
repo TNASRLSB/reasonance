@@ -342,13 +342,34 @@
         discoverAndApplyLlms(adapter);
       });
     }
+    // Restore saved terminals on project load — bypasses trust dialog since the
+    // project was already trusted when the state was saved.
+    async function handleRestoreTerminals(e: Event) {
+      const terminals = (e as CustomEvent<Array<{ command: string; args: string[]; cwd: string; provider: string }>['0'][]>).detail;
+      for (const t of terminals) {
+        try {
+          const handle = await adapter.spawnProcess(t.command, t.args, t.cwd);
+          const instance: import('$lib/stores/terminals').TerminalInstance = {
+            id: handle.id,
+            provider: t.provider,
+            label: `${t.provider} ...`,
+            projectId: '',
+          };
+          addInstanceToStore(instance);
+        } catch (err) {
+          console.warn('[TerminalManager] Failed to restore terminal:', t.provider, err);
+        }
+      }
+    }
     document.addEventListener('reasonance:newTerminal', handleNewTerminal);
     document.addEventListener('reasonance:closeTerminal', handleCloseTerminal);
     document.addEventListener('reasonance:detectLLMs', handleDetectLLMs);
+    document.addEventListener('reasonance:restoreTerminals', handleRestoreTerminals as EventListener);
     return () => {
       document.removeEventListener('reasonance:newTerminal', handleNewTerminal);
       document.removeEventListener('reasonance:closeTerminal', handleCloseTerminal);
       document.removeEventListener('reasonance:detectLLMs', handleDetectLLMs);
+      document.removeEventListener('reasonance:restoreTerminals', handleRestoreTerminals as EventListener);
     };
   });
 </script>

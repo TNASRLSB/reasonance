@@ -17,7 +17,7 @@
   import { addProject, removeProject, activeProjectId, recentProjectsList, setActiveFile, openFile, updateFileContent, updateFileState } from '$lib/stores/projects';
   import { showSettings, enhancedReadability, showHiveCanvas, showThemeEditor, fileTreeWidth, terminalWidth } from '$lib/stores/ui';
   import { saveAllState, loadAppState, loadProjectState, gatherProjectState } from '$lib/utils/state-persistence';
-  import { activeInstance } from '$lib/stores/terminals';
+  import { activeInstance, terminalInstances } from '$lib/stores/terminals';
   import { llmConfigs } from '$lib/stores/config';
   import { initI18n, tr } from '$lib/i18n/index';
   import { registerKeybinding, initKeybindings } from '$lib/utils/keybindings';
@@ -94,6 +94,21 @@
     const activeFile = get(activeFilePath);
     const curLine = get(cursorLine);
     const curCol = get(cursorCol);
+    const instances = get(terminalInstances);
+    const configs = get(llmConfigs);
+
+    // Build terminal state for each non-API terminal instance
+    const terminals = instances
+      .filter(inst => !inst.apiOnly && !inst.id.startsWith('api-'))
+      .map(inst => {
+        const config = configs.find(c => c.name === inst.provider);
+        return {
+          command: config?.command ?? inst.provider,
+          args: config?.args ?? [],
+          cwd: currentProjectRoot,
+          provider: inst.provider,
+        };
+      });
 
     return gatherProjectState(
       files.map(f => ({
@@ -111,6 +126,7 @@
       },
       null,
       null,
+      terminals,
     );
   }
 
@@ -261,6 +277,12 @@
             setActiveFile(projectState.active_file_path);
           }
         }
+        // Restore saved terminal instances
+        if (projectState.terminals.length > 0) {
+          document.dispatchEvent(new CustomEvent('reasonance:restoreTerminals', {
+            detail: projectState.terminals,
+          }));
+        }
       } catch { /* no saved state for new project */ }
     }
   }
@@ -293,6 +315,7 @@
     await restoreSession(adapter, () => { showWelcome = false; });
 
     // Restore app layout state (panel widths, open files, cursors)
+    let savedTerminals: Array<{ command: string; args: string[]; cwd: string; provider: string }> = [];
     try {
       const appState = await loadAppState(adapter);
       if (appState.last_active_project_id) {
@@ -318,6 +341,8 @@
             setActiveFile(projectState.active_file_path);
           }
         }
+        // Stash terminals to restore after config loads (command/args need config lookup)
+        savedTerminals = projectState.terminals ?? [];
       }
     } catch {
       // First launch or corrupted state
@@ -326,6 +351,13 @@
     // Load TOML config then auto-discover LLM CLIs if none configured
     await loadInitialConfig(adapter);
     await discoverAndApplyLlms(adapter);
+
+    // Restore saved terminals now that configs are loaded
+    if (savedTerminals.length > 0) {
+      document.dispatchEvent(new CustomEvent('reasonance:restoreTerminals', {
+        detail: savedTerminals,
+      }));
+    }
 
     // Listen for window close to save session state (preferences) and app layout state
     await adapter.onWindowClose(async () => {
@@ -340,6 +372,21 @@
         lastOpened: r.lastOpened ?? Date.now(),
       })), () => getCurrentProjectState());
     });
+
+    // Debounced auto-save: persist project state every 30s while the app is active
+    const autoSaveInterval = setInterval(async () => {
+      const activeId = get(activeProjectId);
+      if (!activeId) return;
+      const recent = get(recentProjectsList);
+      try {
+        await saveAllState(adapter, activeId, recent.map(r => ({
+          path: r.path,
+          label: r.label ?? r.path.split('/').pop() ?? '',
+          lastOpened: r.lastOpened ?? Date.now(),
+        })), () => getCurrentProjectState());
+      } catch { /* non-fatal — best-effort auto-save */ }
+    }, 30_000);
+    cleanups.push(() => clearInterval(autoSaveInterval));
 
     // Register global keyboard shortcuts
     registerKeybinding('ctrl+p', () => { showSearchPalette = true; });

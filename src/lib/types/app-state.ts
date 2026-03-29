@@ -18,12 +18,20 @@ export interface RecentProjectEntry {
   last_opened: number;
 }
 
+export interface TerminalState {
+  command: string;
+  args: string[];
+  cwd: string;
+  provider: string;
+}
+
 export interface ProjectState {
   active_session_id: string | null;
   open_files: OpenFileState[];
   active_file_path: string | null;
   panel_layout: PanelLayout | null;
   last_model_used: string | null;
+  terminals: TerminalState[];
 }
 
 export interface PanelLayout {
