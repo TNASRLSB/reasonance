@@ -392,7 +392,11 @@ impl StructuredAgentTransport {
                         binary, spawn_err
                     );
                     // Record failure in circuit breaker
-                    self.circuit_breaker.record_failure(&circuit_id, &spawn_err);
+                    if let Some((old, new)) =
+                        self.circuit_breaker.record_failure(&circuit_id, &spawn_err)
+                    {
+                        Self::publish_circuit_state(&self.event_bus, &circuit_id, &old, &new);
+                    }
                     // Restore session status since we set it to Active but spawn failed
                     let sessions = self.sessions.lock().unwrap_or_else(|e| e.into_inner());
                     if let Some(arc) = sessions.get(&session_id) {
@@ -449,7 +453,9 @@ impl StructuredAgentTransport {
         }
 
         // Record successful spawn in circuit breaker
-        self.circuit_breaker.record_success(&circuit_id);
+        if let Some((old, new)) = self.circuit_breaker.record_success(&circuit_id) {
+            Self::publish_circuit_state(&self.event_bus, &circuit_id, &old, &new);
+        }
 
         let sid = session_id.clone();
         // Get the session Arc directly — the spawned task only needs this session,
@@ -471,6 +477,8 @@ impl StructuredAgentTransport {
             .unwrap_or_else(|e| e.into_inner())
             .clone()
             .expect("EventBus must be set before send()");
+        // Clone for the async task before moving into spawn_stream_reader
+        let task_event_bus = event_bus.clone();
         let rx = spawn_stream_reader(
             stdout,
             pipeline,
@@ -511,12 +519,32 @@ impl StructuredAgentTransport {
                         message: result.error.clone().unwrap_or_default(),
                         retryable: true,
                     };
-                    cb_ref.record_failure(&cb_circuit_id, &err);
+                    if let Some((old, new)) = cb_ref.record_failure(&cb_circuit_id, &err) {
+                        task_event_bus.publish(crate::event_bus::Event::new(
+                            "transport:circuit-state",
+                            serde_json::json!({
+                                "circuit_id": cb_circuit_id,
+                                "from": format!("{:?}", old),
+                                "to": format!("{:?}", new),
+                            }),
+                            "circuit_breaker",
+                        ));
+                    }
                     sess.set_status(SessionStatus::Error {
                         severity: ErrorSeverity::Fatal,
                     });
                 } else {
-                    cb_ref.record_success(&cb_circuit_id);
+                    if let Some((old, new)) = cb_ref.record_success(&cb_circuit_id) {
+                        task_event_bus.publish(crate::event_bus::Event::new(
+                            "transport:circuit-state",
+                            serde_json::json!({
+                                "circuit_id": cb_circuit_id,
+                                "from": format!("{:?}", old),
+                                "to": format!("{:?}", new),
+                            }),
+                            "circuit_breaker",
+                        ));
+                    }
                     sess.set_status(SessionStatus::Terminated);
                 }
             }
@@ -727,6 +755,31 @@ impl StructuredAgentTransport {
                 // should never execute, but return empty for safety.
                 Vec::new()
             }
+        }
+    }
+
+    /// Publish a circuit state transition event to the EventBus.
+    fn publish_circuit_state(
+        event_bus: &Mutex<Option<Arc<crate::event_bus::EventBus>>>,
+        circuit_id: &str,
+        from: &crate::circuit_breaker::CircuitState,
+        to: &crate::circuit_breaker::CircuitState,
+    ) {
+        let bus = event_bus.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some(ref bus) = *bus {
+            info!(
+                "Circuit breaker state transition: {} {:?} -> {:?}",
+                circuit_id, from, to
+            );
+            bus.publish(crate::event_bus::Event::new(
+                "transport:circuit-state",
+                serde_json::json!({
+                    "circuit_id": circuit_id,
+                    "from": format!("{:?}", from),
+                    "to": format!("{:?}", to),
+                }),
+                "circuit_breaker",
+            ));
         }
     }
 

@@ -123,19 +123,30 @@ impl CircuitBreaker {
     }
 
     /// Record a successful operation — resets failure count and transitions HalfOpen -> Closed.
-    pub fn record_success(&self, context_id: &str) {
+    ///
+    /// Returns `Some((old, new))` if a state transition occurred, `None` otherwise.
+    pub fn record_success(&self, context_id: &str) -> Option<(CircuitState, CircuitState)> {
         let mut circuits = self.circuits.lock().unwrap_or_else(|e| e.into_inner());
         if let Some(data) = circuits.get_mut(context_id) {
             data.failure_count = 0;
             if data.state == CircuitState::HalfOpen {
+                let old = data.state.clone();
                 data.state = CircuitState::Closed;
                 data.last_state_change = Instant::now();
+                return Some((old, CircuitState::Closed));
             }
         }
+        None
     }
 
     /// Record a failure — increments count, may transition Closed -> Open or HalfOpen -> Open.
-    pub fn record_failure(&self, context_id: &str, _error: &ReasonanceError) {
+    ///
+    /// Returns `Some((old, new))` if a state transition occurred, `None` otherwise.
+    pub fn record_failure(
+        &self,
+        context_id: &str,
+        _error: &ReasonanceError,
+    ) -> Option<(CircuitState, CircuitState)> {
         let mut circuits = self.circuits.lock().unwrap_or_else(|e| e.into_inner());
         let data = circuits
             .entry(context_id.to_string())
@@ -147,18 +158,24 @@ impl CircuitBreaker {
         match data.state {
             CircuitState::Closed => {
                 if data.failure_count >= data.config.failure_threshold {
+                    let old = data.state.clone();
                     data.state = CircuitState::Open;
                     data.last_state_change = Instant::now();
+                    return Some((old, CircuitState::Open));
                 }
+                None
             }
             CircuitState::HalfOpen => {
                 // Any failure in half-open goes straight back to open
+                let old = data.state.clone();
                 data.state = CircuitState::Open;
                 data.last_state_change = Instant::now();
                 // Keep failure_count so threshold is already met
+                Some((old, CircuitState::Open))
             }
             CircuitState::Open => {
                 // Already open, nothing to do
+                None
             }
         }
     }
