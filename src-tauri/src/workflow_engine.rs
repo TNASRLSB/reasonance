@@ -1,4 +1,4 @@
-use crate::agent_memory::AgentMemoryStore;
+use crate::agent_memory_v2::{AgentMemoryV2, MemoryEntryV2, MemoryScope, SortBy};
 use crate::agent_runtime::{AgentRuntime, AgentState};
 use crate::error::ReasonanceError;
 use crate::pty_manager::PtyManager;
@@ -10,7 +10,7 @@ use log::{debug, info, warn};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex};
-use tauri::{AppHandle, Listener};
+use tauri::{AppHandle, Listener, Manager};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -417,45 +417,50 @@ impl WorkflowEngine {
             .and_then(|v| v.as_str())
             .unwrap_or("claude");
 
-        // Load agent memory if enabled
+        // Load agent memory (v2) if enabled
         let mut memory_context = String::new();
         if let Ok(agent_cfg) = serde_json::from_value::<AgentNodeConfig>(node.config.clone()) {
             if let Some(ref mem_cfg) = agent_cfg.memory {
                 if mem_cfg.enabled {
-                    let mem_path = match mem_cfg.persist.as_str() {
-                        "workflow" => {
-                            let runs = self.runs.lock().unwrap_or_else(|e| e.into_inner());
-                            let wf_path = runs
-                                .get(run_id)
-                                .map(|r| r.workflow_path.clone())
-                                .unwrap_or_default();
-                            AgentMemoryStore::workflow_memory_path(&wf_path, node_id)
-                        }
-                        "global" => AgentMemoryStore::global_memory_path(node_id),
-                        _ => AgentMemoryStore::workflow_memory_path(".", node_id),
-                    };
-                    match AgentMemoryStore::load(mem_path.to_str().unwrap_or("")) {
-                        Ok(store) if !store.entries.is_empty() => {
-                            let summary = store
-                                .entries
-                                .iter()
-                                .map(|e| {
-                                    format!("[{}] {}: {}", e.timestamp, e.outcome, e.output_summary)
-                                })
-                                .collect::<Vec<_>>()
-                                .join("\n");
-                            memory_context = format!("\n<memory>\n{}\n</memory>\n", summary);
-                            info!(
-                                "Memory loaded for node {}: {} entries injected",
-                                node_id,
-                                store.entries.len()
-                            );
-                        }
-                        Ok(_) => {
-                            debug!("No memory entries for node {}", node_id);
-                        }
-                        Err(_) => {
-                            debug!("No existing memory for node {}, starting fresh", node_id);
+                    if let Some(memory_store) = app.try_state::<AgentMemoryV2>() {
+                        let scope = match mem_cfg.persist.as_str() {
+                            "workflow" => {
+                                let runs = self.runs.lock().unwrap_or_else(|e| e.into_inner());
+                                let wf_path = runs
+                                    .get(run_id)
+                                    .map(|r| r.workflow_path.clone())
+                                    .unwrap_or_default();
+                                MemoryScope::NodeInProject(node_id.to_string(), wf_path)
+                            }
+                            "global" => MemoryScope::Node(node_id.to_string()),
+                            _ => MemoryScope::Node(node_id.to_string()),
+                        };
+                        let limit = mem_cfg.max_entries.min(50);
+                        match memory_store.list(scope, SortBy::Recency, limit, 0) {
+                            Ok(entries) if !entries.is_empty() => {
+                                let summary = entries
+                                    .iter()
+                                    .map(|e| {
+                                        format!(
+                                            "[{}] {}: {}",
+                                            e.timestamp, e.outcome, e.output_summary
+                                        )
+                                    })
+                                    .collect::<Vec<_>>()
+                                    .join("\n");
+                                memory_context = format!("\n<memory>\n{}\n</memory>\n", summary);
+                                info!(
+                                    "Memory v2 loaded for node {}: {} entries injected",
+                                    node_id,
+                                    entries.len()
+                                );
+                            }
+                            Ok(_) => {
+                                debug!("No memory v2 entries for node {}", node_id);
+                            }
+                            Err(e) => {
+                                warn!("Failed to load memory v2 for node {}: {}", node_id, e);
+                            }
                         }
                     }
                 }
@@ -854,76 +859,121 @@ impl WorkflowEngine {
                 );
             }
         }
-        // Save memory entry if enabled for this node
+        // Save memory entry (v2) if enabled for this node
         if let Some(wf_node) = workflow.nodes.iter().find(|n| n.id == node_id) {
             if let Ok(agent_cfg) = serde_json::from_value::<AgentNodeConfig>(wf_node.config.clone())
             {
                 if let Some(ref mem_cfg) = agent_cfg.memory {
                     if mem_cfg.enabled {
-                        let mem_path = match mem_cfg.persist.as_str() {
-                            "workflow" => {
-                                let runs = self.runs.lock().unwrap_or_else(|e| e.into_inner());
-                                let wf_path = runs
-                                    .get(run_id)
-                                    .map(|r| r.workflow_path.clone())
-                                    .unwrap_or_default();
-                                AgentMemoryStore::workflow_memory_path(&wf_path, node_id)
-                            }
-                            "global" => AgentMemoryStore::global_memory_path(node_id),
-                            _ => AgentMemoryStore::workflow_memory_path(".", node_id),
-                        };
-                        let path_str = mem_path.to_str().unwrap_or("");
-                        let mut store = AgentMemoryStore::load(path_str)
-                            .unwrap_or_else(|_| AgentMemoryStore::new(node_id));
-                        // Build input summary from messages routed to this node
-                        let input_msgs = runtime.get_messages_for(node_id);
-                        let input_summary = if input_msgs.is_empty() {
-                            String::new()
-                        } else {
-                            input_msgs
-                                .iter()
-                                .filter_map(|m| m.payload.get("output").and_then(|v| v.as_str()))
-                                .collect::<Vec<_>>()
-                                .join("\n---\n")
-                                .chars()
-                                .take(2000)
-                                .collect()
-                        };
+                        if let Some(memory_store) = app.try_state::<AgentMemoryV2>() {
+                            let (scope, project_id) = match mem_cfg.persist.as_str() {
+                                "workflow" => {
+                                    let runs = self.runs.lock().unwrap_or_else(|e| e.into_inner());
+                                    let wf_path = runs
+                                        .get(run_id)
+                                        .map(|r| r.workflow_path.clone())
+                                        .unwrap_or_default();
+                                    (
+                                        MemoryScope::NodeInProject(
+                                            node_id.to_string(),
+                                            wf_path.clone(),
+                                        ),
+                                        Some(wf_path),
+                                    )
+                                }
+                                "global" => (MemoryScope::Node(node_id.to_string()), None),
+                                _ => (MemoryScope::Node(node_id.to_string()), None),
+                            };
 
-                        // Build output summary from PTY output buffer
-                        let output_summary = agent_id
-                            .as_ref()
-                            .and_then(|aid| runtime.get_output(aid).ok())
-                            .map(|lines| {
-                                let last_50: Vec<&str> =
-                                    lines.iter().rev().take(50).map(|s| s.as_str()).collect();
-                                let mut reversed = last_50;
-                                reversed.reverse();
-                                reversed.join("\n").chars().take(2000).collect::<String>()
-                            })
-                            .unwrap_or_default();
-
-                        let entry = crate::agent_memory::MemoryEntry {
-                            run_id: run_id.to_string(),
-                            timestamp: chrono::Utc::now().to_rfc3339(),
-                            input_summary,
-                            output_summary,
-                            outcome: if success {
-                                "success".to_string()
+                            // Build input summary from messages routed to this node
+                            let input_msgs = runtime.get_messages_for(node_id);
+                            let input_summary = if input_msgs.is_empty() {
+                                String::new()
                             } else {
-                                "failure".to_string()
-                            },
-                            context: serde_json::Value::Null,
-                        };
-                        store.add_entry(entry, mem_cfg.max_entries);
-                        if let Err(e) = store.save(path_str) {
-                            warn!("Failed to save memory for node {}: {}", node_id, e);
-                        } else {
-                            info!(
-                                "Memory saved for node {}: {} entries",
-                                node_id,
-                                store.entries.len()
-                            );
+                                input_msgs
+                                    .iter()
+                                    .filter_map(|m| {
+                                        m.payload.get("output").and_then(|v| v.as_str())
+                                    })
+                                    .collect::<Vec<_>>()
+                                    .join("\n---\n")
+                                    .chars()
+                                    .take(2000)
+                                    .collect()
+                            };
+
+                            // Build output summary from PTY output buffer
+                            let output_summary = agent_id
+                                .as_ref()
+                                .and_then(|aid| runtime.get_output(aid).ok())
+                                .map(|lines| {
+                                    let last_50: Vec<&str> =
+                                        lines.iter().rev().take(50).map(|s| s.as_str()).collect();
+                                    let mut reversed = last_50;
+                                    reversed.reverse();
+                                    reversed.join("\n").chars().take(2000).collect::<String>()
+                                })
+                                .unwrap_or_default();
+
+                            let entry = MemoryEntryV2 {
+                                id: String::new(),
+                                node_id: node_id.to_string(),
+                                project_id,
+                                session_id: None,
+                                run_id: run_id.to_string(),
+                                timestamp: chrono::Utc::now().to_rfc3339(),
+                                input_summary,
+                                output_summary,
+                                outcome: if success {
+                                    "success".to_string()
+                                } else {
+                                    "failure".to_string()
+                                },
+                                importance: 0.5,
+                                tags: String::new(),
+                                context: serde_json::Value::Null,
+                            };
+                            match memory_store.add_entry(entry) {
+                                Ok(entry_id) => {
+                                    info!("Memory v2 saved for node {}: id={}", node_id, entry_id);
+                                    self.emit_to_bus(
+                                        "memory:added",
+                                        serde_json::json!({
+                                            "entry_id": entry_id,
+                                            "node_id": node_id,
+                                            "run_id": run_id,
+                                        }),
+                                    );
+
+                                    // Evict if over max_entries
+                                    match memory_store.evict(scope, mem_cfg.max_entries) {
+                                        Ok(evicted) if evicted > 0 => {
+                                            info!(
+                                                "Memory v2 evicted {} entries for node {}",
+                                                evicted, node_id
+                                            );
+                                            self.emit_to_bus(
+                                                "memory:evicted",
+                                                serde_json::json!({
+                                                    "count": evicted,
+                                                    "scope": node_id,
+                                                    "run_id": run_id,
+                                                }),
+                                            );
+                                        }
+                                        Ok(_) => {}
+                                        Err(e) => {
+                                            warn!(
+                                                "Memory v2 eviction failed for node {}: {}",
+                                                node_id, e
+                                            );
+                                        }
+                                    }
+                                }
+                                Err(e) => {
+                                    warn!("Failed to save memory v2 for node {}: {}", node_id, e);
+                                }
+                            }
                         }
                     }
                 }

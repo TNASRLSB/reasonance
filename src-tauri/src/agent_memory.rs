@@ -19,6 +19,10 @@ pub struct AgentMemoryStore {
     pub entries: Vec<MemoryEntry>,
 }
 
+// v1 module retained for migration (AgentMemoryV2::migrate_from_json) and the
+// get_agent_memory Tauri command.  Methods only exercised by tests are allowed
+// to be "dead" from the library's perspective.
+#[allow(dead_code)]
 impl AgentMemoryStore {
     pub fn new(node_id: &str) -> Self {
         Self {
