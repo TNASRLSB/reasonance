@@ -1,7 +1,18 @@
 /**
- * Zod schemas for batchable IPC command results.
+ * Zod schema registry for batch-validated IPC commands.
  *
- * These mirror the TypeScript types used by the Adapter interface so that
+ * Coverage scope:
+ * - All data-fetching commands (read, list, get, search) → validated
+ * - All state-mutation commands (save, record, set) → validated
+ * - Long-running/streaming commands (agentSend, spawnProcess, writePty) → direct invoke, not batch-validated
+ * - Tauri plugin commands (clipboard, dialog, window, notification) → direct invoke, not batch-validated
+ *
+ * Commands using direct invoke() bypass Zod validation because they are either:
+ * 1. Streaming (PTY data, agent events) — results arrive via Tauri event listeners, not invoke return
+ * 2. Long-running (agent send, LLM calls) — may take minutes, incompatible with batch timeout
+ * 3. Plugin-based (clipboard, dialog) — use Tauri plugin APIs, not custom commands
+ *
+ * These schemas mirror the TypeScript types used by the Adapter interface so that
  * batch_invoke responses can be validated at the frontend boundary.
  *
  * Complex/opaque payloads (session events, workflow YAML, etc.) are omitted —

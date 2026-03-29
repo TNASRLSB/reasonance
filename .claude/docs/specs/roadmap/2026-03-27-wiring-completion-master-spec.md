@@ -27,12 +27,11 @@ The master-spec dashboard was never updated. The dominant failure pattern: backe
 
 | Phase | Items | Completed | Status |
 |-------|:-----:|:---------:|--------|
-| W1 — Wire Foundations | 12 | 0 | **active** |
-| W2 — Wire Features | 14 | 0 | blocked by W1 |
-| W3 — Complete UX | 6 | 0 | blocked by W2 |
-| **Total** | **28** | **0** | |
-
-Items already DONE (11) are not tracked here — they need no work.
+| W1 — Wire Foundations | 11 | 11 | **complete** |
+| W2 — Wire Features | 14 | 14 | **complete** |
+| W3 — Complete UX | 6 | 6 | **complete** |
+| Phase 5 — Backlog | 2 | 2 | **complete** |
+| **Total** | **33** | **33** | **DONE** |
 
 ---
 

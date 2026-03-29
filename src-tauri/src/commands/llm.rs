@@ -62,7 +62,7 @@ pub async fn call_llm_api(
     }
     match result {
         Ok(content) => Ok(ok_result(content)),
-        Err(e) => Ok(err_result(e)),
+        Err(e) => Ok(err_result(e.to_string())),
     }
 }
 
@@ -71,7 +71,7 @@ async fn call_anthropic(
     model: &str,
     prompt: &str,
     api_key: &str,
-) -> Result<String, String> {
+) -> Result<String, ReasonanceError> {
     let body = serde_json::json!({
         "model": if model.is_empty() { "claude-sonnet-4-6" } else { model },
         "max_tokens": 4096,
@@ -86,15 +86,22 @@ async fn call_anthropic(
         .json(&body)
         .send()
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| ReasonanceError::transport("anthropic", e.to_string(), true))?;
 
     if !res.status().is_success() {
         let status = res.status().as_u16();
         let text = res.text().await.unwrap_or_default();
-        return Err(format!("{}: {}", status, text));
+        return Err(ReasonanceError::transport(
+            "anthropic",
+            format!("{}: {}", status, text),
+            status == 429 || status >= 500,
+        ));
     }
 
-    let data: serde_json::Value = res.json().await.map_err(|e| e.to_string())?;
+    let data: serde_json::Value = res
+        .json()
+        .await
+        .map_err(|e| ReasonanceError::transport("anthropic", e.to_string(), false))?;
     Ok(data["content"][0]["text"]
         .as_str()
         .unwrap_or("")
@@ -107,7 +114,7 @@ async fn call_openai(
     prompt: &str,
     api_key: &str,
     endpoint: &str,
-) -> Result<String, String> {
+) -> Result<String, ReasonanceError> {
     let base = if endpoint.is_empty() {
         "https://api.openai.com/v1"
     } else {
@@ -129,15 +136,25 @@ async fn call_openai(
         req = req.header("Authorization", format!("Bearer {}", api_key));
     }
 
-    let res = req.send().await.map_err(|e| e.to_string())?;
+    let res = req
+        .send()
+        .await
+        .map_err(|e| ReasonanceError::transport("openai", e.to_string(), true))?;
 
     if !res.status().is_success() {
         let status = res.status().as_u16();
         let text = res.text().await.unwrap_or_default();
-        return Err(format!("{}: {}", status, text));
+        return Err(ReasonanceError::transport(
+            "openai",
+            format!("{}: {}", status, text),
+            status == 429 || status >= 500,
+        ));
     }
 
-    let data: serde_json::Value = res.json().await.map_err(|e| e.to_string())?;
+    let data: serde_json::Value = res
+        .json()
+        .await
+        .map_err(|e| ReasonanceError::transport("openai", e.to_string(), false))?;
     Ok(data["choices"][0]["message"]["content"]
         .as_str()
         .unwrap_or("")
@@ -149,7 +166,7 @@ async fn call_google(
     model: &str,
     prompt: &str,
     api_key: &str,
-) -> Result<String, String> {
+) -> Result<String, ReasonanceError> {
     let m = if model.is_empty() {
         "gemini-pro"
     } else {
@@ -171,15 +188,22 @@ async fn call_google(
         .json(&body)
         .send()
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| ReasonanceError::transport("google", e.to_string(), true))?;
 
     if !res.status().is_success() {
         let status = res.status().as_u16();
         let text = res.text().await.unwrap_or_default();
-        return Err(format!("{}: {}", status, text));
+        return Err(ReasonanceError::transport(
+            "google",
+            format!("{}: {}", status, text),
+            status == 429 || status >= 500,
+        ));
     }
 
-    let data: serde_json::Value = res.json().await.map_err(|e| e.to_string())?;
+    let data: serde_json::Value = res
+        .json()
+        .await
+        .map_err(|e| ReasonanceError::transport("google", e.to_string(), false))?;
     Ok(data["candidates"][0]["content"]["parts"][0]["text"]
         .as_str()
         .unwrap_or("")

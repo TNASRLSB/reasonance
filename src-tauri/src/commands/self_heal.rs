@@ -82,13 +82,13 @@ async fn call_llm(
 
 /// Parse the LLM response JSON wrapper to extract the content string.
 /// The call_llm_api command returns JSON like `{"content":"...","error":null}`.
-fn parse_llm_response(raw: &str) -> Result<String, String> {
-    let parsed: serde_json::Value =
-        serde_json::from_str(raw).map_err(|e| format!("Failed to parse LLM response: {}", e))?;
+fn parse_llm_response(raw: &str) -> Result<String, ReasonanceError> {
+    let parsed: serde_json::Value = serde_json::from_str(raw)
+        .map_err(|e| ReasonanceError::internal(format!("Failed to parse LLM response: {}", e)))?;
 
     if let Some(err) = parsed.get("error").and_then(|v| v.as_str()) {
         if !err.is_empty() {
-            return Err(format!("LLM API error: {}", err));
+            return Err(ReasonanceError::internal(format!("LLM API error: {}", err)));
         }
     }
 
@@ -96,7 +96,7 @@ fn parse_llm_response(raw: &str) -> Result<String, String> {
         .get("content")
         .and_then(|v| v.as_str())
         .map(|s| s.to_string())
-        .ok_or_else(|| "LLM response had no content".to_string())
+        .ok_or_else(|| ReasonanceError::internal("LLM response had no content"))
 }
 
 /// Get failing test case results from the health report for the given provider.
@@ -225,7 +225,7 @@ pub async fn heal_normalizer(
         // Parse the wrapper JSON to get the content
         let content = parse_llm_response(&llm_response).map_err(|e| {
             error!("cmd::heal_normalizer failed to parse LLM response: {}", e);
-            ReasonanceError::internal(e)
+            e
         })?;
 
         // Extract TOML from the LLM response
@@ -365,7 +365,7 @@ mod tests {
         let raw = r#"{"content":null,"error":"401: Unauthorized"}"#;
         let result = parse_llm_response(raw);
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("401"));
+        assert!(result.unwrap_err().to_string().contains("401"));
     }
 
     #[test]
