@@ -179,11 +179,6 @@ export function luminosity(rgb: RGB): number {
   return Math.round(relativeLuminance(rgb) * 100);
 }
 
-/** Check two state colors are distinguishable in grayscale (≥15 units apart) */
-export function colorblindDistinct(a: RGB, b: RGB): boolean {
-  return Math.abs(luminosity(a) - luminosity(b)) >= 15;
-}
-
 // ── Parse color string to RGB ─────────────────────────────────────────
 // Handles: #rrggbb, oklch(L C H), oklch(L C H / alpha)
 
