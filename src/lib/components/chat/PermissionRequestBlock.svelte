@@ -1,15 +1,21 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import type { Adapter } from '$lib/adapter/index';
 
-  let { denials, sessionId, adapter, onAllDecided }: {
+  let { denials, sessionId, adapter, onAllDecided, timeoutSecs = 300 }: {
     denials: Array<{ tool_name?: string; name?: string; args?: unknown }>;
     sessionId: string;
     adapter: Adapter;
     onAllDecided: () => void;
+    timeoutSecs?: number;
   } = $props();
 
   // Track which tools have been decided: tool_name -> chosen action label
   let decisions = $state<Map<string, string>>(new Map());
+  // remaining is intentionally initialised once from the prop (snapshot on mount).
+  // untrack suppresses the Svelte "state_referenced_locally" warning — correct here.
+  let remaining = $state(untrack(() => timeoutSecs));
+  let timedOut = $state(false);
 
   let toolEntries = $derived.by(() => {
     if (Array.isArray(denials)) {
@@ -32,6 +38,37 @@
     }
   });
 
+  // Countdown interval — stops when all decided or timed out
+  $effect(() => {
+    if (allDecided || timedOut) return;
+
+    const interval = setInterval(() => {
+      remaining -= 1;
+      if (remaining <= 0) {
+        clearInterval(interval);
+        handleTimeout();
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  });
+
+  async function handleTimeout() {
+    timedOut = true;
+    for (const tool of toolEntries) {
+      if (!decisions.has(tool.name)) {
+        decisions.set(tool.name, 'Denied (timeout)');
+        try {
+          await adapter.recordPermissionDecision(sessionId, tool.name, 'deny', 'once');
+        } catch (e) {
+          console.error(`Timeout deny failed for ${tool.name}:`, e);
+        }
+      }
+    }
+    decisions = new Map(decisions);
+    // allDecided will trigger onAllDecided via the existing $effect
+  }
+
   function argsPreview(args: unknown): string {
     if (args == null) return '';
     try {
@@ -40,6 +77,12 @@
     } catch {
       return '';
     }
+  }
+
+  function formatTime(secs: number): string {
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return `${m}:${s.toString().padStart(2, '0')}`;
   }
 
   async function handleDecision(
@@ -61,7 +104,14 @@
 </script>
 
 <div class="permission-request" role="alert">
-  <div class="header">PERMISSION REQUIRED</div>
+  <div class="header">
+    PERMISSION REQUIRED
+    {#if !allDecided && !timedOut}
+      <span class="countdown" class:urgent={remaining <= 30}>
+        {formatTime(remaining)}
+      </span>
+    {/if}
+  </div>
   {#each toolEntries as tool (tool.name)}
     {@const decided = decisions.has(tool.name)}
     <div class="tool-row" class:decided>
@@ -114,6 +164,18 @@
     text-transform: uppercase;
     letter-spacing: 0.06em;
     color: var(--warning);
+  }
+
+  .countdown {
+    float: right;
+    font-family: var(--font-mono);
+    font-size: var(--font-size-small);
+    font-weight: 700;
+    color: var(--text-muted);
+  }
+
+  .countdown.urgent {
+    color: var(--error, #ef4444);
   }
 
   .tool-row {
