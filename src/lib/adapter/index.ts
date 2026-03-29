@@ -155,6 +155,11 @@ export interface Adapter {
   getProjectState(projectId: string): Promise<ProjectState>;
   saveProjectState(projectId: string, state: ProjectState): Promise<void>;
 
+  // --- Model Slots ---
+  getModelForSlot(provider: string, slot: string): Promise<string | null>;
+  setModelSlot(provider: string, slot: string, model: string): Promise<void>;
+  listModelSlots(provider: string): Promise<Array<[string, string | null]>>;
+
   // --- Layered Settings ---
   getSetting(key: string): Promise<unknown>;
   setSetting(key: string, value: unknown, layer?: string): Promise<void>;

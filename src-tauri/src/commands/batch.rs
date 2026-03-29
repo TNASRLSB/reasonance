@@ -390,6 +390,42 @@ async fn dispatch(app: &AppHandle, cmd: &str, args: Value) -> Result<Value, Reas
             Ok(Value::Null)
         }
 
+        // ── model slots ──────────────────────────────────────────────────
+        "get_model_for_slot" => {
+            let provider: String = extract(&args, "provider")?;
+            let slot: String = extract(&args, "slot")?;
+            let registry = app.state::<std::sync::Mutex<crate::model_slots::ModelSlotRegistry>>();
+            let slot_enum = crate::model_slots::parse_slot(&slot)
+                .map_err(|e| ReasonanceError::validation("slot", e.to_string()))?;
+            let reg = registry.lock().unwrap();
+            let result = reg.resolve_model(&provider, &slot_enum);
+            Ok(serde_json::to_value(result).unwrap())
+        }
+        "set_model_slot" => {
+            let provider: String = extract(&args, "provider")?;
+            let slot: String = extract(&args, "slot")?;
+            let model: String = extract(&args, "model")?;
+            let registry = app.state::<std::sync::Mutex<crate::model_slots::ModelSlotRegistry>>();
+            let slot_enum = crate::model_slots::parse_slot(&slot)
+                .map_err(|e| ReasonanceError::validation("slot", e.to_string()))?;
+            registry
+                .lock()
+                .unwrap()
+                .set_slot(&provider, slot_enum, model);
+            Ok(Value::Null)
+        }
+        "list_model_slots" => {
+            let provider: String = extract(&args, "provider")?;
+            let registry = app.state::<std::sync::Mutex<crate::model_slots::ModelSlotRegistry>>();
+            let reg = registry.lock().unwrap();
+            let result = reg
+                .providers
+                .get(&provider)
+                .map(|c| c.list_resolved())
+                .unwrap_or_default();
+            Ok(serde_json::to_value(result).unwrap())
+        }
+
         // ── unknown command ──────────────────────────────────────────────
         other => Err(ReasonanceError::validation(
             "command",

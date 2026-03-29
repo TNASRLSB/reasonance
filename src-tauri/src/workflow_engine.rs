@@ -2,8 +2,10 @@ use crate::agent_comms::{AgentCommsBus, AgentMessage as CommsMessage, ChannelTyp
 use crate::agent_memory_v2::{AgentMemoryV2, MemoryEntryV2, MemoryScope, SortBy};
 use crate::agent_runtime::{AgentRuntime, AgentState};
 use crate::error::ReasonanceError;
+use crate::model_slots::ModelSlotRegistry;
 use crate::pty_manager::PtyManager;
 use crate::resource_lock::ResourceLockManager;
+use crate::settings::LayeredSettings;
 use crate::workflow_store::{
     AgentNodeConfig, NodeType, ResourceNodeConfig, Workflow, WorkflowEdge,
 };
@@ -12,6 +14,44 @@ use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Listener, Manager};
+
+/// Resolve the LLM for a workflow node.
+///
+/// Priority: LayeredSettings `model_slots.workflow` > slot registry (Workflow slot) > raw config value.
+/// If the raw config value is itself a slot name (e.g. "chat", "workflow"), resolve it through
+/// the registry. Otherwise, use it as a literal model identifier.
+fn resolve_workflow_llm(raw_llm: &str, app: &AppHandle) -> String {
+    // 1. Try LayeredSettings override
+    if let Some(settings) = app.try_state::<Mutex<LayeredSettings>>() {
+        let s = settings.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some(m) = s.get::<String>("model_slots.workflow") {
+            debug!("WorkflowEngine: resolved model from settings: {}", m);
+            return m;
+        }
+    }
+
+    // 2. If raw_llm is a slot name, resolve through the registry
+    if ModelSlotRegistry::is_slot_name(raw_llm) {
+        if let Some(reg) = app.try_state::<Mutex<ModelSlotRegistry>>() {
+            let r = reg.lock().unwrap_or_else(|e| e.into_inner());
+            // Use "anthropic" as default provider for workflow nodes; the slot
+            // registry is keyed by provider but workflow configs don't carry one.
+            // Try the slot across all known providers, falling back to raw_llm.
+            for provider in r.providers.keys() {
+                if let Some(m) = r.resolve_by_name(provider, raw_llm) {
+                    debug!(
+                        "WorkflowEngine: resolved slot '{}' to '{}' via provider '{}'",
+                        raw_llm, m, provider
+                    );
+                    return m;
+                }
+            }
+        }
+    }
+
+    // 3. Use the raw value as-is (literal model name like "claude")
+    raw_llm.to_string()
+}
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -413,11 +453,12 @@ impl WorkflowEngine {
             .get("fallback")
             .and_then(|v| v.as_str())
             .map(|s| s.to_string());
-        let llm = node
+        let raw_llm = node
             .config
             .get("llm")
             .and_then(|v| v.as_str())
             .unwrap_or("claude");
+        let llm = resolve_workflow_llm(raw_llm, app);
 
         // Load agent memory (v2) if enabled
         let mut memory_context = String::new();
@@ -493,7 +534,7 @@ impl WorkflowEngine {
             runtime.create_agent(node_id, &format!("{}:{}", run_id, node_id), retry, fallback);
         runtime.transition(&agent_id, AgentState::Queued)?;
         runtime.transition(&agent_id, AgentState::Running)?;
-        let pty_id = pty_manager.spawn(llm, &[], cwd, app.clone())?;
+        let pty_id = pty_manager.spawn(&llm, &[], cwd, app.clone())?;
         runtime.set_pty(&agent_id, &pty_id)?;
 
         // Inject prompt + memory + routed input into PTY
@@ -1098,12 +1139,13 @@ impl WorkflowEngine {
                 .iter()
                 .find(|n| n.id == node_id)
                 .ok_or_else(|| ReasonanceError::not_found("node", node_id))?;
-            let llm = node
+            let raw_llm = node
                 .config
                 .get("llm")
                 .and_then(|v| v.as_str())
                 .unwrap_or("claude");
-            let pty_id = pty_manager.spawn(llm, &[], cwd, app.clone())?;
+            let llm = resolve_workflow_llm(raw_llm, app);
+            let pty_id = pty_manager.spawn(&llm, &[], cwd, app.clone())?;
             runtime.set_pty(&agent_id, &pty_id)?;
             self.emit_to_bus(
                 "workflow:node-state",
@@ -1138,16 +1180,17 @@ impl WorkflowEngine {
                 .iter()
                 .find(|n| n.id == node_id)
                 .ok_or_else(|| ReasonanceError::not_found("node", node_id))?;
-            let fallback_llm = node
+            let raw_fallback = node
                 .config
                 .get("fallback")
                 .and_then(|v| v.as_str())
                 .unwrap_or("claude");
+            let fallback_llm = resolve_workflow_llm(raw_fallback, app);
             let new_agent_id =
                 runtime.create_agent(node_id, &format!("{}:{}", run_id, node_id), 0, None);
             let _ = runtime.transition(&new_agent_id, AgentState::Queued);
             let _ = runtime.transition(&new_agent_id, AgentState::Running);
-            let pty_id = pty_manager.spawn(fallback_llm, &[], cwd, app.clone())?;
+            let pty_id = pty_manager.spawn(&fallback_llm, &[], cwd, app.clone())?;
             runtime.set_pty(&new_agent_id, &pty_id)?;
             self.update_node_state(
                 run_id,

@@ -593,6 +593,17 @@ export class TauriAdapter implements Adapter {
     await invoke('add_project', { id, rootPath, trustLevel });
   }
 
+  // Model Slots
+  async getModelForSlot(provider: string, slot: string): Promise<string | null> {
+    return this.enqueue<string | null>('get_model_for_slot', { provider, slot });
+  }
+  async setModelSlot(provider: string, slot: string, model: string): Promise<void> {
+    return this.enqueue<void>('set_model_slot', { provider, slot, model });
+  }
+  async listModelSlots(provider: string): Promise<Array<[string, string | null]>> {
+    return this.enqueue<Array<[string, string | null]>>('list_model_slots', { provider });
+  }
+
   async getSetting(key: string): Promise<unknown> {
     return this.enqueue<unknown>('get_setting', { key });
   }

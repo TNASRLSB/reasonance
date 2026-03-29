@@ -495,6 +495,16 @@ export function createMockAdapter(overrides?: Partial<Adapter>): Adapter {
     saveAppState(_state: AppState): Promise<void> {
       return Promise.resolve();
     },
+    // Model Slots
+    getModelForSlot(_provider: string, _slot: string): Promise<string | null> {
+      return Promise.resolve(null);
+    },
+    setModelSlot(_provider: string, _slot: string, _model: string): Promise<void> {
+      return Promise.resolve();
+    },
+    listModelSlots(_provider: string): Promise<Array<[string, string | null]>> {
+      return Promise.resolve([]);
+    },
     getSetting(_key: string): Promise<unknown> {
       return Promise.resolve(null);
     },

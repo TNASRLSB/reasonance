@@ -92,12 +92,37 @@ impl StructuredAgentTransport {
 
     pub fn send(
         &self,
-        request: AgentRequest,
+        mut request: AgentRequest,
         trust_store: &crate::workspace_trust::TrustStore,
         memory: &PermissionMemory,
         policy: &PolicyFile,
+        slot_registry: &Mutex<crate::model_slots::ModelSlotRegistry>,
+        settings: &Mutex<crate::settings::LayeredSettings>,
     ) -> Result<String, crate::error::ReasonanceError> {
         let provider = request.provider.to_lowercase();
+
+        // ── Model slot resolution ────────────────────────────────────────
+        // Priority: explicit request.model > LayeredSettings override > slot registry > unchanged
+        if request.model.is_none() {
+            // 1. Try LayeredSettings "model_slots.chat" first (per-project override)
+            let settings_model = {
+                let s = settings.lock().unwrap_or_else(|e| e.into_inner());
+                s.get::<String>("model_slots.chat")
+            };
+            if let Some(m) = settings_model {
+                debug!("Transport: resolved model from settings: {}", m);
+                request.model = Some(m);
+            } else {
+                // 2. Fall back to slot registry Chat slot
+                let reg = slot_registry.lock().unwrap_or_else(|e| e.into_inner());
+                if let Some(m) = reg.resolve_model(&provider, &crate::model_slots::ModelSlot::Chat)
+                {
+                    debug!("Transport: resolved model from slot registry: {}", m);
+                    request.model = Some(m);
+                }
+            }
+        }
+
         info!(
             "Transport: send request provider={} model={:?} session_id={:?} yolo={} cwd={:?}",
             provider, request.model, request.session_id, request.yolo, request.cwd
@@ -782,6 +807,8 @@ mod tests {
         let trust_store = TrustStore::new(tmp.path().join("trust.json"));
         let memory = PermissionMemory::new();
         let policy = PolicyFile::new();
+        let slot_registry = Mutex::new(crate::model_slots::ModelSlotRegistry::new());
+        let settings = Mutex::new(crate::settings::LayeredSettings::new());
 
         let transport = StructuredAgentTransport::new(Path::new("normalizers")).unwrap();
         let request = AgentRequest {
@@ -796,7 +823,14 @@ mod tests {
             cwd: None,
             yolo: true, // yolo so engine doesn't block on untrusted
         };
-        let result = transport.send(request, &trust_store, &memory, &policy);
+        let result = transport.send(
+            request,
+            &trust_store,
+            &memory,
+            &policy,
+            &slot_registry,
+            &settings,
+        );
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("not found"));
     }

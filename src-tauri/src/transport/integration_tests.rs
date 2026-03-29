@@ -21,11 +21,14 @@ mod tests {
         use crate::permission_engine::PermissionMemory;
         use crate::policy_file::PolicyFile;
         use crate::workspace_trust::TrustStore;
+        use std::sync::Mutex;
         use tempfile::TempDir;
         let tmp = TempDir::new().unwrap();
         let trust_store = TrustStore::new(tmp.path().join("trust.json"));
         let memory = PermissionMemory::new();
         let policy = PolicyFile::new();
+        let slot_registry = Mutex::new(crate::model_slots::ModelSlotRegistry::new());
+        let settings = Mutex::new(crate::settings::LayeredSettings::new());
 
         let transport = StructuredAgentTransport::new(Path::new("normalizers")).unwrap();
 
@@ -42,7 +45,16 @@ mod tests {
             yolo: true, // yolo so engine doesn't block on untrusted
         };
 
-        assert!(transport.send(req, &trust_store, &memory, &policy).is_err());
+        assert!(transport
+            .send(
+                req,
+                &trust_store,
+                &memory,
+                &policy,
+                &slot_registry,
+                &settings
+            )
+            .is_err());
     }
 
     #[tokio::test]

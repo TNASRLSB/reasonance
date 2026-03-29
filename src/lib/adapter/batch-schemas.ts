@@ -196,6 +196,12 @@ export const CommsMessageSchema = z.object({
   ttl_secs: z.number().nullable(),
 });
 
+// === Model Slots ===
+
+const ModelSlotSchema = z.enum(['chat', 'workflow', 'summary', 'quick']);
+
+export const ModelSlotEntrySchema = z.tuple([ModelSlotSchema, z.string().nullable()]);
+
 // === Schema map (command name → result schema) ===
 
 export const batchSchemas: Record<string, z.ZodType> = {
@@ -226,6 +232,10 @@ export const batchSchemas: Record<string, z.ZodType> = {
   memory_search: z.array(MemoryEntryV2Schema),
   memory_list: z.array(MemoryEntryV2Schema),
   memory_get: MemoryEntryV2Schema.nullable(),
+  // Model Slots
+  get_model_for_slot: z.string().nullable(),
+  set_model_slot: z.null(),
+  list_model_slots: z.array(ModelSlotEntrySchema),
   // Agent Communications (CommsBus)
   agent_publish_message: z.string(),
   agent_get_messages: z.array(CommsMessageSchema),

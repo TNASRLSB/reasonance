@@ -17,6 +17,15 @@ enabled = true
 [filetree]
 auto_fold = false
 show_git_status = true
+
+# Per-project overrides for model slot assignments.
+# When set, these take priority over the ModelSlotRegistry.
+# Leave commented-out so registry defaults apply.
+# [model_slots]
+# chat = "claude-sonnet-4-6"
+# workflow = "claude-sonnet-4-6"
+# summary = "claude-haiku-4-5"
+# quick = "claude-haiku-4-5"
 "#,
     )
     .expect("builtin defaults must be valid TOML")

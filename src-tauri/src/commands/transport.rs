@@ -12,13 +12,22 @@ pub async fn agent_send(
     trust_store: State<'_, crate::workspace_trust::TrustStore>,
     memory: State<'_, crate::permission_engine::PermissionMemory>,
     policy: State<'_, crate::policy_file::PolicyFile>,
+    slot_registry: State<'_, std::sync::Mutex<crate::model_slots::ModelSlotRegistry>>,
+    settings: State<'_, std::sync::Mutex<crate::settings::LayeredSettings>>,
 ) -> Result<String, ReasonanceError> {
     info!(
         "cmd::agent_send(session_id={:?}, provider={})",
         request.session_id, request.provider
     );
     transport
-        .send(request, &trust_store, &memory, &policy)
+        .send(
+            request,
+            &trust_store,
+            &memory,
+            &policy,
+            &slot_registry,
+            &settings,
+        )
         .map_err(|e| {
             error!("cmd::agent_send failed: {}", e);
             e

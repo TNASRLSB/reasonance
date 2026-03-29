@@ -91,6 +91,21 @@ impl ModelSlotRegistry {
             .map(|s| s.to_string())
     }
 
+    /// Resolve a model by slot name string (e.g. "chat", "workflow").
+    ///
+    /// If the name matches a known slot, resolve through the fallback chain.
+    /// Returns `None` if the name is not a valid slot or the slot has no model.
+    pub fn resolve_by_name(&self, provider: &str, name: &str) -> Option<String> {
+        parse_slot(name)
+            .ok()
+            .and_then(|slot| self.resolve_model(provider, &slot))
+    }
+
+    /// Check whether a string is a known slot name.
+    pub fn is_slot_name(name: &str) -> bool {
+        parse_slot(name).is_ok()
+    }
+
     /// Set a specific slot for a provider, creating the config entry if needed.
     pub fn set_slot(&mut self, provider: &str, slot: ModelSlot, model: String) {
         let config = self.providers.entry(provider.to_string()).or_default();
@@ -111,7 +126,7 @@ use tauri::State;
 use crate::error::ReasonanceError;
 
 /// Parse a slot name string into a `ModelSlot` variant.
-fn parse_slot(slot: &str) -> Result<ModelSlot, ReasonanceError> {
+pub fn parse_slot(slot: &str) -> Result<ModelSlot, ReasonanceError> {
     match slot {
         "chat" => Ok(ModelSlot::Chat),
         "workflow" => Ok(ModelSlot::Workflow),
@@ -302,5 +317,41 @@ mod tests {
         assert!(parse_slot("workflow").is_ok());
         assert!(parse_slot("summary").is_ok());
         assert!(parse_slot("quick").is_ok());
+    }
+
+    // 11. is_slot_name recognizes valid slot names
+    #[test]
+    fn is_slot_name_recognizes_valid_names() {
+        assert!(ModelSlotRegistry::is_slot_name("chat"));
+        assert!(ModelSlotRegistry::is_slot_name("workflow"));
+        assert!(ModelSlotRegistry::is_slot_name("summary"));
+        assert!(ModelSlotRegistry::is_slot_name("quick"));
+        assert!(!ModelSlotRegistry::is_slot_name("invalid"));
+        assert!(!ModelSlotRegistry::is_slot_name("claude-sonnet-4-6"));
+        assert!(!ModelSlotRegistry::is_slot_name(""));
+    }
+
+    // 12. resolve_by_name resolves through fallback chain
+    #[test]
+    fn resolve_by_name_uses_fallback_chain() {
+        let mut reg = ModelSlotRegistry::new();
+        reg.set_slot(
+            "anthropic",
+            ModelSlot::Chat,
+            "claude-sonnet-4-6".to_string(),
+        );
+        // Workflow not set — should fall back to chat
+        assert_eq!(
+            reg.resolve_by_name("anthropic", "workflow"),
+            Some("claude-sonnet-4-6".to_string())
+        );
+        assert_eq!(
+            reg.resolve_by_name("anthropic", "chat"),
+            Some("claude-sonnet-4-6".to_string())
+        );
+        // Invalid slot name returns None
+        assert_eq!(reg.resolve_by_name("anthropic", "invalid"), None);
+        // Unknown provider returns None
+        assert_eq!(reg.resolve_by_name("unknown", "chat"), None);
     }
 }
