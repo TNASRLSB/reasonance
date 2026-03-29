@@ -407,7 +407,11 @@
 
   .search-input:focus {
     border-color: var(--accent);
-    outline: none;
+  }
+
+  .search-input:focus-visible {
+    outline: var(--focus-ring);
+    outline-offset: var(--focus-offset);
   }
 
   .sort-select {
@@ -424,7 +428,11 @@
 
   .sort-select:focus {
     border-color: var(--accent);
-    outline: none;
+  }
+
+  .sort-select:focus-visible {
+    outline: var(--focus-ring);
+    outline-offset: var(--focus-offset);
   }
 
   /* Body */

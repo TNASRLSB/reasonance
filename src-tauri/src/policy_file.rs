@@ -194,21 +194,30 @@ impl PolicyFile {
 
     /// Add (or overwrite) a tool rule at runtime and persist it to the project
     /// `permissions.toml` file. Creates `.reasonance/` if it does not exist.
-    pub fn add_policy_rule(&self, tool_name: &str, decision: &str) -> Result<(), String> {
+    pub fn add_policy_rule(
+        &self,
+        tool_name: &str,
+        decision: &str,
+    ) -> Result<(), crate::error::ReasonanceError> {
+        use crate::error::ReasonanceError;
+
         let project_path = {
             let inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
-            inner
-                .project_path
-                .clone()
-                .ok_or_else(|| "No project path configured — call load() first".to_string())?
+            inner.project_path.clone().ok_or_else(|| {
+                ReasonanceError::config("No project path configured — call load() first")
+            })?
         };
 
         // Read existing file (or start empty).
         let mut toml_data: PolicyToml = if project_path.exists() {
             let content = std::fs::read_to_string(&project_path)
-                .map_err(|e| format!("Failed to read {}: {}", project_path.display(), e))?;
-            toml::from_str(&content)
-                .map_err(|e| format!("Failed to parse {}: {}", project_path.display(), e))?
+                .map_err(|e| ReasonanceError::io(format!("read {}", project_path.display()), e))?;
+            toml::from_str(&content).map_err(|e| {
+                ReasonanceError::serialization(
+                    format!("parse {}", project_path.display()),
+                    e.to_string(),
+                )
+            })?
         } else {
             PolicyToml::default()
         };
@@ -227,14 +236,14 @@ impl PolicyFile {
         // Ensure parent dir exists.
         if let Some(parent) = project_path.parent() {
             std::fs::create_dir_all(parent)
-                .map_err(|e| format!("Failed to create dir {}: {}", parent.display(), e))?;
+                .map_err(|e| ReasonanceError::io(format!("create dir {}", parent.display()), e))?;
         }
 
         // Write back.
         let serialized = toml::to_string_pretty(&toml_data)
-            .map_err(|e| format!("Failed to serialize TOML: {}", e))?;
+            .map_err(|e| ReasonanceError::serialization("serialize policy TOML", e.to_string()))?;
         std::fs::write(&project_path, serialized)
-            .map_err(|e| format!("Failed to write {}: {}", project_path.display(), e))?;
+            .map_err(|e| ReasonanceError::io(format!("write {}", project_path.display()), e))?;
 
         // Reload so the in-memory cache reflects the change.
         self.reload();

@@ -11,6 +11,8 @@
   import ThemeJsonView from './ThemeJsonView.svelte';
   import ThemeStartDialog from './ThemeStartDialog.svelte';
   import ModifierSections from './ModifierSections.svelte';
+  import { trapFocus } from '$lib/utils/a11y';
+  import { pushLayer, popLayer } from '$lib/stores/layerManager';
 
   let {
     open,
@@ -33,6 +35,7 @@
   let dragOver = $state(false);
   let importError = $state<string | null>(null);
   let importFileInput = $state<HTMLInputElement | null>(null);
+  let shellEl = $state<HTMLElement | null>(null);
 
   // Undo/redo stacks
   let undoStack = $state<ThemeFile[]>([]);
@@ -256,6 +259,18 @@
       showStartDialog = true;
     }
   });
+
+  // Focus trap + layer manager
+  $effect(() => {
+    if (open && shellEl) {
+      pushLayer({ id: 'theme-editor', type: 'overlay', returnFocus: document.activeElement as HTMLElement });
+      const destroyTrap = trapFocus(shellEl);
+      return () => {
+        destroyTrap();
+        popLayer('theme-editor');
+      };
+    }
+  });
 </script>
 
 {#if open}
@@ -269,6 +284,7 @@
       tabindex="-1"
       aria-modal="true"
       aria-label="Theme Editor"
+      bind:this={shellEl}
       ondragover={handleDragOver}
       ondragleave={handleDragLeave}
       ondrop={handleDrop}

@@ -1,4 +1,4 @@
-<div class="streaming-indicator" role="status" aria-live="assertive" aria-label="Agent is responding">
+<div class="streaming-indicator" role="status" aria-live="polite" aria-label="Agent is responding">
   <span class="dot"></span>
   <span class="dot"></span>
   <span class="dot"></span>

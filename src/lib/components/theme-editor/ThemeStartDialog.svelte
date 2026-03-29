@@ -3,6 +3,8 @@
   import { activeTheme } from '$lib/stores/theme';
   import type { ThemeFile } from '$lib/engine/theme-types';
   import { FALLBACK_THEME } from '$lib/engine/fallback-theme';
+  import { trapFocus } from '$lib/utils/a11y';
+  import { pushLayer, popLayer } from '$lib/stores/layerManager';
 
   let {
     open,
@@ -56,6 +58,20 @@
     onSelect(structuredClone(current), 'custom-theme');
   }
 
+  let dialogEl = $state<HTMLElement | null>(null);
+
+  // Focus trap + layer manager
+  $effect(() => {
+    if (open && dialogEl) {
+      pushLayer({ id: 'theme-start-dialog', type: 'modal', returnFocus: document.activeElement as HTMLElement });
+      const destroyTrap = trapFocus(dialogEl);
+      return () => {
+        destroyTrap();
+        popLayer('theme-start-dialog');
+      };
+    }
+  });
+
   function handleKeydown(e: KeyboardEvent) {
     if (e.key === 'Escape') onClose();
   }
@@ -71,6 +87,7 @@
       tabindex="-1"
       aria-modal="true"
       aria-label="Choose starting theme"
+      bind:this={dialogEl}
       onclick={(e) => e.stopPropagation()}
       onkeydown={(e) => e.stopPropagation()}
     >
@@ -204,11 +221,11 @@
   }
 
   .dark-swatch {
-    background: #0d0d0d;
+    background: var(--bg-primary);
   }
 
   .light-swatch {
-    background: #f5f5f5;
+    background: var(--bg-surface);
   }
 
   .clone-swatch {

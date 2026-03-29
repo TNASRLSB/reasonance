@@ -34,7 +34,7 @@ impl NormalizerVersionStore {
     }
 
     #[allow(dead_code)] // Used in tests and by normalizer rollback commands
-    pub fn backup(&self, provider: &str, toml_content: &str) -> Result<String, String> {
+    pub fn backup(&self, provider: &str, toml_content: &str) -> Result<String, ReasonanceError> {
         let timestamp = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
@@ -43,7 +43,9 @@ impl NormalizerVersionStore {
         let id = format!("{}-{}", timestamp, &checksum[..8]);
 
         let provider_dir = self.base_dir.join(provider);
-        std::fs::create_dir_all(&provider_dir).map_err(|e| e.to_string())?;
+        std::fs::create_dir_all(&provider_dir).map_err(|e| {
+            ReasonanceError::io(format!("create version dir for '{}'", provider), e)
+        })?;
 
         let file_path = provider_dir.join(format!("{}.toml", id));
         std::fs::write(&file_path, toml_content).map_err(|e| {
@@ -51,7 +53,7 @@ impl NormalizerVersionStore {
                 "Failed to write version backup for provider='{}': {}",
                 provider, e
             );
-            e.to_string()
+            ReasonanceError::io(format!("write version backup for '{}'", provider), e)
         })?;
         info!("Version backup created: provider='{}', id={}", provider, id);
 
@@ -69,7 +71,7 @@ impl NormalizerVersionStore {
         Ok(id)
     }
 
-    pub fn restore(&self, provider: &str, version_id: &str) -> Result<String, String> {
+    pub fn restore(&self, provider: &str, version_id: &str) -> Result<String, ReasonanceError> {
         debug!(
             "Restoring version: provider='{}', version_id={}",
             provider, version_id
@@ -81,7 +83,7 @@ impl NormalizerVersionStore {
         std::fs::read_to_string(&file_path).map_err(|_| {
             let msg = format!("Version {} not found for {}", version_id, provider);
             error!("{}", msg);
-            msg
+            ReasonanceError::not_found("normalizer version", msg)
         })
     }
 
@@ -103,7 +105,7 @@ impl NormalizerVersionStore {
         provider: &str,
         toml_content: &str,
         max_versions: usize,
-    ) -> Result<String, String> {
+    ) -> Result<String, ReasonanceError> {
         let id = self.backup(provider, toml_content)?;
         self.prune_to_max(provider, max_versions);
         Ok(id)

@@ -682,7 +682,7 @@
     {adapter}
     visible={showSessions}
     onClose={() => { showSessions = false; }}
-    onRestore={(id) => { /* TODO: wire session restore */ }}
+    onRestore={(id) => { adapter.sessionRestore(id); }}
   />
 {/if}
 

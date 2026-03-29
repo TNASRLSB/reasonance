@@ -10,11 +10,11 @@
 
   let nodeTypes = $state<NodeDescriptor[]>([]);
 
-  // Icon markup by category
+  // Icon characters by category (Unicode)
   const CATEGORY_ICONS: Record<string, string> = {
-    agent: '&#9679;',
-    resource: '&#128196;',
-    logic: '&#9670;',
+    agent: '\u25CF',
+    resource: '\uD83D\uDCC4',
+    logic: '\u25C6',
   };
 
   // a11y label key by type_id
@@ -50,14 +50,14 @@
 <div class="node-catalog">
   {#each nodeTypes as node (node.type_id)}
     {@const a11yKey = A11Y_LABELS[node.type_id]}
-    {@const icon = CATEGORY_ICONS[node.category] ?? '&#9632;'}
+    {@const icon = CATEGORY_ICONS[node.category] ?? '\u25A0'}
     <button
       class="catalog-btn {node.category}"
       onclick={() => addNode(node.type_id)}
       title={a11yKey ? $tr(a11yKey) : node.display_name}
       aria-label={a11yKey ? $tr(a11yKey) : node.display_name}
     >
-      <span class="btn-icon" aria-hidden="true">{@html icon}</span> {node.display_name}
+      <span class="btn-icon" aria-hidden="true">{icon}</span> {node.display_name}
     </button>
   {/each}
 </div>

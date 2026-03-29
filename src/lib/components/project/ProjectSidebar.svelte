@@ -241,10 +241,7 @@
     role="menu"
     style="left: {contextMenu.x}px; top: {contextMenu.y}px;"
   >
-    <button role="menuitem" class="ctx-item" onclick={handleRename}>Rename</button>
-    <button role="menuitem" class="ctx-item" onclick={handleChangeColor}>Change color</button>
-    <button role="menuitem" class="ctx-item" onclick={handleTogglePin}>Pin/Unpin</button>
-    <div class="ctx-separator"></div>
+    <!-- Rename, Change color, Pin/Unpin deferred until store support is added -->
     <button role="menuitem" class="ctx-item danger" onclick={handleCloseFromMenu}>Close</button>
   </div>
 {/if}
@@ -407,12 +404,6 @@
 
   .ctx-item.danger {
     color: var(--sidebar-indicator-error);
-  }
-
-  .ctx-separator {
-    height: 1px;
-    margin: 4px 0;
-    background: var(--sidebar-separator);
   }
 
   /* Tooltip */

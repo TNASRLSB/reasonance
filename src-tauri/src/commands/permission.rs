@@ -34,9 +34,7 @@ pub async fn record_permission_decision(
         }
         "project" => {
             let action_str = if action == "allow" { "allow" } else { "deny" };
-            policy
-                .add_policy_rule(&tool_name, action_str)
-                .map_err(|e| crate::error::ReasonanceError::validation("policy", e))?;
+            policy.add_policy_rule(&tool_name, action_str)?;
         }
         _ => {
             return Err(crate::error::ReasonanceError::validation(

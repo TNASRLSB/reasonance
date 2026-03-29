@@ -17,7 +17,12 @@
       "--sidebar-tab-text": "#e0e0e0",
       "--sidebar-tab-text-active": "#ffffff",
       "--sidebar-separator": "rgba(255, 255, 255, 0.3)",
-      "--sidebar-dropzone-border": "#ffffff"
+      "--sidebar-dropzone-border": "#ffffff",
+      "--git-modified": "#ffd700",
+      "--git-added": "#4ade80",
+      "--git-deleted": "#ff6b6b",
+      "--git-renamed": "#60a5fa",
+      "--git-untracked": "#a0a0a0"
     },
     "borders": { "--border-width": "3px" }
   },
@@ -33,7 +38,12 @@
       "--sidebar-tab-text": "#1a1a1a",
       "--sidebar-tab-text-active": "#000000",
       "--sidebar-separator": "rgba(0, 0, 0, 0.3)",
-      "--sidebar-dropzone-border": "#000000"
+      "--sidebar-dropzone-border": "#000000",
+      "--git-modified": "#5c4d00",
+      "--git-added": "#116329",
+      "--git-deleted": "#a40e26",
+      "--git-renamed": "#0a3069",
+      "--git-untracked": "#424a53"
     }
   }
 }

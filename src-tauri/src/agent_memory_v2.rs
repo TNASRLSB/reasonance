@@ -197,8 +197,12 @@ impl AgentMemoryV2 {
             .prepare(&sql)
             .map_err(|e| ReasonanceError::internal(format!("FTS query prepare failed: {}", e)))?;
 
+        // Sanitize the query to prevent FTS5 operator injection: escape quotes
+        // and wrap in double quotes to force phrase matching.
+        let sanitized = format!("\"{}\"", query.replace('"', ""));
+
         let mut all_params: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
-        all_params.push(Box::new(query.to_string()));
+        all_params.push(Box::new(sanitized));
         for p in &scope_params {
             all_params.push(Box::new(p.clone()));
         }

@@ -186,10 +186,14 @@
     flex: 1;
     background: transparent;
     border: none;
-    outline: none;
     color: var(--text-primary);
     font-size: var(--font-size-base);
     font-family: var(--font-ui);
+  }
+
+  .qs-input:focus-visible {
+    outline: var(--focus-ring);
+    outline-offset: var(--focus-offset);
   }
 
   .qs-input::placeholder {

@@ -278,9 +278,7 @@ async fn dispatch(app: &AppHandle, cmd: &str, args: Value) -> Result<Value, Reas
                 ),
                 "project" => {
                     let d = if action == "allow" { "allow" } else { "deny" };
-                    policy
-                        .add_policy_rule(&tool_name, d)
-                        .map_err(|e| ReasonanceError::validation("policy", e))?;
+                    policy.add_policy_rule(&tool_name, d)?;
                 }
                 other => {
                     return Err(ReasonanceError::validation(

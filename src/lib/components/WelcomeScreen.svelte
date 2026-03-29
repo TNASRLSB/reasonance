@@ -310,7 +310,7 @@
     gap: var(--space-3);
     padding: var(--space-3) var(--space-4);
     border: 2px solid var(--warning);
-    background: rgba(202, 138, 4, 0.08);
+    background: color-mix(in srgb, var(--warning) 8%, transparent);
     width: 100%;
     margin-bottom: var(--space-2);
   }

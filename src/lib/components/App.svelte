@@ -130,6 +130,7 @@
 <svelte:window onmousemove={onMouseMove} onmouseup={onMouseUp} onkeydown={handleGlobalKeydown} />
 
 <div class="app-root" class:resizing={draggingLeft || draggingRight}>
+  <h1 class="sr-only">Reasonance</h1>
   {#if draggingLeft || draggingRight}
     <div class="resize-overlay"></div>
   {/if}
@@ -166,7 +167,7 @@
 
     <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
     <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-    <div class="divider" onmousedown={() => (draggingLeft = true)} role="separator" aria-label="Resize file tree" tabindex="0" onkeydown={(e) => onDividerKeydown(e, 'left')}>
+    <div class="divider" onmousedown={() => (draggingLeft = true)} role="separator" aria-label="Resize file tree" tabindex="0" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round($fileTreeWidth / window.innerWidth * 100)} onkeydown={(e) => onDividerKeydown(e, 'left')}>
       <span class="divider-handle" aria-hidden="true">···</span>
     </div>
 
@@ -184,7 +185,7 @@
 
     <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
     <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-    <div class="divider" onmousedown={() => (draggingRight = true)} role="separator" aria-label="Resize terminal" tabindex="0" onkeydown={(e) => onDividerKeydown(e, 'right')}>
+    <div class="divider" onmousedown={() => (draggingRight = true)} role="separator" aria-label="Resize terminal" tabindex="0" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round($terminalWidth / window.innerWidth * 100)} onkeydown={(e) => onDividerKeydown(e, 'right')}>
       <span class="divider-handle" aria-hidden="true">···</span>
     </div>
 

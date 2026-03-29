@@ -5,6 +5,7 @@
   import { addOpenFile, projectRoot, activeFilePath } from '$lib/stores/files';
   import { showToast } from '$lib/stores/toast';
   import { tr } from '$lib/i18n/index';
+  import { menuKeyHandler } from '$lib/utils/a11y';
 
   let { adapter }: { adapter: Adapter } = $props();
 
@@ -564,11 +565,11 @@
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div class="ctx-overlay" onclick={() => { ctxVisible = false; }} onkeydown={(e) => { if (e.key === 'Escape') ctxVisible = false; }} oncontextmenu={(e) => { e.preventDefault(); ctxVisible = false; }}>
     <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-    <div class="ctx-menu" role="menu" tabindex="-1" style="left: {ctxX}px; top: {ctxY}px" onclick={(e) => e.stopPropagation()}>
-      <button class="ctx-item" onclick={() => startInlineCreate('file')}>{$tr('fileTree.newFile')}</button>
-      <button class="ctx-item" onclick={() => startInlineCreate('folder')}>{$tr('fileTree.newFolder')}</button>
+    <div class="ctx-menu" role="menu" tabindex="-1" style="left: {ctxX}px; top: {ctxY}px" onclick={(e) => e.stopPropagation()} onkeydown={(e) => { if (e.key === 'Escape') { ctxVisible = false; } else { menuKeyHandler(e, e.currentTarget as HTMLElement); } }}>
+      <button class="ctx-item" role="menuitem" onclick={() => startInlineCreate('file')}>{$tr('fileTree.newFile')}</button>
+      <button class="ctx-item" role="menuitem" onclick={() => startInlineCreate('folder')}>{$tr('fileTree.newFolder')}</button>
       {#if ctxEntry && !ctxEntry.isDir}
-        <button class="ctx-item ctx-item--danger" onclick={() => ctxEntry && deleteFile(ctxEntry)}>{$tr('fileTree.delete')}</button>
+        <button class="ctx-item ctx-item--danger" role="menuitem" onclick={() => ctxEntry && deleteFile(ctxEntry)}>{$tr('fileTree.delete')}</button>
       {/if}
     </div>
   </div>
@@ -677,32 +678,32 @@
   }
 
   .git-modified {
-    color: #e5c07b;
+    color: var(--git-modified);
   }
 
   .git-added {
-    color: #98c379;
+    color: var(--git-added);
   }
 
   .git-deleted {
-    color: #e06c75;
+    color: var(--git-deleted);
   }
 
   .git-renamed {
-    color: #61afef;
+    color: var(--git-renamed);
   }
 
   .git-untracked {
-    color: #888;
+    color: var(--git-untracked);
   }
 
   .git-conflicted {
-    color: #e06c75;
+    color: var(--git-deleted);
     font-weight: 800;
   }
 
   .git-dir-dot {
-    color: #e5c07b;
+    color: var(--git-modified);
     font-size: 0.45rem;
     margin-left: auto;
     flex-shrink: 0;
@@ -744,8 +745,12 @@
     font-family: var(--font-ui);
     font-size: var(--font-size-small);
     padding: var(--stack-tight) var(--space-1);
-    outline: none;
     min-width: 0;
+  }
+
+  .inline-input:focus-visible {
+    outline: var(--focus-ring);
+    outline-offset: var(--focus-offset);
   }
 
   .ctx-overlay {

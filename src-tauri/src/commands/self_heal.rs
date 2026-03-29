@@ -241,6 +241,30 @@ pub async fn heal_normalizer(
             }
         };
 
+        // SEC: Validate that the LLM did not alter the [cli] identity fields.
+        {
+            let original_parsed: toml::Value =
+                toml::from_str(&current_toml).unwrap_or(toml::Value::Table(Default::default()));
+            let fixed_parsed: toml::Value = toml::from_str(&fixed_toml).map_err(|e| {
+                ReasonanceError::internal(format!(
+                    "LLM produced invalid TOML on iteration {}: {}",
+                    iteration, e
+                ))
+            })?;
+            let orig_cli = original_parsed.get("cli");
+            let fix_cli = fixed_parsed.get("cli");
+            if let (Some(orig), Some(fix)) = (orig_cli, fix_cli) {
+                if orig.get("name") != fix.get("name") || orig.get("binary") != fix.get("binary") {
+                    warn!(
+                        "cmd::heal_normalizer iteration {} — LLM altered [cli] identity fields (name/binary), rejecting fix",
+                        iteration
+                    );
+                    previous_attempt = Some(fixed_toml);
+                    continue;
+                }
+            }
+        }
+
         // Try to reload the normalizer with the fixed TOML
         let reload_result = {
             let registry = transport.registry();

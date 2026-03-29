@@ -42,7 +42,12 @@
     "--sidebar-tab-active-accent": "var(--accent)",
     "--sidebar-tab-active-bg": "rgba(255, 255, 255, 0.06)",
     "--sidebar-tab-text": "var(--text-muted)",
-    "--sidebar-tab-text-active": "var(--text-primary)"
+    "--sidebar-tab-text-active": "var(--text-primary)",
+    "--git-modified": "#e5c07b",
+    "--git-added": "#98c379",
+    "--git-deleted": "#e06c75",
+    "--git-renamed": "#61afef",
+    "--git-untracked": "#888888"
   },
   "hues": {
     "--hue-accent": 220,

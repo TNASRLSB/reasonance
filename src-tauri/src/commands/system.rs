@@ -209,7 +209,12 @@ pub fn get_env_var(name: String) -> Result<Option<String>, ReasonanceError> {
             code: crate::error::SecurityErrorCode::DisallowedEnvVar,
         });
     }
-    Ok(std::env::var(&name).ok())
+    // Redact secret values — only confirm presence, never expose actual keys.
+    if name.contains("API_KEY") || name.contains("_TOKEN") || name.contains("_SECRET") {
+        Ok(std::env::var(&name).ok().map(|_| "***".to_string()))
+    } else {
+        Ok(std::env::var(&name).ok())
+    }
 }
 
 #[tauri::command]

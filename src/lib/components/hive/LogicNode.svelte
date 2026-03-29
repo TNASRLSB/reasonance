@@ -175,7 +175,11 @@
     flex: 1;
     min-width: 0;
     font-family: var(--font-ui, sans-serif);
-    outline: none;
+  }
+
+  .label-edit:focus-visible {
+    outline: var(--focus-ring);
+    outline-offset: var(--focus-offset);
   }
 
   .node-state {

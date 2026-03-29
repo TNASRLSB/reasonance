@@ -63,9 +63,7 @@ pub fn rollback_normalizer(
         "cmd::rollback_normalizer(provider={}, version_id={})",
         provider, version_id
     );
-    let toml_content = version_store
-        .restore(&provider, &version_id)
-        .map_err(ReasonanceError::config)?;
+    let toml_content = version_store.restore(&provider, &version_id)?;
 
     // Hot-reload the normalizer in the transport's registry
     let registry = transport.registry();

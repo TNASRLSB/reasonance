@@ -41,15 +41,7 @@ pub struct PermissionContext {
 }
 
 /// Read-only tools that are safe even in untrusted workspaces
-const READ_ONLY_TOOLS: &[&str] = &[
-    "Read",
-    "Grep",
-    "Glob",
-    "WebSearch",
-    "WebFetch",
-    "ListDir",
-    "Bash",
-];
+const READ_ONLY_TOOLS: &[&str] = &["Read", "Grep", "Glob", "WebSearch", "WebFetch", "ListDir"];
 
 /// Hardcoded destructive patterns that are ALWAYS denied
 const DESTRUCTIVE_PATTERNS: &[&str] = &["rm -rf /", "rm -rf ~", "rm -rf .", "chmod 777"];
