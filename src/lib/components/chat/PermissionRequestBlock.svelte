@@ -12,6 +12,8 @@
 
   // Track which tools have been decided: tool_name -> chosen action label
   let decisions = $state<Map<string, string>>(new Map());
+  // Track which tools have their deny submenu expanded
+  let denyExpanded = $state<Set<string>>(new Set());
   // remaining is intentionally initialised once from the prop (snapshot on mount).
   // untrack suppresses the Svelte "state_referenced_locally" warning — correct here.
   let remaining = $state(untrack(() => timeoutSecs));
@@ -135,10 +137,28 @@
             class="btn allow-project"
             onclick={() => handleDecision(tool.name, 'allow', 'project', 'Allowed (project)')}
           >Allow project</button>
-          <button
-            class="btn deny"
-            onclick={() => handleDecision(tool.name, 'deny', 'once', 'Denied')}
-          >Deny</button>
+          {#if !denyExpanded.has(tool.name)}
+            <button
+              class="btn deny"
+              onclick={() => {
+                denyExpanded.add(tool.name);
+                denyExpanded = new Set(denyExpanded);
+              }}
+            >Deny...</button>
+          {:else}
+            <button
+              class="btn deny"
+              onclick={() => handleDecision(tool.name, 'deny', 'once', 'Denied')}
+            >once</button>
+            <button
+              class="btn deny"
+              onclick={() => handleDecision(tool.name, 'deny', 'session', 'Denied (session)')}
+            >session</button>
+            <button
+              class="btn deny"
+              onclick={() => handleDecision(tool.name, 'deny', 'project', 'Denied (project)')}
+            >project</button>
+          {/if}
         </div>
       {:else}
         <span class="decided-label">{decisions.get(tool.name)}</span>
