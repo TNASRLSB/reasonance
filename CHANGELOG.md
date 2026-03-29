@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.5.0] - 2026-03-29
+
+### Features
+
+- feat(self-heal): wire LLM-guided normalizer repair with iterative feedback loop
+
+### Other
+
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+
+
+
 ## [2.4.0] - 2026-03-29
 
 ### Features
