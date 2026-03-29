@@ -161,6 +161,23 @@ export const ProjectStateSchema = z.object({
   last_model_used: z.string().nullable(),
 });
 
+// === Agent Memory v2 ===
+
+export const MemoryEntryV2Schema = z.object({
+  id: z.string(),
+  node_id: z.string(),
+  project_id: z.string().nullable(),
+  session_id: z.string().nullable(),
+  run_id: z.string(),
+  timestamp: z.string(),
+  input_summary: z.string(),
+  output_summary: z.string(),
+  outcome: z.string(),
+  importance: z.number(),
+  tags: z.string(),
+  context: z.unknown(),
+});
+
 // === Schema map (command name → result schema) ===
 
 export const batchSchemas: Record<string, z.ZodType> = {
@@ -187,4 +204,8 @@ export const batchSchemas: Record<string, z.ZodType> = {
   record_permission_decision: z.null(),
   lookup_permission_decision: z.unknown().nullable(),
   clear_permission_session: z.null(),
+  memory_add_entry: z.string(),
+  memory_search: z.array(MemoryEntryV2Schema),
+  memory_list: z.array(MemoryEntryV2Schema),
+  memory_get: MemoryEntryV2Schema.nullable(),
 };

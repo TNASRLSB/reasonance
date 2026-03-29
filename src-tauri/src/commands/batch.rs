@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tauri::{AppHandle, Manager};
 
+use crate::agent_memory_v2::{AgentMemoryV2, MemoryEntryV2, MemoryScope, SortBy};
 use crate::analytics::collector::AnalyticsCollector;
 use crate::app_state_store::AppStateStore;
 use crate::commands::{
@@ -301,6 +302,37 @@ async fn dispatch(app: &AppHandle, cmd: &str, args: Value) -> Result<Value, Reas
             let memory = app.state::<crate::permission_engine::PermissionMemory>();
             memory.clear_session(&session_id);
             Ok(Value::Null)
+        }
+
+        // ── agent memory v2 ──────────────────────────────────────────────
+        "memory_add_entry" => {
+            let entry: MemoryEntryV2 = extract(&args, "entry")?;
+            let store = app.state::<AgentMemoryV2>();
+            let id = store.add_entry(entry)?;
+            Ok(serde_json::to_value(id).unwrap())
+        }
+        "memory_search" => {
+            let query: String = extract(&args, "query")?;
+            let scope: MemoryScope = extract(&args, "scope")?;
+            let limit: u32 = extract_opt(&args, "limit")?.unwrap_or(20);
+            let store = app.state::<AgentMemoryV2>();
+            let results = store.search(&query, scope, limit)?;
+            Ok(serde_json::to_value(results).unwrap())
+        }
+        "memory_list" => {
+            let scope: MemoryScope = extract(&args, "scope")?;
+            let sort: SortBy = extract_opt(&args, "sort")?.unwrap_or(SortBy::Recency);
+            let limit: u32 = extract_opt(&args, "limit")?.unwrap_or(50);
+            let offset: u32 = extract_opt(&args, "offset")?.unwrap_or(0);
+            let store = app.state::<AgentMemoryV2>();
+            let results = store.list(scope, sort, limit, offset)?;
+            Ok(serde_json::to_value(results).unwrap())
+        }
+        "memory_get" => {
+            let id: String = extract(&args, "id")?;
+            let store = app.state::<AgentMemoryV2>();
+            let result = store.get_entry(&id)?;
+            Ok(serde_json::to_value(result).unwrap())
         }
 
         // ── unknown command ──────────────────────────────────────────────

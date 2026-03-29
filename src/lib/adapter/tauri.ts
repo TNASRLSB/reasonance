@@ -548,6 +548,20 @@ export class TauriAdapter implements Adapter {
     return this.enqueue('clear_permission_session', { sessionId }) as Promise<void>;
   }
 
+  // Agent Memory v2
+  async memoryAdd(entry: MemoryEntry): Promise<string> {
+    return this.enqueue<string>('memory_add_entry', { entry });
+  }
+  async memorySearch(query: string, scope: string, scopeId?: string, limit?: number): Promise<MemoryEntry[]> {
+    return this.enqueue<MemoryEntry[]>('memory_search', { query, scope, scopeId, limit: limit ?? 20 });
+  }
+  async memoryList(scope: string, scopeId?: string, sort?: string, limit?: number, offset?: number): Promise<MemoryEntry[]> {
+    return this.enqueue<MemoryEntry[]>('memory_list', { scope, scopeId, sort: sort ?? 'recency', limit: limit ?? 50, offset: offset ?? 0 });
+  }
+  async memoryGet(id: string): Promise<MemoryEntry | null> {
+    return this.enqueue<MemoryEntry | null>('memory_get', { id });
+  }
+
   // Multi-project
   async addProject(id: string, rootPath: string, trustLevel: string): Promise<void> {
     await invoke('add_project', { id, rootPath, trustLevel });

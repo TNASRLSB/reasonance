@@ -172,6 +172,12 @@ export interface Adapter {
   recordPermissionDecision(sessionId: string, toolName: string, action: string, scope: string): Promise<void>;
   lookupPermissionDecision(sessionId: string, toolName: string): Promise<unknown>;
   clearPermissionSession(sessionId: string): Promise<void>;
+
+  // Agent Memory v2
+  memoryAdd(entry: MemoryEntry): Promise<string>;
+  memorySearch(query: string, scope: string, scopeId?: string, limit?: number): Promise<MemoryEntry[]>;
+  memoryList(scope: string, scopeId?: string, sort?: string, limit?: number, offset?: number): Promise<MemoryEntry[]>;
+  memoryGet(id: string): Promise<MemoryEntry | null>;
 }
 
 export interface GrepResult {

@@ -9,6 +9,7 @@ import type {
   AgentInstance,
   AgentState,
   AgentMessage,
+  MemoryEntry,
   WorkflowRun,
 } from '$lib/adapter/index';
 import type { AgentEvent, AgentEventPayload, SessionHandle, SessionSummary, ViewMode } from '$lib/types/agent-event';
@@ -521,6 +522,20 @@ export function createMockAdapter(overrides?: Partial<Adapter>): Adapter {
     async recordPermissionDecision() {},
     async lookupPermissionDecision() { return null; },
     async clearPermissionSession() {},
+
+    // Agent Memory v2
+    memoryAdd(_entry: MemoryEntry): Promise<string> {
+      return Promise.resolve('mock-memory-id');
+    },
+    memorySearch(_query: string, _scope: string, _scopeId?: string, _limit?: number): Promise<MemoryEntry[]> {
+      return Promise.resolve([]);
+    },
+    memoryList(_scope: string, _scopeId?: string, _sort?: string, _limit?: number, _offset?: number): Promise<MemoryEntry[]> {
+      return Promise.resolve([]);
+    },
+    memoryGet(_id: string): Promise<MemoryEntry | null> {
+      return Promise.resolve(null);
+    },
 
     // Batching (pass-through in mock — just runs the callback)
     async batch<T extends unknown[]>(
