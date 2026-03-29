@@ -61,7 +61,8 @@
     const timeRange = periodToTimeRange(selectedPeriod);
     const days = periodToDays(selectedPeriod) ?? 30;
     fetchProviderAnalytics(adapter, timeRange);
-    fetchDailyStats(adapter, days);
+    // Always fetch at least 30 days so the value sparkline has sufficient history
+    fetchDailyStats(adapter, Math.max(days, 30));
   });
 
   // === KPI derived values ===
@@ -236,6 +237,28 @@
     return data.slice(-7);
   });
 
+  // 30-day value multiplier sparkline data
+  const valueSparklinePoints = $derived.by(() => {
+    const data = $dailyStats.data;
+    if (!data || data.length === 0) return '';
+    // Use up to 30 most recent days; compute per-day API equivalent cost
+    const days = data.slice(-30);
+    const values = days.map(d => {
+      // Use recorded cost if available; otherwise estimate from tokens at blended rate
+      if (d.total_cost_usd != null && d.total_cost_usd > 0) return d.total_cost_usd;
+      return ((d.input_tokens + d.output_tokens) / 1_000_000) * 9; // blended ~$9/1M
+    });
+    const max = Math.max(...values, 0.001);
+    const w = 120;
+    const h = 30;
+    const pts = values.map((v, i) => {
+      const x = (i / Math.max(values.length - 1, 1)) * w;
+      const y = h - (v / max) * h;
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    });
+    return pts.join(' ');
+  });
+
   function sparklinePath(values: number[]): string {
     if (values.length === 0) return '';
     const max = Math.max(...values, 1);
@@ -375,7 +398,28 @@
         <div class="value-primary">
           Your ${PLAN_COST_MONTHLY}/mo → <strong>${apiEquivalentCost.toFixed(0)}</strong> in API value
         </div>
-        <div class="value-multiplier">{valueMultiplier.toFixed(0)}× value</div>
+        <div class="value-hero-right">
+          {#if valueSparklinePoints}
+            <svg
+              viewBox="0 0 120 30"
+              class="value-sparkline"
+              aria-hidden="true"
+              aria-label="30-day value trend"
+              width="120"
+              height="30"
+            >
+              <polyline
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linejoin="round"
+                stroke-linecap="round"
+                points={valueSparklinePoints}
+              />
+            </svg>
+          {/if}
+          <div class="value-multiplier">{valueMultiplier.toFixed(0)}× value</div>
+        </div>
       </div>
     {/if}
 
@@ -1397,6 +1441,19 @@
     font-size: var(--font-size-md);
     font-weight: var(--font-weight-hero);
     color: var(--text-primary);
+  }
+
+  .value-hero-right {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    flex-shrink: 0;
+  }
+
+  .value-sparkline {
+    color: var(--accent-text, var(--accent));
+    opacity: 0.7;
+    display: block;
   }
 
   .value-multiplier {
