@@ -1,5 +1,26 @@
 # Changelog
 
+## [2.6.1] - 2026-03-29
+
+### Bug Fixes
+
+- fix: resolve 3 global exit criteria — Result<T,String>, Zod scope docs, dashboard update
+
+### Other
+
+-   to Result<String,ReasonanceError> using ReasonanceError::transport() with
+-   correct provider name and retryable flag (true for network/429/5xx errors)
+- - self_heal.rs: convert parse_llm_response from Result<String,String> to
+-   Result<String,ReasonanceError>; update call site and test assertions
+- - batch-schemas.ts: add coverage-scope doc comment explaining why streaming/
+-   long-running/plugin commands use direct invoke() and bypass Zod validation
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+
+
+
 ## [2.6.0] - 2026-03-29
 
 ### Features
