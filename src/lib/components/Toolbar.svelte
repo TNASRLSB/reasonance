@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { showSettings, analyticsDashboard, showHiveCanvas } from '$lib/stores/ui';
+  import { showSettings, analyticsDashboard, showHiveCanvas, showMemoryPanel } from '$lib/stores/ui';
   import type { Adapter } from '$lib/adapter/index';
   import MenuBar from './MenuBar.svelte';
   import { activeInstanceId } from '$lib/stores/terminals';
@@ -96,6 +96,14 @@
       onclick={() => analyticsDashboard.update(v => ({ ...v, open: !v.open, focus: null }))}
       title={$tr('toolbar.analytics')}
     >ANALYTICS</button>
+    <button
+      class="toolbar-btn"
+      class:active={$showMemoryPanel}
+      aria-pressed={$showMemoryPanel}
+      onclick={() => showMemoryPanel.update(v => !v)}
+      title={$tr('toolbar.memory')}
+      aria-label={$tr('toolbar.memory')}
+    >MEMORY</button>
     <button
       class="toolbar-btn"
       class:active={$showHiveCanvas}

@@ -13,7 +13,7 @@
   import { initThemeEngine } from '$lib/stores/theme';
   import { openFiles, activeFilePath, projectRoot, cursorLine, cursorCol } from '$lib/stores/files';
   import { addProject, removeProject, activeProjectId, recentProjectsList, setActiveFile, openFile, updateFileContent, updateFileState } from '$lib/stores/projects';
-  import { showSettings, enhancedReadability, showHiveCanvas, showThemeEditor, fileTreeWidth, terminalWidth } from '$lib/stores/ui';
+  import { showSettings, enhancedReadability, showHiveCanvas, showThemeEditor, showMemoryPanel, fileTreeWidth, terminalWidth } from '$lib/stores/ui';
   import { saveAllState, loadAppState, loadProjectState, gatherProjectState } from '$lib/utils/state-persistence';
   import { activeInstance, terminalInstances } from '$lib/stores/terminals';
   import { llmConfigs } from '$lib/stores/config';
@@ -33,6 +33,7 @@
   import type HiveCanvas from '$lib/components/hive/HiveCanvas.svelte';
   import type ShortcutsDialog from '$lib/components/ShortcutsDialog.svelte';
   import type SessionPanel from '$lib/components/SessionPanel.svelte';
+  import type MemoryPanel from '$lib/components/MemoryPanel.svelte';
   import '../app.css';
 
   // W3.6 — Lazy-loaded heavy components (behind-a-toggle only).
@@ -43,6 +44,7 @@
   let HiveCanvasCmp = $state<typeof HiveCanvas | null>(null);
   let ShortcutsDialogCmp = $state<typeof ShortcutsDialog | null>(null);
   let SessionPanelCmp = $state<typeof SessionPanel | null>(null);
+  let MemoryPanelCmp = $state<typeof MemoryPanel | null>(null);
 
   // Trigger lazy loads the first time each toggle is activated
   $effect(() => {
@@ -68,6 +70,11 @@
   $effect(() => {
     if (showSessions && !SessionPanelCmp) {
       import('$lib/components/SessionPanel.svelte').then((m) => { SessionPanelCmp = m.default; });
+    }
+  });
+  $effect(() => {
+    if ($showMemoryPanel && !MemoryPanelCmp) {
+      import('$lib/components/MemoryPanel.svelte').then((m) => { MemoryPanelCmp = m.default; });
     }
   });
 
@@ -431,6 +438,7 @@
     registerKeybinding('f1', () => { showHelp = !showHelp; });
     registerKeybinding('ctrl+/', () => { showShortcuts = true; });
     registerKeybinding('ctrl+shift+h', () => { showSessions = true; });
+    registerKeybinding('ctrl+shift+m', () => { showMemoryPanel.update(v => !v); });
     registerKeybinding('ctrl+s', () => saveActiveFile());
     initKeybindings();
 
@@ -675,6 +683,15 @@
     visible={showSessions}
     onClose={() => { showSessions = false; }}
     onRestore={(id) => { /* TODO: wire session restore */ }}
+  />
+{/if}
+
+{#if MemoryPanelCmp}
+  <MemoryPanelCmp
+    {adapter}
+    projectId={$activeProjectId ?? undefined}
+    visible={$showMemoryPanel}
+    onClose={() => { showMemoryPanel.set(false); }}
   />
 {/if}
 

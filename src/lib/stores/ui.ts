@@ -27,3 +27,4 @@ import type { AnalyticsDashboardState } from '$lib/types/analytics';
 export const analyticsDashboard = writable<AnalyticsDashboardState>({ open: false, focus: null });
 
 export const showThemeEditor = writable(false);
+export const showMemoryPanel = writable(false);

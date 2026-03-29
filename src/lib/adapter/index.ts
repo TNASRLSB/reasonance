@@ -277,11 +277,17 @@ export interface AgentMessage {
 }
 
 export interface MemoryEntry {
+  id?: string;
+  node_id?: string;
+  project_id?: string | null;
+  session_id?: string | null;
   run_id: string;
   timestamp: string;
   input_summary: string;
   output_summary: string;
   outcome: string;
+  importance?: number;
+  tags?: string;
   context: unknown;
 }
 
