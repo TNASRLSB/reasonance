@@ -134,6 +134,12 @@ export function createMockAdapter(overrides?: Partial<Adapter>): Adapter {
     sweepPtys() {
       return Promise.resolve([]);
     },
+    reconnectPty(_ptyId: string, _command: string, _args: string[], _cwd: string) {
+      return Promise.resolve('mock-reconnected-pty-id');
+    },
+    killAllPtys() {
+      return Promise.resolve(0);
+    },
 
     // Config
     readConfig() {

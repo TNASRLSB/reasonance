@@ -277,6 +277,12 @@ export class TauriAdapter implements Adapter {
   async sweepPtys(): Promise<string[]> {
     return invoke<string[]>('sweep_ptys');
   }
+  async reconnectPty(ptyId: string, command: string, args: string[], cwd: string): Promise<string> {
+    return invoke<string>('reconnect_pty', { ptyId, command, args, cwd });
+  }
+  async killAllPtys(): Promise<number> {
+    return invoke<number>('kill_all_ptys');
+  }
   async readConfig(): Promise<string> {
     return this.enqueue<string>('read_config', {});
   }

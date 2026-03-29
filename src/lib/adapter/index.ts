@@ -58,6 +58,10 @@ export interface Adapter {
   onPtyExit(id: string, callback: (code: number) => void): Promise<() => void>;
   /** Remove backend entries for PTYs whose process has already exited. Returns swept IDs. */
   sweepPtys(): Promise<string[]>;
+  /** Reconnect a dead PTY by killing the old entry and spawning a fresh process. Returns the new PTY ID. */
+  reconnectPty(ptyId: string, command: string, args: string[], cwd: string): Promise<string>;
+  /** Kill all active PTY processes. Returns number killed. */
+  killAllPtys(): Promise<number>;
 
   // Config
   readConfig(): Promise<string>;

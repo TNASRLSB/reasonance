@@ -426,6 +426,24 @@ async fn dispatch(app: &AppHandle, cmd: &str, args: Value) -> Result<Value, Reas
             Ok(serde_json::to_value(result).unwrap())
         }
 
+        // ── pty ──────────────────────────────────────────────────────────
+        "reconnect_pty" => {
+            let pty_id: String = extract(&args, "ptyId")?;
+            let command: String = extract(&args, "command")?;
+            let cmd_args: Vec<String> = extract_opt(&args, "args")?.unwrap_or_default();
+            let cwd: String = extract(&args, "cwd")?;
+            let pty_manager = app.state::<crate::pty_manager::PtyManager>();
+            let result = crate::commands::pty::reconnect_pty(
+                pty_id,
+                command,
+                cmd_args,
+                cwd,
+                app.clone(),
+                pty_manager,
+            )?;
+            Ok(serde_json::to_value(result).unwrap())
+        }
+
         // ── unknown command ──────────────────────────────────────────────
         other => Err(ReasonanceError::validation(
             "command",

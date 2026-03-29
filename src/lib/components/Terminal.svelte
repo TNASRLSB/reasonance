@@ -44,7 +44,13 @@
     };
   }
 
-  let { adapter, ptyId }: { adapter: Adapter; ptyId: string } = $props();
+  let { adapter, ptyId, command = 'bash', args = [] as string[], cwd = '.' }: {
+    adapter: Adapter;
+    ptyId: string;
+    command?: string;
+    args?: string[];
+    cwd?: string;
+  } = $props();
 
   let containerEl: HTMLDivElement;
   let term: Terminal;
@@ -54,6 +60,9 @@
   let searchVisible = $state(false);
   let searchQuery = $state('');
   let webglLost = $state(false);
+  let reconnecting = $state(false);
+  let reconnectAttempt = $state(0);
+  const MAX_RECONNECT_ATTEMPTS = 10;
 
   onMount(() => {
     // xterm.js canvas/WebGL renderers do NOT trigger @font-face loading.
@@ -229,9 +238,30 @@
         cleanups.push(unlisten);
       });
 
-      // Listen to PTY exit
-      adapter.onPtyExit(ptyId, (code) => {
+      // Listen to PTY exit — attempt reconnection with exponential backoff
+      async function handlePtyExit(code: number) {
         term.write(`\r\n\x1b[90m[Process exited with code ${code}]\x1b[0m\r\n`);
+        if (reconnectAttempt >= MAX_RECONNECT_ATTEMPTS) {
+          reconnecting = false;
+          term.write(`\r\n\x1b[31m[Reconnection failed after ${MAX_RECONNECT_ATTEMPTS} attempts]\x1b[0m\r\n`);
+          return;
+        }
+        reconnecting = true;
+        reconnectAttempt += 1;
+        const delay = Math.min(1000 * Math.pow(2, reconnectAttempt - 1), 30000);
+        await new Promise(r => setTimeout(r, delay));
+        try {
+          await adapter.reconnectPty(ptyId, command, args, cwd);
+          reconnecting = false;
+          reconnectAttempt = 0;
+          term.write(`\r\n\x1b[32m[Reconnected]\x1b[0m\r\n`);
+        } catch {
+          handlePtyExit(code);
+        }
+      }
+
+      adapter.onPtyExit(ptyId, (code) => {
+        handlePtyExit(code);
       }).then((unlisten) => {
         cleanups.push(unlisten);
       });
@@ -334,6 +364,11 @@
   {#if webglLost}
     <div class="terminal-webgl-overlay" role="status" aria-live="polite">Restoring display...</div>
   {/if}
+  {#if reconnecting}
+    <div class="terminal-reconnect-overlay" role="status" aria-live="polite">
+      Reconnecting... attempt {reconnectAttempt}/{MAX_RECONNECT_ATTEMPTS}
+    </div>
+  {/if}
   {#if searchVisible}
     <div class="terminal-search">
       <input
@@ -378,6 +413,23 @@
     color: var(--text-secondary);
     font-family: var(--font-mono);
     font-size: var(--font-size-small);
+    z-index: 10;
+    pointer-events: none;
+  }
+
+  .terminal-reconnect-overlay {
+    position: absolute;
+    top: var(--space-2);
+    right: var(--space-2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: color-mix(in srgb, var(--bg-secondary) 95%, transparent);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    font-size: var(--font-size-small);
+    padding: var(--stack-tight) var(--space-2);
     z-index: 10;
     pointer-events: none;
   }

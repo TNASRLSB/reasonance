@@ -236,6 +236,8 @@ export const batchSchemas: Record<string, z.ZodType> = {
   get_model_for_slot: z.string().nullable(),
   set_model_slot: z.null(),
   list_model_slots: z.array(ModelSlotEntrySchema),
+  // PTY
+  reconnect_pty: z.string(),
   // Agent Communications (CommsBus)
   agent_publish_message: z.string(),
   agent_get_messages: z.array(CommsMessageSchema),
