@@ -1,5 +1,61 @@
 # Changelog
 
+## [2.4.0] - 2026-03-29
+
+### Features
+
+- feat(search): add CodeMirror anchor-based search position tracking
+- feat(fileops): add context-aware Ctrl+Z, Move op, and EventBus integration
+- feat(git): add directory-level git status aggregation in FileTree
+- feat(analytics): add 30-day sparkline to API value hero card
+- feat(analytics): add quota reset countdown to AnalyticsBar
+
+### Other
+
+- as absolute CodeMirror offsets. As the user edits the document, CM6
+- maps positions through change sets so they stay correct after insertions
+- and deletions. FindInFiles dispatches setAnchors when results are ready
+- for the active file, and uses pendingAnchorIndex for precise navigation
+- rather than falling back to the (now-stale) original line number.
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- inside .cm-editor the event passes through for native editor undo. Adds
+- Move operation type with undo support. All file-ops commands (delete,
+- undo, create, rename, move) now publish fileop:execute / fileop:undo
+- events to the EventBus.
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- a dot badge when any descendant has changes. Adds 'copied' and 'ignored'
+- status handling to cover all 7 git status types.
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- recorded cost_usd or a blended token-rate estimate) and render a 120×30
+- SVG polyline sparkline next to the value multiplier in the hero banner.
+- Always fetch at least 30 days of daily history regardless of the selected
+- period so the sparkline always has full coverage.
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- defaults) instead of hardcoding, and display a visible "↺ Xh Ym"
+- countdown next to the pace-delta metric showing time until quota reset.
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+
+
+
 ## [2.3.0] - 2026-03-29
 
 ### Features
