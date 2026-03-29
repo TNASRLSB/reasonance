@@ -1,5 +1,24 @@
 # Changelog
 
+## [2.2.0] - 2026-03-29
+
+### Features
+
+- feat(permissions): add deny session/project scopes, reuse sessionId for resume-capable replay
+
+### Other
+
+- expand pattern: "Deny..." reveals once/session/project scope buttons. The
+- handleApproveTools path in ChatView already passes the existing sessionId
+- (not a new UUID), enabling the transport layer's resume_args_template
+- path for --resume-capable CLIs.
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+
+
+
 ## [2.1.0] - 2026-03-29
 
 ### Features
