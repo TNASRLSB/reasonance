@@ -178,12 +178,37 @@ export interface Adapter {
   memorySearch(query: string, scope: string, scopeId?: string, limit?: number): Promise<MemoryEntry[]>;
   memoryList(scope: string, scopeId?: string, sort?: string, limit?: number, offset?: number): Promise<MemoryEntry[]>;
   memoryGet(id: string): Promise<MemoryEntry | null>;
+
+  // Agent Communications (CommsBus)
+  commsPublish(from: string, channel: CommsChannelType, payload: unknown, replyTo?: string, ttlSecs?: number): Promise<string>;
+  commsGetMessages(nodeId: string, sinceId?: string): Promise<CommsMessage[]>;
+  commsGetTopicMessages(topic: string, sinceId?: string): Promise<CommsMessage[]>;
+  commsGetBroadcastMessages(workflowId: string, sinceId?: string): Promise<CommsMessage[]>;
+  commsSweep(): Promise<number>;
+  commsClearWorkflow(workflowId: string): Promise<void>;
 }
 
 export interface GrepResult {
   path: string;
   line_number: number;
   line: string;
+}
+
+// === Agent Communications (CommsBus) Types ===
+
+export type CommsChannelType =
+  | { type: 'Direct'; value: { target_id: string } }
+  | { type: 'Broadcast'; value: { workflow_id: string } }
+  | { type: 'Topic'; value: { name: string } };
+
+export interface CommsMessage {
+  id: string;
+  from: string;
+  channel: CommsChannelType;
+  payload: unknown;
+  timestamp: string;
+  reply_to: string | null;
+  ttl_secs: number | null;
 }
 
 export interface FsEvent {

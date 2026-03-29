@@ -11,6 +11,8 @@ import type {
   AgentMessage,
   MemoryEntry,
   WorkflowRun,
+  CommsChannelType,
+  CommsMessage,
 } from '$lib/adapter/index';
 import type { AgentEvent, AgentEventPayload, SessionHandle, SessionSummary, ViewMode } from '$lib/types/agent-event';
 import type { NegotiatedCapabilities, CliVersionInfo, VersionEntry, HealthReport } from '$lib/types/capability';
@@ -535,6 +537,26 @@ export function createMockAdapter(overrides?: Partial<Adapter>): Adapter {
     },
     memoryGet(_id: string): Promise<MemoryEntry | null> {
       return Promise.resolve(null);
+    },
+
+    // Agent Communications (CommsBus)
+    commsPublish(_from: string, _channel: CommsChannelType, _payload: unknown, _replyTo?: string, _ttlSecs?: number): Promise<string> {
+      return Promise.resolve('mock-comms-msg-id');
+    },
+    commsGetMessages(_nodeId: string, _sinceId?: string): Promise<CommsMessage[]> {
+      return Promise.resolve([]);
+    },
+    commsGetTopicMessages(_topic: string, _sinceId?: string): Promise<CommsMessage[]> {
+      return Promise.resolve([]);
+    },
+    commsGetBroadcastMessages(_workflowId: string, _sinceId?: string): Promise<CommsMessage[]> {
+      return Promise.resolve([]);
+    },
+    commsSweep(): Promise<number> {
+      return Promise.resolve(0);
+    },
+    commsClearWorkflow(_workflowId: string): Promise<void> {
+      return Promise.resolve();
     },
 
     // Batching (pass-through in mock — just runs the callback)

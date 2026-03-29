@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { Adapter, FileEntry, FsEvent, GrepResult, PtyHandle, DiscoveredAgent, Workflow, AgentState, AgentInstance, AgentMessage, MemoryEntry, WorkflowRun } from './index';
+import type { Adapter, FileEntry, FsEvent, GrepResult, PtyHandle, DiscoveredAgent, Workflow, AgentState, AgentInstance, AgentMessage, MemoryEntry, WorkflowRun, CommsChannelType, CommsMessage } from './index';
 import type { AgentEvent, AgentEventPayload, SessionHandle, SessionSummary, ViewMode } from '$lib/types/agent-event';
 import type { NegotiatedCapabilities, CliVersionInfo, VersionEntry, HealthReport } from '$lib/types/capability';
 import type { ProviderAnalytics, ModelAnalytics, DailyStats, SessionMetrics, ConnectionTestStep } from '$lib/types/analytics';
@@ -560,6 +560,32 @@ export class TauriAdapter implements Adapter {
   }
   async memoryGet(id: string): Promise<MemoryEntry | null> {
     return this.enqueue<MemoryEntry | null>('memory_get', { id });
+  }
+
+  // Agent Communications (CommsBus)
+  async commsPublish(from: string, channel: CommsChannelType, payload: unknown, replyTo?: string, ttlSecs?: number): Promise<string> {
+    return this.enqueue<string>('agent_publish_message', {
+      from,
+      channel,
+      payload,
+      replyTo: replyTo ?? null,
+      ttlSecs: ttlSecs ?? null,
+    });
+  }
+  async commsGetMessages(nodeId: string, sinceId?: string): Promise<CommsMessage[]> {
+    return this.enqueue<CommsMessage[]>('agent_get_messages', { nodeId, sinceId: sinceId ?? null });
+  }
+  async commsGetTopicMessages(topic: string, sinceId?: string): Promise<CommsMessage[]> {
+    return this.enqueue<CommsMessage[]>('agent_get_topic_messages', { topic, sinceId: sinceId ?? null });
+  }
+  async commsGetBroadcastMessages(workflowId: string, sinceId?: string): Promise<CommsMessage[]> {
+    return this.enqueue<CommsMessage[]>('agent_get_broadcast_messages', { workflowId, sinceId: sinceId ?? null });
+  }
+  async commsSweep(): Promise<number> {
+    return this.enqueue<number>('agent_sweep_messages', {});
+  }
+  async commsClearWorkflow(workflowId: string): Promise<void> {
+    return this.enqueue<void>('agent_clear_workflow_messages', { workflowId });
   }
 
   // Multi-project

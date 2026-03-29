@@ -178,6 +178,24 @@ export const MemoryEntryV2Schema = z.object({
   context: z.unknown(),
 });
 
+// === Agent Communications (CommsBus) ===
+
+const CommsChannelTypeSchema: z.ZodType = z.union([
+  z.object({ type: z.literal('Direct'), value: z.object({ target_id: z.string() }) }),
+  z.object({ type: z.literal('Broadcast'), value: z.object({ workflow_id: z.string() }) }),
+  z.object({ type: z.literal('Topic'), value: z.object({ name: z.string() }) }),
+]);
+
+export const CommsMessageSchema = z.object({
+  id: z.string(),
+  from: z.string(),
+  channel: CommsChannelTypeSchema,
+  payload: z.unknown(),
+  timestamp: z.string(),
+  reply_to: z.string().nullable(),
+  ttl_secs: z.number().nullable(),
+});
+
 // === Schema map (command name → result schema) ===
 
 export const batchSchemas: Record<string, z.ZodType> = {
@@ -208,4 +226,11 @@ export const batchSchemas: Record<string, z.ZodType> = {
   memory_search: z.array(MemoryEntryV2Schema),
   memory_list: z.array(MemoryEntryV2Schema),
   memory_get: MemoryEntryV2Schema.nullable(),
+  // Agent Communications (CommsBus)
+  agent_publish_message: z.string(),
+  agent_get_messages: z.array(CommsMessageSchema),
+  agent_get_topic_messages: z.array(CommsMessageSchema),
+  agent_get_broadcast_messages: z.array(CommsMessageSchema),
+  agent_sweep_messages: z.number(),
+  agent_clear_workflow_messages: z.null(),
 };

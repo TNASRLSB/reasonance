@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tauri::{AppHandle, Manager};
 
+use crate::agent_comms::{AgentCommsBus, AgentMessage, ChannelType};
 use crate::agent_memory_v2::{AgentMemoryV2, MemoryEntryV2, MemoryScope, SortBy};
 use crate::analytics::collector::AnalyticsCollector;
 use crate::app_state_store::AppStateStore;
@@ -333,6 +334,60 @@ async fn dispatch(app: &AppHandle, cmd: &str, args: Value) -> Result<Value, Reas
             let store = app.state::<AgentMemoryV2>();
             let result = store.get_entry(&id)?;
             Ok(serde_json::to_value(result).unwrap())
+        }
+
+        // ── agent comms ──────────────────────────────────────────────────
+        "agent_publish_message" => {
+            let from: String = extract(&args, "from")?;
+            let channel: ChannelType = extract(&args, "channel")?;
+            let payload: serde_json::Value = extract(&args, "payload")?;
+            let reply_to: Option<String> = extract_opt(&args, "replyTo")?;
+            let ttl_secs: Option<u64> = extract_opt(&args, "ttlSecs")?;
+            let bus = app.state::<AgentCommsBus>();
+            let msg = AgentMessage {
+                id: uuid::Uuid::new_v4().to_string(),
+                from,
+                channel,
+                payload,
+                timestamp: chrono::Utc::now().to_rfc3339(),
+                reply_to,
+                ttl_secs,
+            };
+            let id = msg.id.clone();
+            bus.publish(msg)?;
+            Ok(serde_json::to_value(id).unwrap())
+        }
+        "agent_get_messages" => {
+            let node_id: String = extract(&args, "nodeId")?;
+            let since_id: Option<String> = extract_opt(&args, "sinceId")?;
+            let bus = app.state::<AgentCommsBus>();
+            let result = bus.get_messages(&node_id, since_id.as_deref());
+            Ok(serde_json::to_value(result).unwrap())
+        }
+        "agent_get_topic_messages" => {
+            let topic: String = extract(&args, "topic")?;
+            let since_id: Option<String> = extract_opt(&args, "sinceId")?;
+            let bus = app.state::<AgentCommsBus>();
+            let result = bus.get_topic_messages(&topic, since_id.as_deref());
+            Ok(serde_json::to_value(result).unwrap())
+        }
+        "agent_get_broadcast_messages" => {
+            let workflow_id: String = extract(&args, "workflowId")?;
+            let since_id: Option<String> = extract_opt(&args, "sinceId")?;
+            let bus = app.state::<AgentCommsBus>();
+            let result = bus.get_broadcast_messages(&workflow_id, since_id.as_deref());
+            Ok(serde_json::to_value(result).unwrap())
+        }
+        "agent_sweep_messages" => {
+            let bus = app.state::<AgentCommsBus>();
+            let result = bus.sweep_expired();
+            Ok(serde_json::to_value(result).unwrap())
+        }
+        "agent_clear_workflow_messages" => {
+            let workflow_id: String = extract(&args, "workflowId")?;
+            let bus = app.state::<AgentCommsBus>();
+            bus.clear_workflow(&workflow_id);
+            Ok(Value::Null)
         }
 
         // ── unknown command ──────────────────────────────────────────────
