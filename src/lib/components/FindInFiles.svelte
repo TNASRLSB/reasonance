@@ -1,11 +1,15 @@
 <script lang="ts">
   import type { Adapter, GrepResult } from '$lib/adapter/index';
-  import { addOpenFile, pendingLine } from '$lib/stores/files';
+  import { addOpenFile, pendingLine, activeFilePath, activeEditorView, pendingAnchorIndex } from '$lib/stores/files';
   import { tr } from '$lib/i18n/index';
   import { trapFocus } from '$lib/utils/a11y';
+  import { setAnchors } from '$lib/editor/search-anchors';
+  import { get } from 'svelte/store';
 
   interface AnchoredResult extends GrepResult {
     stale: boolean;
+    /** Index into the searchAnchorsField positions array for this result's file. */
+    anchorIndex: number;
   }
 
   let {
@@ -86,6 +90,32 @@
     return mtimeMap;
   }
 
+  /**
+   * Convert a 1-based line number to an absolute document offset using the
+   * active CodeMirror EditorView, if the file is already open in the editor.
+   * Returns null if the view is not available or the line is out of range.
+   */
+  function lineToPos(view: import('@codemirror/view').EditorView, lineNumber: number): number | null {
+    try {
+      const lineInfo = view.state.doc.line(Math.min(lineNumber, view.state.doc.lines));
+      return lineInfo.from;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * If the currently active file is the searched file, dispatch setAnchors
+   * for those results so the Editor's StateField tracks them through edits.
+   */
+  function maybeDispatchAnchors(filePath: string, fileResults: AnchoredResult[]): void {
+    const view = get(activeEditorView);
+    const currentPath = get(activeFilePath);
+    if (!view || currentPath !== filePath) return;
+    const positions = fileResults.map((r) => lineToPos(view, r.line_number) ?? 0);
+    view.dispatch({ effects: setAnchors.of(positions) });
+  }
+
   async function runSearch() {
     const q = pattern.trim();
     if (!q) return;
@@ -100,9 +130,23 @@
       const uniquePaths = [...new Set(raw.map((r) => r.path))];
       const mtimes = await fetchMtimes(uniquePaths);
       searchMtimes = mtimes;
-      // All results start as fresh; stale state is derived on click or lazily
-      results = raw.map((r) => ({ ...r, stale: false }));
+
+      // Assign per-file anchor indices (each file has its own index sequence)
+      const fileIndexCounters = new Map<string, number>();
+      const mapped: AnchoredResult[] = raw.map((r) => {
+        const count = fileIndexCounters.get(r.path) ?? 0;
+        fileIndexCounters.set(r.path, count + 1);
+        return { ...r, stale: false, anchorIndex: count };
+      });
+      results = mapped;
       searched = true;
+
+      // For any file already open in the editor, push anchor positions now
+      const grouped = groupByFile(mapped);
+      const currentPath = get(activeFilePath);
+      if (currentPath && grouped.has(currentPath)) {
+        maybeDispatchAnchors(currentPath, grouped.get(currentPath)!);
+      }
     } catch (e) {
       console.error('Find in files error:', e);
       error = 'Search failed. Try a simpler pattern or check that the project folder is accessible.';
@@ -135,8 +179,25 @@
 
     try {
       const content = await adapter.readFile(result.path);
+      const fileResults = results.filter((r) => r.path === result.path);
+      const isAlreadyOpen = get(activeFilePath) === result.path;
+
       addOpenFile(result.path, content);
-      pendingLine.set(result.line_number);
+
+      // W3.5: If the file was already open, the editor already has anchors set.
+      // If it's newly opened, we need to dispatch anchors after the editor
+      // initialises — we do so reactively. For now also set pendingLine as
+      // fallback so navigation works even if the editor hasn't yet processed
+      // the anchor dispatch.
+      if (isAlreadyOpen) {
+        // Dispatch fresh anchors (editor view is live)
+        maybeDispatchAnchors(result.path, fileResults);
+        pendingAnchorIndex.set(result.anchorIndex);
+      } else {
+        // File is being opened — fall back to line-based navigation since the
+        // editor hasn't mounted yet; anchors will be set on next search open.
+        pendingLine.set(result.line_number);
+      }
     } catch {
       // Non-fatal
     }

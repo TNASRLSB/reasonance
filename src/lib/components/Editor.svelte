@@ -6,7 +6,8 @@
   import { foldGutter } from '@codemirror/language';
   import { oneDark } from '@codemirror/theme-one-dark';
   import { getLangAsync } from '$lib/editor/languages';
-  import { openFiles, activeFilePath, pendingLine, cursorLine, cursorCol } from '$lib/stores/files';
+  import { openFiles, activeFilePath, pendingLine, cursorLine, cursorCol, activeEditorView, pendingAnchorIndex } from '$lib/stores/files';
+  import { searchAnchorsExtension, searchAnchorsField } from '$lib/editor/search-anchors';
   import { updateFileContent } from '$lib/stores/projects';
   import { isDark } from '$lib/stores/theme';
   import { editorTheme, fontFamily, fontSize } from '$lib/stores/ui';
@@ -207,6 +208,7 @@
         ...langExts,
         buildCursorTracker(),
         buildModifiedLineGutter(),
+        searchAnchorsExtension,
         EditorView.editable.of(!ro),
         EditorState.readOnly.of(ro),
       ],
@@ -217,6 +219,7 @@
     if (view) {
       view.destroy();
       view = null;
+      activeEditorView.set(null);
     }
   }
 
@@ -240,12 +243,14 @@
     // Start with no language highlighting so the editor shows immediately
     const baseState = buildState(content, [], readOnly);
     view = new EditorView({ state: baseState, parent: container });
+    activeEditorView.set(view);
     // Load language asynchronously and apply once ready
     const langExts = await getLangAsync(fileName);
     if (!view) return; // editor may have been destroyed while awaiting
     currentLangExts = langExts;
     const state = buildState(view.state.doc.toString(), langExts, readOnly);
     view.setState(state);
+    activeEditorView.set(view);
   }
 
   // Watch for active file changes — debounced to prevent rapid teardown/recreation
@@ -346,6 +351,27 @@
       });
     } catch {
       // Line out of range — ignore
+    }
+  });
+
+  // W3.5 — Watch for pendingAnchorIndex — navigate to anchor position from StateField.
+  // This is more accurate than pendingLine because the anchor is mapped through
+  // document changes as the user types, so it stays correct after edits.
+  $effect(() => {
+    const idx = $pendingAnchorIndex;
+    if (idx == null || !view) return;
+    pendingAnchorIndex.set(null);
+    try {
+      const anchors = view.state.field(searchAnchorsField, false);
+      if (anchors && idx >= 0 && idx < anchors.length) {
+        const pos = anchors[idx];
+        view.dispatch({
+          selection: EditorSelection.cursor(pos),
+          scrollIntoView: true,
+        });
+      }
+    } catch {
+      // Field not present or index out of range — ignore
     }
   });
 
