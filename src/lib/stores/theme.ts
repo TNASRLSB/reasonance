@@ -1,5 +1,6 @@
 import { writable, derived, get } from 'svelte/store';
 import { invoke } from '@tauri-apps/api/core';
+import { z } from 'zod';
 import { listen } from '@tauri-apps/api/event';
 import type { ThemeFile, ThemePreferences } from '$lib/engine/theme-types';
 import { extractVariables, mergeModifier, buildCssString, injectStyles, applyColorScheme } from '$lib/engine/theme-engine';
@@ -7,6 +8,7 @@ import { validateTheme } from '$lib/engine/theme-validator';
 import { FALLBACK_THEME } from '$lib/engine/fallback-theme';
 import { editorTheme } from '$lib/stores/ui';
 import { appAnnouncer } from '$lib/utils/a11y-announcer';
+import { ThemePreferencesSchema } from '$lib/adapter/batch-schemas';
 
 // --- Stores ---
 export const activeThemeName = writable<string>('reasonance-dark');
@@ -45,12 +47,13 @@ activeModifierNames.subscribe(() => { if (initialized) savePreferences(); });
 
 async function savePreferences(): Promise<void> {
   try {
-    await invoke('save_theme_preferences', {
+    const result = await invoke('save_theme_preferences', {
       prefs: {
         activeTheme: get(activeThemeName),
         activeModifiers: get(activeModifierNames),
       },
     });
+    z.null().parse(result);
   } catch (e) {
     console.warn('Failed to save theme preferences:', e);
   }
@@ -120,7 +123,8 @@ export async function loadBuiltinTheme(name: string): Promise<void> {
 
   // Try user theme from disk
   try {
-    const json = await invoke<string>('load_user_theme', { name });
+    const result = await invoke('load_user_theme', { name });
+    const json = z.string().parse(result);
     if (gen !== loadGeneration) return;
     const theme = JSON.parse(json) as ThemeFile;
     const validation = validateTheme(theme);
@@ -222,12 +226,14 @@ function setupSystemModifiers(): void {
 
 export async function initThemeEngine(): Promise<void> {
   try {
-    const prefs = await invoke<ThemePreferences>('load_theme_preferences');
+    const rawPrefs = await invoke('load_theme_preferences');
+    const prefs: ThemePreferences = ThemePreferencesSchema.parse(rawPrefs);
     const themeName = prefs.activeTheme === 'fallback' ? 'reasonance-dark' : prefs.activeTheme;
 
     // Try user theme first, then built-in
     try {
-      const json = await invoke<string>('load_user_theme', { name: themeName });
+      const result = await invoke('load_user_theme', { name: themeName });
+      const json = z.string().parse(result);
       const theme = JSON.parse(json) as ThemeFile;
       const validation = validateTheme(theme);
       if (validation.valid) {

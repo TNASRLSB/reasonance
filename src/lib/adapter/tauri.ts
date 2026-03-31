@@ -1,11 +1,12 @@
 import { invoke } from '@tauri-apps/api/core';
+import { z } from 'zod';
 import type { Adapter, FileEntry, FsEvent, GrepResult, PtyHandle, DiscoveredAgent, Workflow, AgentState, AgentInstance, AgentMessage, MemoryEntry, WorkflowRun, CommsChannelType, CommsMessage, NodeDescriptor } from './index';
 import type { AgentEvent, AgentEventPayload, SessionHandle, SessionSummary, ViewMode } from '$lib/types/agent-event';
 import type { NegotiatedCapabilities, CliVersionInfo, VersionEntry, HealthReport } from '$lib/types/capability';
 import type { ProviderAnalytics, ModelAnalytics, DailyStats, SessionMetrics, ConnectionTestStep } from '$lib/types/analytics';
 import type { TrustCheckResult, TrustLevel, TrustEntry } from '$lib/stores/workspace-trust';
 import type { AppState, ProjectState } from '$lib/types/app-state';
-import { batchSchemas } from './batch-schemas';
+import { batchSchemas, AgentEventSchema } from './batch-schemas';
 
 interface PendingCall {
   command: string;
@@ -158,28 +159,30 @@ export class TauriAdapter implements Adapter {
   }
 
   async setProjectRoot(path: string): Promise<void> {
-    return invoke<void>('set_project_root', { path });
+    return this.enqueue('set_project_root', { path });
   }
   async readFile(path: string, signal?: AbortSignal): Promise<string> {
-    return this.enqueue<string>('read_file', { path }, signal);
+    return this.enqueue('read_file', { path }, signal);
   }
   async writeFile(path: string, content: string): Promise<void> {
-    return this.enqueue<void>('write_file', { path, content });
+    return this.enqueue('write_file', { path, content });
   }
   async listDir(path: string, respectGitignore?: boolean, signal?: AbortSignal): Promise<FileEntry[]> {
-    return this.enqueue<FileEntry[]>('list_dir', { path, respectGitignore: respectGitignore ?? true }, signal);
+    return this.enqueue('list_dir', { path, respectGitignore: respectGitignore ?? true }, signal);
   }
   async watchFiles(path: string, callback: (event: FsEvent) => void): Promise<() => void> {
     const { listen } = await import('@tauri-apps/api/event');
     const unlisten = await listen<FsEvent>('fs-change', (event) => { callback(event.payload); });
-    await invoke('start_watching', { path });
+    // Non-batchable: sets up persistent watcher — inline Zod validation
+    const result = await invoke('start_watching', { path });
+    z.null().parse(result);
     return unlisten;
   }
   async getGitStatus(projectRoot: string, signal?: AbortSignal): Promise<Record<string, string>> {
-    return this.enqueue<Record<string, string>>('get_git_status', { projectRoot }, signal);
+    return this.enqueue('get_git_status', { projectRoot }, signal);
   }
   async openExternal(path: string): Promise<void> {
-    return invoke<void>('open_external', { path });
+    return this.enqueue('open_external', { path });
   }
   async getClipboard(): Promise<string> {
     const { readText } = await import('@tauri-apps/plugin-clipboard-manager');
@@ -214,10 +217,10 @@ export class TauriAdapter implements Adapter {
     getCurrentWindow().onCloseRequested(async () => { await callback(); });
   }
   async discoverLlms(): Promise<Array<{ name: string; command: string; found: boolean }>> {
-    return invoke<Array<{ name: string; command: string; found: boolean }>>('discover_llms');
+    return this.enqueue('discover_llms', {});
   }
   async grepFiles(path: string, pattern: string, respectGitignore: boolean): Promise<GrepResult[]> {
-    return this.enqueue<GrepResult[]>('grep_files', { path, pattern, respectGitignore });
+    return this.enqueue('grep_files', { path, pattern, respectGitignore });
   }
   async openFolderDialog(): Promise<string | null> {
     const { open } = await import('@tauri-apps/plugin-dialog');
@@ -252,17 +255,17 @@ export class TauriAdapter implements Adapter {
     return selected ?? null;
   }
   async spawnProcess(command: string, args: string[], cwd: string): Promise<PtyHandle> {
-    const id = await invoke<string>('spawn_process', { command, args, cwd });
+    const id: string = await this.enqueue('spawn_process', { command, args, cwd });
     return { id };
   }
   async killProcess(id: string): Promise<void> {
-    return invoke('kill_process', { id });
+    return this.enqueue('kill_process', { id });
   }
   async resizePty(id: string, cols: number, rows: number): Promise<void> {
-    return invoke('resize_pty', { id, cols: Math.floor(cols), rows: Math.floor(rows) });
+    return this.enqueue('resize_pty', { id, cols: Math.floor(cols), rows: Math.floor(rows) });
   }
   async writePty(id: string, data: string): Promise<void> {
-    return invoke('write_pty', { id, data });
+    return this.enqueue('write_pty', { id, data });
   }
   async onPtyData(id: string, callback: (data: string) => void): Promise<() => void> {
     const { listen } = await import('@tauri-apps/api/event');
@@ -275,133 +278,136 @@ export class TauriAdapter implements Adapter {
     return unlisten;
   }
   async sweepPtys(): Promise<string[]> {
-    return invoke<string[]>('sweep_ptys');
+    return this.enqueue('sweep_ptys', {});
   }
   async reconnectPty(ptyId: string, command: string, args: string[], cwd: string): Promise<string> {
-    return invoke<string>('reconnect_pty', { ptyId, command, args, cwd });
+    return this.enqueue('reconnect_pty', { ptyId, command, args, cwd });
   }
   async killAllPtys(): Promise<number> {
-    return invoke<number>('kill_all_ptys');
+    return this.enqueue('kill_all_ptys', {});
   }
   async readConfig(): Promise<string> {
-    return this.enqueue<string>('read_config', {});
+    return this.enqueue('read_config', {});
   }
   async writeConfig(content: string): Promise<void> {
-    return invoke('write_config', { content });
+    return this.enqueue('write_config', { content });
   }
   async storeShadow(path: string, content: string): Promise<void> {
-    return this.enqueue<void>('store_shadow', { path, content });
+    return this.enqueue('store_shadow', { path, content });
   }
   async getShadow(path: string): Promise<string | null> {
-    return this.enqueue<string | null>('get_shadow', { path });
+    return this.enqueue('get_shadow', { path });
   }
 
   // Discovery
   async discoverAgents(): Promise<DiscoveredAgent[]> {
-    return invoke<DiscoveredAgent[]>('discover_agents');
+    return this.enqueue('discover_agents', {});
   }
   async getDiscoveredAgents(): Promise<DiscoveredAgent[]> {
-    return invoke<DiscoveredAgent[]>('get_discovered_agents');
+    return this.enqueue('get_discovered_agents', {});
   }
 
   // Workflows
   async loadWorkflow(filePath: string): Promise<Workflow> {
-    return this.enqueue<Workflow>('load_workflow', { filePath });
+    return this.enqueue('load_workflow', { filePath });
   }
   async saveWorkflow(filePath: string, workflow: Workflow): Promise<void> {
-    return invoke('save_workflow', { filePath, workflow });
+    return this.enqueue('save_workflow', { filePath, workflow });
   }
   async listWorkflows(dir: string): Promise<string[]> {
-    return this.enqueue<string[]>('list_workflows', { dir });
+    return this.enqueue('list_workflows', { dir });
   }
   async deleteWorkflow(filePath: string): Promise<void> {
-    return invoke('delete_workflow', { filePath });
+    return this.enqueue('delete_workflow', { filePath });
   }
   async createWorkflow(name: string, filePath: string): Promise<Workflow> {
-    return invoke<Workflow>('create_workflow', { name, filePath });
+    return this.enqueue('create_workflow', { name, filePath });
   }
   async getWorkflow(filePath: string): Promise<Workflow | null> {
-    return invoke<Workflow | null>('get_workflow', { filePath });
+    return this.enqueue('get_workflow', { filePath });
   }
   async duplicateWorkflow(sourcePath: string, destPath: string): Promise<Workflow> {
-    return invoke('duplicate_workflow', { sourcePath, destPath });
+    return this.enqueue('duplicate_workflow', { sourcePath, destPath });
   }
   async saveToGlobal(workflowPath: string): Promise<string> {
-    return invoke('save_to_global', { workflowPath });
+    return this.enqueue('save_to_global', { workflowPath });
   }
   async listGlobalWorkflows(): Promise<string[]> {
-    return invoke('list_global_workflows');
+    return this.enqueue('list_global_workflows', {});
   }
 
   // Agent Runtime
   async createAgent(nodeId: string, workflowPath: string, maxRetries: number, fallbackAgent?: string): Promise<string> {
-    return invoke<string>('create_agent', { nodeId, workflowPath, maxRetries, fallbackAgent: fallbackAgent ?? null });
+    return this.enqueue('create_agent', { nodeId, workflowPath, maxRetries, fallbackAgent: fallbackAgent ?? null });
   }
   async transitionAgent(agentId: string, newState: AgentState): Promise<AgentState> {
-    return invoke<AgentState>('transition_agent', { agentId, newState });
+    return this.enqueue('transition_agent', { agentId, newState });
   }
   async setAgentPty(agentId: string, ptyId: string): Promise<void> {
-    return invoke('set_agent_pty', { agentId, ptyId });
+    return this.enqueue('set_agent_pty', { agentId, ptyId });
   }
   async setAgentError(agentId: string, message: string): Promise<void> {
-    return invoke('set_agent_error', { agentId, message });
+    return this.enqueue('set_agent_error', { agentId, message });
   }
   async getAgent(agentId: string): Promise<AgentInstance | null> {
-    return invoke<AgentInstance | null>('get_agent', { agentId });
+    return this.enqueue('get_agent', { agentId });
   }
   async getWorkflowAgents(workflowPath: string): Promise<AgentInstance[]> {
-    return invoke<AgentInstance[]>('get_workflow_agents', { workflowPath });
+    return this.enqueue('get_workflow_agents', { workflowPath });
   }
   async removeAgent(agentId: string): Promise<void> {
-    return invoke('remove_agent', { agentId });
+    return this.enqueue('remove_agent', { agentId });
   }
   async stopWorkflowAgents(workflowPath: string): Promise<void> {
-    return invoke('stop_workflow_agents', { workflowPath });
+    return this.enqueue('stop_workflow_agents', { workflowPath });
   }
   async sendAgentMessage(from: string, to: string, payload: unknown): Promise<void> {
-    return invoke('send_agent_message', { from, to, payload });
+    return this.enqueue('send_agent_message', { from, to, payload });
   }
   async getAgentMessages(agentId: string): Promise<AgentMessage[]> {
-    return invoke<AgentMessage[]>('get_agent_messages', { agentId });
+    return this.enqueue('get_agent_messages', { agentId });
   }
   async getAgentMemory(nodeId: string, workflowPath: string, persist = 'workflow'): Promise<MemoryEntry[]> {
-    return invoke<MemoryEntry[]>('get_agent_memory', { nodeId, workflowPath, persist });
+    return this.enqueue('get_agent_memory', { nodeId, workflowPath, persist });
   }
 
   // Workflow Engine
   async playWorkflow(workflowPath: string, cwd: string): Promise<string> {
-    return invoke<string>('play_workflow', { workflowPath, cwd });
+    return this.enqueue('play_workflow', { workflowPath, cwd });
   }
   async pauseWorkflow(runId: string): Promise<void> {
-    return invoke('pause_workflow', { runId });
+    return this.enqueue('pause_workflow', { runId });
   }
   async resumeWorkflow(runId: string, workflowPath: string, cwd: string): Promise<void> {
-    return invoke('resume_workflow', { runId, workflowPath, cwd });
+    return this.enqueue('resume_workflow', { runId, workflowPath, cwd });
   }
   async stopWorkflow(runId: string): Promise<void> {
-    return invoke('stop_workflow', { runId });
+    return this.enqueue('stop_workflow', { runId });
   }
   async stepWorkflow(runId: string, workflowPath: string, cwd: string): Promise<string | null> {
-    return invoke<string | null>('step_workflow', { runId, workflowPath, cwd });
+    return this.enqueue('step_workflow', { runId, workflowPath, cwd });
   }
   async getRunStatus(runId: string): Promise<WorkflowRun | null> {
-    return this.enqueue<WorkflowRun | null>('get_run_status', { runId });
+    return this.enqueue('get_run_status', { runId });
   }
   async notifyNodeCompleted(runId: string, nodeId: string, success: boolean, workflowPath: string, cwd: string): Promise<void> {
-    return invoke('notify_node_completed', { runId, nodeId, success, workflowPath, cwd });
+    return this.enqueue('notify_node_completed', { runId, nodeId, success, workflowPath, cwd });
   }
 
-  // Structured Transport
+  // Structured Transport (non-batchable: long-running/streaming — inline Zod validation)
   async agentSend(prompt: string, provider: string, model?: string, sessionId?: string, cwd?: string, yolo?: boolean, allowedTools?: string[]): Promise<string> {
-    return invoke<string>('agent_send', {
+    const result = await invoke('agent_send', {
       request: { prompt, provider, model: model ?? null, context: [], session_id: sessionId ?? null, system_prompt: null, max_tokens: null, allowed_tools: allowedTools ?? null, cwd: cwd ?? null, yolo: yolo ?? false }
     });
+    return z.string().parse(result);
   }
   async agentStop(sessionId: string): Promise<void> {
-    return invoke<void>('agent_stop', { sessionId });
+    const result = await invoke('agent_stop', { sessionId });
+    z.null().parse(result);
   }
   async agentGetEvents(sessionId: string): Promise<AgentEvent[]> {
-    return invoke<AgentEvent[]>('agent_get_events', { sessionId });
+    const result = await invoke('agent_get_events', { sessionId });
+    return z.array(AgentEventSchema).parse(result) as AgentEvent[];
   }
   async onAgentEvent(callback: (payload: AgentEventPayload) => void): Promise<() => void> {
     const { listen } = await import('@tauri-apps/api/event');
@@ -413,73 +419,75 @@ export class TauriAdapter implements Adapter {
 
   // Session Management
   async sessionCreate(provider: string, model: string): Promise<string> {
-    return this.enqueue<string>('session_create', { provider, model });
+    return this.enqueue('session_create', { provider, model });
   }
   async sessionRestore(sessionId: string): Promise<SessionHandle> {
-    return this.enqueue<SessionHandle>('session_restore', { sessionId });
+    return this.enqueue('session_restore', { sessionId });
   }
   async sessionGetEvents(sessionId: string): Promise<AgentEvent[]> {
-    return this.enqueue<AgentEvent[]>('session_get_events', { sessionId });
+    return this.enqueue('session_get_events', { sessionId });
   }
   async sessionList(): Promise<SessionSummary[]> {
-    return this.enqueue<SessionSummary[]>('session_list', {});
+    return this.enqueue('session_list', {});
   }
   async sessionDelete(sessionId: string): Promise<void> {
-    return invoke<void>('session_delete', { sessionId });
+    return this.enqueue('session_delete', { sessionId });
   }
   async sessionRename(sessionId: string, title: string): Promise<void> {
-    return invoke<void>('session_rename', { sessionId, title });
+    return this.enqueue('session_rename', { sessionId, title });
   }
   async sessionFork(sessionId: string, forkEventIndex: number): Promise<string> {
-    return invoke<string>('session_fork', { sessionId, forkEventIndex });
+    return this.enqueue('session_fork', { sessionId, forkEventIndex });
   }
   async sessionSetViewMode(sessionId: string, mode: ViewMode): Promise<void> {
-    return invoke<void>('session_set_view_mode', { sessionId, mode });
+    return this.enqueue('session_set_view_mode', { sessionId, mode });
   }
 
   // Capability & Health
   async getCapabilities(): Promise<Record<string, NegotiatedCapabilities>> {
-    return invoke('get_capabilities');
+    return this.enqueue('get_capabilities', {});
   }
   async getProviderCapabilities(provider: string): Promise<NegotiatedCapabilities> {
-    return invoke('get_provider_capabilities', { provider });
+    return this.enqueue('get_provider_capabilities', { provider });
   }
   async getCliVersions(): Promise<CliVersionInfo[]> {
-    return invoke('get_cli_versions');
+    return this.enqueue('get_cli_versions', {});
   }
   async getNormalizerVersions(provider: string): Promise<VersionEntry[]> {
-    return invoke('get_normalizer_versions', { provider });
+    return this.enqueue('get_normalizer_versions', { provider });
   }
   async rollbackNormalizer(provider: string, versionId: string): Promise<string> {
-    return invoke('rollback_normalizer', { provider, versionId });
+    return this.enqueue('rollback_normalizer', { provider, versionId });
   }
   async getHealthReport(provider: string): Promise<HealthReport> {
-    return invoke('get_health_report', { provider });
+    return this.enqueue('get_health_report', { provider });
   }
   async getAllHealthReports(): Promise<Record<string, HealthReport>> {
-    return invoke('get_all_health_reports');
+    return this.enqueue('get_all_health_reports', {});
   }
 
   async analyticsProvider(provider: string, from?: number, to?: number): Promise<ProviderAnalytics> {
-    return invoke<ProviderAnalytics>('analytics_provider', { provider, from, to });
+    return this.enqueue('analytics_provider', { provider, from, to });
   }
   async analyticsCompare(from?: number, to?: number): Promise<ProviderAnalytics[]> {
-    return this.enqueue<ProviderAnalytics[]>('analytics_compare', { from, to });
+    return this.enqueue('analytics_compare', { from, to });
   }
   async analyticsModelBreakdown(provider: string, from?: number, to?: number): Promise<ModelAnalytics[]> {
-    return this.enqueue<ModelAnalytics[]>('analytics_model_breakdown', { provider, from, to });
+    return this.enqueue('analytics_model_breakdown', { provider, from, to });
   }
   async analyticsSession(sessionId: string): Promise<SessionMetrics | null> {
-    return invoke<SessionMetrics | null>('analytics_session', { sessionId });
+    return this.enqueue('analytics_session', { sessionId });
   }
   async analyticsDaily(provider?: string, days?: number): Promise<DailyStats[]> {
-    return this.enqueue<DailyStats[]>('analytics_daily', { provider, days });
+    return this.enqueue('analytics_daily', { provider, days });
   }
   async analyticsActive(): Promise<SessionMetrics[]> {
-    return invoke<SessionMetrics[]>('analytics_active');
+    return this.enqueue('analytics_active', {});
   }
+  // Non-batchable: long-running, emits step events via Tauri event system
   async testProviderConnection(provider: string): Promise<void> {
-    return invoke<void>('test_provider_connection', { provider });
+    const result = await invoke('test_provider_connection', { provider });
+    z.null().parse(result);
   }
   async onConnectionTest(callback: (step: ConnectionTestStep) => void): Promise<() => void> {
     const { listen } = await import('@tauri-apps/api/event');
@@ -487,66 +495,68 @@ export class TauriAdapter implements Adapter {
       callback(event.payload);
     });
   }
+  // Non-batchable: reloads all normalizers from disk, runs health checks
   async reloadNormalizers(): Promise<void> {
-    return invoke<void>('reload_normalizers');
+    const result = await invoke('reload_normalizers');
+    z.null().parse(result);
   }
   async healNormalizer(provider: string): Promise<{ status: 'fixed' | 'failed'; message: string }> {
-    return invoke<{ status: 'fixed' | 'failed'; message: string }>('heal_normalizer', { provider });
+    return this.enqueue('heal_normalizer', { provider });
   }
 
   // Workspace Trust
   async checkWorkspaceTrust(path: string): Promise<TrustCheckResult> {
-    return invoke<TrustCheckResult>('check_workspace_trust', { path });
+    return this.enqueue('check_workspace_trust', { path });
   }
 
   async setWorkspaceTrust(path: string, level: TrustLevel): Promise<void> {
-    return invoke<void>('set_workspace_trust', { path, level });
+    return this.enqueue('set_workspace_trust', { path, level });
   }
 
   async revokeWorkspaceTrust(hash: string): Promise<void> {
-    return invoke<void>('revoke_workspace_trust', { hash });
+    return this.enqueue('revoke_workspace_trust', { hash });
   }
 
   async listWorkspaceTrust(): Promise<TrustEntry[]> {
-    return invoke<TrustEntry[]>('list_workspace_trust');
+    return this.enqueue('list_workspace_trust', {});
   }
 
   async getNormalizerConfig(provider: string): Promise<{ permission_args?: string[] } | null> {
-    return invoke<{ permission_args?: string[] } | null>('get_normalizer_config', { provider });
+    return this.enqueue('get_normalizer_config', { provider });
   }
 
   // App State Persistence
   async getAppState(): Promise<AppState> {
-    return this.enqueue<AppState>('get_app_state', {});
+    return this.enqueue('get_app_state', {});
   }
   async saveAppState(state: AppState): Promise<void> {
-    return this.enqueue<void>('save_app_state', { state });
+    return this.enqueue('save_app_state', { state });
   }
   async getProjectState(projectId: string): Promise<ProjectState> {
-    return this.enqueue<ProjectState>('get_project_state', { projectId });
+    return this.enqueue('get_project_state', { projectId });
   }
   async saveProjectState(projectId: string, state: ProjectState): Promise<void> {
-    return this.enqueue<void>('save_project_state', { projectId, state });
+    return this.enqueue('save_project_state', { projectId, state });
   }
 
   // File Operations (undo/trash)
   async fileOpsSetProject(path: string): Promise<void> {
-    return invoke('file_ops_set_project', { path });
+    return this.enqueue('file_ops_set_project', { path });
   }
   async fileOpsDelete(path: string): Promise<void> {
-    return invoke('file_ops_delete', { path });
+    return this.enqueue('file_ops_delete', { path });
   }
   async fileOpsUndo(): Promise<string> {
-    return invoke('file_ops_undo');
+    return this.enqueue('file_ops_undo', {});
   }
   async fileOpsRecordCreate(path: string): Promise<void> {
-    return invoke('file_ops_record_create', { path });
+    return this.enqueue('file_ops_record_create', { path });
   }
   async fileOpsRecordRename(oldPath: string, newPath: string): Promise<void> {
-    return invoke('file_ops_record_rename', { oldPath, newPath });
+    return this.enqueue('file_ops_record_rename', { oldPath, newPath });
   }
   async fileOpsMove(oldPath: string, newPath: string): Promise<void> {
-    return invoke('file_ops_move', { oldPath, newPath });
+    return this.enqueue('file_ops_move', { oldPath, newPath });
   }
 
   // Permissions
@@ -562,21 +572,21 @@ export class TauriAdapter implements Adapter {
 
   // Agent Memory v2
   async memoryAdd(entry: MemoryEntry): Promise<string> {
-    return this.enqueue<string>('memory_add_entry', { entry });
+    return this.enqueue('memory_add_entry', { entry });
   }
   async memorySearch(query: string, scope: string, scopeId?: string, limit?: number): Promise<MemoryEntry[]> {
-    return this.enqueue<MemoryEntry[]>('memory_search', { query, scope, scopeId, limit: limit ?? 20 });
+    return this.enqueue('memory_search', { query, scope, scopeId, limit: limit ?? 20 });
   }
   async memoryList(scope: string, scopeId?: string, sort?: string, limit?: number, offset?: number): Promise<MemoryEntry[]> {
-    return this.enqueue<MemoryEntry[]>('memory_list', { scope, scopeId, sort: sort ?? 'recency', limit: limit ?? 50, offset: offset ?? 0 });
+    return this.enqueue('memory_list', { scope, scopeId, sort: sort ?? 'recency', limit: limit ?? 50, offset: offset ?? 0 });
   }
   async memoryGet(id: string): Promise<MemoryEntry | null> {
-    return this.enqueue<MemoryEntry | null>('memory_get', { id });
+    return this.enqueue('memory_get', { id });
   }
 
   // Agent Communications (CommsBus)
   async commsPublish(from: string, channel: CommsChannelType, payload: unknown, replyTo?: string, ttlSecs?: number): Promise<string> {
-    return this.enqueue<string>('agent_publish_message', {
+    return this.enqueue('agent_publish_message', {
       from,
       channel,
       payload,
@@ -585,71 +595,71 @@ export class TauriAdapter implements Adapter {
     });
   }
   async commsGetMessages(nodeId: string, sinceId?: string): Promise<CommsMessage[]> {
-    return this.enqueue<CommsMessage[]>('agent_get_messages', { nodeId, sinceId: sinceId ?? null });
+    return this.enqueue('agent_get_messages', { nodeId, sinceId: sinceId ?? null });
   }
   async commsGetTopicMessages(topic: string, sinceId?: string): Promise<CommsMessage[]> {
-    return this.enqueue<CommsMessage[]>('agent_get_topic_messages', { topic, sinceId: sinceId ?? null });
+    return this.enqueue('agent_get_topic_messages', { topic, sinceId: sinceId ?? null });
   }
   async commsGetBroadcastMessages(workflowId: string, sinceId?: string): Promise<CommsMessage[]> {
-    return this.enqueue<CommsMessage[]>('agent_get_broadcast_messages', { workflowId, sinceId: sinceId ?? null });
+    return this.enqueue('agent_get_broadcast_messages', { workflowId, sinceId: sinceId ?? null });
   }
   async commsSweep(): Promise<number> {
-    return this.enqueue<number>('agent_sweep_messages', {});
+    return this.enqueue('agent_sweep_messages', {});
   }
   async commsClearWorkflow(workflowId: string): Promise<void> {
-    return this.enqueue<void>('agent_clear_workflow_messages', { workflowId });
+    return this.enqueue('agent_clear_workflow_messages', { workflowId });
   }
 
   // Multi-project
   async addProject(id: string, rootPath: string, trustLevel: string): Promise<void> {
-    await invoke('add_project', { id, rootPath, trustLevel });
+    return this.enqueue('add_project', { id, rootPath, trustLevel });
   }
 
   // Model Slots
   async getModelForSlot(provider: string, slot: string): Promise<string | null> {
-    return this.enqueue<string | null>('get_model_for_slot', { provider, slot });
+    return this.enqueue('get_model_for_slot', { provider, slot });
   }
   async setModelSlot(provider: string, slot: string, model: string): Promise<void> {
-    return this.enqueue<void>('set_model_slot', { provider, slot, model });
+    return this.enqueue('set_model_slot', { provider, slot, model });
   }
   async listModelSlots(provider: string): Promise<Array<[string, string | null]>> {
-    return this.enqueue<Array<[string, string | null]>>('list_model_slots', { provider });
+    return this.enqueue('list_model_slots', { provider });
   }
 
   async getSetting(key: string): Promise<unknown> {
-    return this.enqueue<unknown>('get_setting', { key });
+    return this.enqueue('get_setting', { key });
   }
 
   async setSetting(key: string, value: unknown, layer?: string): Promise<void> {
-    await invoke('set_setting', { key, value, layer: layer ?? 'user' });
+    return this.enqueue('set_setting', { key, value, layer: layer ?? 'user' });
   }
 
   async getAllSettings(): Promise<Record<string, unknown>> {
-    return invoke('get_all_settings');
+    return this.enqueue('get_all_settings', {});
   }
 
   async reloadSettings(): Promise<void> {
-    await invoke('reload_settings');
+    return this.enqueue('reload_settings', {});
   }
 
   async removeProject(id: string): Promise<void> {
-    await invoke('remove_project', { id });
+    return this.enqueue('remove_project', { id });
   }
 
   async setActiveProject(id: string): Promise<void> {
-    await invoke('set_active_project', { id });
+    return this.enqueue('set_active_project', { id });
   }
 
   async getProjectRoot(projectId: string): Promise<string> {
-    return invoke('get_project_root', { projectId });
+    return this.enqueue('get_project_root', { projectId });
   }
 
   async killProjectProcesses(id: string): Promise<string[]> {
-    return invoke('kill_project_ptys', { projectId: id });
+    return this.enqueue('kill_project_ptys', { projectId: id });
   }
 
   // Node Registry
   async getNodeTypes(): Promise<NodeDescriptor[]> {
-    return this.enqueue<NodeDescriptor[]>('get_node_types', {});
+    return this.enqueue('get_node_types', {});
   }
 }
