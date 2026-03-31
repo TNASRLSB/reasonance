@@ -20,36 +20,8 @@ fn is_allowed_command(command: &str) -> bool {
         return true;
     }
 
-    // Allow commands defined in the LLM config
-    let config_path = config::config_path();
-    if let Ok(contents) = std::fs::read_to_string(&config_path) {
-        if let Ok(app_config) = toml::from_str::<config::AppConfig>(&contents) {
-            if let Some(llms) = app_config.llm {
-                for llm in &llms {
-                    // Match against the explicit command field
-                    if let Some(cmd) = &llm.command {
-                        let llm_binary = std::path::Path::new(cmd)
-                            .file_name()
-                            .and_then(|n| n.to_str())
-                            .unwrap_or(cmd.as_str());
-                        if cmd == command || llm_binary == binary {
-                            return true;
-                        }
-                    }
-                    // Also match against the LLM name itself (used as command by convention)
-                    let name_binary = std::path::Path::new(&llm.name)
-                        .file_name()
-                        .and_then(|n| n.to_str())
-                        .unwrap_or(&llm.name);
-                    if llm.name == command || name_binary == binary {
-                        return true;
-                    }
-                }
-            }
-        }
-    }
-
-    false
+    // Delegate LLM command validation to the config module (GEC-6)
+    config::is_allowed_llm_command(command)
 }
 
 #[tauri::command]

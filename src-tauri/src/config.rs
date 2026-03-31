@@ -59,6 +59,52 @@ pub fn config_path() -> PathBuf {
 // This is acceptable: the config file is user-owned and stored in the user's
 // XDG config directory (~/.config/reasonance/). No encryption is applied.
 
+/// Check whether `command` is a configured LLM command or LLM name in llms.toml.
+///
+/// Reads and parses the config file each call so that runtime config changes are
+/// picked up without restart. Returns `false` on any I/O or parse error.
+pub fn is_allowed_llm_command(command: &str) -> bool {
+    let binary = std::path::Path::new(command)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or(command);
+
+    let path = config_path();
+    let contents = match std::fs::read_to_string(&path) {
+        Ok(c) => c,
+        Err(_) => return false,
+    };
+    let app_config: AppConfig = match toml::from_str(&contents) {
+        Ok(c) => c,
+        Err(_) => return false,
+    };
+
+    if let Some(llms) = app_config.llm {
+        for llm in &llms {
+            // Match against the explicit command field
+            if let Some(cmd) = &llm.command {
+                let llm_binary = std::path::Path::new(cmd)
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or(cmd.as_str());
+                if cmd == command || llm_binary == binary {
+                    return true;
+                }
+            }
+            // Also match against the LLM name itself (used as command by convention)
+            let name_binary = std::path::Path::new(&llm.name)
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or(&llm.name);
+            if llm.name == command || name_binary == binary {
+                return true;
+            }
+        }
+    }
+
+    false
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -150,5 +196,13 @@ endpoint = "https://api.openai.com/v1"
         assert_eq!(llm.model.as_deref(), Some("gpt-4o"));
         assert!(llm.command.is_none());
         assert!(llm.yolo_flag.is_none());
+    }
+
+    #[test]
+    fn is_allowed_llm_command_rejects_unknown() {
+        // Commands that would never appear in any real llms.toml
+        assert!(!is_allowed_llm_command("rm"));
+        assert!(!is_allowed_llm_command("curl"));
+        assert!(!is_allowed_llm_command("/usr/bin/python3"));
     }
 }
