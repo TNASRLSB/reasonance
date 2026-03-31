@@ -4,8 +4,9 @@ use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::sync::{Arc, Mutex};
 use std::thread;
-use tauri::{AppHandle, Emitter};
 use uuid::Uuid;
+
+use crate::event_bus::EventBus;
 
 use crate::tracked_map::TrackedMap;
 
@@ -99,7 +100,7 @@ impl PtyManager {
         command: &str,
         args: &[String],
         cwd: &str,
-        app: AppHandle,
+        event_bus: Arc<EventBus>,
     ) -> Result<String, crate::error::ReasonanceError> {
         let pty_system = native_pty_system();
         let pair = pty_system
@@ -151,17 +152,29 @@ impl PtyManager {
                 match reader.read(&mut buf) {
                     Ok(0) => {
                         debug!("PTY reader EOF: id={}", read_id);
-                        let _ = app.emit(&format!("pty-exit-{}", read_id), 0);
+                        event_bus.publish(crate::event_bus::Event::new(
+                            "pty:exit",
+                            serde_json::json!({"id": read_id, "code": 0}),
+                            "pty-reader",
+                        ));
                         break;
                     }
                     Ok(n) => {
                         trace!("PTY data: id={}, bytes={}", read_id, n);
                         let data = String::from_utf8_lossy(&buf[..n]).to_string();
-                        let _ = app.emit(&format!("pty-data-{}", read_id), data);
+                        event_bus.publish(crate::event_bus::Event::new(
+                            "pty:data",
+                            serde_json::json!({"id": read_id, "data": data}),
+                            "pty-reader",
+                        ));
                     }
                     Err(e) => {
                         warn!("PTY read error: id={}, error={}", read_id, e);
-                        let _ = app.emit(&format!("pty-exit-{}", read_id), 1);
+                        event_bus.publish(crate::event_bus::Event::new(
+                            "pty:exit",
+                            serde_json::json!({"id": read_id, "code": 1}),
+                            "pty-reader",
+                        ));
                         break;
                     }
                 }

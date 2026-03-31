@@ -2,7 +2,6 @@ use log::{debug, error, info, warn};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use tauri::{AppHandle, Emitter};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CliVersionInfo {
@@ -138,12 +137,12 @@ struct CliUpdateEvent {
 /// Run version-check + update for every auto-update provider.
 /// Designed to be spawned as a fire-and-forget background task at app startup.
 ///
-/// `event_bus` — when provided, publishes `lifecycle:update-available` on version changes.
+/// `event_bus` — publishes `lifecycle:update-available` on version changes and
+///               `cli:update-result` for per-provider completion notifications.
 /// `auto_check` — when `false`, skips the entire update cycle (respects user setting).
 pub async fn run_background_updates(
-    app: AppHandle,
     updater: Arc<CliUpdater>,
-    event_bus: Option<Arc<crate::event_bus::EventBus>>,
+    event_bus: Arc<crate::event_bus::EventBus>,
     auto_check: bool,
 ) {
     if !auto_check {
@@ -258,33 +257,32 @@ pub async fn run_background_updates(
                     new_version.as_deref().unwrap_or("?")
                 );
                 // Notify via EventBus so the frontend can display an update banner.
-                if let Some(ref bus) = event_bus {
-                    bus.publish(crate::event_bus::Event::new(
-                        "lifecycle:update-available",
-                        serde_json::json!({
-                            "provider": provider,
-                            "current": old_version,
-                            "available": new_version,
-                        }),
-                        "cli_updater",
-                    ));
-                }
+                event_bus.publish(crate::event_bus::Event::new(
+                    "lifecycle:update-available",
+                    serde_json::json!({
+                        "provider": provider,
+                        "current": old_version,
+                        "available": new_version,
+                    }),
+                    "cli_updater",
+                ));
             } else {
                 info!("CLI updater: '{provider}' already up to date");
             }
         }
 
-        // 4. Notify frontend.
-        let _ = app.emit(
-            "cli://update-result",
-            CliUpdateEvent {
+        // 4. Notify frontend via EventBus.
+        event_bus.publish(crate::event_bus::Event::new(
+            "cli:update-result",
+            serde_json::json!(CliUpdateEvent {
                 provider: provider.clone(),
                 success,
                 old_version,
                 new_version,
                 error: err_msg,
-            },
-        );
+            }),
+            "cli_updater",
+        ));
     }
 
     info!("CLI updater: background update cycle complete");

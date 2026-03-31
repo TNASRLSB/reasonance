@@ -1,12 +1,14 @@
 use crate::agent_comms::AgentCommsBus;
 use crate::agent_runtime::AgentRuntime;
 use crate::error::ReasonanceError;
+use crate::event_bus::EventBus;
 use crate::pty_manager::PtyManager;
 use crate::resource_lock::ResourceLockManager;
 use crate::workflow_engine::{WorkflowEngine, WorkflowRun};
 use crate::workflow_store::WorkflowStore;
 use log::{debug, info};
-use tauri::{AppHandle, Emitter, State};
+use std::sync::Arc;
+use tauri::{AppHandle, State};
 
 #[tauri::command]
 pub fn play_workflow(
@@ -19,6 +21,7 @@ pub fn play_workflow(
     pty_manager: State<'_, PtyManager>,
     lock_manager: State<'_, ResourceLockManager>,
     comms_bus: State<'_, AgentCommsBus>,
+    bus: State<'_, Arc<EventBus>>,
 ) -> Result<String, ReasonanceError> {
     info!(
         "cmd::play_workflow(workflow_path={}, cwd={})",
@@ -40,12 +43,13 @@ pub fn play_workflow(
         &lock_manager,
         &comms_bus,
     )?;
-    let _ = app.emit(
-        "hive://run-status-changed",
+    bus.publish(crate::event_bus::Event::new(
+        "workflow:run-status",
         serde_json::json!({
             "run_id": run_id, "old_status": "idle", "new_status": "running",
         }),
-    );
+        "play_workflow",
+    ));
     debug!("cmd::play_workflow started run_id={}", run_id);
     Ok(run_id)
 }
@@ -93,12 +97,12 @@ pub fn resume_workflow(
 #[tauri::command]
 pub fn stop_workflow(
     run_id: String,
-    app: AppHandle,
     engine: State<'_, WorkflowEngine>,
     runtime: State<'_, AgentRuntime>,
     pty_manager: State<'_, PtyManager>,
     lock_manager: State<'_, ResourceLockManager>,
     comms_bus: State<'_, AgentCommsBus>,
+    bus: State<'_, Arc<EventBus>>,
 ) -> Result<(), ReasonanceError> {
     info!("cmd::stop_workflow(run_id={})", run_id);
     if let Some(run) = engine.get_run(&run_id) {
@@ -117,10 +121,11 @@ pub fn stop_workflow(
         }
     }
     engine.stop_run(&run_id)?;
-    let _ = app.emit(
-        "hive://run-status-changed",
+    bus.publish(crate::event_bus::Event::new(
+        "workflow:run-status",
         serde_json::json!({ "run_id": run_id, "old_status": "running", "new_status": "stopped" }),
-    );
+        "stop_workflow",
+    ));
     Ok(())
 }
 

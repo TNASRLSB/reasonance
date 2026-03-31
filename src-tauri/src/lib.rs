@@ -62,7 +62,7 @@ use log::info;
 use pty_manager::PtyManager;
 use shadow_store::ShadowStore;
 use std::time::Instant;
-use tauri::{Emitter, Manager};
+use tauri::Manager;
 
 /// Shared state for the resolved normalizers directory path.
 pub struct NormalizersDir(pub std::path::PathBuf);
@@ -160,10 +160,16 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
-            // If a path argument was provided, emit event to frontend
+            // If a path argument was provided, publish via EventBus
             if args.len() > 1 {
                 if let Some(path) = args.get(1) {
-                    let _ = app.emit("cli-open-project", path.as_str());
+                    if let Some(bus) = app.try_state::<std::sync::Arc<event_bus::EventBus>>() {
+                        bus.publish(event_bus::Event::new(
+                            "cli:open-project",
+                            serde_json::json!(path.as_str()),
+                            "single-instance",
+                        ));
+                    }
                 }
             }
             if let Some(w) = app.get_webview_window("main") {
@@ -269,6 +275,13 @@ pub fn run() {
             bus.register_channel("transport:circuit-state", true);
             bus.register_channel("fileop:execute", true);
             bus.register_channel("fileop:undo", true);
+            bus.register_channel("cli:open-project", true);
+            bus.register_channel("cli:update-result", true);
+            bus.register_channel("provider:connection-test", true);
+            bus.register_channel("fs:change", true);
+            bus.register_channel("pty:data", true);
+            bus.register_channel("pty:exit", true);
+            bus.register_channel("theme:changed", true);
             info!("  ⏱ EventBus init: {}ms", t_bus.elapsed().as_millis());
             app.manage(bus.clone());
 
@@ -491,12 +504,11 @@ pub fn run() {
 
             // Start theme file watcher
             info!("  ✓ Starting theme file watcher");
-            theme_watcher::start_theme_watcher(app.handle().clone());
+            theme_watcher::start_theme_watcher(bus.clone());
 
             // Spawn background CLI update task
             info!("  ✓ Scheduling background CLI updates");
             let updater_arc = updater.inner().clone();
-            let app_handle = app.handle().clone();
             let updater_bus = bus.clone();
             let auto_check = {
                 let s = app
@@ -507,13 +519,7 @@ pub fn run() {
                 s.get::<bool>("updates.auto_check").unwrap_or(true)
             };
             tauri::async_runtime::spawn(async move {
-                cli_updater::run_background_updates(
-                    app_handle,
-                    updater_arc,
-                    Some(updater_bus),
-                    auto_check,
-                )
-                .await;
+                cli_updater::run_background_updates(updater_arc, updater_bus, auto_check).await;
             });
 
             let total_setup_ms = setup_start.elapsed().as_millis() as u64;

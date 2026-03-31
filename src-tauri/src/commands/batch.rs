@@ -431,13 +431,14 @@ async fn dispatch(app: &AppHandle, cmd: &str, args: Value) -> Result<Value, Reas
             let cmd_args: Vec<String> = extract_opt(&args, "args")?.unwrap_or_default();
             let cwd: String = extract(&args, "cwd")?;
             let pty_manager = app.state::<crate::pty_manager::PtyManager>();
+            let bus = app.state::<std::sync::Arc<crate::event_bus::EventBus>>();
             let result = crate::commands::pty::reconnect_pty(
                 pty_id,
                 command,
                 cmd_args,
                 cwd,
-                app.clone(),
                 pty_manager,
+                bus,
             )?;
             Ok(serde_json::to_value(result).unwrap())
         }

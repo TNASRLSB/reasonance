@@ -1,8 +1,10 @@
 use crate::config;
 use crate::error::ReasonanceError;
+use crate::event_bus::EventBus;
 use crate::pty_manager::PtyManager;
 use log::{debug, error, info};
-use tauri::{AppHandle, State};
+use std::sync::Arc;
+use tauri::State;
 
 /// Shells that are always allowed regardless of LLM config.
 const ALLOWED_SHELLS: &[&str] = &["bash", "zsh", "sh", "fish", "powershell", "cmd"];
@@ -29,8 +31,8 @@ pub fn spawn_process(
     command: String,
     args: Vec<String>,
     cwd: String,
-    app: AppHandle,
     pty_manager: State<'_, PtyManager>,
+    bus: State<'_, Arc<EventBus>>,
 ) -> Result<String, ReasonanceError> {
     info!("cmd::spawn_process(command={}, cwd={})", command, cwd);
     if !is_allowed_command(&command) {
@@ -46,7 +48,7 @@ pub fn spawn_process(
             code: crate::error::SecurityErrorCode::DisallowedCommand,
         });
     }
-    let result = pty_manager.spawn(&command, &args, &cwd, app);
+    let result = pty_manager.spawn(&command, &args, &cwd, bus.inner().clone());
     match &result {
         Ok(id) => debug!("cmd::spawn_process spawned pty_id={}", id),
         Err(e) => error!("cmd::spawn_process failed: {}", e),
@@ -104,8 +106,8 @@ pub fn reconnect_pty(
     command: String,
     args: Vec<String>,
     cwd: String,
-    app: AppHandle,
     pty_manager: State<'_, PtyManager>,
+    bus: State<'_, Arc<EventBus>>,
 ) -> Result<String, ReasonanceError> {
     info!(
         "cmd::reconnect_pty(pty_id={}, command={}, cwd={})",
@@ -131,7 +133,7 @@ pub fn reconnect_pty(
         debug!("cmd::reconnect_pty: kill old pty_id={} ({})", pty_id, e);
     }
 
-    let new_id = pty_manager.spawn(&command, &args, &cwd, app)?;
+    let new_id = pty_manager.spawn(&command, &args, &cwd, bus.inner().clone())?;
     info!("cmd::reconnect_pty: new pty_id={}", new_id);
     Ok(new_id)
 }

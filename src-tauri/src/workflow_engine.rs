@@ -106,18 +106,21 @@ impl WorkflowEngine {
 
     /// Publish an event through the EventBus channel.
     fn emit_to_bus(&self, channel: &str, payload: serde_json::Value) {
-        let bus = self
-            .event_bus
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .clone();
-        if let Some(bus) = bus {
+        if let Some(bus) = self.get_event_bus() {
             bus.publish(crate::event_bus::Event::new(
                 channel,
                 payload,
                 "workflow-engine",
             ));
         }
+    }
+
+    /// Get a clone of the EventBus Arc, if set.
+    fn get_event_bus(&self) -> Option<Arc<crate::event_bus::EventBus>> {
+        self.event_bus
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone()
     }
 
     /// Topological sort using Kahn's algorithm. Returns Err if cycle detected.
@@ -534,7 +537,10 @@ impl WorkflowEngine {
             runtime.create_agent(node_id, &format!("{}:{}", run_id, node_id), retry, fallback);
         runtime.transition(&agent_id, AgentState::Queued)?;
         runtime.transition(&agent_id, AgentState::Running)?;
-        let pty_id = pty_manager.spawn(&llm, &[], cwd, app.clone())?;
+        let bus = self
+            .get_event_bus()
+            .ok_or_else(|| ReasonanceError::internal("EventBus not initialized"))?;
+        let pty_id = pty_manager.spawn(&llm, &[], cwd, bus)?;
         runtime.set_pty(&agent_id, &pty_id)?;
 
         // Inject prompt + memory + routed input into PTY
@@ -1145,7 +1151,10 @@ impl WorkflowEngine {
                 .and_then(|v| v.as_str())
                 .unwrap_or("claude");
             let llm = resolve_workflow_llm(raw_llm, app);
-            let pty_id = pty_manager.spawn(&llm, &[], cwd, app.clone())?;
+            let retry_bus = self
+                .get_event_bus()
+                .ok_or_else(|| ReasonanceError::internal("EventBus not initialized"))?;
+            let pty_id = pty_manager.spawn(&llm, &[], cwd, retry_bus)?;
             runtime.set_pty(&agent_id, &pty_id)?;
             self.emit_to_bus(
                 "workflow:node-state",
@@ -1190,7 +1199,10 @@ impl WorkflowEngine {
                 runtime.create_agent(node_id, &format!("{}:{}", run_id, node_id), 0, None);
             let _ = runtime.transition(&new_agent_id, AgentState::Queued);
             let _ = runtime.transition(&new_agent_id, AgentState::Running);
-            let pty_id = pty_manager.spawn(&fallback_llm, &[], cwd, app.clone())?;
+            let fallback_bus = self
+                .get_event_bus()
+                .ok_or_else(|| ReasonanceError::internal("EventBus not initialized"))?;
+            let pty_id = pty_manager.spawn(&fallback_llm, &[], cwd, fallback_bus)?;
             runtime.set_pty(&new_agent_id, &pty_id)?;
             self.update_node_state(
                 run_id,

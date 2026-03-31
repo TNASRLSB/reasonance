@@ -1,11 +1,12 @@
 use crate::error::ReasonanceError;
+use crate::event_bus::EventBus;
 use crate::fs_watcher::FsWatcherState;
 use log::{debug, error, info};
 use serde::Serialize;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
-use tauri::{AppHandle, State};
+use std::sync::{Arc, Mutex};
+use tauri::State;
 
 // ── Project root state ────────────────────────────────────────────────────────
 
@@ -605,13 +606,13 @@ pub async fn get_git_status(
 #[tauri::command]
 pub fn start_watching(
     path: String,
-    app: AppHandle,
     state: State<'_, FsWatcherState>,
     root_state: State<'_, ProjectRootState>,
+    bus: State<'_, Arc<EventBus>>,
 ) -> Result<(), ReasonanceError> {
     info!("cmd::start_watching(path={})", path);
     validate_read_path(Path::new(&path), &root_state)?;
-    crate::fs_watcher::start_watching(&path, app, &state)
+    crate::fs_watcher::start_watching(&path, bus.inner().clone(), &state)
 }
 
 #[cfg(test)]

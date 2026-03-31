@@ -1,8 +1,10 @@
 use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher};
 use std::path::PathBuf;
-use tauri::Emitter;
+use std::sync::Arc;
 
-pub fn start_theme_watcher(app_handle: tauri::AppHandle) {
+use crate::event_bus::EventBus;
+
+pub fn start_theme_watcher(event_bus: Arc<EventBus>) {
     let themes_dir = dirs::config_dir()
         .unwrap_or_else(|| PathBuf::from("."))
         .join("reasonance")
@@ -15,11 +17,15 @@ pub fn start_theme_watcher(app_handle: tauri::AppHandle) {
     }
 
     std::thread::spawn(move || {
-        let handle = app_handle.clone();
+        let bus = event_bus.clone();
         let mut watcher = match RecommendedWatcher::new(
             move |res: notify::Result<notify::Event>| {
                 if res.is_ok() {
-                    let _ = handle.emit("theme://changed", ());
+                    bus.publish(crate::event_bus::Event::new(
+                        "theme:changed",
+                        serde_json::json!(null),
+                        "theme-watcher",
+                    ));
                 }
             },
             Config::default(),

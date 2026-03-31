@@ -378,15 +378,33 @@ impl TauriFrontendBridge {
         Self { app_handle, bus }
     }
 
-    /// Map internal `workflow:*` bus channel names to the legacy `hive://` event
-    /// names that the frontend (engine.ts) listens on. Returns `None` for channels
-    /// that have no legacy mapping.
-    fn workflow_to_hive(channel: &str) -> Option<&'static str> {
+    /// Map internal bus channel names to legacy frontend event names for backward
+    /// compatibility. Returns `None` for channels that have no legacy mapping.
+    fn legacy_event_name(channel: &str) -> Option<&'static str> {
         match channel {
+            // workflow:* → hive://
             "workflow:node-state" => Some("hive://node-state-changed"),
             "workflow:run-status" => Some("hive://run-status-changed"),
             "workflow:agent-output" => Some("hive://agent-output"),
             "workflow:permission-request" => Some("hive://permission-request"),
+            // Other legacy mappings
+            "cli:open-project" => Some("cli-open-project"),
+            "cli:update-result" => Some("cli://update-result"),
+            "provider:connection-test" => Some("connection_test_step"),
+            "fs:change" => Some("fs-change"),
+            "theme:changed" => Some("theme://changed"),
+            _ => None,
+        }
+    }
+
+    /// Map internal `pty:*` bus channel names to dynamic frontend event names.
+    /// PTY events encode the instance ID in the payload and require per-ID
+    /// event names (`pty-data-{id}`, `pty-exit-{id}`) for the frontend.
+    fn pty_event_name(channel: &str, payload: &serde_json::Value) -> Option<String> {
+        let id = payload.get("id").and_then(|v| v.as_str())?;
+        match channel {
+            "pty:data" => Some(format!("pty-data-{}", id)),
+            "pty:exit" => Some(format!("pty-exit-{}", id)),
             _ => None,
         }
     }
@@ -400,10 +418,28 @@ impl EventHandler for TauriFrontendBridge {
                 // ({session_id, event}) to maintain backward compatibility with the
                 // frontend listener in tauri.ts / agent-events.ts.
                 let _ = self.app_handle.emit("agent-event", &event.payload);
-            } else if let Some(hive_name) = Self::workflow_to_hive(&event.channel) {
-                // Workflow events are re-mapped to their legacy "hive://" channel names
-                // so the frontend engine.ts listeners receive them.
-                let _ = self.app_handle.emit(hive_name, &event.payload);
+            } else if let Some(pty_name) = Self::pty_event_name(&event.channel, &event.payload) {
+                // PTY events use dynamic per-instance event names on the frontend.
+                // Extract the inner value to match the legacy payload shape:
+                //   pty:data → emit the "data" string
+                //   pty:exit → emit the "code" integer
+                let inner_payload = if event.channel == "pty:data" {
+                    event
+                        .payload
+                        .get("data")
+                        .cloned()
+                        .unwrap_or(serde_json::Value::Null)
+                } else {
+                    event
+                        .payload
+                        .get("code")
+                        .cloned()
+                        .unwrap_or(serde_json::Value::Null)
+                };
+                let _ = self.app_handle.emit(&pty_name, &inner_payload);
+            } else if let Some(legacy_name) = Self::legacy_event_name(&event.channel) {
+                // Legacy mappings for backward compatibility with existing frontend listeners.
+                let _ = self.app_handle.emit(legacy_name, &event.payload);
             } else {
                 let _ = self.app_handle.emit(&event.channel, &event.payload);
             }

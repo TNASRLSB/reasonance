@@ -2,11 +2,12 @@ use log::{debug, info, trace};
 use notify::event::Event;
 use notify::{EventHandler, RecommendedWatcher, RecursiveMode, Watcher};
 use std::path::Path;
-use std::sync::Mutex;
-use tauri::{AppHandle, Emitter};
+use std::sync::{Arc, Mutex};
+
+use crate::event_bus::EventBus;
 
 struct AppEventHandler {
-    app: AppHandle,
+    event_bus: Arc<EventBus>,
 }
 
 impl EventHandler for AppEventHandler {
@@ -24,7 +25,11 @@ impl EventHandler for AppEventHandler {
                     "type": kind,
                     "path": path.to_string_lossy(),
                 });
-                let _ = self.app.emit("fs-change", payload);
+                self.event_bus.publish(crate::event_bus::Event::new(
+                    "fs:change",
+                    payload,
+                    "fs-watcher",
+                ));
             }
         }
     }
@@ -44,11 +49,11 @@ impl FsWatcherState {
 
 pub fn start_watching(
     path: &str,
-    app: AppHandle,
+    event_bus: Arc<EventBus>,
     state: &FsWatcherState,
 ) -> Result<(), crate::error::ReasonanceError> {
     info!("Starting filesystem watcher on path='{}'", path);
-    let handler = AppEventHandler { app };
+    let handler = AppEventHandler { event_bus };
     let mut watcher = RecommendedWatcher::new(handler, notify::Config::default())
         .map_err(|e| crate::error::ReasonanceError::internal(e.to_string()))?;
     watcher
