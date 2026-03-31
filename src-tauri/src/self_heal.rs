@@ -18,7 +18,7 @@ impl Default for SelfHealConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "status")]
-#[allow(dead_code)] // Used in tests; reserved for future structured return from heal command
+#[allow(dead_code)] // Variants populated by serde deserialization
 pub enum SelfHealResult {
     Fixed {
         new_toml: String,
@@ -32,7 +32,7 @@ pub enum SelfHealResult {
 }
 
 impl SelfHealResult {
-    #[allow(dead_code)] // Used in tests
+    #[cfg(test)]
     pub fn is_fixed(&self) -> bool {
         matches!(self, SelfHealResult::Fixed { .. })
     }

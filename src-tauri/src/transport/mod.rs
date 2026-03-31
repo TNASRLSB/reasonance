@@ -627,7 +627,7 @@ impl StructuredAgentTransport {
     /// Only returns permission args when `yolo` is true. In non-yolo mode the CLI runs without
     /// permission flags and auto-denies tool use (reporting `permission_denials` in the result event),
     /// which the UI renders as approval prompts.
-    #[allow(dead_code)] // Superseded by build_permission_args_with_trust; kept for tests
+    #[cfg(test)]
     fn build_permission_args(
         config: &crate::normalizer::TomlConfig,
         cwd: Option<&str>,
@@ -659,7 +659,7 @@ impl StructuredAgentTransport {
     }
 
     /// Build permission args considering both yolo flag and workspace trust level.
-    #[allow(dead_code)] // Superseded by build_permission_args_from_eval; kept for tests
+    #[cfg(test)]
     fn build_permission_args_with_trust(
         config: &crate::normalizer::TomlConfig,
         cwd: Option<&str>,

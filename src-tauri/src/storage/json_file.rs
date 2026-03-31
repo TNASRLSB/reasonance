@@ -71,7 +71,6 @@ fn sanitize_path_component(s: &str) -> String {
     }
 }
 
-#[allow(dead_code)] // Public storage API — available for consumers
 /// Atomic file write: write to `.tmp`, then rename.
 ///
 /// Rename is atomic on most local filesystems, ensuring the destination
@@ -83,7 +82,6 @@ pub fn atomic_write(path: &Path, content: &[u8]) -> Result<(), ReasonanceError> 
     Ok(())
 }
 
-#[allow(dead_code)] // Public storage API — available for consumers
 /// Append a complete line to a JSONL file with fsync.
 ///
 /// Creates the file if it does not exist. Each call appends exactly one
@@ -101,7 +99,7 @@ pub fn safe_append(path: &Path, line: &str) -> Result<(), ReasonanceError> {
     Ok(())
 }
 
-#[allow(dead_code)] // Public storage API — available for consumers
+#[cfg(test)]
 /// Validate a JSONL file: truncate any partial last line.
 ///
 /// Each non-empty line must be valid JSON. The first line that fails

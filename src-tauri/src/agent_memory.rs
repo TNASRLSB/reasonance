@@ -22,8 +22,8 @@ pub struct AgentMemoryStore {
 // v1 module retained for migration (AgentMemoryV2::migrate_from_json) and the
 // get_agent_memory Tauri command.  Methods only exercised by tests are allowed
 // to be "dead" from the library's perspective.
-#[allow(dead_code)]
 impl AgentMemoryStore {
+    #[cfg(test)]
     pub fn new(node_id: &str) -> Self {
         Self {
             node_id: node_id.to_string(),
@@ -38,6 +38,7 @@ impl AgentMemoryStore {
         Ok(store)
     }
 
+    #[cfg(test)]
     pub fn save(&self, path: &str) -> Result<(), ReasonanceError> {
         let p = std::path::Path::new(path);
         if let Some(parent) = p.parent() {
@@ -47,6 +48,7 @@ impl AgentMemoryStore {
         std::fs::write(path, json).map_err(|e| ReasonanceError::io("agent memory", e))
     }
 
+    #[cfg(test)]
     pub fn add_entry(&mut self, entry: MemoryEntry, max_entries: u32) {
         self.entries.push(entry);
         let max = max_entries as usize;

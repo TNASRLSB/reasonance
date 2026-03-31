@@ -185,7 +185,7 @@ impl WorkflowStore {
         config_dir.join("reasonance").join("workflows")
     }
 
-    #[allow(dead_code)] // Used for project-scoped workflow storage
+    #[cfg(test)]
     pub fn project_dir(project_root: &str) -> PathBuf {
         PathBuf::from(project_root)
             .join(".reasonance")

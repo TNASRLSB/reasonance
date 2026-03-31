@@ -30,12 +30,4 @@ impl ShadowStore {
             .cloned()
     }
 
-    #[allow(dead_code)] // CRUD API for shadow store
-    pub fn remove(&self, path: &str) {
-        debug!("Shadow store: removing path='{}'", path);
-        self.copies
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .remove(path);
-    }
 }

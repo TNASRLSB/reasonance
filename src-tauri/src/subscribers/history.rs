@@ -46,11 +46,6 @@ impl HistoryRecorder {
             .unwrap_or_default()
     }
 
-    /// Get a reference to the underlying history map.
-    #[allow(dead_code)]
-    pub fn history_ref(&self) -> Arc<Mutex<HashMap<String, Vec<AgentEvent>>>> {
-        self.history.clone()
-    }
 }
 
 impl EventHandler for HistoryRecorder {

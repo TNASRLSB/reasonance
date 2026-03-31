@@ -4,14 +4,14 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[allow(dead_code)] // Used in tests and by self_heal module
+#[allow(dead_code)] // Fields populated by serde deserialization
 pub struct TestCase {
     pub name: String,
     pub expected: Vec<ExpectedEvent>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[allow(dead_code)] // Used in tests
+#[allow(dead_code)] // Fields populated by serde deserialization
 pub struct ExpectedEvent {
     pub event_type: String,
     pub required: bool,
@@ -20,7 +20,7 @@ pub struct ExpectedEvent {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-#[allow(dead_code)] // Used in tests and evaluate_test_case
+#[allow(dead_code)] // Variants populated by serde deserialization
 pub enum Validation {
     Exists,
     ContentNotEmpty,
@@ -68,7 +68,6 @@ impl NormalizerHealth {
         }
     }
 
-    #[allow(dead_code)] // Roadmap: called when health check runs
     pub fn set_report(&self, provider: &str, report: HealthReport) {
         info!(
             "Health report stored for provider='{}': status={:?}",
@@ -96,6 +95,7 @@ impl NormalizerHealth {
     }
 }
 
+#[cfg(test)]
 use crate::agent_event::{AgentEvent, AgentEventType, EventContent};
 
 /// Run a structural health check for a provider based on its config.
@@ -145,7 +145,7 @@ pub fn run_structural_check(provider: &str, binary: &str, cli_version: &str) -> 
     }
 }
 
-#[allow(dead_code)] // Used in tests and by self_heal
+#[cfg(test)]
 pub fn evaluate_test_case(test_case: &TestCase, events: &[AgentEvent]) -> TestCaseResult {
     debug!(
         "Evaluating health test case '{}' against {} events",
@@ -195,7 +195,7 @@ pub fn evaluate_test_case(test_case: &TestCase, events: &[AgentEvent]) -> TestCa
     }
 }
 
-#[allow(dead_code)] // Used in tests
+#[cfg(test)]
 pub fn health_status_from_results(results: &[TestCaseResult]) -> HealthStatus {
     let failing: Vec<String> = results
         .iter()
@@ -224,7 +224,7 @@ pub fn health_status_from_results(results: &[TestCaseResult]) -> HealthStatus {
     }
 }
 
-#[allow(dead_code)] // Called by evaluate_test_case
+#[cfg(test)]
 fn event_type_matches(actual: &AgentEventType, expected: &str) -> bool {
     matches!(
         (actual, expected),
@@ -240,7 +240,7 @@ fn event_type_matches(actual: &AgentEventType, expected: &str) -> bool {
     )
 }
 
-#[allow(dead_code)] // Called by evaluate_test_case
+#[cfg(test)]
 fn validate_event(event: &AgentEvent, validation: &Validation) -> bool {
     match validation {
         Validation::Exists => true,
@@ -257,7 +257,7 @@ fn validate_event(event: &AgentEvent, validation: &Validation) -> bool {
     }
 }
 
-#[allow(dead_code)] // Called by evaluate_test_case
+#[cfg(test)]
 fn validation_label(v: &Validation) -> &str {
     match v {
         Validation::Exists => "exists",

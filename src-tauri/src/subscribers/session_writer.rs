@@ -47,7 +47,6 @@ impl SessionHistoryWriter {
     }
 
     /// Get a reference to the handles map (for SessionManager integration).
-    #[allow(dead_code)]
     pub fn handles_ref(&self) -> Arc<Mutex<HashMap<String, SessionHandle>>> {
         self.handles.clone()
     }

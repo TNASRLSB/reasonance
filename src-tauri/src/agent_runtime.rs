@@ -229,26 +229,6 @@ impl AgentRuntime {
             .push(msg);
     }
 
-    #[allow(dead_code)] // Used by HIVE workflow engine
-    const MAX_OUTPUT_LINES: usize = 200;
-
-    #[allow(dead_code)] // Used by HIVE workflow engine
-    pub fn append_output(
-        &self,
-        agent_id: &str,
-        line: &str,
-    ) -> Result<(), crate::error::ReasonanceError> {
-        let mut agents = self.agents.lock().unwrap_or_else(|e| e.into_inner());
-        let agent = agents
-            .get_mut(agent_id)
-            .ok_or_else(|| crate::error::ReasonanceError::not_found("agent", agent_id))?;
-        agent.output_buffer.push(line.to_string());
-        if agent.output_buffer.len() > Self::MAX_OUTPUT_LINES {
-            let drain_count = agent.output_buffer.len() - Self::MAX_OUTPUT_LINES;
-            agent.output_buffer.drain(..drain_count);
-        }
-        Ok(())
-    }
 
     pub fn get_output(&self, agent_id: &str) -> Result<Vec<String>, crate::error::ReasonanceError> {
         let agents = self.agents.lock().unwrap_or_else(|e| e.into_inner());

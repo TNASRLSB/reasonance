@@ -67,7 +67,7 @@ impl CliUpdater {
         }
     }
 
-    #[allow(dead_code)] // Roadmap: used by background CLI update task
+    #[cfg(test)]
     pub fn version_changed(&self, provider: &str, new_version: &str) -> bool {
         let providers = self.providers.lock().unwrap_or_else(|e| e.into_inner());
         let changed = match providers.get(provider) {
@@ -86,7 +86,7 @@ impl CliUpdater {
         changed
     }
 
-    #[allow(dead_code)] // Roadmap: used by background CLI update task
+    #[cfg(test)]
     pub fn auto_update_providers(&self) -> Vec<String> {
         self.providers
             .lock()

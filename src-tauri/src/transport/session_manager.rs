@@ -1,5 +1,6 @@
 use crate::agent_event::AgentEvent;
 use crate::storage::StorageBackend;
+#[cfg(test)]
 use crate::transport::request::SessionStatus;
 use crate::transport::session_handle::{ForkInfo, SessionHandle, SessionSummary, ViewMode};
 use crate::transport::session_store::SessionStore;
@@ -250,7 +251,7 @@ impl SessionManager {
 
     /// Finalize a session -- flush metadata with final status and update index.
     /// Called when the transport's CLI process ends.
-    #[allow(dead_code)] // Roadmap: wired when transport completion triggers finalization
+    #[cfg(test)]
     pub async fn finalize_session(
         &self,
         session_id: &str,

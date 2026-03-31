@@ -11,7 +11,7 @@ use crate::tracked_map::TrackedMap;
 
 /// Configuration for PTY reconnection with exponential backoff.
 /// Roadmap: used when PTY reconnection is wired from frontend (Phase 2)
-#[allow(dead_code)]
+#[cfg(test)]
 #[derive(Debug, Clone)]
 pub struct ReconnectConfig {
     /// Maximum number of reconnection attempts before giving up.
@@ -24,6 +24,7 @@ pub struct ReconnectConfig {
     pub backoff_factor: f64,
 }
 
+#[cfg(test)]
 impl Default for ReconnectConfig {
     fn default() -> Self {
         Self {
@@ -35,12 +36,12 @@ impl Default for ReconnectConfig {
     }
 }
 
+#[cfg(test)]
 impl ReconnectConfig {
     /// Calculate the wait duration before attempt `attempt` (0-indexed).
     ///
     /// Attempt 0 → `initial_delay_ms`, doubling each time, capped at `max_delay_ms`.
     /// Roadmap: used when PTY reconnection is wired from frontend (Phase 2)
-    #[allow(dead_code)]
     pub fn delay_for_attempt(&self, attempt: u32) -> std::time::Duration {
         let delay = self.initial_delay_ms as f64 * self.backoff_factor.powi(attempt as i32);
         let capped = delay.min(self.max_delay_ms as f64) as u64;
@@ -66,17 +67,6 @@ impl PtyManager {
             instances: Arc::new(Mutex::new(TrackedMap::new())),
             project_map: Arc::new(Mutex::new(HashMap::new())),
         }
-    }
-
-    /// Associate a PTY instance with a project.
-    #[allow(dead_code)] // Used by project management PTY lifecycle
-    pub fn set_project(&self, pty_id: &str, project_id: &str) {
-        debug!(
-            "PTY set_project: pty_id={}, project_id={}",
-            pty_id, project_id
-        );
-        let mut map = self.project_map.lock().unwrap_or_else(|e| e.into_inner());
-        map.insert(pty_id.to_string(), project_id.to_string());
     }
 
     /// Kill all PTY instances belonging to a project. Returns the IDs of killed PTYs.
@@ -268,7 +258,7 @@ impl PtyManager {
 
     /// Returns the IDs of all currently tracked PTY instances.
     /// Roadmap: used when PTY status dashboard is wired from frontend (Phase 2)
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn list_active_ptys(&self) -> Vec<String> {
         let instances = self.instances.lock().unwrap_or_else(|e| e.into_inner());
         instances.keys().cloned().collect()

@@ -26,7 +26,7 @@ impl TextAccumulator {
         self.buffer.is_empty()
     }
 
-    #[allow(dead_code)] // Used in tests
+    #[cfg(test)]
     pub fn peek(&self) -> &str {
         &self.buffer
     }
@@ -93,7 +93,6 @@ impl ToolInputAccumulator {
         Some(event)
     }
 
-    #[allow(dead_code)] // Used in tests
     pub fn reset(&mut self) {
         self.tool_name = None;
         self.tool_id = None;
@@ -125,7 +124,7 @@ impl TimedFlush {
         self.last_event_at.elapsed() >= self.timeout
     }
 
-    #[allow(dead_code)] // Used in tests
+    #[cfg(test)]
     pub fn elapsed(&self) -> Duration {
         self.last_event_at.elapsed()
     }

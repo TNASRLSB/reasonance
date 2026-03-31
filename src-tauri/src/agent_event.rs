@@ -165,7 +165,6 @@ impl AgentEvent {
         }
     }
 
-    #[allow(dead_code)] // Used in state machine tests
     pub fn thinking(content: &str, provider: &str) -> Self {
         Self {
             id: Uuid::new_v4().to_string(),
@@ -201,7 +200,6 @@ impl AgentEvent {
         }
     }
 
-    #[allow(dead_code)] // Used extensively in tests across multiple modules
     pub fn tool_use(tool_name: &str, input: &str, provider: &str) -> Self {
         trace!(
             "AgentEvent::tool_use created: tool='{}', provider='{}'",
@@ -223,7 +221,6 @@ impl AgentEvent {
         }
     }
 
-    #[allow(dead_code)] // Used in agent_event tests
     pub fn tool_result(content: &str, parent_id: &str, provider: &str) -> Self {
         Self {
             id: Uuid::new_v4().to_string(),
@@ -237,7 +234,6 @@ impl AgentEvent {
         }
     }
 
-    #[allow(dead_code)] // Used extensively in tests across multiple modules
     pub fn usage(input_tokens: u64, output_tokens: u64, provider: &str) -> Self {
         let mut meta = Self::base_metadata(provider);
         meta.input_tokens = Some(input_tokens);
@@ -274,41 +270,6 @@ impl AgentEvent {
         }
     }
 
-    #[allow(dead_code)] // Convenience constructor for metrics events
-    pub fn metrics(metrics: StreamMetrics, provider: &str) -> Self {
-        let mut meta = Self::base_metadata(provider);
-        meta.stream_metrics = Some(metrics);
-        Self {
-            id: Uuid::new_v4().to_string(),
-            parent_id: None,
-            event_type: AgentEventType::Metrics,
-            content: EventContent::Text {
-                value: String::new(),
-            },
-            timestamp: Self::now(),
-            metadata: meta,
-        }
-    }
-
-    #[allow(dead_code)] // Convenience constructor; pipeline builds PermissionDenial directly
-    pub fn permission_denial(denials_json: serde_json::Value, provider: &str) -> Self {
-        trace!(
-            "AgentEvent::permission_denial created for provider='{}'",
-            provider
-        );
-        Self {
-            id: Uuid::new_v4().to_string(),
-            parent_id: None,
-            event_type: AgentEventType::PermissionDenial,
-            content: EventContent::Json {
-                value: denials_json,
-            },
-            timestamp: Self::now(),
-            metadata: Self::base_metadata(provider),
-        }
-    }
-
-    #[allow(dead_code)] // Used in state machine tests
     pub fn status(status_text: &str, provider: &str) -> Self {
         Self {
             id: Uuid::new_v4().to_string(),

@@ -68,7 +68,7 @@ impl AnalyticsStore {
         Ok(())
     }
 
-    #[allow(dead_code)] // Used in tests; with_completed preferred in production
+    #[cfg(test)]
     pub fn all_completed(&self) -> Vec<SessionMetrics> {
         self.completed
             .lock()

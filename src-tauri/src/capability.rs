@@ -30,12 +30,12 @@ pub enum FeatureSupport {
 }
 
 impl FeatureSupport {
-    #[allow(dead_code)] // Public API for capability queries
+    #[cfg(test)]
     pub fn is_supported(&self) -> bool {
         matches!(self, FeatureSupport::Full | FeatureSupport::Partial { .. })
     }
 
-    #[allow(dead_code)] // Public API for capability queries
+    #[cfg(test)]
     pub fn needs_workaround(&self) -> bool {
         matches!(
             self,
@@ -101,7 +101,7 @@ impl CapabilityNegotiator {
             .clone()
     }
 
-    #[allow(dead_code)] // Roadmap: used for capability cache invalidation
+    #[cfg(test)]
     pub fn is_cache_valid(&self, provider: &str, current_cli_version: &str) -> bool {
         let results = self.results.lock().unwrap_or_else(|e| e.into_inner());
         match results.get(provider) {
@@ -125,7 +125,7 @@ impl CapabilityNegotiator {
         }
     }
 
-    #[allow(dead_code)] // Roadmap: persist capability cache to disk
+    #[cfg(test)]
     pub fn save_cache(&self, cache_dir: &Path) -> Result<(), ReasonanceError> {
         std::fs::create_dir_all(cache_dir)
             .map_err(|e| ReasonanceError::io("create capability cache dir", e))?;

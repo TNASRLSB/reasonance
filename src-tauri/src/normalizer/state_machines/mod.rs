@@ -16,7 +16,7 @@ use crate::agent_event::AgentEvent;
 /// - 0: accumulating, not ready to emit yet
 /// - 1: single event ready
 /// - N: flushing accumulated events
-#[allow(dead_code)] // Trait methods used via dyn dispatch in NormalizerPipeline
+#[allow(dead_code)] // Trait method reset() exercised in tests; cannot use #[cfg(test)] on trait methods
 pub trait StateMachine: Send + Sync {
     fn process(&mut self, event: AgentEvent) -> Vec<AgentEvent>;
     fn reset(&mut self);

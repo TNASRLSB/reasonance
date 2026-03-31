@@ -3,6 +3,7 @@ pub mod pipeline;
 pub mod rules_engine;
 pub mod state_machines;
 
+#[cfg(test)]
 use crate::agent_event::AgentEvent;
 use crate::error::ReasonanceError;
 use pipeline::NormalizerPipeline;
@@ -215,7 +216,7 @@ impl NormalizerRegistry {
         self.pipelines.contains_key(name)
     }
 
-    #[allow(dead_code)] // Called via Mutex<NormalizerRegistry> in transport
+    #[cfg(test)]
     pub fn process(&mut self, provider: &str, raw_json: &str) -> Vec<AgentEvent> {
         match self.pipelines.get_mut(provider) {
             Some(pipeline) => pipeline.process(raw_json),
@@ -231,7 +232,6 @@ impl NormalizerRegistry {
         self.pipelines.keys().cloned().collect()
     }
 
-    #[allow(dead_code)] // Used by normalizer reload/version commands
     pub fn get_toml_source(&self, provider: &str) -> Option<String> {
         self.toml_sources.get(provider).cloned()
     }

@@ -82,11 +82,6 @@ impl NormalizerPipeline {
         results
     }
 
-    /// Reset the pipeline state (e.g., new session).
-    #[allow(dead_code)] // Public API for session reset
-    pub fn reset(&mut self) {
-        self.state_machine.reset();
-    }
 
     /// Build multiple events from an array of content blocks (e.g. Claude's message.content[]).
     /// Each block's `type` field determines the event type:

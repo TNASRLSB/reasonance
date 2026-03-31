@@ -71,14 +71,6 @@ impl FileOpsManager {
         });
     }
 
-    /// Record a move (for undo). Move a file/directory from old_path to new_path.
-    #[allow(dead_code)]
-    pub fn record_move(&self, old_path: &str, new_path: &str) {
-        self.push_undo(FileOperation::Move {
-            old_path: old_path.to_string(),
-            new_path: new_path.to_string(),
-        });
-    }
 
     /// Perform a move and record it for undo.
     pub fn move_file(&self, old_path: &str, new_path: &str) -> Result<(), ReasonanceError> {
