@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
+import { z } from 'zod';
 import type { LlmConfig } from '$lib/stores/config';
 
 interface LlmResponse {
@@ -15,7 +16,8 @@ export async function callLlm(config: LlmConfig, prompt: string): Promise<LlmRes
       apiKeyEnv: config.apiKeyEnv ?? '',
       endpoint: config.endpoint ?? '',
     });
-    return JSON.parse(result);
+    const validated = z.string().parse(result);
+    return JSON.parse(validated);
   } catch (e: any) {
     return { content: '', error: String(e) };
   }
