@@ -1,5 +1,7 @@
 """KWin D-Bus window management for KDE Wayland."""
 
+import logging
+import os
 import subprocess
 import tempfile
 import time
@@ -9,6 +11,8 @@ _script_counter = 0
 
 def _build_kwin_script(action: str, resource_class: str) -> str:
     """Build a KWin JavaScript snippet for the given action."""
+    if '"' in resource_class or '\\' in resource_class:
+        raise ValueError(f"Unsafe resource_class: {resource_class!r}")
     if action == "focus":
         return f"""
 var clients = workspace.windowList();
@@ -83,10 +87,10 @@ def _run_kwin_script(script_content: str) -> bool:
         )
         time.sleep(0.5)
         return True
-    except Exception:
+    except Exception as e:
+        logging.getLogger(__name__).warning("KWin script failed: %s", e)
         return False
     finally:
-        import os
         os.unlink(script_path)
 
 
@@ -116,14 +120,19 @@ def get_geometry(resource_class: str) -> dict:
         ["qdbus6", "org.kde.KWin", "/KWin", "org.kde.KWin.queryWindowInfo"],
         capture_output=True, text=True, timeout=5,
     )
+    if result.returncode != 0:
+        raise RuntimeError(f"queryWindowInfo failed: {result.stderr}")
     info = {}
     for line in result.stdout.splitlines():
         if ":" in line:
             k, v = line.split(":", 1)
             info[k.strip()] = v.strip()
+    for required_key in ("x", "y", "width", "height"):
+        if required_key not in info:
+            raise RuntimeError(f"queryWindowInfo missing '{required_key}' field")
     return {
-        "x": int(info.get("x", 0)),
-        "y": int(info.get("y", 0)),
-        "width": int(info.get("width", 1280)),
-        "height": int(info.get("height", 800)),
+        "x": int(info["x"]),
+        "y": int(info["y"]),
+        "width": int(info["width"]),
+        "height": int(info["height"]),
     }
