@@ -72,6 +72,7 @@ RE_SESSION_DELETED = re.compile(
 RE_SESSIONS_LOADED = re.compile(
     r"SessionManager: loaded (\d+) existing sessions"
 )
+RE_SM_LOADED = RE_SESSIONS_LOADED  # alias used by e2e_10b
 RE_SESSION_RESTORED = re.compile(
     r"SessionManager: session=(\S+) restored with (\d+) events"
 )

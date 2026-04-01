@@ -29,6 +29,7 @@ from lib.llm import (
     RE_SESSION_CREATED,
     RE_SESSION_ENDED,
     RE_SESSION_TRACKING_STARTED,
+    RE_SM_LOADED,
     RE_SPAWN_CLI,
     assert_log_has,
     cleanup_session,
@@ -36,6 +37,7 @@ from lib.llm import (
     open_sessions_panel,
     send_chat,
     wait_for_done,
+    wait_for_log,
     wait_for_log_after,
     RE_TRUST_LEVEL,
     log_line_count,
@@ -323,6 +325,37 @@ def test_e2e_10c(ctx: TestContext) -> None:
         )
 
         screenshot(ctx, "e2e-10c-session-fork")
+    finally:
+        if session_id:
+            cleanup_session(ctx, session_id)
+
+
+def test_e2e_10b(ctx: TestContext) -> None:
+    """Session persistence: send message, restart app, verify session survives."""
+    session_id = None
+    try:
+        # Phase 1: create a session with a response
+        session_id = send_chat(ctx, "claude", "What is the capital of France?")
+        done = wait_for_done(ctx, session_id, timeout=60)
+        assert done, "Initial prompt did not complete"
+        screenshot(ctx, "e2e-10b-before-restart")
+
+        # Phase 2: kill and relaunch
+        ctx.app.kill()
+        wait_ms(ctx, 3000)
+        ctx.app.launch()
+        ready = ctx.app.wait_ready(120)
+        assert ready, "App did not become ready after relaunch"
+        focus_window(ctx)
+        wait_ms(ctx, 3000)
+
+        # Phase 3: verify sessions were loaded from disk
+        m = wait_for_log(ctx, RE_SM_LOADED, timeout=10)
+        assert m, "SessionManager did not log loading sessions from index"
+        loaded_count = int(m.group(1))
+        assert loaded_count >= 1, f"Expected >= 1 loaded sessions, got {loaded_count}"
+
+        screenshot(ctx, "e2e-10b-after-restart")
     finally:
         if session_id:
             cleanup_session(ctx, session_id)
