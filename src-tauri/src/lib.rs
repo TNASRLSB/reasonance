@@ -247,10 +247,11 @@ pub fn run() {
             let setup_start = Instant::now();
             info!("🚀 Reasonance setup starting");
 
-            // Build EventBus inside setup() where the tokio runtime is guaranteed active.
+            // Build EventBus using Tauri's async runtime handle (works on all platforms).
             let t_bus = Instant::now();
-            let bus =
-                std::sync::Arc::new(event_bus::EventBus::new(tokio::runtime::Handle::current()));
+            let bus = std::sync::Arc::new(event_bus::EventBus::new(
+                tauri::async_runtime::handle().inner().clone(),
+            ));
             bus.register_channel("transport:event", true);
             bus.register_channel("transport:send", true);
             bus.register_channel("transport:complete", true);
@@ -295,7 +296,7 @@ pub fn run() {
 
             // SessionManager + AnalyticsCollector: parallel async init inside setup()
             // where the tokio runtime is active. These are independent so we use tokio::join!.
-            let rt = tokio::runtime::Handle::current();
+            let rt = tauri::async_runtime::handle().inner().clone();
             let t_parallel = Instant::now();
             let (session_mgr, analytics_collector) = rt
                 .block_on(async {
@@ -398,7 +399,7 @@ pub fn run() {
             let transport_sessions = transport.sessions_map().clone();
             let pty_mgr: tauri::State<'_, pty_manager::PtyManager> = app.state();
             let pty_instances = pty_mgr.instances_map().clone();
-            tokio::spawn(async move {
+            tauri::async_runtime::spawn(async move {
                 let mut interval = tokio::time::interval(std::time::Duration::from_secs(60));
                 interval.tick().await; // skip initial immediate tick
                 loop {
@@ -426,7 +427,7 @@ pub fn run() {
 
             let update_signal = signal::Signal::new(());
             update_signal.bridge_to_event_bus(bus.clone(), "lifecycle:update-check");
-            tokio::spawn(async move {
+            tauri::async_runtime::spawn(async move {
                 // Initial delay to let the app settle
                 tokio::time::sleep(std::time::Duration::from_secs(5)).await;
                 let mut interval =

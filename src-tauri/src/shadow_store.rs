@@ -29,5 +29,4 @@ impl ShadowStore {
             .get(path)
             .cloned()
     }
-
 }

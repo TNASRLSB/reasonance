@@ -45,7 +45,6 @@ impl HistoryRecorder {
             .cloned()
             .unwrap_or_default()
     }
-
 }
 
 impl EventHandler for HistoryRecorder {

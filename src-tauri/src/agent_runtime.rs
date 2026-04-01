@@ -229,7 +229,6 @@ impl AgentRuntime {
             .push(msg);
     }
 
-
     pub fn get_output(&self, agent_id: &str) -> Result<Vec<String>, crate::error::ReasonanceError> {
         let agents = self.agents.lock().unwrap_or_else(|e| e.into_inner());
         let agent = agents

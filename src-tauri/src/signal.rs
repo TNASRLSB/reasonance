@@ -48,7 +48,7 @@ impl<T: Clone + Send + Sync + Serialize + 'static> Signal<T> {
     pub fn bridge_to_event_bus(&self, bus: Arc<EventBus>, channel: &str) {
         let mut rx = self.subscribe();
         let channel = channel.to_string();
-        tokio::spawn(async move {
+        tauri::async_runtime::spawn(async move {
             while rx.changed().await.is_ok() {
                 let val = rx.borrow_and_update().clone();
                 let payload = serde_json::to_value(&val).unwrap_or(serde_json::Value::Null);

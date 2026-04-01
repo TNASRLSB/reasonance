@@ -82,7 +82,6 @@ impl NormalizerPipeline {
         results
     }
 
-
     /// Build multiple events from an array of content blocks (e.g. Claude's message.content[]).
     /// Each block's `type` field determines the event type:
     ///   "thinking" → Thinking (content from .thinking)

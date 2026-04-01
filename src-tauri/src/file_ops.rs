@@ -71,7 +71,6 @@ impl FileOpsManager {
         });
     }
 
-
     /// Perform a move and record it for undo.
     pub fn move_file(&self, old_path: &str, new_path: &str) -> Result<(), ReasonanceError> {
         let src = Path::new(old_path);
