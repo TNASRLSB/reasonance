@@ -1,0 +1,131 @@
+# tests/field/scenarios/stress.yaml
+- id: stress_26
+  name: 50+ files open
+  suite: stress
+  steps:
+    - action: "Press Ctrl+P and open 50+ different files via the quick-open palette"
+      verify: "Each file opens in its own tab"
+    - action: "Switch through all open tabs in sequence"
+      verify: "Each tab switch completes quickly, correct file content shown"
+    - action: "Open Task Manager or observe system memory usage"
+      verify: "RSS/heap memory reading recorded"
+  pass_criteria:
+    - "Application does not crash at any point"
+    - "Tab switching completes within 200ms per tab"
+    - "Total memory usage stays below 500MB"
+    - "All file contents remain correct throughout"
+
+- id: stress_27
+  name: Large file tree
+  suite: stress
+  steps:
+    - action: "Open a project containing 5000+ files (or generate one with a script)"
+      verify: "File tree begins populating"
+    - action: "Scroll through the file tree rapidly from top to bottom and back"
+      verify: "Tree scrolls without stutter or blank sections"
+    - action: "Expand and collapse several directories in rapid succession"
+      verify: "Expand/collapse responds without visible delay"
+  pass_criteria:
+    - "File tree renders the initial view within 2 seconds of project open"
+    - "Scrolling maintains 60fps (no visible frame drops)"
+    - "Virtualization is active (DOM node count does not scale with file count)"
+    - "No errors or crashes during rapid interaction"
+
+- id: stress_28
+  name: Large file in editor
+  suite: stress
+  steps:
+    - action: "Open a file larger than 10MB (e.g. a large log or data file)"
+      verify: "Editor tab opens and file begins loading"
+    - action: "Scroll through the file from top to bottom"
+      verify: "Scroll is responsive, content visible without freeze"
+    - action: "Trigger an in-file search (Ctrl+F) and search for a token present in the file"
+      verify: "Search results appear within a reasonable time"
+  pass_criteria:
+    - "File opens (first content visible) within 5 seconds"
+    - "Scroll through the file does not freeze the UI"
+    - "In-file search does not hang the frontend"
+    - "No crash or OOM error during the scenario"
+
+- id: stress_29
+  name: High-volume PTY output
+  suite: stress
+  steps:
+    - action: "Open a terminal session and run: seq 1 100000"
+      verify: "Terminal begins streaming numbered lines at high speed"
+    - action: "While output is streaming, interact with the UI (switch tabs, open settings)"
+      verify: "UI remains responsive during high-volume output"
+    - action: "Wait for the command to complete"
+      verify: "All output visible, terminal shows final line (100000)"
+  pass_criteria:
+    - "Terminal does not freeze during high-volume output"
+    - "UI (other panels) remains usable while output streams"
+    - "Output scrolls smoothly without blank or corrupted lines"
+    - "Command completes without killing the PTY process"
+
+- id: stress_30
+  name: Multiple concurrent agents
+  suite: stress
+  requires_llm: true
+  steps:
+    - action: "Open three separate chat sessions using three different providers (e.g. Claude, Qwen, Ollama)"
+      verify: "All three chat panels initialize independently"
+    - action: "Send a distinct prompt to each session concurrently"
+      verify: "Each session streams its own response"
+    - action: "Observe that responses are isolated to their respective sessions"
+      verify: "No text from one provider appears in another session"
+  pass_criteria:
+    - "All three sessions work independently without errors"
+    - "No cross-talk: responses from one provider do not appear in another session"
+    - "All three responses complete successfully"
+    - "No crashes or deadlocks under concurrent load"
+
+- id: stress_31
+  name: Memory leak check
+  suite: stress
+  steps:
+    - action: "Record baseline RSS memory usage immediately after app startup"
+      verify: "Baseline value noted (e.g. via Task Manager or system monitor)"
+    - action: "Loop 100 times: open a file in the editor, make a small edit, close the tab without saving"
+      verify: "Each iteration completes; file opens, edit applies, tab closes"
+    - action: "After 100 iterations record final RSS memory usage"
+      verify: "Final value noted and compared to baseline"
+  pass_criteria:
+    - "Total RSS growth across 100 iterations is less than 50MB"
+    - "Memory growth is not strictly monotonic (GC runs and reclaims)"
+    - "Application remains stable throughout all 100 iterations"
+    - "No errors logged during the loop"
+
+- id: stress_32
+  name: Rapid UI interaction
+  suite: stress
+  steps:
+    - action: "Open at least 5 files in editor tabs"
+      verify: "5 tabs visible"
+    - action: "Switch between tabs 50 times at approximately 100ms intervals"
+      verify: "Each switch completes, no visual corruption"
+    - action: "Toggle the application theme 10 times at 100ms intervals"
+      verify: "Theme updates each time without flash or corruption"
+    - action: "Resize the main window 20 times (drag edge to different sizes) at 100ms intervals"
+      verify: "UI reflows correctly after each resize"
+  pass_criteria:
+    - "Application does not crash during any phase of rapid interaction"
+    - "No visual corruption or rendering artifacts persist after the sequence"
+    - "UI recovers to a consistent state at the end"
+    - "No errors in frontend or backend logs"
+
+- id: stress_33
+  name: Startup benchmark
+  suite: stress
+  steps:
+    - action: "Kill and relaunch the application; record time from launch to first interactive frame"
+      verify: "Time recorded for launch 1"
+    - action: "Repeat kill and relaunch four more times, recording each startup time"
+      verify: "Times recorded for launches 2-5"
+    - action: "Calculate average and variance across the 5 measurements"
+      verify: "Statistical summary computed"
+  pass_criteria:
+    - "Average startup time across 5 runs is less than 5 seconds"
+    - "Variance (max - min) across the 5 runs is less than 20% of the average"
+    - "No run exceeds 8 seconds"
+    - "Application is fully interactive (not just a splash screen) at the measured time"
