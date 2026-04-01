@@ -1,5 +1,26 @@
 # Changelog
 
+## [2.8.1] - 2026-04-01
+
+### Bug Fixes
+
+- fix(field-test): correct send_chat UI flow and screen resolution detection
+
+### Other
+
+-   instead of opening SessionPanel dialog (wrong component)
+- - window.py: add get_screen_resolution() fallback via xdpyinfo/xrandr
+-   when qdbus6 queryWindowInfo times out on KDE Wayland
+- 
+- LLM tests still fail: clicks don't reach the Reasonance window.
+- Root cause under investigation — likely focus/compositor issue.
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+
+
+
 ## [2.8.0] - 2026-04-01
 
 ### Features
