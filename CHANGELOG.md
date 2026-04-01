@@ -1,5 +1,83 @@
 # Changelog
 
+## [2.8.0] - 2026-04-01
+
+### Features
+
+- feat(field-test): implement e2e_10b — session persistence across restart
+- feat(field-test): implement stress_30, stress_30b, edge_42 LLM tests
+- feat(field-test): implement cross_49 (file write) and cross_52 (multi-provider)
+- feat(field-test): implement 7 e2e LLM tests (10, 10f, 10d, 10e, 10h, 10g, 10c)
+- feat(field-test): add shared LLM test helpers (lib/llm.py)
+- feat(field-test): add YAML entries for 15 LLM test scenarios
+
+### Other
+
+- and asserts SessionManager logs at least 1 session loaded from disk.
+- Also adds RE_SM_LOADED alias in lib/llm.py and imports wait_for_log +
+- RE_SM_LOADED into e2e.py.
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- circuit-breaker trip-and-recovery test (stress_30b) with SIGKILL forcing,
+- and process-kill-during-chat edge test (edge_42) with graceful-error assertions.
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- docs: add LLM field tests implementation plan (15 tasks)
+- - Task 1: shared helpers (lib/llm.py)
+- - Task 2: YAML scenario entries
+- - Tasks 3-14: individual test implementations
+- - Task 15: full suite verification
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- docs: revise LLM field tests spec v2 (15 tests, 14 fixes)
+- - Log patterns verified against actual Rust source code
+- - Permission test redesigned (avoid stdin blocking)
+- - Session restart test uses explicit app re-launch protocol
+- - Merged cross_52/52b into single test
+- - Concurrent test uses threading for real parallelism
+- - UI verification uses log markers instead of OCR
+- - Added 4 new tests: streaming UX, analytics pipeline,
+-   session rename/delete, cache token verification
+- - Circuit breaker cleanup in finally block
+- - All grep patterns documented in Appendix A
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- docs: add LLM field tests design spec (11 tests)
+- normalizer, session manager, agent runtime, and UI rendering.
+- Replaces 5 empty stubs with real implementations covering chat,
+- tool use, permissions, session persistence/fork, multi-provider
+- parity, concurrent agents, circuit breaker, and crash recovery.
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+
+
+
 ## [2.7.0] - 2026-04-01
 
 ### Features
