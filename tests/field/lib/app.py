@@ -21,8 +21,9 @@ class ReasonanceApp:
     def launch(self, env: dict = None):
         """Start Reasonance via npx tauri dev with logging."""
         launch_env = os.environ.copy()
-        launch_env["RUST_LOG"] = "info"
-        launch_env["RUST_BACKTRACE"] = "1"
+        launch_env["RUST_LOG"] = "trace"
+        launch_env["RUST_BACKTRACE"] = "full"
+        launch_env["WEBKIT_DISABLE_COMPOSITING_MODE"] = "1"
         if env:
             launch_env.update(env)
 
@@ -47,6 +48,16 @@ class ReasonanceApp:
             if self._process and self._process.poll() is not None:
                 return False
             time.sleep(2)
+        return False
+
+    def wait_for_log(self, pattern: str, timeout: int = 10) -> bool:
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            if pattern in self.logs():
+                return True
+            if self._process and self._process.poll() is not None:
+                return False
+            time.sleep(0.5)
         return False
 
     def kill(self):
@@ -92,6 +103,25 @@ class ReasonanceApp:
 
     def log_file_path(self) -> str:
         return self._log_file
+
+    @property
+    def pid(self) -> int | None:
+        if self._process and self._process.poll() is None:
+            return self._process.pid
+        return None
+
+    def log_tail(self, n: int = 100) -> str:
+        lines = self.logs().splitlines()
+        return "\n".join(lines[-n:])
+
+    def log_window(self, pattern: str, before: int = 10, after: int = 10) -> str:
+        lines = self.logs().splitlines()
+        for i, line in enumerate(lines):
+            if pattern in line:
+                start = max(0, i - before)
+                end = min(len(lines), i + after + 1)
+                return "\n".join(lines[start:end])
+        return ""
 
     def _parse_errors(self, log_text: str) -> list[str]:
         errors = []
