@@ -6,7 +6,9 @@ Functions named test_{id}(ctx) override YAML scenarios of the same ID.
 from __future__ import annotations
 
 import os
+import re
 import shutil
+import signal
 import tempfile
 
 from lib.actions import (
@@ -21,6 +23,13 @@ from lib.actions import (
     wait_ms,
 )
 from lib.context import TestContext
+from lib.llm import (
+    cleanup_session,
+    extract_cli_pid,
+    send_chat,
+    wait_for_log,
+    wait_for_done,
+)
 
 _LLMS_TOML = os.path.expanduser("~/.config/reasonance/llms.toml")
 
@@ -131,3 +140,45 @@ def test_edge_41(ctx: TestContext) -> None:
                 os.unlink(backup_path)
         elif os.path.exists(_LLMS_TOML):
             os.unlink(_LLMS_TOML)
+
+
+def test_edge_42(ctx: TestContext) -> None:
+    """Process kill during chat — verify graceful error handling."""
+    session_id: str | None = None
+    try:
+        session_id = send_chat(
+            ctx,
+            "claude",
+            "Write a very detailed 500-word essay about the history of computing from 1940 to 2000",
+        )
+        assert session_id is not None, "No session_id returned from send_chat"
+
+        # Wait for the first Text token to confirm streaming has started
+        text_pattern = re.compile(
+            r"StreamReader\[" + re.escape(session_id) + r"\]: emitting.*Text"
+        )
+        started = wait_for_log(ctx, text_pattern, timeout=30)
+        assert started is not None, "Streaming never started — no Text emission seen"
+
+        # Let a few more tokens stream before killing the process
+        wait_ms(ctx, 2000)
+
+        # Kill the CLI process
+        pid = extract_cli_pid(ctx, session_id)
+        if pid:
+            os.kill(pid, signal.SIGKILL)
+        else:
+            # Fallback: kill by process name pattern
+            os.system("pkill -9 -f 'claude.*--print' 2>/dev/null || true")
+
+        # Allow the app time to detect and handle the abrupt termination
+        wait_ms(ctx, 5000)
+
+        logs = ctx.app.logs()
+        assert "panicked" not in logs, "Rust panic detected after CLI kill"
+        assert "SIGABRT" not in logs, "SIGABRT detected after CLI kill"
+
+        screenshot(ctx, "edge-42-process-kill-during-chat")
+    finally:
+        if session_id:
+            cleanup_session(ctx, session_id)

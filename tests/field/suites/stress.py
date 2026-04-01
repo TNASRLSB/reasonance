@@ -6,6 +6,9 @@ Functions named test_{id}(ctx) override YAML scenarios of the same ID.
 from __future__ import annotations
 
 import os
+import re
+import signal
+import threading
 import time
 
 from lib.actions import (
@@ -21,6 +24,12 @@ from lib.actions import (
     wait_ms,
 )
 from lib.context import TestContext
+from lib.llm import (
+    cleanup_session,
+    extract_cli_pid,
+    send_chat,
+    wait_for_done,
+)
 
 # File names cycled when we need many distinct filenames
 _CYCLE_FILES = [
@@ -161,3 +170,110 @@ def test_stress_33(ctx: TestContext) -> None:
 
     assert avg < 10, f"Average startup time {avg:.1f}s exceeds 10s limit"
     assert max_time < 15, f"Max startup time {max_time:.1f}s exceeds 15s limit"
+
+
+def test_stress_30(ctx: TestContext) -> None:
+    """Multiple concurrent agents — 3 simultaneous LLM sessions."""
+    sessions_config = [
+        ("claude", "List 5 sorting algorithms"),
+        ("claude", "List 5 data structures"),
+        ("qwen", "List 5 design patterns"),
+    ]
+
+    session_ids: list[str | None] = [None] * len(sessions_config)
+    done_results: list[object] = [None] * len(sessions_config)
+    errors: list[Exception | None] = [None] * len(sessions_config)
+
+    def run_session(index: int, provider: str, prompt: str) -> None:
+        try:
+            sid = send_chat(ctx, provider, prompt)
+            session_ids[index] = sid
+            if sid:
+                done_results[index] = wait_for_done(ctx, sid, timeout=90)
+        except Exception as exc:  # noqa: BLE001
+            errors[index] = exc
+
+    threads = []
+    for i, (provider, prompt) in enumerate(sessions_config):
+        t = threading.Thread(target=run_session, args=(i, provider, prompt), daemon=True)
+        threads.append(t)
+        t.start()
+        time.sleep(0.5)
+
+    t_start = time.time()
+    try:
+        for t in threads:
+            t.join(timeout=100)
+
+        elapsed = time.time() - t_start
+
+        # All 3 sessions must have completed
+        for i, (provider, prompt) in enumerate(sessions_config):
+            assert session_ids[i] is not None, (
+                f"Session {i} ({provider}: {prompt!r}) never sent a request"
+            )
+            assert done_results[i] is not None, (
+                f"Session {i} ({provider}: {prompt!r}) never reached Done"
+            )
+            assert errors[i] is None, (
+                f"Session {i} ({provider}: {prompt!r}) raised an error: {errors[i]}"
+            )
+
+        logs = ctx.app.logs()
+        assert "panicked" not in logs, "Rust panic detected during concurrent sessions"
+        assert elapsed < 120, f"Concurrent sessions took {elapsed:.1f}s, expected < 120s"
+
+        screenshot(ctx, "stress-30-concurrent-agents")
+    finally:
+        for sid in session_ids:
+            if sid:
+                cleanup_session(ctx, sid)
+
+
+def test_stress_30b(ctx: TestContext) -> None:
+    """Circuit breaker trip and recovery."""
+    session_ids: list[str | None] = []
+
+    try:
+        # Phase 1: Force 3 failures by killing the CLI mid-request
+        for i in range(3):
+            try:
+                sid = send_chat(ctx, "claude", f"Circuit breaker test {i + 1}")
+                session_ids.append(sid)
+                wait_ms(ctx, 1000)
+                if sid:
+                    pid = extract_cli_pid(ctx, sid)
+                    if pid:
+                        os.kill(pid, signal.SIGKILL)
+                wait_ms(ctx, 2000)
+            except Exception:  # noqa: BLE001
+                # Failures are expected here
+                pass
+
+        # Check whether the circuit breaker has opened
+        logs = ctx.app.logs()
+        circuit_open = bool(re.search(r"circuit open", logs, re.IGNORECASE))
+        if circuit_open:
+            # Wait for the circuit breaker cooldown period
+            time.sleep(65)
+
+        # Phase 2: Recovery — send a normal prompt and assert it succeeds
+        recovery_sid = send_chat(ctx, "claude", "Say OK")
+        assert recovery_sid is not None, "Recovery request did not produce a session_id"
+
+        done = wait_for_done(ctx, recovery_sid, timeout=90)
+        assert done is not None, "Recovery session never reached Done — circuit breaker did not reset"
+
+        screenshot(ctx, "stress-30b-circuit-breaker-recovery")
+    finally:
+        # Always attempt a successful prompt to leave the circuit breaker in a
+        # clean state for subsequent tests
+        try:
+            reset_sid = send_chat(ctx, "claude", "Reset circuit breaker state")
+            if reset_sid:
+                wait_for_done(ctx, reset_sid, timeout=60)
+        except Exception:  # noqa: BLE001
+            pass
+        for sid in session_ids:
+            if sid:
+                cleanup_session(ctx, sid)
