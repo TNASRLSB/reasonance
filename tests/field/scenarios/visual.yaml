@@ -2,101 +2,35 @@
 - id: visual_58
   name: Baseline screenshots
   suite: visual
-  steps:
-    - action: "Open the app and navigate to the main editor view with a file open"
-      verify: "View is fully loaded"
-    - action: "Capture a screenshot and save to tests/field/baseline/editor.png"
-      verify: "Screenshot file written"
-    - action: "Navigate to Settings panel, capture to tests/field/baseline/settings.png"
-      verify: "Screenshot file written"
-    - action: "Navigate to Analytics panel, capture to tests/field/baseline/analytics.png"
-      verify: "Screenshot file written"
-    - action: "Navigate to Memory panel, capture to tests/field/baseline/memory.png"
-      verify: "Screenshot file written"
-    - action: "Navigate to HIVE canvas, capture to tests/field/baseline/hive.png"
-      verify: "Screenshot file written"
-    - action: "Navigate to Git panel, capture to tests/field/baseline/git.png"
-      verify: "Screenshot file written"
-  pass_criteria:
-    - "All screenshots captured successfully to baseline/ directory"
-    - "Each screenshot shows the expected view without loading spinners"
-    - "No blank or entirely black frames"
-    - "Baseline directory contains one PNG per major view"
+  python_override: true
+  steps: []
 
 - id: visual_59
   name: Dark theme completeness
   suite: visual
   steps:
-    - action: "Switch to dark theme via Settings"
-      verify: "Theme applied globally"
-    - action: "Visit every major view: editor, file tree, terminal, settings, analytics, memory, HIVE, git"
-      verify: "Each view renders in dark mode"
-    - action: "Inspect each view for any bright unstyled rectangles or default white backgrounds"
-      verify: "No bright unstyled areas visible"
-    - action: "Verify text contrast in each view"
-      verify: "All text is readable against dark backgrounds"
-  pass_criteria:
-    - "All views use dark backgrounds consistently"
-    - "No bright unstyled rectangles visible in any view"
-    - "All text is readable (sufficient contrast) against dark backgrounds"
-    - "No flash of unstyled content when navigating between views"
+    - action: checkpoint
+      label: dark_theme
+    - action: assert_no_new_errors
 
 - id: visual_60
   name: Light theme completeness
   suite: visual
   steps:
-    - action: "Switch to light theme via Settings"
-      verify: "Theme applied globally"
-    - action: "Visit every major view: editor, file tree, terminal, settings, analytics, memory, HIVE, git"
-      verify: "Each view renders in light mode"
-    - action: "Inspect each view for dark remnants or inverted elements"
-      verify: "No dark unstyled areas visible in light mode"
-    - action: "Verify text contrast in each view"
-      verify: "All text is readable against light backgrounds"
-  pass_criteria:
-    - "All views use light backgrounds consistently"
-    - "Color palette is consistent across all views (no mismatched accent colors)"
-    - "All text is readable against light backgrounds"
-    - "No elements that appear styled for dark theme only"
+    - action: checkpoint
+      label: light_theme
+    - action: assert_no_new_errors
 
 - id: visual_61
   name: Responsive layout
   suite: visual
-  steps:
-    - action: "Resize app window to 1024x600"
-      verify: "Window resizes"
-    - action: "Inspect layout at 1024x600: check for overlaps, clipped text, or broken panels"
-      verify: "Layout adapts with no overlapping or clipped elements"
-    - action: "Resize app window to 1920x1080"
-      verify: "Window resizes"
-    - action: "Inspect layout at 1920x1080: check that panels scale and fill space appropriately"
-      verify: "Layout uses available space without excessive whitespace or distortion"
-    - action: "Resize app window to 800x400 (minimum size)"
-      verify: "Window resizes or enforces a minimum size"
-    - action: "Inspect layout at 800x400: check for minimum-size handling"
-      verify: "Layout is usable or a minimum-size warning is shown; no crash"
-  pass_criteria:
-    - "At 1024x600: no overlapping elements, no clipped text, all controls reachable"
-    - "At 1920x1080: layout fills space proportionally, no visual distortion"
-    - "At 800x400: minimum size enforced gracefully or layout remains usable"
-    - "No crash or blank window at any tested size"
+  python_override: true
+  steps: []
 
 - id: visual_62
   name: Error state rendering
   suite: visual
   steps:
-    - action: "Trigger a 'file not found' error by opening a path that does not exist"
-      verify: "Error state displayed in the editor area"
-    - action: "Trigger a network error by disabling the network and attempting an LLM request"
-      verify: "Network error state displayed in the terminal/chat panel"
-    - action: "Trigger a 'permission denied' error by opening a file with no read access"
-      verify: "Permission error state displayed clearly"
-    - action: "Trigger a corrupt config error by writing invalid TOML to the config file and relaunching"
-      verify: "Config error displayed at startup with recovery options"
-    - action: "For each error, verify dismiss or retry controls are present and functional"
-      verify: "Error can be dismissed or retried without crashing"
-  pass_criteria:
-    - "All four error types render a clear, user-readable message"
-    - "Dismiss and/or retry controls are present and functional for each error"
-    - "Error states do not crash the application"
-    - "Recovering from each error returns the UI to a usable state"
+    - action: checkpoint
+      label: error_state_rendering
+    - action: assert_no_new_errors

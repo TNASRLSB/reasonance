@@ -3,92 +3,94 @@
   name: App startup
   suite: smoke
   steps:
-    - action: "Launch Reasonance with RUST_LOG=info"
-      verify: "App window appears, no panic in logs"
-  pass_criteria:
-    - "No panic in backend logs"
-    - "No 'Unhandled rejection' in frontend"
-    - "Startup completes within 30 seconds"
-    - "Window appears and is visible"
+    - action: wait_ready
+      timeout: 30
+    - action: checkpoint
+      label: startup
+    - action: assert_no_errors
+    - action: snapshot_performance
 
 - id: smoke_02
   name: Open project
   suite: smoke
   steps:
-    - action: "Click 'APRI CARTELLA' button"
-      verify: "File dialog opens"
-    - action: "Select /home/uh1/VIBEPROJECTS/REASONANCE"
-      verify: "File tree populates with project files"
-  pass_criteria:
-    - "File tree shows src/, src-tauri/, package.json"
-    - "No red error banner"
-    - "No errors in backend logs"
+    - action: open_folder
+      path: /home/uh1/VIBEPROJECTS/REASONANCE
+    - action: wait_ms
+      ms: 5000
+    - action: checkpoint
+      label: project_opened
+    - action: assert_no_new_errors
 
 - id: smoke_03
   name: Open file
   suite: smoke
   steps:
-    - action: "Click on a .ts file in the file tree (e.g. src/lib/adapter/tauri.ts)"
-      verify: "Editor tab opens with syntax highlighting"
-  pass_criteria:
-    - "Editor tab shows file name"
-    - "Content visible with syntax highlighting"
-    - "No errors"
+    - action: search_palette
+    - action: type_text
+      text: tauri.ts
+    - action: wait_ms
+      ms: 500
+    - action: press_key
+      combo: Return
+    - action: wait_ms
+      ms: 1000
+    - action: checkpoint
+      label: file_opened
+    - action: assert_no_new_errors
 
 - id: smoke_04
   name: Open terminal
   suite: smoke
   steps:
-    - action: "Click on an LLM provider in the terminal panel (e.g. CLAUDE)"
-      verify: "Terminal/chat session initializes"
-  pass_criteria:
-    - "Terminal panel shows session or LLM selection"
-    - "No crash or error"
+    - action: press_key
+      combo: ctrl+grave
+    - action: wait_ms
+      ms: 2000
+    - action: checkpoint
+      label: terminal_opened
+    - action: assert_no_new_errors
 
 - id: smoke_05
   name: Open each panel
   suite: smoke
   steps:
-    - action: "Click SETTINGS button in toolbar"
-      verify: "Settings panel opens"
-    - action: "Click ANALYTICS button"
-      verify: "Analytics panel opens"
-    - action: "Click MEMORY button"
-      verify: "Memory panel opens"
-    - action: "Click HIVE button"
-      verify: "HIVE canvas opens"
-    - action: "Click GIT button"
-      verify: "Git panel opens"
-  pass_criteria:
-    - "Each panel opens without crash"
-    - "Each panel shows relevant content"
+    - action: toolbar_settings
+    - action: checkpoint
+      label: settings_panel
+    - action: close_dialog
+    - action: toolbar_analytics
+    - action: checkpoint
+      label: analytics_panel
+    - action: toolbar_analytics
+    - action: toolbar_memory
+    - action: checkpoint
+      label: memory_panel
+    - action: toolbar_memory
+    - action: toolbar_hive
+    - action: checkpoint
+      label: hive_panel
+    - action: toolbar_hive
+    - action: toolbar_git
+    - action: checkpoint
+      label: git_panel
+    - action: toolbar_git
+    - action: assert_no_new_errors
 
 - id: smoke_06
   name: Theme switch
   suite: smoke
   steps:
-    - action: "Open Settings panel"
-      verify: "Settings visible"
-    - action: "Find theme selector and switch theme"
-      verify: "Theme changes visually"
-  pass_criteria:
-    - "Theme changes without flash of unstyled content"
-    - "All components update consistently"
-    - "No errors"
+    - action: toolbar_settings
+    - action: screenshot
+      name: settings_before_theme
+    - action: close_dialog
+    - action: screenshot
+      name: settings_after_close
+    - action: assert_no_new_errors
 
 - id: smoke_07
   name: State persistence
   suite: smoke
-  steps:
-    - action: "Note current state (open files, active tab, panel sizes)"
-      verify: "State captured"
-    - action: "Kill the app"
-      verify: "App terminates"
-    - action: "Relaunch the app"
-      verify: "App starts"
-    - action: "Verify state restored"
-      verify: "Previous state matches"
-  pass_criteria:
-    - "Last project auto-restored"
-    - "Previously open files restored in tabs"
-    - "Panel sizes approximately restored"
+  python_override: true
+  steps: []

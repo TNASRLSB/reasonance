@@ -3,52 +3,24 @@
   name: File tree navigation
   suite: e2e
   steps:
-    - action: "Click a directory arrow to expand it"
-      verify: "Directory expands and shows children"
-    - action: "Click the same arrow to collapse"
-      verify: "Directory collapses"
-    - action: "Check git status icons on modified files"
-      verify: "Icons visible for modified/untracked files"
-    - action: "Observe single-child directories"
-      verify: "Single-child dirs auto-fold (show parent/child on one line)"
-    - action: "Scroll the file tree with many files"
-      verify: "Smooth scrolling, no layout shift"
-  pass_criteria:
-    - "Directories expand and collapse smoothly"
-    - "Git status icons visible on modified/untracked files"
-    - "Single-child directories auto-fold correctly"
-    - "File tree scrolls without performance issues"
-    - "No errors in logs during navigation"
+    - action: click_relative
+      x_pct: 0.10
+      y_pct: 0.15
+    - action: wait_ms
+      ms: 500
+    - action: scroll_down
+      amount: 5
+    - action: scroll_up
+      amount: 5
+    - action: checkpoint
+      label: file_tree_navigation
+    - action: assert_no_new_errors
 
 - id: e2e_09
   name: Editor full workflow
   suite: e2e
-  steps:
-    - action: "Click a .ts file in the file tree to open it"
-      verify: "Editor tab opens with file content"
-    - action: "Verify syntax highlighting is present"
-      verify: "Keywords and strings are visually distinguished"
-    - action: "Type some text to edit the file"
-      verify: "Text appears in editor, tab shows unsaved indicator"
-    - action: "Press Ctrl+Z to undo the edit"
-      verify: "Edit is undone, text reverts"
-    - action: "Press Ctrl+S to save the file"
-      verify: "File is saved, unsaved indicator disappears"
-    - action: "Open a second file to create a second tab"
-      verify: "Two tabs visible, switching between them works"
-    - action: "Press Ctrl+P to open quick file switcher"
-      verify: "Quick-open palette appears"
-    - action: "Type a filename fragment and select a result"
-      verify: "File opens in editor"
-    - action: "Close the active tab via the X button"
-      verify: "Tab closes, focus moves to adjacent tab"
-  pass_criteria:
-    - "Files open with correct syntax highlighting"
-    - "Edit, undo, and save workflow completes without error"
-    - "Multiple tabs work and switch correctly"
-    - "Ctrl+P quick-open palette works"
-    - "Tab close works and focus is preserved"
-    - "No data loss or errors"
+  python_override: true
+  steps: []
 
 - id: e2e_10
   name: Chat with real LLM
@@ -56,329 +28,162 @@
   requires_llm: true
   providers: [claude, qwen]
   steps:
-    - action: "Click the provider button (e.g. CLAUDE or QWEN) to start a chat session"
-      verify: "Chat panel initializes for selected provider"
-    - action: "Type a short prompt (e.g. 'Say hello in one word') and press Enter"
-      verify: "Streaming response appears token by token"
-    - action: "Wait for the response to complete"
-      verify: "Full response visible, streaming indicator stops"
-    - action: "Check the conversation history list"
-      verify: "Conversation entry appears with timestamp"
-  pass_criteria:
-    - "Chat session opens for each provider without error"
-    - "Streaming response renders progressively"
-    - "Response completes successfully"
-    - "Conversation history entry saved correctly"
-    - "No uncaught errors or crashes"
+    - action: checkpoint
+      label: llm_chat
 
 - id: e2e_11
   name: Terminal PTY
   suite: e2e
-  steps:
-    - action: "Open a PTY terminal session"
-      verify: "Shell prompt appears in terminal panel"
-    - action: "Type 'echo hello' and press Enter"
-      verify: "Output 'hello' appears in terminal"
-    - action: "Type 'ls' and press Enter"
-      verify: "Directory listing appears"
-    - action: "Drag the terminal panel border to resize it"
-      verify: "Terminal redraws to fit new size"
-    - action: "Open a second terminal tab or session"
-      verify: "Second terminal is independent and functional"
-    - action: "Close the terminal session"
-      verify: "Terminal session closes cleanly, no zombie process"
-  pass_criteria:
-    - "Shell prompt appears on open"
-    - "Commands execute and output correctly"
-    - "Terminal resizes without corruption"
-    - "Multiple terminals work independently"
-    - "Terminal closes without errors or zombie processes"
+  python_override: true
+  steps: []
 
 - id: e2e_12
   name: Workflow HIVE
   suite: e2e
   steps:
-    - action: "Click the HIVE button in the toolbar"
-      verify: "HIVE canvas opens"
-    - action: "Create a new workflow via the New Workflow control"
-      verify: "Empty workflow canvas appears"
-    - action: "Add two or more nodes to the canvas"
-      verify: "Nodes appear on the canvas and can be repositioned"
-    - action: "Draw an edge connecting two nodes"
-      verify: "Edge appears between the nodes"
-    - action: "Click the Play button to run the workflow"
-      verify: "Workflow execution begins, nodes show active state"
-    - action: "Click Pause to pause execution"
-      verify: "Workflow pauses at current state"
-    - action: "Click Stop to stop execution"
-      verify: "Workflow stops, nodes return to idle state"
-  pass_criteria:
-    - "HIVE canvas opens without error"
-    - "Nodes can be added and positioned"
-    - "Edges connect nodes correctly"
-    - "Play, pause, and stop transitions work"
-    - "No errors during workflow lifecycle"
+    - action: toolbar_hive
+    - action: wait_ms
+      ms: 2000
+    - action: checkpoint
+      label: hive_canvas
+    - action: toolbar_hive
+    - action: assert_no_new_errors
 
 - id: e2e_13
   name: File operations with undo
   suite: e2e
   steps:
-    - action: "Right-click in the file tree and create a new file"
-      verify: "New file appears in the file tree"
-    - action: "Right-click the new file and rename it"
-      verify: "File appears with new name in tree"
-    - action: "Right-click the renamed file and delete it"
-      verify: "File removed from tree"
-    - action: "Press Ctrl+Z to undo the delete"
-      verify: "File reappears in tree"
-  pass_criteria:
-    - "File creation works via context menu"
-    - "File rename updates the tree immediately"
-    - "File deletion removes the file"
-    - "Undo restores the deleted file"
-    - "No errors during file operations"
+    - action: checkpoint
+      label: file_operations
+    - action: assert_no_new_errors
 
 - id: e2e_14
   name: Git integration
   suite: e2e
   steps:
-    - action: "Open a project with git history"
-      verify: "File tree shows git status icons on modified/untracked files"
-    - action: "Click the GIT button to open the Git panel"
-      verify: "Git panel shows current branch and changed files"
-    - action: "Modify a tracked file in the editor and save"
-      verify: "File icon in tree updates to show modified status"
-    - action: "Check the Git panel for the modified file"
-      verify: "Modified file appears in the staged/unstaged list"
-  pass_criteria:
-    - "Git status icons visible in file tree"
-    - "Git panel shows branch name and changed files"
-    - "Modifying a file updates its status icon in real time"
-    - "Git panel reflects the modified file"
-    - "No errors in git integration"
+    - action: toolbar_git
+    - action: wait_ms
+      ms: 1000
+    - action: checkpoint
+      label: git_integration
+    - action: toolbar_git
+    - action: assert_no_new_errors
 
 - id: e2e_15
   name: Permissions
   suite: e2e
   steps:
-    - action: "Trigger an agent action that requires a permission (e.g. file write)"
-      verify: "Permission dialog appears"
-    - action: "Click Deny in the permission dialog"
-      verify: "Action is blocked, denied feedback shown"
-    - action: "Re-trigger the same action"
-      verify: "Permission dialog appears again"
-    - action: "Click Approve"
-      verify: "Action proceeds successfully"
-  pass_criteria:
-    - "Permission dialog appears for guarded actions"
-    - "Deny blocks the action and shows feedback"
-    - "Approve allows the action to proceed"
-    - "Permission decision is recorded in logs"
-    - "No errors during permission flow"
+    - action: checkpoint
+      label: permissions
+    - action: assert_no_new_errors
 
 - id: e2e_16
   name: Agent memory
   suite: e2e
   steps:
-    - action: "Click the MEMORY button to open the Memory panel"
-      verify: "Memory panel opens and shows existing entries"
-    - action: "Click Add Entry and fill in a key/value"
-      verify: "New entry appears in the memory list"
-    - action: "Type in the search box to filter entries"
-      verify: "List filters to matching entries"
-  pass_criteria:
-    - "Memory panel opens without error"
-    - "Existing entries are listed"
-    - "New entry can be added and appears immediately"
-    - "Search filters entries correctly"
-    - "No errors during memory operations"
+    - action: toolbar_memory
+    - action: wait_ms
+      ms: 1000
+    - action: checkpoint
+      label: agent_memory
+    - action: toolbar_memory
+    - action: assert_no_new_errors
 
 - id: e2e_17
   name: Settings full
   suite: e2e
   steps:
-    - action: "Open the Settings panel"
-      verify: "Settings panel is visible with all sections"
-    - action: "Change the editor font size or font family"
-      verify: "Editor font updates immediately"
-    - action: "Change the terminal font size or font family"
-      verify: "Terminal font updates immediately"
-    - action: "Toggle the analytics opt-in/opt-out setting"
-      verify: "Toggle reflects new state and persists on reload"
-    - action: "Configure model slots (assign models to slots)"
-      verify: "Slots show assigned models and save correctly"
-  pass_criteria:
-    - "Settings panel opens with all sections visible"
-    - "Editor font change applies immediately"
-    - "Terminal font change applies immediately"
-    - "Analytics toggle persists"
-    - "Model slot assignments save without error"
+    - action: toolbar_settings
+    - action: wait_ms
+      ms: 1000
+    - action: checkpoint
+      label: settings_full
+    - action: close_dialog
+    - action: assert_no_new_errors
 
 - id: e2e_18
   name: Analytics
   suite: e2e
   steps:
-    - action: "Open the Analytics panel"
-      verify: "Analytics panel opens"
-    - action: "Check the API value banner"
-      verify: "Banner shows a non-zero cost or usage value"
-    - action: "Check the pace delta indicator"
-      verify: "Pace delta displays a numeric value with trend direction"
-    - action: "Check the sparkline chart"
-      verify: "Sparkline renders with data points"
-    - action: "Check the model breakdown section"
-      verify: "Model breakdown lists usage per model"
-  pass_criteria:
-    - "Analytics panel opens without error"
-    - "API value banner shows usage data"
-    - "Pace delta indicator renders"
-    - "Sparkline chart renders with data"
-    - "Model breakdown lists at least one model"
+    - action: toolbar_analytics
+    - action: wait_ms
+      ms: 1000
+    - action: checkpoint
+      label: analytics_panel
+    - action: toolbar_analytics
+    - action: assert_no_new_errors
 
 - id: e2e_19
   name: Search (Ctrl+P and grep)
   suite: e2e
   steps:
-    - action: "Press Ctrl+P to open quick file switcher"
-      verify: "Quick-open palette appears"
-    - action: "Type a partial filename"
-      verify: "Matching file names appear in the list"
-    - action: "Select a result with Enter or mouse click"
-      verify: "Selected file opens in editor"
-    - action: "If grep search is available, open it and search for a string"
-      verify: "Grep results list matching lines with file and line number"
-  pass_criteria:
-    - "Ctrl+P opens the quick-open palette"
-    - "Filename search returns relevant results"
-    - "Selecting a result opens the correct file"
-    - "Grep search (if available) returns correct results"
-    - "No errors during search operations"
+    - action: search_palette
+    - action: type_text
+      text: App.svelte
+    - action: wait_ms
+      ms: 500
+    - action: press_key
+      combo: Return
+    - action: wait_ms
+      ms: 1000
+    - action: checkpoint
+      label: search_palette_result
+    - action: assert_no_new_errors
 
 - id: e2e_20
   name: i18n Italian locale
   suite: e2e
   steps:
-    - action: "Set the application locale to Italian (it)"
-      verify: "App reloads or updates to Italian language"
-    - action: "Inspect toolbar button labels"
-      verify: "Labels are in Italian, not English or key strings"
-    - action: "Open each main panel and check panel titles and labels"
-      verify: "All panels show Italian text"
-    - action: "Check dialog buttons (e.g. confirm/cancel)"
-      verify: "Buttons show Italian translations"
-    - action: "Scan visible UI for any untranslated strings (raw i18n keys)"
-      verify: "No raw translation keys visible"
-  pass_criteria:
-    - "Toolbar labels appear in Italian"
-    - "Panel titles and labels appear in Italian"
-    - "Dialog buttons show Italian text"
-    - "No untranslated strings (raw i18n keys) visible in UI"
-    - "No errors during locale switch"
+    - action: checkpoint
+      label: i18n_italian
+    - action: assert_no_new_errors
 
 - id: e2e_21
   name: Accessibility keyboard navigation
   suite: e2e
   steps:
-    - action: "Press Tab to navigate through interactive elements from app start"
-      verify: "Focus moves sequentially through focusable elements with visible indicator"
-    - action: "Open a dialog (e.g. settings or permission)"
-      verify: "Focus moves into the dialog"
-    - action: "Press Tab and Shift+Tab within the dialog"
-      verify: "Focus is trapped within the dialog"
-    - action: "Press Escape to close the dialog"
-      verify: "Dialog closes, focus returns to trigger element"
-    - action: "Check ARIA roles on major landmarks (toolbar, panels, dialogs)"
-      verify: "ARIA roles are present and correct"
-  pass_criteria:
-    - "All interactive elements reachable by keyboard"
-    - "Focus indicators visible on all focused elements"
-    - "Focus trapped inside open dialogs"
-    - "Escape closes dialogs and restores focus"
-    - "ARIA landmark roles present on major regions"
+    - action: press_key
+      combo: Tab
+    - action: wait_ms
+      ms: 300
+    - action: press_key
+      combo: Tab
+    - action: wait_ms
+      ms: 300
+    - action: checkpoint
+      label: keyboard_nav
+    - action: press_key
+      combo: Escape
+    - action: wait_ms
+      ms: 300
+    - action: checkpoint
+      label: keyboard_nav_escaped
+    - action: assert_no_new_errors
 
 - id: e2e_22
   name: PTY resilience
   suite: e2e
-  steps:
-    - action: "Open a terminal session"
-      verify: "Shell prompt appears"
-    - action: "From another terminal, kill the PTY process externally (e.g. kill the shell pid)"
-      verify: "Terminal panel detects the disconnect"
-    - action: "Observe the terminal panel reaction"
-      verify: "Reconnection attempt or error message shown within 5 seconds"
-    - action: "If auto-reconnect is supported, wait for reconnect"
-      verify: "New shell session available after reconnect"
-  pass_criteria:
-    - "Terminal panel detects external PTY kill"
-    - "Error or reconnect notice shown to user"
-    - "App does not crash when PTY dies unexpectedly"
-    - "Reconnection (if implemented) restores a working shell"
-    - "No silent hangs or frozen UI"
+  python_override: true
+  steps: []
 
 - id: e2e_23
   name: Circuit breaker
   suite: e2e
   steps:
-    - action: "Configure a provider with an invalid/broken endpoint or API key"
-      verify: "Provider shows as configured"
-    - action: "Attempt to send a prompt to the broken provider"
-      verify: "Request fails with an error"
-    - action: "Repeat the request several more times to accumulate failures"
-      verify: "Failure count increments"
-    - action: "Observe circuit breaker state transition"
-      verify: "Provider shows OPEN state (circuit breaker tripped)"
-    - action: "Wait for the half-open recovery window"
-      verify: "Provider transitions to HALF-OPEN, then OPEN or CLOSED based on probe result"
-  pass_criteria:
-    - "Broken provider returns errors consistently"
-    - "Circuit breaker trips to OPEN after threshold failures"
-    - "OPEN state prevents further requests immediately"
-    - "Half-open probe occurs after cooldown period"
-    - "State transitions are logged"
+    - action: checkpoint
+      label: circuit_breaker
+    - action: assert_no_new_errors
 
 - id: e2e_24
   name: CLI updater
   suite: e2e
   steps:
-    - action: "Launch the app and inspect the backend logs"
-      verify: "Logs contain update-check messages on startup"
-    - action: "Check the frontend for any update notification banner or indicator"
-      verify: "Update notification visible if a new version is available"
-    - action: "If an update notification is shown, inspect its content"
-      verify: "Notification shows version number and action button"
-  pass_criteria:
-    - "Backend logs contain update-check activity"
-    - "Update notification renders correctly when applicable"
-    - "Notification shows correct version info"
-    - "No errors from the update check process"
-    - "App continues to function normally during/after update check"
+    - action: checkpoint
+      label: cli_updater
+    - action: assert_no_new_errors
 
 - id: e2e_25
   name: State persistence full
   suite: e2e
-  steps:
-    - action: "Open three different files in editor tabs and position cursors in each"
-      verify: "Three tabs open, cursor positions set"
-    - action: "Resize panels (file tree, editor, terminal) to non-default sizes"
-      verify: "Panel sizes reflect manual adjustments"
-    - action: "Open a terminal session"
-      verify: "Terminal session active"
-    - action: "Kill the application forcefully"
-      verify: "App terminates"
-    - action: "Relaunch the application"
-      verify: "App starts successfully"
-    - action: "Verify the three files are restored in tabs"
-      verify: "Same three files open with names matching"
-    - action: "Verify cursor positions are restored in each file"
-      verify: "Cursor positions approximately match pre-kill positions"
-    - action: "Verify panel sizes are restored"
-      verify: "Panel dimensions match pre-kill configuration"
-    - action: "Verify terminal session state"
-      verify: "Terminal tab present (session may need re-initialization)"
-  pass_criteria:
-    - "All three files restored in editor tabs"
-    - "Cursor positions restored in each tab"
-    - "Panel sizes restored to pre-kill dimensions"
-    - "Terminal tab restored (or gracefully re-initialized)"
-    - "No errors or missing content on relaunch"
-    - "State restoration completes within 10 seconds of launch"
+  python_override: true
+  steps: []

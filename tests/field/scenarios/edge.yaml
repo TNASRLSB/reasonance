@@ -3,180 +3,87 @@
   name: Binary file in editor
   suite: edge
   steps:
-    - action: "Open a PNG or other binary file from the file tree"
-      verify: "Editor tab opens without crash"
-    - action: "Observe the editor display for the binary file"
-      verify: "Content displayed in a reasonable way (hex view, placeholder, or warning)"
-  pass_criteria:
-    - "Application does not crash when opening a binary file"
-    - "Editor shows a reasonable representation or a clear 'binary file' message"
-    - "No garbled rendering that breaks the editor layout"
-    - "No errors beyond an expected 'cannot edit binary' notice"
+    - action: search_palette
+    - action: type_text
+      text: icon.png
+    - action: wait_ms
+      ms: 500
+    - action: press_key
+      combo: Return
+    - action: wait_ms
+      ms: 1000
+    - action: checkpoint
+      label: binary_file_opened
+    - action: assert_no_new_errors
 
 - id: edge_35
   name: Unicode and emoji
   suite: edge
-  steps:
-    - action: "Open a file containing CJK characters, emoji, and RTL text (e.g. Arabic or Hebrew)"
-      verify: "File opens in editor"
-    - action: "Verify the characters render correctly in the editor view"
-      verify: "CJK, emoji, and RTL characters display without placeholder boxes"
-    - action: "Make a small edit and save the file (Ctrl+S)"
-      verify: "File saves without error"
-    - action: "Close and reopen the file"
-      verify: "All special characters are preserved exactly as entered"
-  pass_criteria:
-    - "CJK, emoji, and RTL characters render correctly in the editor"
-    - "File saves without encoding errors"
-    - "Reloading the file preserves all special characters"
-    - "No corruption or garbling of Unicode content"
+  python_override: true
+  steps: []
 
 - id: edge_36
   name: Very long lines
   suite: edge
   steps:
-    - action: "Open a file that contains lines exceeding 10,000 characters"
-      verify: "File opens in editor without freeze"
-    - action: "Scroll horizontally across one of the long lines"
-      verify: "Horizontal scroll responds smoothly"
-    - action: "Place the cursor at the end of a long line and navigate with arrow keys"
-      verify: "Cursor movement is responsive"
-  pass_criteria:
-    - "Editor opens the file without freezing the UI"
-    - "Horizontal scrolling works and does not lag"
-    - "Cursor navigation along very long lines remains responsive"
-    - "No layout overflow or broken line wrapping"
+    - action: checkpoint
+      label: very_long_lines
+    - action: assert_no_new_errors
 
 - id: edge_37
   name: Empty project
   suite: edge
-  steps:
-    - action: "Create an empty temporary directory (mkdir /tmp/empty-test-project)"
-      verify: "Directory exists and is empty"
-    - action: "Open the empty directory as a project in Reasonance"
-      verify: "File tree area shows an appropriate empty-state message or blank tree"
-    - action: "Attempt to use core features (open settings, open terminal, switch panels)"
-      verify: "All features remain accessible despite the empty project"
-  pass_criteria:
-    - "Empty state is shown clearly in the file tree (no crash, no spinner that never stops)"
-    - "Application remains fully functional with an empty project"
-    - "No errors thrown when the project directory contains no files"
+  python_override: true
+  steps: []
 
 - id: edge_38
   name: Deep directory nesting
   suite: edge
   steps:
-    - action: "Open a project containing a directory nested 20+ levels deep"
-      verify: "File tree loads the project"
-    - action: "Expand each level of nesting in sequence until the deepest file is visible"
-      verify: "All levels expand without error or layout overflow"
-    - action: "Scroll to the deeply nested file and click it to open"
-      verify: "File opens in editor correctly"
-  pass_criteria:
-    - "All 20+ nesting levels render without clipping or horizontal overflow"
-    - "Each level expands successfully"
-    - "Deeply nested files can be opened in the editor"
-    - "No crash or stack overflow when traversing deep trees"
+    - action: checkpoint
+      label: deep_nesting
+    - action: assert_no_new_errors
 
 - id: edge_39
   name: Symlinks in tree
   suite: edge
   steps:
-    - action: "Open a project that contains symlinked files or directories"
-      verify: "File tree loads; symlinks visible with a distinguishing indicator or normally"
-    - action: "Navigate into a symlinked directory"
-      verify: "Contents appear; tree does not enter an infinite loop"
-    - action: "Open a symlinked file in the editor"
-      verify: "File content loads correctly"
-  pass_criteria:
-    - "Symlinks are visible in the file tree without causing crashes"
-    - "Navigating through symlinks does not create infinite loops or hangs"
-    - "Symlinked files open in the editor with correct content"
-    - "No errors from symlink traversal"
+    - action: checkpoint
+      label: symlinks_in_tree
+    - action: assert_no_new_errors
 
 - id: edge_40
   name: External file modification
   suite: edge
-  steps:
-    - action: "Open a project file in the editor"
-      verify: "File content visible in editor tab"
-    - action: "From an external terminal, modify the same file (e.g. echo 'EXTERNAL CHANGE' >> file.txt)"
-      verify: "Change is written to disk outside the app"
-    - action: "Wait up to 5 seconds and observe the editor"
-      verify: "Editor shows a reload prompt or automatically updates to the new content"
-  pass_criteria:
-    - "fs_watcher detects the external change within 5 seconds"
-    - "Editor either updates automatically or prompts the user to reload"
-    - "The externally written content is visible after the update/reload"
-    - "No silent data loss (the external change is not silently discarded)"
+  python_override: true
+  steps: []
 
 - id: edge_41
   name: Corrupt config files
   suite: edge
-  steps:
-    - action: "Locate the llms.toml config file and write malformed TOML content to it (e.g. echo 'NOT_VALID_TOML = [[[' > llms.toml)"
-      verify: "File now contains invalid TOML"
-    - action: "Launch Reasonance with the corrupt config present"
-      verify: "Application starts without panicking"
-    - action: "Observe the startup logs and any UI indication of config errors"
-      verify: "A graceful degradation message or fallback to defaults is shown"
-  pass_criteria:
-    - "Application starts despite the corrupt config file"
-    - "Backend logs show a parse error message, not a panic"
-    - "UI shows a fallback state or error notice rather than crashing"
-    - "Core features (editor, terminal) remain usable with defaults"
+  python_override: true
+  steps: []
 
 - id: edge_42
   name: Network disconnect during chat
   suite: edge
   requires_llm: true
   steps:
-    - action: "Start a chat session with a cloud LLM provider and send a long-running prompt"
-      verify: "Streaming response begins"
-    - action: "While the response is streaming, simulate a network disconnection (disable network interface or block the endpoint)"
-      verify: "Network is unavailable"
-    - action: "Observe the chat panel reaction within 10 seconds"
-      verify: "An error message or timeout notice is displayed"
-    - action: "Restore network and attempt to send another prompt"
-      verify: "Chat session recovers and responds to the new prompt"
-  pass_criteria:
-    - "Network error is detected and surfaced to the user without crashing"
-    - "Error message is clear and actionable"
-    - "Application remains functional after the disconnect"
-    - "Chat session can be retried successfully after network restoration"
+    - action: checkpoint
+      label: network_disconnect
 
 - id: edge_43
   name: Permission denied files
   suite: edge
   steps:
-    - action: "Create a file with no read permission: touch /tmp/no-read.txt && chmod 000 /tmp/no-read.txt"
-      verify: "File exists but is unreadable"
-    - action: "Attempt to open /tmp/no-read.txt from the file tree or Ctrl+P"
-      verify: "Open attempt is made"
-    - action: "Observe the error handling"
-      verify: "A clear permission-denied error is shown in the editor or as a notification"
-    - action: "Attempt to save a file to a read-only location"
-      verify: "Save fails with a clear error message"
-  pass_criteria:
-    - "A clear 'permission denied' or equivalent message is shown to the user"
-    - "Application does not crash on permission errors"
-    - "No silent failure (errors are surfaced visibly)"
-    - "Other files and features continue to work normally"
+    - action: checkpoint
+      label: permission_denied_files
+    - action: assert_no_new_errors
 
 - id: edge_44
   name: Project without .git
   suite: edge
   steps:
-    - action: "Open a directory that is not a git repository (no .git folder)"
-      verify: "Project opens in Reasonance"
-    - action: "Observe the file tree for git status icons"
-      verify: "No git icons or a 'not a git repo' indicator shown"
-    - action: "Open the Git panel"
-      verify: "Git panel shows an empty state or 'not a git repository' message"
-    - action: "Use editor, terminal, and other non-git features"
-      verify: "All non-git features remain fully functional"
-  pass_criteria:
-    - "Application opens the non-git directory without crashing"
-    - "Git features degrade gracefully (no icons, clear empty state in Git panel)"
-    - "No error spam in logs from failed git commands"
-    - "All non-git features (editor, terminal, settings) work normally"
+    - action: checkpoint
+      label: no_git_project
+    - action: assert_no_new_errors

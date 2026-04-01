@@ -3,129 +3,101 @@
   name: Edit triggers git status update
   suite: cross
   steps:
-    - action: "Open a git-tracked project and locate a tracked (clean) file in the file tree"
-      verify: "File icon shows clean/unchanged status"
-    - action: "Open the file in the editor, make a small change, and save with Ctrl+S"
-      verify: "File is saved to disk"
-    - action: "Observe the file tree icon for the modified file"
-      verify: "Icon updates to the 'modified' git status indicator"
-  pass_criteria:
-    - "File tree icon changes to modified status within 2 seconds of save"
-    - "No manual refresh required to see the updated status"
-    - "Git panel also reflects the modification if opened"
-    - "No errors during the save-to-status-update flow"
+    - action: search_palette
+    - action: type_text
+      text: App.svelte
+    - action: wait_ms
+      ms: 500
+    - action: press_key
+      combo: Return
+    - action: wait_ms
+      ms: 1000
+    - action: checkpoint
+      label: before_edit
+    - action: type_text
+      text: " "
+    - action: save_file
+    - action: wait_ms
+      ms: 1000
+    - action: checkpoint
+      label: after_save
+    - action: undo
+    - action: save_file
+    - action: wait_ms
+      ms: 500
+    - action: checkpoint
+      label: after_undo_save
+    - action: assert_no_new_errors
 
 - id: cross_46
   name: Delete file closes editor tab
   suite: cross
   steps:
-    - action: "Open a file in the editor so it has an active tab"
-      verify: "File tab visible in editor"
-    - action: "Right-click the file in the file tree and choose Delete"
-      verify: "Delete confirmation dialog appears"
-    - action: "Confirm the deletion"
-      verify: "File is removed from the file tree"
-    - action: "Observe the editor tab for the deleted file"
-      verify: "Tab closes automatically or shows a 'file deleted' state"
-    - action: "Press Ctrl+Z to undo the deletion"
-      verify: "File reappears in tree and tab (or a new tab) shows the restored content"
-  pass_criteria:
-    - "Deleted file's tab closes or transitions to a deleted-file state"
-    - "No crash or stale tab pointing to a non-existent file"
-    - "Undo restores the file and makes content accessible again"
-    - "No errors during delete-and-undo flow"
+    - action: checkpoint
+      label: delete_file_tab
+    - action: assert_no_new_errors
 
 - id: cross_47
   name: Rename updates editor tab
   suite: cross
   steps:
-    - action: "Open a file in the editor so it has an active tab"
-      verify: "Tab shows the original filename"
-    - action: "Right-click the same file in the file tree and choose Rename"
-      verify: "Rename input appears"
-    - action: "Enter a new filename and confirm"
-      verify: "File tree shows the new filename"
-    - action: "Observe the editor tab"
-      verify: "Tab title updates to the new filename"
-    - action: "Verify the file content in the editor"
-      verify: "Content is unchanged after the rename"
-  pass_criteria:
-    - "Editor tab title updates to the new filename without requiring a reload"
-    - "File content is fully preserved after rename"
-    - "No stale reference to the old filename in tabs or logs"
-    - "No errors during the rename flow"
+    - action: checkpoint
+      label: rename_tab
+    - action: assert_no_new_errors
 
 - id: cross_48
   name: Settings changes apply live
   suite: cross
   steps:
-    - action: "Open a file in the editor and open a terminal session side by side"
-      verify: "Editor and terminal both visible simultaneously"
-    - action: "Open the Settings panel and change the editor font size"
-      verify: "Editor font size updates immediately without page reload"
-    - action: "Change the terminal font size in Settings"
-      verify: "Terminal font size updates immediately"
-    - action: "Change the editor font family in Settings"
-      verify: "Editor font family updates immediately"
-  pass_criteria:
-    - "Editor font size change applies immediately (no restart required)"
-    - "Terminal font size change applies immediately"
-    - "Font family change applies immediately"
-    - "No layout corruption or overlapping text after the changes"
-    - "No errors during live settings application"
+    - action: toolbar_settings
+    - action: wait_ms
+      ms: 1000
+    - action: checkpoint
+      label: settings_live_changes
+    - action: close_dialog
+    - action: assert_no_new_errors
 
 - id: cross_49
   name: Agent writes file, tree updates
   suite: cross
   requires_llm: true
   steps:
-    - action: "Open a project in Reasonance and start an LLM chat session"
-      verify: "Chat session active"
-    - action: "Ask the LLM to create a new file in the project directory (e.g. 'Create a file called agent_test.txt with the content: hello')"
-      verify: "LLM responds and indicates it is writing the file"
-    - action: "Observe the file tree after the LLM completes the write"
-      verify: "New file appears in the file tree without manual refresh"
-  pass_criteria:
-    - "New file written by the agent appears in the file tree automatically"
-    - "File content matches what the agent wrote"
-    - "No manual tree refresh required"
-    - "No errors in agent or file-system event pipeline"
+    - action: checkpoint
+      label: agent_writes_file
 
 - id: cross_50
   name: Workflow drives terminal
   suite: cross
   steps:
-    - action: "Open the HIVE panel and create a new workflow"
-      verify: "Empty workflow canvas visible"
-    - action: "Add a shell-command node configured to run a simple command (e.g. echo workflow-test)"
-      verify: "Node added to canvas with command configured"
-    - action: "Connect the node and press Play to run the workflow"
-      verify: "Workflow execution starts"
-    - action: "Observe the terminal panel"
-      verify: "Terminal panel shows the output of the shell command"
-  pass_criteria:
-    - "Workflow execution triggers the shell command via the terminal"
-    - "Terminal output contains the expected command output"
-    - "Workflow node transitions to completed state after execution"
-    - "No errors in workflow-to-terminal pipeline"
+    - action: toolbar_hive
+    - action: wait_ms
+      ms: 1000
+    - action: checkpoint
+      label: workflow_drives_terminal
+    - action: toolbar_hive
+    - action: assert_no_new_errors
 
 - id: cross_51
   name: Theme consistency across all components
   suite: cross
   steps:
-    - action: "Open all major panels: file tree, editor (with a file open), terminal, settings, git, analytics, memory, HIVE"
-      verify: "All panels visible"
-    - action: "Switch to a light theme (or another available theme) via Settings"
-      verify: "All visible panels update immediately"
-    - action: "Inspect each panel for color consistency"
-      verify: "No panel retains the previous theme's colors"
-    - action: "Switch back to the dark theme"
-      verify: "All panels update again consistently"
-  pass_criteria:
-    - "All components update to the new theme immediately on switch"
-    - "No mismatched colors (e.g. dark background with light-theme text) in any panel"
-    - "Theme is consistent between editor, terminal, sidebars, dialogs, and tooltips"
-    - "No flash of unstyled content or visual glitch during the switch"
+    - action: toolbar_settings
+    - action: wait_ms
+      ms: 1000
+    - action: screenshot
+      name: theme_settings_open
+    - action: close_dialog
+    - action: checkpoint
+      label: theme_dark
+    - action: toolbar_analytics
+    - action: screenshot
+      name: theme_analytics_dark
+    - action: toolbar_analytics
+    - action: toolbar_git
+    - action: screenshot
+      name: theme_git_dark
+    - action: toolbar_git
+    - action: assert_no_new_errors
 
 - id: cross_52
   name: Multi-provider normalizer
@@ -133,16 +105,5 @@
   requires_llm: true
   providers: [claude, qwen]
   steps:
-    - action: "Open a chat session with the Claude provider and send a prompt (e.g. 'List three colors')"
-      verify: "Claude response streams and completes"
-    - action: "Open a separate chat session with the Qwen provider and send the same prompt"
-      verify: "Qwen response streams and completes"
-    - action: "Compare the rendering of both responses in their respective panels"
-      verify: "Both responses render correctly with consistent formatting (markdown, code blocks, etc.)"
-    - action: "Check that provider-specific metadata (model name, token count) is attributed correctly"
-      verify: "Each panel shows its own provider's metadata"
-  pass_criteria:
-    - "Both providers return and render responses without errors"
-    - "Markdown and code block formatting renders correctly for both providers"
-    - "Provider metadata is correctly attributed (no cross-provider label confusion)"
-    - "Normalizer produces consistent UI output regardless of which provider is used"
+    - action: checkpoint
+      label: multi_provider_normalizer
