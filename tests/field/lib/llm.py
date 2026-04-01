@@ -268,46 +268,125 @@ def close_sessions_panel(ctx: TestContext) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Terminal column layout constants
+# ---------------------------------------------------------------------------
+# The terminal column is on the right side of the 3-column layout.
+# Default width: 300px in a 1280px window.
+# FileTree: 200px, Editor: flex, Terminal: 300px
+# Terminal column x range: ~0.766 to 1.0 (center ~0.883)
+
+TERMINAL_COL_CENTER_X = 0.883  # center of terminal column
+TERMINAL_TAB_Y = 0.065  # tab bar y position (below toolbar)
+CHAT_INPUT_Y = 0.91  # ChatInput at bottom (above status bar)
+
+
+# ---------------------------------------------------------------------------
+# Provider card positions in the terminal empty state
+# ---------------------------------------------------------------------------
+# When no sessions exist, the terminal column shows provider cards.
+# The cards are stacked vertically, centered in the column.
+# Approximate y positions for the first few providers (discovered in order:
+# Claude, Gemini, Ollama, Kimi, Qwen, Codex — but only found ones show):
+
+PROVIDER_CARD_Y = {
+    0: 0.35,  # first provider card
+    1: 0.43,  # second
+    2: 0.51,  # third
+    3: 0.59,  # fourth
+    4: 0.67,  # fifth
+    5: 0.75,  # sixth
+}
+
+
+# ---------------------------------------------------------------------------
 # Chat interaction helpers
 # ---------------------------------------------------------------------------
 
 
-def send_chat_message(ctx: TestContext, text: str) -> None:
-    """Click the chat input area, type *text*, and press Return.
+def _click_provider_card(ctx: TestContext, index: int = 0) -> None:
+    """Click a provider card in the terminal empty state.
 
-    The chat input lives in the right column at approximately 85 % x, 92 % y.
+    *index* is the 0-based position of the provider in the discovered list.
+    Claude is typically index 0.
     """
-    click_relative(ctx, 0.85, 0.92)
+    y = PROVIDER_CARD_Y.get(index, 0.40)
+    click_relative(ctx, TERMINAL_COL_CENTER_X, y)
+    time.sleep(1.5)
+
+
+def _click_add_tab(ctx: TestContext) -> None:
+    """Click the '+' tab button at the end of the terminal tab bar."""
+    # The '+' button is at the right edge of the tab bar
+    click_relative(ctx, 0.97, TERMINAL_TAB_Y)
+    time.sleep(0.5)
+
+
+def _click_chat_input(ctx: TestContext) -> None:
+    """Click the ChatInput textarea at the bottom of the terminal column."""
+    click_relative(ctx, TERMINAL_COL_CENTER_X, CHAT_INPUT_Y)
     time.sleep(0.2)
+
+
+def send_chat_message(ctx: TestContext, text: str) -> None:
+    """Click the chat input area, type *text*, and press Return."""
+    _click_chat_input(ctx)
     type_text(ctx, text)
+    time.sleep(0.2)
     press_key(ctx, "Return")
 
 
 def send_chat(
     ctx: TestContext,
-    provider: str,  # noqa: ARG001
+    provider: str,
     prompt: str,
     yolo: bool = True,  # noqa: ARG001
 ) -> Optional[str]:
-    """Full flow to send a chat message and return the resulting session_id.
+    """Full flow: create LLM session, send prompt, return session_id.
 
     Steps:
     1. Record the current log line count as a baseline.
-    2. Open the sessions panel.
-    3. Send the chat message.
-    4. Wait for a ``Transport: send request`` log line that appears after the
-       baseline, then return its session_id.
+    2. Click a provider card in the terminal column to start a new session.
+       If a session already exists, click the '+' tab and select from dropdown.
+    3. Wait for session creation in logs.
+    4. Type the prompt in ChatInput and press Enter.
+    5. Wait for ``Transport: send request`` and return session_id.
 
-    *provider* and *yolo* are accepted for future use but are not acted upon
-    here — provider selection is assumed to already be configured in the UI.
-
-    Returns the session_id string, or None if no request was logged within the
-    default timeout.
+    Returns the session_id string, or None if no request was logged.
     """
     baseline = log_line_count(ctx)
-    open_sessions_panel(ctx)
+
+    # Determine provider index in discovered order
+    provider_lower = provider.lower()
+    # Discovery order: Claude, Gemini, Aider, Copilot, Ollama, Interpreter, Kimi, Qwen, Codex
+    # Only found ones appear as cards. Typical config: Claude=0, Qwen=4-ish
+    provider_index = {"claude": 0, "qwen": 4}.get(provider_lower, 0)
+
+    # Check if there are already terminal instances by looking for tab bar
+    # If the empty state is showing, click the provider card directly
+    # If tabs exist, click '+' and select from dropdown
+    # Simple heuristic: try clicking the provider card first; if it doesn't
+    # trigger a session, try the '+' tab approach
+    _click_provider_card(ctx, provider_index)
+    time.sleep(1)
+
+    # Check if a session was created
+    m = wait_for_log_after(ctx, RE_SESSION_STARTED, after_line=baseline, timeout=5)
+    if not m:
+        # Provider card click didn't work — terminal already has tabs.
+        # Click '+' button and select from dropdown
+        _click_add_tab(ctx)
+        time.sleep(0.5)
+        # The dropdown appears with provider names. Click the right one.
+        # Dropdown items are vertically stacked below the '+' button.
+        dropdown_y = TERMINAL_TAB_Y + 0.04 + (provider_index * 0.035)
+        click_relative(ctx, 0.95, dropdown_y)
+        time.sleep(1.5)
+
+    # Now type the prompt in the ChatInput
     send_chat_message(ctx, prompt)
-    m = wait_for_log_after(ctx, RE_SEND_REQUEST, after_line=baseline, timeout=60)
+
+    # Wait for Transport: send request
+    m = wait_for_log_after(ctx, RE_SEND_REQUEST, after_line=baseline, timeout=30)
     if m:
         return m.group(3)
     return None

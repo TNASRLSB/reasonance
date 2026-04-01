@@ -112,27 +112,66 @@ def maximize(resource_class: str):
     _run_kwin_script(script)
 
 
+def get_screen_resolution() -> tuple[int, int]:
+    """Get screen resolution via xdpyinfo or xrandr as fallback."""
+    try:
+        result = subprocess.run(
+            ["xdpyinfo"], capture_output=True, text=True, timeout=3,
+        )
+        for line in result.stdout.splitlines():
+            if "dimensions:" in line:
+                # e.g. "  dimensions:    1920x1080 pixels (...)"
+                parts = line.split()
+                idx = parts.index("dimensions:") + 1
+                w, h = parts[idx].split("x")
+                return int(w), int(h)
+    except Exception:
+        pass
+    try:
+        result = subprocess.run(
+            ["xrandr", "--current"], capture_output=True, text=True, timeout=3,
+        )
+        for line in result.stdout.splitlines():
+            if " connected" in line and "x" in line:
+                # e.g. "eDP-1 connected primary 1920x1080+0+0 ..."
+                for part in line.split():
+                    if "x" in part and "+" in part:
+                        res = part.split("+")[0]
+                        w, h = res.split("x")
+                        return int(w), int(h)
+    except Exception:
+        pass
+    return 1920, 1080
+
+
 def get_geometry(resource_class: str) -> dict:
-    """Return {x, y, width, height} of window via qdbus6."""
+    """Return {x, y, width, height} of window via qdbus6.
+
+    Falls back to screen resolution (assuming maximized) if qdbus6 fails.
+    """
     focus(resource_class)
     time.sleep(0.3)
-    result = subprocess.run(
-        ["qdbus6", "org.kde.KWin", "/KWin", "org.kde.KWin.queryWindowInfo"],
-        capture_output=True, text=True, timeout=5,
-    )
-    if result.returncode != 0:
-        raise RuntimeError(f"queryWindowInfo failed: {result.stderr}")
-    info = {}
-    for line in result.stdout.splitlines():
-        if ":" in line:
-            k, v = line.split(":", 1)
-            info[k.strip()] = v.strip()
-    for required_key in ("x", "y", "width", "height"):
-        if required_key not in info:
-            raise RuntimeError(f"queryWindowInfo missing '{required_key}' field")
-    return {
-        "x": int(info["x"]),
-        "y": int(info["y"]),
-        "width": int(info["width"]),
-        "height": int(info["height"]),
-    }
+    try:
+        result = subprocess.run(
+            ["qdbus6", "org.kde.KWin", "/KWin", "org.kde.KWin.queryWindowInfo"],
+            capture_output=True, text=True, timeout=5,
+        )
+        if result.returncode == 0:
+            info = {}
+            for line in result.stdout.splitlines():
+                if ":" in line:
+                    k, v = line.split(":", 1)
+                    info[k.strip()] = v.strip()
+            if all(k in info for k in ("x", "y", "width", "height")):
+                return {
+                    "x": int(info["x"]),
+                    "y": int(info["y"]),
+                    "width": int(info["width"]),
+                    "height": int(info["height"]),
+                }
+    except Exception:
+        pass
+
+    # Fallback: use screen resolution (window is maximized)
+    w, h = get_screen_resolution()
+    return {"x": 0, "y": 0, "width": w, "height": h}
