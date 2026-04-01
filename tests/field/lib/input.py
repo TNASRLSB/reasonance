@@ -9,13 +9,15 @@ SCREEN_HEIGHT = 1080
 
 def _dotool(command: str):
     """Send a command to dotool via stdin pipe."""
-    subprocess.run(
+    result = subprocess.run(
         ["dotool"],
         input=command + "\n",
         text=True,
         capture_output=True,
         timeout=5,
     )
+    if result.returncode != 0:
+        raise RuntimeError(f"dotool failed (exit {result.returncode}): {result.stderr}")
 
 
 def click(x: int, y: int):
