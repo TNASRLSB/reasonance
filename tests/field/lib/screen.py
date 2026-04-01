@@ -26,7 +26,11 @@ def _capture(name: str, flags: list[str], directory: str = None) -> str:
     filename = f"{timestamp}-{name}.png"
     path = os.path.join(directory, filename)
     cmd = ["spectacle", "-b", "-n"] + flags + ["-o", path]
-    subprocess.run(cmd, capture_output=True, timeout=10)
+    result = subprocess.run(cmd, capture_output=True, timeout=10)
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"spectacle failed (exit {result.returncode}): {result.stderr.decode()}"
+        )
     return path
 
 
@@ -69,5 +73,9 @@ def compare_images(current: str, baseline: str) -> float:
         max_diff = len(pixels1) * 3 * 255
         similarity = 1.0 - (total_diff / max_diff)
         return similarity
-    except Exception:
+    except ImportError:
+        raise
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("compare_images failed: %s", e)
         return 0.0

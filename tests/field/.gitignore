@@ -1,0 +1,5 @@
+screenshots/runs/
+reports/
+bugs/
+__pycache__/
+.pytest_cache/
