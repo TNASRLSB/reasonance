@@ -11,12 +11,10 @@ Usage:
 """
 
 import argparse
-import json
 import os
 import sys
 import time
 import yaml
-from datetime import datetime
 from pathlib import Path
 
 from lib.app import ReasonanceApp
@@ -141,62 +139,68 @@ def main():
     app = ReasonanceApp()
     screenshot_dir = get_screenshot_dir()
     results = []
+    failed = 0
 
-    if not args.no_launch:
-        print("Launching Reasonance...")
-        app.launch()
-        if not app.wait_ready(timeout=120):
-            print("ERROR: App failed to start!")
-            print(app.logs()[-500:])
-            return
+    try:
+        if not args.no_launch:
+            print("Launching Reasonance...")
+            app.launch()
+            if not app.wait_ready(timeout=120):
+                print("ERROR: App failed to start!")
+                print(app.logs()[-500:])
+                return
 
-        print("App ready. Preparing window...")
-        time.sleep(2)
-        focus("reasonance")
-        minimize_others("reasonance")
-        time.sleep(1)
+            print("App ready. Preparing window...")
+            time.sleep(2)
+            focus("reasonance")
+            minimize_others("reasonance")
+            time.sleep(1)
 
-    for scenario in scenarios:
-        print(f"  [{scenario['id']}] {scenario['name']}...", end=" ", flush=True)
+        for scenario in scenarios:
+            print(f"  [{scenario['id']}] {scenario['name']}...", end=" ", flush=True)
 
-        if scenario.get("requires_llm") and not os.environ.get("FIELD_TEST_LLM"):
-            print("SKIP (requires LLM)")
-            results.append({
-                "id": scenario["id"],
-                "name": scenario["name"],
-                "suite": scenario.get("suite", "unknown"),
-                "status": "skip",
-                "duration_ms": 0,
-                "screenshots": [],
-                "errors": [],
-                "notes": "Skipped: requires_llm=true, set FIELD_TEST_LLM=1 to enable",
-            })
-            continue
+            if scenario.get("requires_llm") and not os.environ.get("FIELD_TEST_LLM"):
+                print("SKIP (requires LLM)")
+                results.append({
+                    "id": scenario["id"],
+                    "name": scenario["name"],
+                    "suite": scenario.get("suite", "unknown"),
+                    "status": "skip",
+                    "duration_ms": 0,
+                    "screenshots": [],
+                    "errors": [],
+                    "notes": "Skipped: requires_llm=true, set FIELD_TEST_LLM=1 to enable",
+                })
+                continue
 
-        result = run_scenario(scenario, app, screenshot_dir)
-        results.append(result)
-        print(result["status"].upper())
+            result = run_scenario(scenario, app, screenshot_dir)
+            results.append(result)
+            print(result["status"].upper())
 
-    if not args.no_launch:
-        print("Stopping Reasonance...")
-        app.kill()
+        os.makedirs(str(REPORTS_DIR), exist_ok=True)
+        os.makedirs(str(BUGS_DIR), exist_ok=True)
+        generate_report(results, str(REPORTS_DIR))
 
-    os.makedirs(str(REPORTS_DIR), exist_ok=True)
-    os.makedirs(str(BUGS_DIR), exist_ok=True)
-    generate_report(results, str(REPORTS_DIR))
+        for r in results:
+            if r["status"] == "fail":
+                generate_bug_report(r, str(BUGS_DIR))
 
-    for r in results:
-        if r["status"] == "fail":
-            generate_bug_report(r, str(BUGS_DIR))
+        passed = sum(1 for r in results if r["status"] == "pass")
+        failed = sum(1 for r in results if r["status"] == "fail")
+        skipped = sum(1 for r in results if r["status"] == "skip")
+        print(f"\nResults: {passed} passed, {failed} failed, {skipped} skipped / {len(results)} total")
+        print(f"Screenshots: {screenshot_dir}")
+        print(f"Report: {REPORTS_DIR}")
+        if failed:
+            print(f"Bug reports: {BUGS_DIR}")
 
-    passed = sum(1 for r in results if r["status"] == "pass")
-    failed = sum(1 for r in results if r["status"] == "fail")
-    skipped = sum(1 for r in results if r["status"] == "skip")
-    print(f"\nResults: {passed} passed, {failed} failed, {skipped} skipped / {len(results)} total")
-    print(f"Screenshots: {screenshot_dir}")
-    print(f"Report: {REPORTS_DIR}")
+    finally:
+        if not args.no_launch:
+            print("Stopping Reasonance...")
+            app.kill()
+
     if failed:
-        print(f"Bug reports: {BUGS_DIR}")
+        sys.exit(1)
 
 
 if __name__ == "__main__":
