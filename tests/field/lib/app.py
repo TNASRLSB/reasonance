@@ -14,6 +14,7 @@ PROJECT_ROOT = Path(__file__).parent.parent.parent.parent  # tests/field/../../ 
 class ReasonanceApp:
     def __init__(self):
         self._process = None
+        self._log_fd = None
         self._log_file = f"/tmp/reasonance-field-{datetime.now().strftime('%H%M%S')}.log"
         self._launch_time = None
 
@@ -25,12 +26,12 @@ class ReasonanceApp:
         if env:
             launch_env.update(env)
 
-        log_fd = open(self._log_file, "w")
+        self._log_fd = open(self._log_file, "w")
         self._launch_time = time.time()
         self._process = subprocess.Popen(
             ["npx", "tauri", "dev"],
             cwd=str(PROJECT_ROOT),
-            stdout=log_fd,
+            stdout=self._log_fd,
             stderr=subprocess.STDOUT,
             env=launch_env,
             preexec_fn=os.setsid,
@@ -60,6 +61,15 @@ class ReasonanceApp:
                 except ProcessLookupError:
                     pass
             self._process = None
+        if self._log_fd:
+            self._log_fd.close()
+            self._log_fd = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        self.kill()
 
     def is_running(self) -> bool:
         return self._process is not None and self._process.poll() is None
