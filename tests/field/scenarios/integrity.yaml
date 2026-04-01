@@ -1,0 +1,105 @@
+# tests/field/scenarios/integrity.yaml
+- id: integrity_63
+  name: Kill during save
+  suite: integrity
+  steps:
+    - action: "Open a file in the editor and make a small edit"
+      verify: "Edit visible in editor, file marked dirty"
+    - action: "Press Ctrl+S to initiate a save"
+      verify: "Save begins"
+    - action: "Immediately send SIGKILL to the Reasonance process"
+      verify: "Process terminates"
+    - action: "Inspect the file on disk"
+      verify: "File is either fully saved (new content) or fully original (old content)"
+    - action: "Relaunch Reasonance and open the file"
+      verify: "App starts cleanly, file opens without corruption errors"
+  pass_criteria:
+    - "File on disk is either fully written or fully original — no partial/corrupt state"
+    - "No zero-byte file or truncated content"
+    - "App relaunches without error after the kill"
+    - "No crash report or panic on relaunch"
+
+- id: integrity_64
+  name: Transaction semantics
+  suite: integrity
+  steps:
+    - action: "Initiate an action that writes to both the session store and the event log atomically"
+      verify: "Write operation begins"
+    - action: "Send SIGKILL mid-operation to interrupt the write"
+      verify: "Process terminates"
+    - action: "Relaunch the app and inspect the session store and event log"
+      verify: "Both are present with matching data, or both are absent"
+    - action: "Check for any orphaned partial records in either store"
+      verify: "No partial records found"
+  pass_criteria:
+    - "Session store and event log are consistent: both updated or both rolled back"
+    - "No orphaned or partial records in either data store"
+    - "App relaunches and loads data without errors"
+    - "No data corruption reported in startup logs"
+
+- id: integrity_65
+  name: Full state restore
+  suite: integrity
+  steps:
+    - action: "Open 5 different files in editor tabs and position cursors at distinct lines in each"
+      verify: "5 tabs open, cursors positioned"
+    - action: "Set a custom panel layout (resize sidebar, terminal height)"
+      verify: "Layout adjusted"
+    - action: "Switch to a non-default theme"
+      verify: "Theme applied"
+    - action: "Open a terminal session"
+      verify: "Terminal session active"
+    - action: "Send SIGKILL to terminate the app"
+      verify: "Process terminates"
+    - action: "Relaunch the app"
+      verify: "App starts"
+    - action: "Verify all 5 tabs are restored with correct cursor positions and scroll offsets"
+      verify: "Tabs, cursors, and scroll positions match pre-kill state"
+    - action: "Verify panel layout, theme, and terminal session are restored"
+      verify: "Panels, theme, and terminal match pre-kill state"
+  pass_criteria:
+    - "All 5 editor tabs restored with correct filenames"
+    - "Cursor positions and scroll offsets restored per tab"
+    - "Panel sizes approximately restored (within 5% tolerance)"
+    - "Theme restored to the non-default selection"
+    - "Terminal session restored or gracefully re-initialized"
+
+- id: integrity_66
+  name: Config migration
+  suite: integrity
+  steps:
+    - action: "Locate the app config file and modify it to simulate an older version format (e.g. rename a key, remove a required field, or change a value type)"
+      verify: "Config file saved with old-format data"
+    - action: "Launch Reasonance with the modified config"
+      verify: "App starts"
+    - action: "Check startup logs for migration notices"
+      verify: "Migration log entry present"
+    - action: "Verify all settings are loaded with sensible defaults for missing or renamed fields"
+      verify: "Settings panel shows valid values, no missing entries"
+    - action: "Check that no original data was lost (values that can be migrated are migrated)"
+      verify: "Migratable values preserved"
+  pass_criteria:
+    - "App loads without crash when given old-format config"
+    - "Migration notice logged at startup"
+    - "All settings show valid values (defaults applied where needed)"
+    - "No data loss for fields that have a clear migration path"
+
+- id: integrity_67
+  name: Concurrent writes
+  suite: integrity
+  steps:
+    - action: "Open a file in the Reasonance editor and make an edit without saving"
+      verify: "File marked dirty in editor"
+    - action: "From an external terminal, write different content to the same file"
+      verify: "External write completes"
+    - action: "Observe the Reasonance editor for a conflict or change-detection notification"
+      verify: "Conflict dialog or file-changed banner appears"
+    - action: "Choose to keep one version (either editor version or disk version)"
+      verify: "Chosen version is saved and the other is discarded cleanly"
+    - action: "Verify the final file on disk matches the chosen version exactly"
+      verify: "File content matches selected version"
+  pass_criteria:
+    - "Conflict or external-change notification appears — no silent overwrite"
+    - "User is offered a choice between versions"
+    - "Final file on disk matches the version the user chose"
+    - "No data loss and no corrupt file state after resolution"
