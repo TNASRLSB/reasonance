@@ -1,5 +1,290 @@
 # Changelog
 
+## [2.7.0] - 2026-04-01
+
+### Features
+
+- feat(field-test): rewrite runner.py v2 with YAML/Python resolution, telemetry, retry
+- feat(field-test): add Python test suites for smoke, e2e, stress, edge
+- feat(field-test): add Python test suites for visual, integrity, cross, security
+- feat(field-test): rewrite report.py with timeline view, performance metrics, embedded screenshots
+- feat(field-test): rewrite all 8 YAML scenario files with machine-readable actions
+- feat(field-test): add action registry with 35+ UI actions, assertions, and waits
+- feat(field-test): add YamlExecutor with step-by-step execution and error collection
+- feat(field-test): add Python suite discovery module
+- feat(field-test): add Telemetry collector with timeline, RSS polling, log parsing
+- feat(field-test): enhance app.py with RUST_LOG=trace, PID tracking, log_tail, wait_for_log
+- feat(field-test): add TestContext dataclass with relative coords and error tracking
+- feat(field-test): add security, visual, and integrity scenarios (15 tests)
+- feat(field-test): add stress, edge case, and cross-feature scenarios (27 tests)
+- feat(field-test): add E2E test scenarios (18 tests)
+- feat(field-test): add smoke test scenarios (7 tests)
+- feat(field-test): add runner.py CLI orchestrator
+- feat(field-test): add report.py JSON + HTML + bug report generator
+- feat(field-test): add app.py Reasonance lifecycle manager
+- feat(field-test): add window.py KWin D-Bus management
+- feat(field-test): add input.py dotool wrapper
+- feat(field-test): add project scaffold and screen.py helper
+
+### Bug Fixes
+
+- fix: add 71 missing IPC commands to batch dispatcher
+- fix(field-runner): prevent process leak, exit 1 on failures, remove unused imports
+- fix(field-tests): escape HTML in report + return paths from generators
+- fix: close log fd on kill and add context manager to ReasonanceApp
+- fix(field-tests): harden window.py with input validation and proper error handling
+- fix(field-tests): raise RuntimeError on dotool failure instead of silently discarding
+- fix(field-test): address code review issues in screen.py scaffold
+- fix: replace tokio::runtime::Handle::current() with Tauri async runtime
+- fix: add Zod validation to llm-api.ts invoke call (GEC-4)
+- fix(GEC-5): route all emits through EventBus
+- fix(GEC-3): remove non-serde #[allow(dead_code)] annotations
+- fix(GEC-4): add Zod validation to all invoke calls
+- fix(GEC-6): route PTY command validation through config module
+
+### Other
+
+- defined in batch-schemas.ts. The remaining 71 silently failed with
+- "not batchable" errors, caught by try/catch wrappers on the frontend.
+- 
+- Critical impact: set_project_root was among the missing commands, so
+- the Rust ProjectRootState was never set. This caused list_dir to fail
+- with PermissionDenied, producing 3 "Unhandled rejection: [object Object]"
+- errors and leaving the file tree empty on every project open.
+- 
+- Changes:
+- - batch.rs: add dispatch arms for all 71 missing commands (fs, file_ops,
+-   project management, discovery, PTY, workflow, agent runtime, workflow
+-   engine, session, capability, analytics, workspace trust, settings,
+-   node registry, self-heal)
+- - fs.rs: make install_commit_hook pub(crate) for batch dispatch reuse
+- - FileTree.svelte: add .catch() on listDir promises (defense-in-depth)
+- - field/lib/app.py: tune RUST_LOG to reduce noise in field test logs
+- 
+- Verified: 620 Rust tests + 243 frontend tests + 67 field tests all pass.
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- - smoke.py: test_smoke_07 (state persistence / kill-relaunch)
+- - e2e.py: test_e2e_09, _11, _22, _25 (editor workflow, PTY, persistence)
+- - stress.py: test_stress_26, _28, _31, _32, _33 (50 files, large file, leak check, rapid UI, startup benchmark)
+- - edge.py: test_edge_35, _37, _40, _41 (unicode, empty project, external mod, corrupt config)
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- from the ACTION_REGISTRY. python_override: true tests get empty steps;
+- requires_llm tests get a minimal checkpoint. 67 tests across 8 suites.
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- registry, captures exceptions without aborting, logs step_start/step_pass/
+- step_fail to telemetry, and returns a structured result dict with status,
+- duration_ms, errors, and step counts. 9 tests cover all required behaviours.
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- 
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- exception. Add sys.exit(1) after failures so CI can detect them. Remove
+- unused json and datetime imports.
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+-   (errors, screenshots href, id, name, suite, notes) to prevent XSS
+- - generate_report now returns (json_path, html_path) tuple
+- - generate_bug_report now returns path string
+- - All 3 existing tests pass
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- closed in kill(), and adds __enter__/__exit__ so the class can be used
+- as a context manager to prevent process and fd leaks on scope exit.
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- - Replace fabricated defaults in get_geometry with RuntimeError on subprocess failure or missing fields
+- - Log exception details in _run_kwin_script bare except instead of swallowing silently
+- - Move `import os` from finally block to module top level
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- return code is now checked and a descriptive RuntimeError is raised if
+- dotool exits non-zero, so missing/broken dotool installations surface
+- immediately rather than silently no-oping.
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+-   returning a path to a non-existent file
+- - Let ImportError propagate from compare_images (Pillow is a hard dep);
+-   log other exceptions at WARNING level instead of swallowing silently
+- - Add tests/field/tests/__init__.py to eliminate sys.path hack dependency
+- - Add tests/field/.gitignore to exclude runtime artifacts (screenshots,
+-   reports, bugs, __pycache__, .pytest_cache)
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- docs: add field test suite implementation plan (11 tasks)
+- 67 YAML test scenarios across 8 suites, CLI runner, and integration
+- verification.
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- docs: add field test suite design spec (67 tests + fuzzing)
+- the test engine: reads scenarios, takes screenshots, analyzes UI,
+- executes actions via dotool, generates reports and bug reports.
+- 
+- Covers: smoke (7), E2E (18), stress (8), edge cases (11),
+- cross-feature (8), security (5), visual regression (5),
+- data integrity (5), plus free-form fuzzing mode.
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- is entered on the main thread, causing a panic on app startup.
+- 
+- Replace all tokio::runtime::Handle::current() and tokio::spawn calls
+- in setup context with tauri::async_runtime equivalents that work on
+- all platforms.
+- 
+- Found via field testing — 620 unit tests cannot catch this because
+- they run inside #[tokio::test] which provides its own runtime.
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- publish calls, ensuring all frontend-bound events flow through a
+- single observable pipeline with backpressure, deferred dispatch,
+- and bridge-based legacy name mapping.
+- 
+- Files changed:
+- - fs_watcher: emit via EventBus instead of AppHandle
+- - pty_manager: emit pty:data/pty:exit via EventBus
+- - cli_updater: emit cli:update-result via EventBus
+- - theme_watcher: emit theme:changed via EventBus
+- - commands/engine: emit workflow:run-status via EventBus
+- - commands/provider: emit provider:connection-test via EventBus
+- - commands/pty + batch: pass EventBus to spawn/reconnect
+- - workflow_engine: use self.get_event_bus() for PTY spawns
+- - event_bus: extract inner PTY payload for frontend compat
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+-   AgentRuntime::append_output/MAX_OUTPUT_LINES, FileOpsManager::record_move,
+-   ShadowStore::remove, NormalizerPipeline::reset, HistoryRecorder::history_ref,
+-   PtyManager::set_project
+- - Gate test-only items with #[cfg(test)]: capability queries, CLI updater
+-   checks, normalizer health evaluators, analytics store helpers, PTY
+-   ReconnectConfig, session manager finalize, workflow project_dir, json_file
+-   validate_jsonl, transport permission arg builders, and various test
+-   constructors/accessors
+- - Keep #[allow(dead_code)] only on serde-deserialized types, struct fields
+-   read exclusively in tests, and a trait method that cannot use #[cfg(test)]
+- - 0 warnings on cargo check, cargo clippy clean, 620/620 tests pass
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- - 71 commands migrated from invoke() to enqueue() (batch-validated)
+- - 6 non-batchable commands get inline z.parse() (agent_send, agent_stop,
+-   agent_get_events, test_provider_connection, reload_normalizers, start_watching)
+- - 4 theme.ts invoke calls get inline z.parse() validation
+- - 80 new Zod schemas added to batch-schemas.ts (111 total)
+- - 0 errors, 0 warnings from svelte-check; 243 tests pass
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- config::is_allowed_llm_command() so pty.rs no longer reads llms.toml
+- directly. This eliminates the only real direct-config-read violation
+- outside the config module.
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+
+
+
 ## [2.6.2] - 2026-03-29
 
 ### Bug Fixes
