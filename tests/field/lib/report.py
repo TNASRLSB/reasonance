@@ -3,9 +3,10 @@
 import json
 import os
 from datetime import datetime
+from html import escape
 
 
-def generate_report(results: list[dict], output_dir: str):
+def generate_report(results: list[dict], output_dir: str) -> tuple[str, str]:
     """Generate JSON and HTML reports from test results."""
     os.makedirs(output_dir, exist_ok=True)
     timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
@@ -32,25 +33,27 @@ def generate_report(results: list[dict], output_dir: str):
     with open(html_path, "w") as f:
         f.write(html)
 
+    return json_path, html_path
+
 
 def _render_html(data: dict) -> str:
     """Render an HTML report from results data."""
     rows = ""
     for r in data["results"]:
         status_color = "#2e7d32" if r["status"] == "pass" else "#c62828" if r["status"] == "fail" else "#f57f17"
-        errors_html = "<br>".join(r.get("errors", []))
+        errors_html = "<br>".join(escape(e) for e in r.get("errors", []))
         screenshots_html = " ".join(
-            f'<a href="file://{s}" target="_blank">[img]</a>' for s in r.get("screenshots", [])
+            f'<a href="file://{escape(s, quote=True)}" target="_blank">[img]</a>' for s in r.get("screenshots", [])
         )
         rows += f"""<tr>
-            <td>{r['id']}</td>
-            <td>{r['name']}</td>
-            <td>{r.get('suite', '')}</td>
+            <td>{escape(r['id'])}</td>
+            <td>{escape(r['name'])}</td>
+            <td>{escape(r.get('suite', ''))}</td>
             <td style="color:{status_color};font-weight:bold">{r['status'].upper()}</td>
             <td>{r.get('duration_ms', '')}ms</td>
             <td>{errors_html}</td>
             <td>{screenshots_html}</td>
-            <td>{r.get('notes', '')}</td>
+            <td>{escape(r.get('notes', ''))}</td>
         </tr>"""
 
     return f"""<!DOCTYPE html>
@@ -81,7 +84,7 @@ tr:nth-child(even) {{ background: #f2f2f2; }}
 </table></body></html>"""
 
 
-def generate_bug_report(result: dict, output_dir: str):
+def generate_bug_report(result: dict, output_dir: str) -> str:
     """Generate a markdown bug report for a failed test."""
     os.makedirs(output_dir, exist_ok=True)
     bug_id = result["id"].replace("_", "-")
@@ -130,3 +133,5 @@ To be determined during investigation.
 
     with open(path, "w") as f:
         f.write(md)
+
+    return path
