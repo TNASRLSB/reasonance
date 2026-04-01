@@ -21,7 +21,7 @@ class ReasonanceApp:
     def launch(self, env: dict = None):
         """Start Reasonance via npx tauri dev with logging."""
         launch_env = os.environ.copy()
-        launch_env["RUST_LOG"] = "trace"
+        launch_env["RUST_LOG"] = "reasonance_lib=trace,tauri=info,info"
         launch_env["RUST_BACKTRACE"] = "full"
         launch_env["WEBKIT_DISABLE_COMPOSITING_MODE"] = "1"
         if env:

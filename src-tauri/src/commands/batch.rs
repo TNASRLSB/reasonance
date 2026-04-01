@@ -9,18 +9,32 @@ use tauri::{AppHandle, Manager};
 
 use crate::agent_comms::{AgentCommsBus, AgentMessage, ChannelType};
 use crate::agent_memory_v2::{AgentMemoryV2, MemoryEntryV2, MemoryScope, SortBy};
+use crate::agent_runtime::AgentRuntime;
 use crate::analytics::collector::AnalyticsCollector;
+use crate::analytics::TimeRange;
 use crate::app_state_store::AppStateStore;
+use crate::capability::CapabilityNegotiator;
+use crate::cli_updater::CliUpdater;
 use crate::commands::{
-    analytics, app_state, config, engine, fs, session, settings, shadow, workflow,
+    analytics, app_state, capability, config, discovery, engine, file_ops, fs, pty, self_heal,
+    session, settings, shadow, system, workflow, workspace_trust,
 };
+use crate::discovery::DiscoveryEngine;
 use crate::error::ReasonanceError;
 use crate::event_bus::{Event, EventBus};
+use crate::node_registry::HiveNodeRegistry;
+use crate::normalizer_health::NormalizerHealth;
+use crate::normalizer_version::NormalizerVersionStore;
+use crate::project_manager::{ActiveProjectState, ProjectsState};
+use crate::pty_manager::PtyManager;
+use crate::resource_lock::ResourceLockManager;
 use crate::settings::LayeredSettings;
 use crate::shadow_store::ShadowStore;
 use crate::transport::session_manager::SessionManager;
+use crate::transport::StructuredAgentTransport;
 use crate::workflow_engine::WorkflowEngine;
 use crate::workflow_store::WorkflowStore;
+use crate::workspace_trust::TrustStore;
 
 #[derive(Debug, Deserialize)]
 pub struct BatchCall {
@@ -440,6 +454,610 @@ async fn dispatch(app: &AppHandle, cmd: &str, args: Value) -> Result<Value, Reas
                 pty_manager,
                 bus,
             )?;
+            Ok(serde_json::to_value(result).unwrap())
+        }
+
+        // ── fs (project root) ────────────────────────────────────────
+        "set_project_root" => {
+            let path: String = extract(&args, "path")?;
+            let state = app.state::<fs::ProjectRootState>();
+            let settings_state = app.state::<std::sync::Mutex<LayeredSettings>>();
+            let policy = app.state::<crate::policy_file::PolicyFile>();
+            info!("batch::set_project_root(path={})", path);
+            let canonical = if path.is_empty() {
+                None
+            } else {
+                Some(std::fs::canonicalize(&path).map_err(|e| {
+                    ReasonanceError::io(format!("canonicalize project root '{}'", path), e)
+                })?)
+            };
+            *state.0.lock().unwrap_or_else(|e| e.into_inner()) = canonical.clone();
+            if let Some(ref root) = canonical {
+                settings_state
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner())
+                    .set_project_root(root);
+            }
+            if let Some(ref root) = canonical {
+                let global_config = dirs::config_dir().map(|d| d.join("reasonance"));
+                policy.load_optional(Some(root), global_config.as_deref());
+            }
+            if let Some(ref root) = canonical {
+                fs::install_commit_hook(root);
+            }
+            Ok(Value::Null)
+        }
+        "open_external" => {
+            let path: String = extract(&args, "path")?;
+            system::open_external(path)?;
+            Ok(Value::Null)
+        }
+        "discover_llms" => {
+            let result = system::discover_llms();
+            Ok(serde_json::to_value(result).unwrap())
+        }
+        "write_config" => {
+            let content: String = extract(&args, "content")?;
+            config::write_config(content)?;
+            Ok(Value::Null)
+        }
+
+        // ── file_ops ────────────────────────────────────────────────────
+        "file_ops_set_project" => {
+            let path: String = extract(&args, "path")?;
+            let state = app.state::<file_ops::FileOpsState>();
+            file_ops::file_ops_set_project(path, state)?;
+            Ok(Value::Null)
+        }
+        "file_ops_delete" => {
+            let path: String = extract(&args, "path")?;
+            let state = app.state::<file_ops::FileOpsState>();
+            let bus = app.state::<Arc<EventBus>>();
+            file_ops::file_ops_delete(path, state, bus)?;
+            Ok(Value::Null)
+        }
+        "file_ops_undo" => {
+            let state = app.state::<file_ops::FileOpsState>();
+            let bus = app.state::<Arc<EventBus>>();
+            let result = file_ops::file_ops_undo(state, bus)?;
+            Ok(serde_json::to_value(result).unwrap())
+        }
+        "file_ops_move" => {
+            let old_path: String = extract(&args, "oldPath")?;
+            let new_path: String = extract(&args, "newPath")?;
+            let state = app.state::<file_ops::FileOpsState>();
+            let bus = app.state::<Arc<EventBus>>();
+            file_ops::file_ops_move(old_path, new_path, state, bus)?;
+            Ok(Value::Null)
+        }
+        "file_ops_record_create" => {
+            let path: String = extract(&args, "path")?;
+            let state = app.state::<file_ops::FileOpsState>();
+            let bus = app.state::<Arc<EventBus>>();
+            file_ops::file_ops_record_create(path, state, bus)?;
+            Ok(Value::Null)
+        }
+        "file_ops_record_rename" => {
+            let old_path: String = extract(&args, "oldPath")?;
+            let new_path: String = extract(&args, "newPath")?;
+            let state = app.state::<file_ops::FileOpsState>();
+            let bus = app.state::<Arc<EventBus>>();
+            file_ops::file_ops_record_rename(old_path, new_path, state, bus)?;
+            Ok(Value::Null)
+        }
+
+        // ── project management ──────────────────────────────────────────
+        "add_project" => {
+            let id: String = extract(&args, "id")?;
+            let root_path: String = extract(&args, "rootPath")?;
+            let trust_level: String = extract(&args, "trustLevel")?;
+            let state = app.state::<ProjectsState>();
+            crate::project_manager::add_project(id, root_path, trust_level, state)?;
+            Ok(Value::Null)
+        }
+        "remove_project" => {
+            let id: String = extract(&args, "id")?;
+            let state = app.state::<ProjectsState>();
+            crate::project_manager::remove_project(id, state)?;
+            Ok(Value::Null)
+        }
+        "set_active_project" => {
+            let id: String = extract(&args, "id")?;
+            let projects_state = app.state::<ProjectsState>();
+            let active_state = app.state::<ActiveProjectState>();
+            crate::project_manager::set_active_project(id, projects_state, active_state)?;
+            Ok(Value::Null)
+        }
+        "get_project_root" => {
+            let project_id: String = extract(&args, "projectId")?;
+            let state = app.state::<ProjectsState>();
+            let result = crate::project_manager::get_project_root(project_id, state)?;
+            Ok(serde_json::to_value(result).unwrap())
+        }
+
+        // ── discovery ───────────────────────────────────────────────────
+        "discover_agents" => {
+            let engine = app.state::<DiscoveryEngine>();
+            let result = discovery::discover_agents(engine).await?;
+            Ok(serde_json::to_value(result).unwrap())
+        }
+        "get_discovered_agents" => {
+            let engine = app.state::<DiscoveryEngine>();
+            let result = discovery::get_discovered_agents(engine);
+            Ok(serde_json::to_value(result).unwrap())
+        }
+
+        // ── pty (additional) ────────────────────────────────────────────
+        "spawn_process" => {
+            let command: String = extract(&args, "command")?;
+            let cmd_args: Vec<String> = extract_opt(&args, "args")?.unwrap_or_default();
+            let cwd: String = extract(&args, "cwd")?;
+            let pty_manager = app.state::<PtyManager>();
+            let bus = app.state::<Arc<EventBus>>();
+            let result = pty::spawn_process(command, cmd_args, cwd, pty_manager, bus)?;
+            Ok(serde_json::to_value(result).unwrap())
+        }
+        "kill_process" => {
+            let id: String = extract(&args, "id")?;
+            let pty_manager = app.state::<PtyManager>();
+            pty::kill_process(id, pty_manager)?;
+            Ok(Value::Null)
+        }
+        "resize_pty" => {
+            let id: String = extract(&args, "id")?;
+            let cols: u16 = extract(&args, "cols")?;
+            let rows: u16 = extract(&args, "rows")?;
+            let pty_manager = app.state::<PtyManager>();
+            pty::resize_pty(id, cols, rows, pty_manager)?;
+            Ok(Value::Null)
+        }
+        "write_pty" => {
+            let id: String = extract(&args, "id")?;
+            let data: String = extract(&args, "data")?;
+            let pty_manager = app.state::<PtyManager>();
+            pty::write_pty(id, data, pty_manager)?;
+            Ok(Value::Null)
+        }
+        "sweep_ptys" => {
+            let pty_manager = app.state::<PtyManager>();
+            let result = pty::sweep_ptys(pty_manager);
+            Ok(serde_json::to_value(result).unwrap())
+        }
+        "kill_all_ptys" => {
+            let pty_manager = app.state::<PtyManager>();
+            let result = pty::kill_all_ptys(pty_manager);
+            Ok(serde_json::to_value(result).unwrap())
+        }
+        "kill_project_ptys" => {
+            let project_id: String = extract(&args, "projectId")?;
+            let pty_manager = app.state::<PtyManager>();
+            let result = pty::kill_project_ptys(project_id, pty_manager)?;
+            Ok(serde_json::to_value(result).unwrap())
+        }
+
+        // ── workflow (additional) ───────────────────────────────────────
+        "save_workflow" => {
+            let file_path: String = extract(&args, "filePath")?;
+            let wf: crate::workflow_store::Workflow = extract(&args, "workflow")?;
+            let store = app.state::<WorkflowStore>();
+            let root_state = app.state::<fs::ProjectRootState>();
+            workflow::save_workflow(file_path, wf, store, root_state)?;
+            Ok(Value::Null)
+        }
+        "delete_workflow" => {
+            let file_path: String = extract(&args, "filePath")?;
+            let store = app.state::<WorkflowStore>();
+            let root_state = app.state::<fs::ProjectRootState>();
+            workflow::delete_workflow(file_path, store, root_state)?;
+            Ok(Value::Null)
+        }
+        "create_workflow" => {
+            let name: String = extract(&args, "name")?;
+            let file_path: String = extract(&args, "filePath")?;
+            let store = app.state::<WorkflowStore>();
+            let root_state = app.state::<fs::ProjectRootState>();
+            let result = workflow::create_workflow(name, file_path, store, root_state)?;
+            Ok(serde_json::to_value(result).unwrap())
+        }
+        "get_workflow" => {
+            let file_path: String = extract(&args, "filePath")?;
+            let store = app.state::<WorkflowStore>();
+            let root_state = app.state::<fs::ProjectRootState>();
+            let result = workflow::get_workflow(file_path, store, root_state)?;
+            Ok(serde_json::to_value(result).unwrap())
+        }
+        "duplicate_workflow" => {
+            let source_path: String = extract(&args, "sourcePath")?;
+            let dest_path: String = extract(&args, "destPath")?;
+            let store = app.state::<WorkflowStore>();
+            let root_state = app.state::<fs::ProjectRootState>();
+            let result = workflow::duplicate_workflow(store, source_path, dest_path, root_state)?;
+            Ok(serde_json::to_value(result).unwrap())
+        }
+        "save_to_global" => {
+            let workflow_path: String = extract(&args, "workflowPath")?;
+            let store = app.state::<WorkflowStore>();
+            let root_state = app.state::<fs::ProjectRootState>();
+            let result = workflow::save_to_global(store, workflow_path, root_state)?;
+            Ok(serde_json::to_value(result).unwrap())
+        }
+        "list_global_workflows" => {
+            let result = workflow::list_global_workflows()?;
+            Ok(serde_json::to_value(result).unwrap())
+        }
+
+        // ── agent runtime ───────────────────────────────────────────────
+        "create_agent" => {
+            let node_id: String = extract(&args, "nodeId")?;
+            let workflow_path: String = extract(&args, "workflowPath")?;
+            let max_retries: u32 = extract(&args, "maxRetries")?;
+            let fallback_agent: Option<String> = extract_opt(&args, "fallbackAgent")?;
+            let runtime = app.state::<AgentRuntime>();
+            let result: String = crate::commands::agent::create_agent(
+                node_id,
+                workflow_path,
+                max_retries,
+                fallback_agent,
+                runtime,
+            );
+            Ok(serde_json::to_value(result).unwrap())
+        }
+        "transition_agent" => {
+            let agent_id: String = extract(&args, "agentId")?;
+            let new_state: crate::agent_runtime::AgentState = extract(&args, "newState")?;
+            let runtime = app.state::<AgentRuntime>();
+            let result = crate::commands::agent::transition_agent(agent_id, new_state, runtime)?;
+            Ok(serde_json::to_value(result).unwrap())
+        }
+        "set_agent_pty" => {
+            let agent_id: String = extract(&args, "agentId")?;
+            let pty_id: String = extract(&args, "ptyId")?;
+            let runtime = app.state::<AgentRuntime>();
+            crate::commands::agent::set_agent_pty(agent_id, pty_id, runtime)?;
+            Ok(Value::Null)
+        }
+        "set_agent_error" => {
+            let agent_id: String = extract(&args, "agentId")?;
+            let message: String = extract(&args, "message")?;
+            let runtime = app.state::<AgentRuntime>();
+            crate::commands::agent::set_agent_error(agent_id, message, runtime)?;
+            Ok(Value::Null)
+        }
+        "get_agent" => {
+            let agent_id: String = extract(&args, "agentId")?;
+            let runtime = app.state::<AgentRuntime>();
+            let result = crate::commands::agent::get_agent(agent_id, runtime);
+            Ok(serde_json::to_value(result).unwrap())
+        }
+        "get_workflow_agents" => {
+            let workflow_path: String = extract(&args, "workflowPath")?;
+            let runtime = app.state::<AgentRuntime>();
+            let result = crate::commands::agent::get_workflow_agents(workflow_path, runtime);
+            Ok(serde_json::to_value(result).unwrap())
+        }
+        "remove_agent" => {
+            let agent_id: String = extract(&args, "agentId")?;
+            let runtime = app.state::<AgentRuntime>();
+            crate::commands::agent::remove_agent(agent_id, runtime)?;
+            Ok(Value::Null)
+        }
+        "stop_workflow_agents" => {
+            let workflow_path: String = extract(&args, "workflowPath")?;
+            let runtime = app.state::<AgentRuntime>();
+            crate::commands::agent::stop_workflow_agents(workflow_path, runtime);
+            Ok(Value::Null)
+        }
+        "send_agent_message" => {
+            let from: String = extract(&args, "from")?;
+            let to: String = extract(&args, "to")?;
+            let payload: serde_json::Value = extract(&args, "payload")?;
+            let runtime = app.state::<AgentRuntime>();
+            crate::commands::agent::send_agent_message(from, to, payload, runtime);
+            Ok(Value::Null)
+        }
+        "get_agent_messages" => {
+            let agent_id: String = extract(&args, "agentId")?;
+            let runtime = app.state::<AgentRuntime>();
+            let result = crate::commands::agent::get_agent_messages(agent_id, runtime);
+            Ok(serde_json::to_value(result).unwrap())
+        }
+        "get_agent_memory" => {
+            let node_id: String = extract(&args, "nodeId")?;
+            let workflow_path: String = extract(&args, "workflowPath")?;
+            let persist: String =
+                extract_opt(&args, "persist")?.unwrap_or_else(|| "workflow".to_string());
+            let result = crate::commands::agent::get_agent_memory(node_id, workflow_path, persist)?;
+            Ok(serde_json::to_value(result).unwrap())
+        }
+
+        // ── workflow engine ─────────────────────────────────────────────
+        "play_workflow" => {
+            let workflow_path: String = extract(&args, "workflowPath")?;
+            let cwd: String = extract(&args, "cwd")?;
+            let eng = app.state::<WorkflowEngine>();
+            let store = app.state::<WorkflowStore>();
+            let runtime = app.state::<AgentRuntime>();
+            let pty_manager = app.state::<PtyManager>();
+            let locks = app.state::<ResourceLockManager>();
+            let comms = app.state::<AgentCommsBus>();
+            let bus = app.state::<Arc<EventBus>>();
+            let result = engine::play_workflow(
+                workflow_path,
+                cwd,
+                app.clone(),
+                eng,
+                store,
+                runtime,
+                pty_manager,
+                locks,
+                comms,
+                bus,
+            )?;
+            Ok(serde_json::to_value(result).unwrap())
+        }
+        "pause_workflow" => {
+            let run_id: String = extract(&args, "runId")?;
+            let eng = app.state::<WorkflowEngine>();
+            engine::pause_workflow(run_id, eng)?;
+            Ok(Value::Null)
+        }
+        "resume_workflow" => {
+            let run_id: String = extract(&args, "runId")?;
+            let workflow_path: String = extract(&args, "workflowPath")?;
+            let cwd: String = extract(&args, "cwd")?;
+            let eng = app.state::<WorkflowEngine>();
+            let store = app.state::<WorkflowStore>();
+            let runtime = app.state::<AgentRuntime>();
+            let pty_manager = app.state::<PtyManager>();
+            let locks = app.state::<ResourceLockManager>();
+            let comms = app.state::<AgentCommsBus>();
+            engine::resume_workflow(
+                run_id,
+                workflow_path,
+                cwd,
+                app.clone(),
+                eng,
+                store,
+                runtime,
+                pty_manager,
+                locks,
+                comms,
+            )?;
+            Ok(Value::Null)
+        }
+        "stop_workflow" => {
+            let run_id: String = extract(&args, "runId")?;
+            let eng = app.state::<WorkflowEngine>();
+            let runtime = app.state::<AgentRuntime>();
+            let pty_manager = app.state::<PtyManager>();
+            let locks = app.state::<ResourceLockManager>();
+            let comms = app.state::<AgentCommsBus>();
+            let bus = app.state::<Arc<EventBus>>();
+            engine::stop_workflow(run_id, eng, runtime, pty_manager, locks, comms, bus)?;
+            Ok(Value::Null)
+        }
+        "step_workflow" => {
+            let run_id: String = extract(&args, "runId")?;
+            let workflow_path: String = extract(&args, "workflowPath")?;
+            let cwd: String = extract(&args, "cwd")?;
+            let eng = app.state::<WorkflowEngine>();
+            let store = app.state::<WorkflowStore>();
+            let runtime = app.state::<AgentRuntime>();
+            let pty_manager = app.state::<PtyManager>();
+            let locks = app.state::<ResourceLockManager>();
+            let comms = app.state::<AgentCommsBus>();
+            let result = engine::step_workflow(
+                run_id,
+                workflow_path,
+                cwd,
+                app.clone(),
+                eng,
+                store,
+                runtime,
+                pty_manager,
+                locks,
+                comms,
+            )?;
+            Ok(serde_json::to_value(result).unwrap())
+        }
+        "notify_node_completed" => {
+            let run_id: String = extract(&args, "runId")?;
+            let node_id: String = extract(&args, "nodeId")?;
+            let success: bool = extract(&args, "success")?;
+            let workflow_path: String = extract(&args, "workflowPath")?;
+            let cwd: String = extract(&args, "cwd")?;
+            let eng = app.state::<WorkflowEngine>();
+            let store = app.state::<WorkflowStore>();
+            let runtime = app.state::<AgentRuntime>();
+            let pty_manager = app.state::<PtyManager>();
+            let locks = app.state::<ResourceLockManager>();
+            let comms = app.state::<AgentCommsBus>();
+            engine::notify_node_completed(
+                run_id,
+                node_id,
+                success,
+                workflow_path,
+                cwd,
+                app.clone(),
+                eng,
+                store,
+                runtime,
+                pty_manager,
+                locks,
+                comms,
+            )?;
+            Ok(Value::Null)
+        }
+
+        // ── session (additional) ────────────────────────────────────────
+        "session_delete" => {
+            let session_id: String = extract(&args, "sessionId")?;
+            let sm = app.state::<SessionManager>();
+            session::session_delete_inner(&session_id, &sm).await?;
+            Ok(Value::Null)
+        }
+        "session_rename" => {
+            let session_id: String = extract(&args, "sessionId")?;
+            let title: String = extract(&args, "title")?;
+            let sm = app.state::<SessionManager>();
+            session::session_rename_inner(&session_id, &title, &sm).await?;
+            Ok(Value::Null)
+        }
+        "session_fork" => {
+            let session_id: String = extract(&args, "sessionId")?;
+            let fork_event_index: u32 = extract(&args, "forkEventIndex")?;
+            let sm = app.state::<SessionManager>();
+            let result = session::session_fork_inner(&session_id, fork_event_index, &sm).await?;
+            Ok(serde_json::to_value(result).unwrap())
+        }
+        "session_set_view_mode" => {
+            let session_id: String = extract(&args, "sessionId")?;
+            let mode: crate::transport::session_handle::ViewMode = extract(&args, "mode")?;
+            let sm = app.state::<SessionManager>();
+            session::session_set_view_mode_inner(&session_id, mode, &sm).await?;
+            Ok(Value::Null)
+        }
+
+        // ── capability & health ─────────────────────────────────────────
+        "get_capabilities" => {
+            let negotiator = app.state::<CapabilityNegotiator>();
+            let result = capability::get_capabilities(negotiator);
+            Ok(serde_json::to_value(result).unwrap())
+        }
+        "get_provider_capabilities" => {
+            let provider: String = extract(&args, "provider")?;
+            let negotiator = app.state::<CapabilityNegotiator>();
+            let result = capability::get_provider_capabilities(negotiator, provider)?;
+            Ok(serde_json::to_value(result).unwrap())
+        }
+        "get_cli_versions" => {
+            let updater = app.state::<Arc<CliUpdater>>();
+            let result = capability::get_cli_versions(updater);
+            Ok(serde_json::to_value(result).unwrap())
+        }
+        "get_normalizer_versions" => {
+            let provider: String = extract(&args, "provider")?;
+            let version_store = app.state::<NormalizerVersionStore>();
+            let result = capability::get_normalizer_versions(version_store, provider);
+            Ok(serde_json::to_value(result).unwrap())
+        }
+        "rollback_normalizer" => {
+            let provider: String = extract(&args, "provider")?;
+            let version_id: String = extract(&args, "versionId")?;
+            let version_store = app.state::<NormalizerVersionStore>();
+            let transport = app.state::<StructuredAgentTransport>();
+            let result =
+                capability::rollback_normalizer(version_store, transport, provider, version_id)?;
+            Ok(serde_json::to_value(result).unwrap())
+        }
+        "get_health_report" => {
+            let provider: String = extract(&args, "provider")?;
+            let health = app.state::<NormalizerHealth>();
+            let result = capability::get_health_report(health, provider)?;
+            Ok(serde_json::to_value(result).unwrap())
+        }
+        "get_all_health_reports" => {
+            let health = app.state::<NormalizerHealth>();
+            let result = capability::get_all_health_reports(health);
+            Ok(serde_json::to_value(result).unwrap())
+        }
+        "get_normalizer_config" => {
+            let provider: String = extract(&args, "provider")?;
+            let transport = app.state::<StructuredAgentTransport>();
+            let result = capability::get_normalizer_config(transport, provider);
+            Ok(serde_json::to_value(result).unwrap())
+        }
+
+        // ── analytics (additional) ──────────────────────────────────────
+        "analytics_provider" => {
+            let provider: String = extract(&args, "provider")?;
+            let from: Option<u64> = extract_opt(&args, "from")?;
+            let to: Option<u64> = extract_opt(&args, "to")?;
+            let collector = app.state::<Arc<AnalyticsCollector>>();
+            let range = if from.is_some() || to.is_some() {
+                Some(TimeRange { from, to })
+            } else {
+                None
+            };
+            let result = collector.get_provider_analytics(&provider, range);
+            Ok(serde_json::to_value(result).unwrap())
+        }
+        "analytics_session" => {
+            let session_id: String = extract(&args, "sessionId")?;
+            let collector = app.state::<Arc<AnalyticsCollector>>();
+            let result = collector.get_session_metrics(&session_id);
+            Ok(serde_json::to_value(result).unwrap())
+        }
+        "analytics_active" => {
+            let collector = app.state::<Arc<AnalyticsCollector>>();
+            let result = collector.get_active_sessions();
+            Ok(serde_json::to_value(result).unwrap())
+        }
+
+        // ── workspace trust ─────────────────────────────────────────────
+        "check_workspace_trust" => {
+            let path: String = extract(&args, "path")?;
+            let store = app.state::<TrustStore>();
+            let result = workspace_trust::check_workspace_trust(path, store)?;
+            Ok(serde_json::to_value(result).unwrap())
+        }
+        "set_workspace_trust" => {
+            let path: String = extract(&args, "path")?;
+            let level: crate::workspace_trust::TrustLevel = extract(&args, "level")?;
+            let store = app.state::<TrustStore>();
+            workspace_trust::set_workspace_trust(path, level, store)?;
+            Ok(Value::Null)
+        }
+        "revoke_workspace_trust" => {
+            let hash: String = extract(&args, "hash")?;
+            let store = app.state::<TrustStore>();
+            workspace_trust::revoke_workspace_trust(hash, store)?;
+            Ok(Value::Null)
+        }
+        "list_workspace_trust" => {
+            let store = app.state::<TrustStore>();
+            let result = workspace_trust::list_workspace_trust(store)?;
+            Ok(serde_json::to_value(result).unwrap())
+        }
+
+        // ── settings (additional) ───────────────────────────────────────
+        "set_setting" => {
+            let key: String = extract(&args, "key")?;
+            let value: serde_json::Value = extract(&args, "value")?;
+            let layer: Option<String> = extract_opt(&args, "layer")?;
+            let settings_state = app.state::<std::sync::Mutex<LayeredSettings>>();
+            settings::set_setting(settings_state, key, value, layer)?;
+            Ok(Value::Null)
+        }
+        "get_all_settings" => {
+            let settings_state = app.state::<std::sync::Mutex<LayeredSettings>>();
+            let result = settings::get_all_settings(settings_state)?;
+            Ok(result)
+        }
+        "reload_settings" => {
+            let settings_state = app.state::<std::sync::Mutex<LayeredSettings>>();
+            settings::reload_settings(settings_state)?;
+            Ok(Value::Null)
+        }
+
+        // ── node registry ───────────────────────────────────────────────
+        "get_node_types" => {
+            let registry = app.state::<HiveNodeRegistry>();
+            let result = crate::node_registry::get_node_types(registry).await?;
+            Ok(serde_json::to_value(result).unwrap())
+        }
+
+        // ── self-heal ───────────────────────────────────────────────────
+        "heal_normalizer" => {
+            let provider: String = extract(&args, "provider")?;
+            let transport = app.state::<StructuredAgentTransport>();
+            let health = app.state::<NormalizerHealth>();
+            let version_store = app.state::<NormalizerVersionStore>();
+            let slots = app.state::<std::sync::Mutex<crate::model_slots::ModelSlotRegistry>>();
+            let bus = app.state::<Arc<EventBus>>();
+            let result =
+                self_heal::heal_normalizer(provider, transport, health, version_store, slots, bus)
+                    .await?;
             Ok(serde_json::to_value(result).unwrap())
         }
 

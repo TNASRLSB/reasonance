@@ -179,14 +179,16 @@
       childrenCache = new Map();
       expandedDirs = new Set();
       focusedIndex = 0;
-      adapter.listDir(root).then((e) => { entries = e; });
+      adapter.listDir(root).then((e) => { entries = e; }).catch(() => { /* project root may not be set yet */ });
       refreshGitStatus();
     }
   });
 
   onMount(async () => {
     const root = $projectRoot || '.';
-    entries = await adapter.listDir(root);
+    try {
+      entries = await adapter.listDir(root);
+    } catch { /* project root may not be set yet */ }
     refreshGitStatus();
   });
 

@@ -63,7 +63,7 @@ pub fn set_project_root(
 
 /// Installs a git prepare-commit-msg hook that appends a Reasonance co-author
 /// trailer to every commit made from within the application.
-fn install_commit_hook(project_root: &std::path::Path) {
+pub(crate) fn install_commit_hook(project_root: &std::path::Path) {
     let git_dir = project_root.join(".git");
     if !git_dir.is_dir() {
         return; // not a git repo
