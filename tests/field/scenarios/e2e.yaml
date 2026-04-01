@@ -26,10 +26,57 @@
   name: Chat with real LLM
   suite: e2e
   requires_llm: true
-  providers: [claude, qwen]
-  steps:
-    - action: checkpoint
-      label: llm_chat
+  python_override: true
+  steps: []
+
+- id: e2e_10b
+  name: Session persistence across restart
+  suite: e2e
+  requires_llm: true
+  python_override: true
+  steps: []
+
+- id: e2e_10c
+  name: Session fork
+  suite: e2e
+  requires_llm: true
+  python_override: true
+  steps: []
+
+- id: e2e_10d
+  name: Tool use round-trip
+  suite: e2e
+  requires_llm: true
+  python_override: true
+  steps: []
+
+- id: e2e_10e
+  name: Permission flow
+  suite: e2e
+  requires_llm: true
+  python_override: true
+  steps: []
+
+- id: e2e_10f
+  name: Streaming UX verification
+  suite: e2e
+  requires_llm: true
+  python_override: true
+  steps: []
+
+- id: e2e_10g
+  name: Session rename and delete lifecycle
+  suite: e2e
+  requires_llm: true
+  python_override: true
+  steps: []
+
+- id: e2e_10h
+  name: Analytics pipeline verification
+  suite: e2e
+  requires_llm: true
+  python_override: true
+  steps: []
 
 - id: e2e_11
   name: Terminal PTY

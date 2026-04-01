@@ -61,6 +61,7 @@
   name: Agent writes file, tree updates
   suite: cross
   requires_llm: true
+  python_override: true
   steps:
     - action: checkpoint
       label: agent_writes_file
@@ -103,6 +104,7 @@
   name: Multi-provider normalizer
   suite: cross
   requires_llm: true
+  python_override: true
   providers: [claude, qwen]
   steps:
     - action: checkpoint

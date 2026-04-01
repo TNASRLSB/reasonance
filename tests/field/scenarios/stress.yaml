@@ -43,6 +43,13 @@
     - action: checkpoint
       label: concurrent_agents
 
+- id: stress_30b
+  name: Circuit breaker trip and recovery
+  suite: stress
+  requires_llm: true
+  python_override: true
+  steps: []
+
 - id: stress_31
   name: Memory leak check
   suite: stress
