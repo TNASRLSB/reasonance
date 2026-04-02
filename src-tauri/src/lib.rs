@@ -127,13 +127,16 @@ pub fn run() {
     let log_level = if cfg!(debug_assertions) {
         std::env::var("RUST_LOG")
             .ok()
-            .and_then(|v| v.parse::<log::LevelFilter>().ok())
+            .and_then(|v| {
+                let parsed: Result<log::LevelFilter, _> = v.parse();
+                parsed.ok()
+            })
             .unwrap_or(log::LevelFilter::Debug)
     } else {
         log::LevelFilter::Info
     };
 
-    tauri::Builder::default()
+    let mut builder = tauri::Builder::default()
         .plugin(
             tauri_plugin_log::Builder::new()
                 .level(log_level)
@@ -163,7 +166,9 @@ pub fn run() {
             // If a path argument was provided, publish via EventBus
             if args.len() > 1 {
                 if let Some(path) = args.get(1) {
-                    if let Some(bus) = app.try_state::<std::sync::Arc<event_bus::EventBus>>() {
+                    let bus_state: Option<tauri::State<'_, std::sync::Arc<event_bus::EventBus>>> =
+                        app.try_state();
+                    if let Some(bus) = bus_state {
                         bus.publish(event_bus::Event::new(
                             "cli:open-project",
                             serde_json::json!(path.as_str()),
@@ -326,15 +331,28 @@ pub fn run() {
                                     .await
                                     .expect("Failed to init analytics store"),
                             );
-                            Ok::<_, crate::error::ReasonanceError>(std::sync::Arc::new(
+                            let collector = std::sync::Arc::new(
                                 analytics::collector::AnalyticsCollector::new(store),
-                            ))
+                            );
+                            let result: Result<
+                                std::sync::Arc<analytics::collector::AnalyticsCollector>,
+                                crate::error::ReasonanceError,
+                            > = Ok(collector);
+                            result
                         },
                     );
-                    Ok::<_, crate::error::ReasonanceError>((
+                    let pair = (
                         sm_result.expect("SessionManager init failed"),
                         ac_result.expect("AnalyticsCollector init failed"),
-                    ))
+                    );
+                    let result: Result<
+                        (
+                            transport::session_manager::SessionManager,
+                            std::sync::Arc<analytics::collector::AnalyticsCollector>,
+                        ),
+                        crate::error::ReasonanceError,
+                    > = Ok(pair);
+                    result
                 })
                 .expect("Parallel init failed");
             let parallel_init_ms = t_parallel.elapsed().as_millis();
@@ -512,12 +530,14 @@ pub fn run() {
             let updater_arc = updater.inner().clone();
             let updater_bus = bus.clone();
             let auto_check = {
-                let s = app
-                    .state::<std::sync::Mutex<settings::LayeredSettings>>()
+                let settings_state: tauri::State<'_, std::sync::Mutex<settings::LayeredSettings>> =
+                    app.state();
+                let s = settings_state
                     .inner()
                     .lock()
                     .unwrap_or_else(|e| e.into_inner());
-                s.get::<bool>("updates.auto_check").unwrap_or(true)
+                let val: Option<bool> = s.get("updates.auto_check");
+                val.unwrap_or(true)
             };
             tauri::async_runtime::spawn(async move {
                 cli_updater::run_background_updates(updater_arc, updater_bus, auto_check).await;
@@ -669,7 +689,14 @@ pub fn run() {
             commands::settings::get_all_settings,
             commands::settings::reload_settings,
             commands::batch::batch_invoke,
-        ])
+        ]);
+
+    #[cfg(feature = "mcp-debug")]
+    {
+        builder = builder.plugin(tauri_plugin_taurimcp::init());
+    }
+
+    builder
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app, event| {
@@ -677,7 +704,8 @@ pub fn run() {
                 event,
                 tauri::RunEvent::ExitRequested { .. } | tauri::RunEvent::Exit
             ) {
-                if let Some(pty_manager) = app.try_state::<PtyManager>() {
+                let pty_state: Option<tauri::State<'_, PtyManager>> = app.try_state();
+                if let Some(pty_manager) = pty_state {
                     let killed = pty_manager.kill_all();
                     log::info!("Shutdown: killed {} PTY instances", killed);
                 }
