@@ -1,5 +1,27 @@
 # Changelog
 
+## [3.0.0] - 2026-04-03
+
+### Features
+
+- feat: taurimcp config, field test calibration, benchmarks infra (v2.9.0)
+- feat: add taurimcp plugin behind mcp-debug feature flag
+
+### Other
+
+- Calibrate field test coordinates for 1920x1080, add ensure_project_open
+- helper, robust --no-launch mode with Tauri log fallback.
+- Add benchmarks infrastructure with baselines.json and .taurignore.
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+
+
+
 ## [2.8.1] - 2026-04-01
 
 ### Bug Fixes
