@@ -1,5 +1,22 @@
 # Changelog
 
+## [3.0.1] - 2026-04-03
+
+### Bug Fixes
+
+- fix(ci): resolve taurimcp local path and AUR permission failures
+
+### Other
+
+- tauri-plugin-taurimcp, remove taurimcp capability from default
+- permissions, and isolate AUR docker makepkg to avoid .git chown breakage.
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+
+
+
 ## [3.0.0] - 2026-04-03
 
 ### Features
