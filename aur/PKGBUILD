@@ -14,7 +14,7 @@ sha256sums=('SKIP')
 build() {
   cd "$pkgname-$pkgver"
   npm install
-  npx tauri build --bundles none
+  npx tauri build --no-bundle
 }
 
 package() {
