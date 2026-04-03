@@ -1,5 +1,15 @@
 # Changelog
 
+## [3.0.2] - 2026-04-03
+
+### Other
+
+- ci: retrigger after TAURIMCP repo made public
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+
+
+
 ## [3.0.1] - 2026-04-03
 
 ### Bug Fixes
