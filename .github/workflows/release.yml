@@ -383,11 +383,14 @@ jobs:
 
           cd aur-repo
 
-          # Install and run makepkg to generate .SRCINFO
-          docker run --rm -v "$PWD":/pkg -w /pkg archlinux:base-devel bash -c "
+          # Generate .SRCINFO in isolated temp dir to avoid docker chown breaking .git
+          mkdir -p /tmp/makepkg-work
+          cp PKGBUILD /tmp/makepkg-work/
+          docker run --rm -v /tmp/makepkg-work:/pkg -w /pkg archlinux:base-devel bash -c "
             useradd -m builder && chown -R builder: /pkg &&
             su builder -c 'makepkg --printsrcinfo > .SRCINFO'
           "
+          cp /tmp/makepkg-work/.SRCINFO .
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -426,11 +429,14 @@ jobs:
 
           cd aur-repo
 
-          # Generate .SRCINFO
-          docker run --rm -v "$PWD":/pkg -w /pkg archlinux:base-devel bash -c "
+          # Generate .SRCINFO in isolated temp dir to avoid docker chown breaking .git
+          mkdir -p /tmp/makepkg-work
+          cp PKGBUILD /tmp/makepkg-work/
+          docker run --rm -v /tmp/makepkg-work:/pkg -w /pkg archlinux:base-devel bash -c "
             useradd -m builder && chown -R builder: /pkg &&
             su builder -c 'makepkg --printsrcinfo > .SRCINFO'
           "
+          cp /tmp/makepkg-work/.SRCINFO .
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"

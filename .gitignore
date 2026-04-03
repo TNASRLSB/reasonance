@@ -3,6 +3,7 @@ build/
 .svelte-kit/
 src-tauri/target/
 src-tauri/gen/
+src-tauri/.cargo/
 dist/
 *.js.map
 .DS_Store

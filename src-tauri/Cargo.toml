@@ -25,7 +25,7 @@ tauri-plugin-global-shortcut = "2"
 tauri-plugin-process = "2"
 tauri-plugin-updater = "2"
 tauri-plugin-single-instance = "2"
-tauri-plugin-taurimcp = { path = "/home/uh1/VIBEPROJECTS/TAURIMCP/crates/plugin", optional = true }
+tauri-plugin-taurimcp = { git = "https://github.com/DKHBSFA/TAURIMCP.git", optional = true }
 tauri-plugin-log = "2"
 log = "0.4"
 serde = { version = "1", features = ["derive"] }

@@ -136,7 +136,7 @@ pub fn run() {
         log::LevelFilter::Info
     };
 
-    let mut builder = tauri::Builder::default()
+    let builder = tauri::Builder::default()
         .plugin(
             tauri_plugin_log::Builder::new()
                 .level(log_level)
@@ -692,9 +692,7 @@ pub fn run() {
         ]);
 
     #[cfg(feature = "mcp-debug")]
-    {
-        builder = builder.plugin(tauri_plugin_taurimcp::init());
-    }
+    let builder = builder.plugin(tauri_plugin_taurimcp::init());
 
     builder
         .build(tauri::generate_context!())
