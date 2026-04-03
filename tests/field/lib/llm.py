@@ -14,10 +14,12 @@ from typing import Optional
 
 from lib.actions import (
     click_relative,
+    focus_window,
     press_key,
     type_text,
     wait_ms,
 )
+from lib.window import minimize_others
 from lib.context import TestContext
 
 # ---------------------------------------------------------------------------
@@ -76,6 +78,47 @@ RE_SM_LOADED = RE_SESSIONS_LOADED  # alias used by e2e_10b
 RE_SESSION_RESTORED = re.compile(
     r"SessionManager: session=(\S+) restored with (\d+) events"
 )
+RE_PROJECT_OPENED = re.compile(
+    r"set_project_root\(path="
+)
+
+# Default test project for ensure_project_open
+DEFAULT_TEST_PROJECT = "/home/uh1/VIBEPROJECTS/reasonance-test"
+
+
+
+# ---------------------------------------------------------------------------
+# Project helpers
+# ---------------------------------------------------------------------------
+
+
+def ensure_project_open(
+    ctx: TestContext,
+    project_path: str = DEFAULT_TEST_PROJECT,
+) -> None:
+    """Ensure a project is open before interacting with the chat UI.
+
+    Checks logs for ``set_project_root``.  If not found, waits up to 10 s
+    (the user or a prior test may still be opening a folder).  Raises if the
+    app is still on the WelcomeScreen after the grace period.
+
+    When running with ``--no-launch``, open the project manually before
+    starting the tests.
+    """
+    # If logs are available, check for set_project_root
+    logs = ctx.app.logs()
+    if logs:
+        deadline = time.time() + 10
+        while time.time() < deadline:
+            if RE_PROJECT_OPENED.search(ctx.app.logs()):
+                return
+            time.sleep(1)
+        raise RuntimeError(
+            "ensure_project_open: no project is open (no set_project_root "
+            "in logs).  Open a project manually before running LLM tests, "
+            "or run the full suite (--all) which opens one via smoke_02."
+        )
+    # --no-launch mode: no logs available, trust that the user opened a project
 
 
 # ---------------------------------------------------------------------------
@@ -275,9 +318,9 @@ def close_sessions_panel(ctx: TestContext) -> None:
 # FileTree: 200px, Editor: flex, Terminal: 300px
 # Terminal column x range: ~0.766 to 1.0 (center ~0.883)
 
-TERMINAL_COL_CENTER_X = 0.883  # center of terminal column
-TERMINAL_TAB_Y = 0.065  # tab bar y position (below toolbar)
-CHAT_INPUT_Y = 0.91  # ChatInput at bottom (above status bar)
+TERMINAL_COL_CENTER_X = 0.83  # center of terminal column (1920px screen)
+TERMINAL_TAB_Y = 0.05  # tab bar y position (below toolbar)
+CHAT_INPUT_Y = 0.95  # ChatInput at bottom (above status bar)
 
 
 # ---------------------------------------------------------------------------
@@ -285,16 +328,16 @@ CHAT_INPUT_Y = 0.91  # ChatInput at bottom (above status bar)
 # ---------------------------------------------------------------------------
 # When no sessions exist, the terminal column shows provider cards.
 # The cards are stacked vertically, centered in the column.
-# Approximate y positions for the first few providers (discovered in order:
-# Claude, Gemini, Ollama, Kimi, Qwen, Codex — but only found ones show):
+# Calibrated for 1920x1080 maximized window with 6 LLMs:
+# Claude, Gemini, Ollama, Kimi, Qwen, Codex
 
 PROVIDER_CARD_Y = {
-    0: 0.35,  # first provider card
-    1: 0.43,  # second
-    2: 0.51,  # third
-    3: 0.59,  # fourth
-    4: 0.67,  # fifth
-    5: 0.75,  # sixth
+    0: 0.46,  # CLAUDE
+    1: 0.51,  # GEMINI
+    2: 0.55,  # OLLAMA
+    3: 0.60,  # KIMI
+    4: 0.64,  # QWEN
+    5: 0.69,  # CODEX
 }
 
 
@@ -353,7 +396,14 @@ def send_chat(
 
     Returns the session_id string, or None if no request was logged.
     """
+    # Bring Reasonance to front via Alt+Tab (KWin scripts unreliable)
+    press_key(ctx, "alt+Tab")
+    time.sleep(1)
+
     baseline = log_line_count(ctx)
+    # Full logs available only when the runner launched the app (contains
+    # startup marker).  The Tauri plugin LogDir is too small/filtered.
+    has_logs = "setup complete" in ctx.app.logs()
 
     # Determine provider index in discovered order
     provider_lower = provider.lower()
@@ -361,32 +411,31 @@ def send_chat(
     # Only found ones appear as cards. Typical config: Claude=0, Qwen=4-ish
     provider_index = {"claude": 0, "qwen": 4}.get(provider_lower, 0)
 
-    # Check if there are already terminal instances by looking for tab bar
-    # If the empty state is showing, click the provider card directly
-    # If tabs exist, click '+' and select from dropdown
-    # Simple heuristic: try clicking the provider card first; if it doesn't
-    # trigger a session, try the '+' tab approach
+    # Click a provider card in the terminal column to start a new session.
     _click_provider_card(ctx, provider_index)
-    time.sleep(1)
+    time.sleep(2)
 
-    # Check if a session was created
-    m = wait_for_log_after(ctx, RE_SESSION_STARTED, after_line=baseline, timeout=5)
-    if not m:
-        # Provider card click didn't work — terminal already has tabs.
-        # Click '+' button and select from dropdown
-        _click_add_tab(ctx)
-        time.sleep(0.5)
-        # The dropdown appears with provider names. Click the right one.
-        # Dropdown items are vertically stacked below the '+' button.
-        dropdown_y = TERMINAL_TAB_Y + 0.04 + (provider_index * 0.035)
-        click_relative(ctx, 0.95, dropdown_y)
-        time.sleep(1.5)
+    if has_logs:
+        # Check if a session was created
+        m = wait_for_log_after(ctx, RE_SESSION_STARTED, after_line=baseline, timeout=5)
+        if not m:
+            # Provider card click didn't work — terminal already has tabs.
+            _click_add_tab(ctx)
+            time.sleep(0.5)
+            dropdown_y = TERMINAL_TAB_Y + 0.04 + (provider_index * 0.035)
+            click_relative(ctx, 0.95, dropdown_y)
+            time.sleep(1.5)
 
     # Now type the prompt in the ChatInput
     send_chat_message(ctx, prompt)
 
-    # Wait for Transport: send request
-    m = wait_for_log_after(ctx, RE_SEND_REQUEST, after_line=baseline, timeout=30)
-    if m:
-        return m.group(3)
-    return None
+    if has_logs:
+        # Wait for Transport: send request
+        m = wait_for_log_after(ctx, RE_SEND_REQUEST, after_line=baseline, timeout=30)
+        if m:
+            return m.group(3)
+        return None
+    else:
+        # No logs available (--no-launch mode): wait and return placeholder
+        time.sleep(5)
+        return "no-log-session"

@@ -12,10 +12,10 @@ PROJECT_ROOT = Path(__file__).parent.parent.parent.parent  # tests/field/../../ 
 
 
 class ReasonanceApp:
-    def __init__(self):
+    def __init__(self, log_file: str = None):
         self._process = None
         self._log_fd = None
-        self._log_file = f"/tmp/reasonance-field-{datetime.now().strftime('%H%M%S')}.log"
+        self._log_file = log_file or f"/tmp/reasonance-field-{datetime.now().strftime('%H%M%S')}.log"
         self._launch_time = None
 
     def launch(self, env: dict = None):

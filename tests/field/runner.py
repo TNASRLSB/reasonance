@@ -165,7 +165,11 @@ def main():
 
     print(f"Running {len(scenarios)} test(s)...")
 
-    app = ReasonanceApp()
+    # In --no-launch mode, read logs from Tauri's own log file
+    log_file = os.path.expanduser(
+        "~/.local/share/com.reasonance.app/logs/Reasonance.log"
+    ) if args.no_launch else None
+    app = ReasonanceApp(log_file=log_file)
     screenshot_dir = get_screenshot_dir()
     yaml_executor = YamlExecutor(ACTION_REGISTRY)
     results = []

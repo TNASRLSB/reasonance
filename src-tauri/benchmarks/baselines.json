@@ -1,0 +1,267 @@
+[
+  {
+    "timestamp": "2026-04-01T22:00:32.825905442+00:00",
+    "total_setup_ms": 17,
+    "parallel_init_ms": 0
+  },
+  {
+    "timestamp": "2026-04-01T22:31:54.896333137+00:00",
+    "total_setup_ms": 16,
+    "parallel_init_ms": 0
+  },
+  {
+    "timestamp": "2026-04-01T22:31:56.840335312+00:00",
+    "total_setup_ms": 28,
+    "parallel_init_ms": 0
+  },
+  {
+    "timestamp": "2026-04-01T22:31:58.770473383+00:00",
+    "total_setup_ms": 17,
+    "parallel_init_ms": 0
+  },
+  {
+    "timestamp": "2026-04-01T22:32:00.686964025+00:00",
+    "total_setup_ms": 14,
+    "parallel_init_ms": 0
+  },
+  {
+    "timestamp": "2026-04-01T22:32:02.497056216+00:00",
+    "total_setup_ms": 16,
+    "parallel_init_ms": 0
+  },
+  {
+    "timestamp": "2026-04-01T22:32:04.463639299+00:00",
+    "total_setup_ms": 15,
+    "parallel_init_ms": 0
+  },
+  {
+    "timestamp": "2026-04-01T22:32:06.242440663+00:00",
+    "total_setup_ms": 17,
+    "parallel_init_ms": 0
+  },
+  {
+    "timestamp": "2026-04-01T22:32:07.963487256+00:00",
+    "total_setup_ms": 15,
+    "parallel_init_ms": 0
+  },
+  {
+    "timestamp": "2026-04-01T22:32:09.589549019+00:00",
+    "total_setup_ms": 13,
+    "parallel_init_ms": 0
+  },
+  {
+    "timestamp": "2026-04-01T22:32:11.340011072+00:00",
+    "total_setup_ms": 12,
+    "parallel_init_ms": 0
+  },
+  {
+    "timestamp": "2026-04-01T22:32:13.033771583+00:00",
+    "total_setup_ms": 11,
+    "parallel_init_ms": 0
+  },
+  {
+    "timestamp": "2026-04-01T22:32:14.800372083+00:00",
+    "total_setup_ms": 12,
+    "parallel_init_ms": 0
+  },
+  {
+    "timestamp": "2026-04-01T22:32:16.554412647+00:00",
+    "total_setup_ms": 13,
+    "parallel_init_ms": 0
+  },
+  {
+    "timestamp": "2026-04-01T22:32:18.302665376+00:00",
+    "total_setup_ms": 12,
+    "parallel_init_ms": 0
+  },
+  {
+    "timestamp": "2026-04-01T22:32:20.063079780+00:00",
+    "total_setup_ms": 14,
+    "parallel_init_ms": 0
+  },
+  {
+    "timestamp": "2026-04-01T22:32:21.824423216+00:00",
+    "total_setup_ms": 15,
+    "parallel_init_ms": 0
+  },
+  {
+    "timestamp": "2026-04-01T22:32:23.564636285+00:00",
+    "total_setup_ms": 12,
+    "parallel_init_ms": 0
+  },
+  {
+    "timestamp": "2026-04-01T22:32:25.341297272+00:00",
+    "total_setup_ms": 12,
+    "parallel_init_ms": 0
+  },
+  {
+    "timestamp": "2026-04-01T22:32:27.056210887+00:00",
+    "total_setup_ms": 13,
+    "parallel_init_ms": 0
+  },
+  {
+    "timestamp": "2026-04-01T22:32:28.819347759+00:00",
+    "total_setup_ms": 12,
+    "parallel_init_ms": 0
+  },
+  {
+    "timestamp": "2026-04-01T22:32:30.562480804+00:00",
+    "total_setup_ms": 12,
+    "parallel_init_ms": 0
+  },
+  {
+    "timestamp": "2026-04-01T22:32:32.321288030+00:00",
+    "total_setup_ms": 13,
+    "parallel_init_ms": 0
+  },
+  {
+    "timestamp": "2026-04-01T22:32:34.107584916+00:00",
+    "total_setup_ms": 16,
+    "parallel_init_ms": 0
+  },
+  {
+    "timestamp": "2026-04-01T22:32:35.827144225+00:00",
+    "total_setup_ms": 13,
+    "parallel_init_ms": 0
+  },
+  {
+    "timestamp": "2026-04-01T22:32:37.578709503+00:00",
+    "total_setup_ms": 12,
+    "parallel_init_ms": 0
+  },
+  {
+    "timestamp": "2026-04-01T22:32:39.329050236+00:00",
+    "total_setup_ms": 13,
+    "parallel_init_ms": 0
+  },
+  {
+    "timestamp": "2026-04-01T22:32:41.068984319+00:00",
+    "total_setup_ms": 12,
+    "parallel_init_ms": 0
+  },
+  {
+    "timestamp": "2026-04-01T22:32:42.814724289+00:00",
+    "total_setup_ms": 12,
+    "parallel_init_ms": 0
+  },
+  {
+    "timestamp": "2026-04-01T22:32:44.573363281+00:00",
+    "total_setup_ms": 13,
+    "parallel_init_ms": 0
+  },
+  {
+    "timestamp": "2026-04-01T22:32:46.323060174+00:00",
+    "total_setup_ms": 13,
+    "parallel_init_ms": 0
+  },
+  {
+    "timestamp": "2026-04-01T22:32:48.069029311+00:00",
+    "total_setup_ms": 13,
+    "parallel_init_ms": 0
+  },
+  {
+    "timestamp": "2026-04-01T22:32:49.828733943+00:00",
+    "total_setup_ms": 13,
+    "parallel_init_ms": 0
+  },
+  {
+    "timestamp": "2026-04-01T22:32:51.586867860+00:00",
+    "total_setup_ms": 13,
+    "parallel_init_ms": 0
+  },
+  {
+    "timestamp": "2026-04-01T22:32:53.327880525+00:00",
+    "total_setup_ms": 15,
+    "parallel_init_ms": 0
+  },
+  {
+    "timestamp": "2026-04-01T22:32:55.072971215+00:00",
+    "total_setup_ms": 12,
+    "parallel_init_ms": 0
+  },
+  {
+    "timestamp": "2026-04-01T22:32:56.828758346+00:00",
+    "total_setup_ms": 12,
+    "parallel_init_ms": 0
+  },
+  {
+    "timestamp": "2026-04-01T22:32:58.590055733+00:00",
+    "total_setup_ms": 13,
+    "parallel_init_ms": 0
+  },
+  {
+    "timestamp": "2026-04-01T22:33:00.337683507+00:00",
+    "total_setup_ms": 12,
+    "parallel_init_ms": 0
+  },
+  {
+    "timestamp": "2026-04-01T22:33:02.087420072+00:00",
+    "total_setup_ms": 13,
+    "parallel_init_ms": 0
+  },
+  {
+    "timestamp": "2026-04-01T22:33:03.854877561+00:00",
+    "total_setup_ms": 13,
+    "parallel_init_ms": 0
+  },
+  {
+    "timestamp": "2026-04-01T22:33:05.582569958+00:00",
+    "total_setup_ms": 13,
+    "parallel_init_ms": 0
+  },
+  {
+    "timestamp": "2026-04-01T22:33:07.331428126+00:00",
+    "total_setup_ms": 14,
+    "parallel_init_ms": 0
+  },
+  {
+    "timestamp": "2026-04-01T22:33:09.073490358+00:00",
+    "total_setup_ms": 12,
+    "parallel_init_ms": 0
+  },
+  {
+    "timestamp": "2026-04-01T22:33:10.818645545+00:00",
+    "total_setup_ms": 12,
+    "parallel_init_ms": 0
+  },
+  {
+    "timestamp": "2026-04-01T22:33:12.571209567+00:00",
+    "total_setup_ms": 12,
+    "parallel_init_ms": 0
+  },
+  {
+    "timestamp": "2026-04-01T22:33:14.320231757+00:00",
+    "total_setup_ms": 13,
+    "parallel_init_ms": 0
+  },
+  {
+    "timestamp": "2026-04-01T22:33:16.084644326+00:00",
+    "total_setup_ms": 12,
+    "parallel_init_ms": 0
+  },
+  {
+    "timestamp": "2026-04-01T22:33:17.864821511+00:00",
+    "total_setup_ms": 13,
+    "parallel_init_ms": 0
+  },
+  {
+    "timestamp": "2026-04-01T22:33:19.593454797+00:00",
+    "total_setup_ms": 13,
+    "parallel_init_ms": 0
+  },
+  {
+    "timestamp": "2026-04-01T22:33:21.343662575+00:00",
+    "total_setup_ms": 14,
+    "parallel_init_ms": 0
+  },
+  {
+    "timestamp": "2026-04-01T22:33:37.221258217+00:00",
+    "total_setup_ms": 15,
+    "parallel_init_ms": 0
+  },
+  {
+    "timestamp": "2026-04-02T19:10:58.332520762+00:00",
+    "total_setup_ms": 17,
+    "parallel_init_ms": 1
+  }
+]

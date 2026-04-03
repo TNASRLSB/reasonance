@@ -36,6 +36,7 @@
     "process:allow-exit",
     "process:allow-restart",
     "updater:default",
-    "log:default"
+    "log:default",
+    "taurimcp:default"
   ]
 }
