@@ -1,5 +1,18 @@
 # Changelog
 
+## [3.0.3] - 2026-04-03
+
+### Bug Fixes
+
+- fix(aur): replace --bundles none with --no-bundle for Tauri v2
+
+### Other
+
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+
+
+
 ## [3.0.2] - 2026-04-03
 
 ### Other
