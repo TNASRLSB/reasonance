@@ -14,6 +14,7 @@ import type {
   CommsChannelType,
   CommsMessage,
   NodeDescriptor,
+  ImageAttachment,
 } from '$lib/adapter/index';
 import type { AgentEvent, AgentEventPayload, SessionHandle, SessionSummary, ViewMode } from '$lib/types/agent-event';
 import type { NegotiatedCapabilities, CliVersionInfo, VersionEntry, HealthReport } from '$lib/types/capability';
@@ -341,7 +342,7 @@ export function createMockAdapter(overrides?: Partial<Adapter>): Adapter {
     },
 
     // Structured Transport
-    agentSend(_prompt: string, _provider: string, _model?: string, _sessionId?: string, _cwd?: string, _yolo?: boolean, _allowedTools?: string[]): Promise<string> {
+    agentSend(_prompt: string, _provider: string, _model?: string, _sessionId?: string, _cwd?: string, _yolo?: boolean, _allowedTools?: string[], _images?: ImageAttachment[]): Promise<string> {
       return Promise.resolve('mock-session-id');
     },
     agentStop(_sessionId: string): Promise<void> {

@@ -4,6 +4,12 @@ import type { ProviderAnalytics, ModelAnalytics, DailyStats, SessionMetrics, Con
 import type { TrustCheckResult, TrustLevel, TrustEntry } from '$lib/stores/workspace-trust';
 import type { AppState, ProjectState } from '$lib/types/app-state';
 
+export interface ImageAttachment {
+  data: string;      // base64 (no data: prefix)
+  mimeType: string;  // image/png, image/jpeg, etc.
+  name: string;
+}
+
 export interface FileEntry {
   name: string;
   path: string;
@@ -109,7 +115,7 @@ export interface Adapter {
   notifyNodeCompleted(runId: string, nodeId: string, success: boolean, workflowPath: string, cwd: string): Promise<void>;
 
   // Structured Transport
-  agentSend(prompt: string, provider: string, model?: string, sessionId?: string, cwd?: string, yolo?: boolean, allowedTools?: string[]): Promise<string>;
+  agentSend(prompt: string, provider: string, model?: string, sessionId?: string, cwd?: string, yolo?: boolean, allowedTools?: string[], images?: ImageAttachment[]): Promise<string>;
   agentStop(sessionId: string): Promise<void>;
   agentGetEvents(sessionId: string): Promise<AgentEvent[]>;
   onAgentEvent(callback: (payload: AgentEventPayload) => void): Promise<() => void>;

@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { z } from 'zod';
-import type { Adapter, FileEntry, FsEvent, GrepResult, PtyHandle, DiscoveredAgent, Workflow, AgentState, AgentInstance, AgentMessage, MemoryEntry, WorkflowRun, CommsChannelType, CommsMessage, NodeDescriptor } from './index';
+import type { Adapter, FileEntry, FsEvent, GrepResult, PtyHandle, DiscoveredAgent, Workflow, AgentState, AgentInstance, AgentMessage, MemoryEntry, WorkflowRun, CommsChannelType, CommsMessage, NodeDescriptor, ImageAttachment } from './index';
 import type { AgentEvent, AgentEventPayload, SessionHandle, SessionSummary, ViewMode } from '$lib/types/agent-event';
 import type { NegotiatedCapabilities, CliVersionInfo, VersionEntry, HealthReport } from '$lib/types/capability';
 import type { ProviderAnalytics, ModelAnalytics, DailyStats, SessionMetrics, ConnectionTestStep } from '$lib/types/analytics';
@@ -395,9 +395,17 @@ export class TauriAdapter implements Adapter {
   }
 
   // Structured Transport (non-batchable: long-running/streaming — inline Zod validation)
-  async agentSend(prompt: string, provider: string, model?: string, sessionId?: string, cwd?: string, yolo?: boolean, allowedTools?: string[]): Promise<string> {
+  async agentSend(prompt: string, provider: string, model?: string, sessionId?: string, cwd?: string, yolo?: boolean, allowedTools?: string[], images?: ImageAttachment[]): Promise<string> {
     const result = await invoke('agent_send', {
-      request: { prompt, provider, model: model ?? null, context: [], session_id: sessionId ?? null, system_prompt: null, max_tokens: null, allowed_tools: allowedTools ?? null, cwd: cwd ?? null, yolo: yolo ?? false }
+      request: {
+        prompt, provider, model: model ?? null, context: [],
+        session_id: sessionId ?? null, system_prompt: null,
+        max_tokens: null, allowed_tools: allowedTools ?? null,
+        cwd: cwd ?? null, yolo: yolo ?? false,
+        images: (images ?? []).map(img => ({
+          data: img.data, mime_type: img.mimeType, name: img.name,
+        })),
+      }
     });
     return z.string().parse(result);
   }
