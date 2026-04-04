@@ -43,6 +43,7 @@ mod tests {
             allowed_tools: None,
             cwd: None,
             yolo: true, // yolo so engine doesn't block on untrusted
+            images: vec![],
         };
 
         assert!(transport

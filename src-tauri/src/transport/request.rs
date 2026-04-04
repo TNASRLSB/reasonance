@@ -4,6 +4,13 @@ use log::{debug, error, info, trace, warn};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImageAttachment {
+    pub data: String,
+    pub mime_type: String,
+    pub name: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentRequest {
     pub prompt: String,
     pub provider: String,
@@ -21,6 +28,9 @@ pub struct AgentRequest {
     /// When true, append permission_args (e.g. --dangerously-skip-permissions).
     #[serde(default)]
     pub yolo: bool,
+    /// Base64-encoded images attached to this message.
+    #[serde(default)]
+    pub images: Vec<ImageAttachment>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -94,6 +104,7 @@ mod tests {
             allowed_tools: None,
             cwd: None,
             yolo: false,
+            images: vec![],
         };
         let json = serde_json::to_string(&req).unwrap();
         let deserialized: AgentRequest = serde_json::from_str(&json).unwrap();
@@ -139,5 +150,38 @@ mod tests {
         let json = serde_json::to_string(&cmd).unwrap();
         assert!(json.contains("interrupt"));
         assert!(json.contains("stop now"));
+    }
+}
+
+#[cfg(test)]
+mod image_tests {
+    use super::*;
+
+    #[test]
+    fn image_attachment_deserializes_from_json() {
+        let json = r#"{"data":"iVBOR...","mime_type":"image/png","name":"screenshot.png"}"#;
+        let img: ImageAttachment = serde_json::from_str(json).unwrap();
+        assert_eq!(img.mime_type, "image/png");
+        assert_eq!(img.name, "screenshot.png");
+        assert!(img.data.starts_with("iVBOR"));
+    }
+
+    #[test]
+    fn agent_request_with_images_deserializes() {
+        let json = r#"{
+            "prompt": "Describe this",
+            "provider": "claude",
+            "images": [{"data":"abc","mime_type":"image/jpeg","name":"photo.jpg"}]
+        }"#;
+        let req: AgentRequest = serde_json::from_str(json).unwrap();
+        assert_eq!(req.images.len(), 1);
+        assert_eq!(req.images[0].name, "photo.jpg");
+    }
+
+    #[test]
+    fn agent_request_without_images_has_empty_vec() {
+        let json = r#"{"prompt":"hello","provider":"claude"}"#;
+        let req: AgentRequest = serde_json::from_str(json).unwrap();
+        assert!(req.images.is_empty());
     }
 }

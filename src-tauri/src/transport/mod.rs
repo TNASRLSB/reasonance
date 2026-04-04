@@ -875,6 +875,7 @@ mod tests {
             allowed_tools: None,
             cwd: None,
             yolo: true, // yolo so engine doesn't block on untrusted
+            images: vec![],
         };
         let result = transport.send(
             request,
@@ -904,6 +905,7 @@ mod tests {
             allowed_tools: None,
             cwd: None,
             yolo: false,
+            images: vec![],
         };
         let args = StructuredAgentTransport::build_cli_args(config, &request, None);
         assert!(args.contains(&"test prompt".to_string()));
@@ -927,6 +929,7 @@ mod tests {
             allowed_tools: None,
             cwd: None,
             yolo: false,
+            images: vec![],
         };
         // Resume only happens when a CLI session ID is provided
         let args = StructuredAgentTransport::build_cli_args(config, &request, Some("sess-123"));
@@ -992,6 +995,7 @@ mod tests {
             allowed_tools: None,
             cwd: None,
             yolo: false,
+            images: vec![],
         };
         let args = StructuredAgentTransport::build_cli_args(config, &request, Some("msg_abc123"));
         assert!(args.contains(&"--resume".to_string()));

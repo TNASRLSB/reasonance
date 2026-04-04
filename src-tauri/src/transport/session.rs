@@ -80,6 +80,7 @@ mod tests {
             allowed_tools: None,
             cwd: None,
             yolo: false,
+            images: vec![],
         }
     }
 
