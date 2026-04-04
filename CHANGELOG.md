@@ -1,5 +1,51 @@
 # Changelog
 
+## [3.2.0] - 2026-04-04
+
+### Features
+
+- feat(transport): add persistent CLI session path for Claude
+- feat(stream_reader): emit Done after Usage events for persistent sessions
+- feat(normalizer): add transport_mode and persistent_args to CliConfig
+- feat(transport): add PersistentSession module with message builder
+
+### Other
+
+- When transport_mode is "persistent", reuses long-lived CLI processes
+- across messages instead of spawning a new process per turn.
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- response-complete without needing stdout to close. The existing EOF Done
+- is preserved; spawn-per-message sessions now emit Done twice which the
+- frontend already handles gracefully. Updated test assertion accordingly.
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- docs: add persistent CLI transport implementation plan (5 tasks)
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- docs: add persistent CLI transport design spec
+- (matching VS Code extension architecture). Enables image context
+- continuity, prompt caching, and faster responses.
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+
+
+
 ## [3.1.0] - 2026-04-04
 
 ### Features
