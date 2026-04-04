@@ -1,5 +1,24 @@
 # Changelog
 
+## [3.0.4] - 2026-04-04
+
+### Bug Fixes
+
+- fix: revert withGlobalTauri to false — fixes broken chat events on Linux
+
+### Other
+
+- system (app.emit → listen) on WebKitGTK. invoke() calls still worked but
+- async events from backend to frontend were silently dropped, causing the
+- chat to appear unresponsive. Also removes unnecessary 'unsafe-eval' CSP
+- directive — both settings are only needed for mcp-debug feature flag.
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+
+
+
 ## [3.0.3] - 2026-04-03
 
 ### Bug Fixes
