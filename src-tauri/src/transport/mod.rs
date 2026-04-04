@@ -310,17 +310,9 @@ impl StructuredAgentTransport {
                             });
                             let msg_str = serde_json::to_string(&user_msg).unwrap_or_default();
 
-                            // Write to stdin then drop it (EOF signals end of input)
-                            if let Some(mut stdin) = child.stdin.take() {
-                                let msg_bytes = msg_str.into_bytes();
-                                tokio::spawn(async move {
-                                    use tokio::io::AsyncWriteExt;
-                                    let _ = stdin.write_all(&msg_bytes).await;
-                                    let _ = stdin.write_all(b"\n").await;
-                                    let _ = stdin.flush().await;
-                                    drop(stdin); // Close stdin → CLI processes the message
-                                });
-                            }
+                            // Write message to stdin via a spawned task that also keeps
+                            // the handle alive until the CLI finishes processing.
+                            let stdin_opt = child.stdin.take();
 
                             // Build normalizer pipeline for this stdin-json session
                             let sm: Box<dyn crate::normalizer::state_machines::StateMachine> =
@@ -366,17 +358,25 @@ impl StructuredAgentTransport {
                                 }
                             }
 
-                            // Store abort handle
-                            let abort_handle = child.id().map(|pid| {
+                            // Keep stdin alive and write the message, then wait for
+                            // the child to finish. stdin is dropped only after exit.
+                            if let Some(pid) = child.id() {
                                 info!("Transport[stdin-json]: child pid={}", pid);
-                                child
-                            });
-                            // Let the child process run to completion in background
-                            if let Some(mut ch) = abort_handle {
-                                tokio::spawn(async move {
-                                    let _ = ch.wait().await;
-                                });
                             }
+                            let msg_bytes = msg_str.into_bytes();
+                            tokio::spawn(async move {
+                                // Write message to stdin
+                                if let Some(mut stdin) = stdin_opt {
+                                    use tokio::io::AsyncWriteExt;
+                                    let _ = stdin.write_all(&msg_bytes).await;
+                                    let _ = stdin.write_all(b"\n").await;
+                                    let _ = stdin.flush().await;
+                                    // DON'T drop stdin — keep it open while CLI processes
+                                    // Wait for child to exit, then stdin drops automatically
+                                    let _ = child.wait().await;
+                                    drop(stdin);
+                                }
+                            });
                         }
                         Err(e) => {
                             error!("Transport[stdin-json]: failed to spawn {}: {}", binary, e);
