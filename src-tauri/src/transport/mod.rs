@@ -247,6 +247,38 @@ impl StructuredAgentTransport {
         let api_key_env_img = config.cli.api_key_env.clone();
         drop(registry);
 
+        // ── Session registration (must happen before image routing which may return early) ──
+        let cli_session_id_arc = {
+            let mut sessions = self.sessions.lock().unwrap_or_else(|e| e.into_inner());
+            if let Some(arc) = sessions.get(&session_id) {
+                let mut existing = arc.lock().unwrap_or_else(|e| e.into_inner());
+                if existing.status == SessionStatus::Active {
+                    if let Some(handle) = existing.abort_handle.take() {
+                        handle.abort();
+                    }
+                    warn!(
+                        "Transport: force-stopped stale active session={} to allow new message",
+                        session_id
+                    );
+                }
+                existing.set_status(SessionStatus::Active);
+                existing.request = request.clone();
+                debug!(
+                    "Transport: reusing session={} cli_session_id={:?}",
+                    session_id, existing.cli_session_id
+                );
+                existing.cli_session_id.clone()
+            } else {
+                let mut session_obj = AgentSession::new(request.clone(), CliMode::Structured);
+                session_obj.id = session_id.clone();
+                debug!("Transport: created agent session={}", session_id);
+                sessions.insert(session_id.clone(), session_obj, session_id.clone());
+                None
+            }
+        };
+        // Shared Arc for stream reader to capture CLI session ID
+        let cli_sid_arc = Arc::new(Mutex::new(cli_session_id_arc));
+
         // ── Image routing ─────────────────────────────────────
         if !request.images.is_empty() {
             let img_mode = image_mode.as_deref().unwrap_or("none");
@@ -346,14 +378,13 @@ impl StructuredAgentTransport {
                                     .clone();
 
                                 if let Some(bus) = bus_opt {
-                                    let cli_sid = Arc::new(Mutex::new(None::<String>));
                                     let _rx = spawn_stream_reader(
                                         stdout,
                                         pl,
                                         bus,
                                         sid_clone,
                                         session_id_path.clone(),
-                                        cli_sid,
+                                        cli_sid_arc.clone(),
                                         None,
                                     );
                                 }
@@ -534,56 +565,24 @@ impl StructuredAgentTransport {
             ),
         ));
 
-        // Atomic check-and-activate: single lock scope eliminates TOCTOU window.
-        // Between checking session state and setting it to Active, no other thread
-        // can observe the session as non-Active and also proceed to spawn.
+        // Build CLI args. Session is already registered above (before image routing).
+        // Use resume_args if we have a captured CLI session ID, otherwise new-session args.
         let args = {
-            let mut sessions = self.sessions.lock().unwrap_or_else(|e| e.into_inner());
-            if let Some(arc) = sessions.get(&session_id) {
-                let mut existing = arc.lock().unwrap_or_else(|e| e.into_inner());
-                if existing.status == SessionStatus::Active {
-                    // The frontend already received the done event (which re-enabled input),
-                    // but the async task that updates session status hasn't completed yet.
-                    // Force-stop the stale session so the user can send a follow-up message.
-                    if let Some(handle) = existing.abort_handle.take() {
-                        handle.abort();
-                    }
-                    warn!(
-                        "Transport: force-stopped stale active session={} to allow new message",
-                        session_id
-                    );
-                }
-                debug!(
-                    "Transport: reusing session={} cli_session_id={:?}",
-                    session_id, existing.cli_session_id
-                );
-                let cli_session_id = existing.cli_session_id.clone();
-                // Set to Active immediately — while we still hold the lock
-                existing.set_status(SessionStatus::Active);
-                existing.request = request.clone();
-                debug!("Transport: reactivated agent session={}", session_id);
-                // Build args using pre-captured resume template if CLI session ID exists,
-                // otherwise use the pre-built new-session args (programmatic_args).
-                if let Some(ref cli_sid) = cli_session_id {
-                    resume_args_template
-                        .iter()
-                        .map(|arg| {
-                            arg.replace("{prompt}", &request.prompt)
-                                .replace("{session_id}", cli_sid)
-                                .replace("{model}", request.model.as_deref().unwrap_or(""))
-                        })
-                        .collect()
-                } else {
-                    args_for_new_session
-                }
+            let cli_sid = cli_sid_arc
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .clone();
+            if let Some(ref sid) = cli_sid {
+                debug!("Transport: resuming CLI session={}", sid);
+                resume_args_template
+                    .iter()
+                    .map(|arg| {
+                        arg.replace("{prompt}", &request.prompt)
+                            .replace("{session_id}", sid)
+                            .replace("{model}", request.model.as_deref().unwrap_or(""))
+                    })
+                    .collect()
             } else {
-                let mut session = AgentSession::new(request.clone(), CliMode::Structured);
-                // Ensure session ID matches (AgentSession::new may generate a new one if request.session_id is None)
-                session.id = session_id.clone();
-                // Session starts as Active (set by AgentSession::new)
-                debug!("Transport: created agent session={}", session_id);
-                sessions.insert(session_id.clone(), session, session_id.clone());
-                // New session — use pre-built args (no CLI session ID)
                 args_for_new_session
             }
         };
@@ -747,8 +746,7 @@ impl StructuredAgentTransport {
         let cb_ref = self.circuit_breaker.clone();
         let cb_circuit_id = circuit_id.clone();
 
-        let cli_session_id_ref = Arc::new(Mutex::new(None::<String>));
-        let cli_sid_for_reader = cli_session_id_ref.clone();
+        let cli_sid_for_reader = cli_sid_arc.clone();
         let event_bus = self
             .event_bus
             .lock()
@@ -773,7 +771,7 @@ impl StructuredAgentTransport {
 
             // Store captured CLI session ID in the session
             {
-                let captured = cli_session_id_ref
+                let captured = cli_sid_arc
                     .lock()
                     .unwrap_or_else(|e| e.into_inner())
                     .clone();
