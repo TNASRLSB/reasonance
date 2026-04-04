@@ -291,21 +291,18 @@ impl StructuredAgentTransport {
 
             match img_mode {
                 "stdin-json" => {
-                    // Pipe multimodal content blocks to CLI stdin with -p (no prompt arg).
-                    // The CLI reads the JSON content array from stdin and sends it to the API.
-                    // This uses the CLI's own auth (OAuth/keychain) — no API key needed.
-                    let cli_args: Vec<String> = ["-p"]
-                        .iter()
-                        .map(|s| s.to_string())
-                        .chain(
-                            image_args_template
-                                .iter()
-                                .filter(|a| *a != "-p") // avoid duplicate -p
-                                .cloned(),
-                        )
-                        .chain(permission_args.iter().cloned())
-                        .chain(allowed_tools_args.iter().cloned())
-                        .collect();
+                    // Use --input-format stream-json with the correct VS Code extension
+                    // message format. This uses the CLI's own auth (OAuth/keychain).
+                    let mut cli_args: Vec<String> = vec![
+                        "-p".to_string(),
+                        "--input-format".to_string(),
+                        "stream-json".to_string(),
+                        "--output-format".to_string(),
+                        "stream-json".to_string(),
+                        "--verbose".to_string(),
+                    ];
+                    cli_args.extend(permission_args.iter().cloned());
+                    cli_args.extend(allowed_tools_args.iter().cloned());
 
                     info!(
                         "Transport[stdin-json]: spawning {} with stdin pipe, args={:?}",
@@ -325,7 +322,8 @@ impl StructuredAgentTransport {
 
                     match cmd.spawn() {
                         Ok(mut child) => {
-                            // Build JSON content array: [text_block, image_block, ...]
+                            // Build VS Code extension-compatible stream-json message:
+                            // {"type":"user","session_id":"","message":{"role":"user","content":[...]},"parent_tool_use_id":null}
                             let mut content_blocks = vec![serde_json::json!({
                                 "type": "text",
                                 "text": request.prompt,
@@ -340,9 +338,16 @@ impl StructuredAgentTransport {
                                     }
                                 }));
                             }
-                            // Serialize as a JSON array (the CLI reads this from stdin as the prompt)
-                            let msg_str =
-                                serde_json::to_string(&content_blocks).unwrap_or_default();
+                            let user_msg = serde_json::json!({
+                                "type": "user",
+                                "session_id": "",
+                                "message": {
+                                    "role": "user",
+                                    "content": content_blocks,
+                                },
+                                "parent_tool_use_id": null,
+                            });
+                            let msg_str = serde_json::to_string(&user_msg).unwrap_or_default();
 
                             // Write to stdin then close it (EOF triggers CLI processing)
                             let stdin_opt = child.stdin.take();
