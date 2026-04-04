@@ -145,7 +145,7 @@
   }
 
   async function handlePaste(e: ClipboardEvent) {
-    // Try web clipboard API first (works in Chromium-based webviews)
+    // Try ClipboardEvent.clipboardData first (works in Chromium-based webviews)
     const items = Array.from(e.clipboardData?.items ?? []);
     const imageFiles = items
       .filter(item => item.kind === 'file' && item.type.startsWith('image/'))
@@ -157,7 +157,24 @@
       return;
     }
 
-    // Fallback: Tauri clipboard plugin (needed for WebKitGTK on Linux)
+    // Fallback: navigator.clipboard.read() — returns original PNG/JPEG blob
+    try {
+      const clipItems = await navigator.clipboard.read();
+      for (const item of clipItems) {
+        const imageType = item.types.find(t => t.startsWith('image/'));
+        if (imageType) {
+          e.preventDefault();
+          const blob = await item.getType(imageType);
+          const file = new File([blob], 'clipboard-image', { type: imageType });
+          await addImageFiles([file]);
+          return;
+        }
+      }
+    } catch {
+      // navigator.clipboard.read() not available or denied — try Tauri plugin
+    }
+
+    // Last resort: Tauri clipboard plugin (RGBA pixels → Canvas → PNG)
     try {
       const { readImage } = await import('@tauri-apps/plugin-clipboard-manager');
       const img = await readImage();
@@ -166,7 +183,6 @@
         const imgSize = await img.size();
         if (rgba && rgba.length > 0 && imgSize.width > 0 && imgSize.height > 0) {
           e.preventDefault();
-          // Convert RGBA pixel data to PNG via canvas
           const canvas = document.createElement('canvas');
           canvas.width = imgSize.width;
           canvas.height = imgSize.height;
@@ -200,7 +216,7 @@
         }
       }
     } catch {
-      // Clipboard plugin not available or no image — ignore, let normal paste happen
+      // No image in clipboard — let normal paste happen
     }
   }
 
