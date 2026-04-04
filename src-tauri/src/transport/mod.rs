@@ -243,6 +243,7 @@ impl StructuredAgentTransport {
         let session_id_path = config.session_id_path().map(|s| s.to_string());
         let image_mode = config.cli.image_mode.clone();
         let image_arg = config.cli.image_arg.clone();
+        let image_args_template = config.cli.image_args_template.clone();
         let api_key_env_img = config.cli.api_key_env.clone();
         drop(registry);
 
@@ -257,6 +258,156 @@ impl StructuredAgentTransport {
             );
 
             match img_mode {
+                "stdin-json" => {
+                    // Pipe user message with image content blocks to CLI stdin.
+                    // Uses the CLI's own auth (OAuth/keychain) — no API key needed.
+                    let mut cli_args = image_args_template.clone();
+                    cli_args.extend(permission_args.clone());
+                    cli_args.extend(allowed_tools_args.clone());
+
+                    if let Some(ref cwd) = request.cwd {
+                        if !cwd.is_empty() {
+                            info!("Transport[stdin-json]: cwd={}", cwd);
+                        }
+                    }
+
+                    info!(
+                        "Transport[stdin-json]: spawning {} with stdin pipe, args={:?}",
+                        binary, cli_args
+                    );
+
+                    let mut cmd = Command::new(&binary);
+                    cmd.args(&cli_args);
+                    cmd.stdin(Stdio::piped());
+                    cmd.stdout(Stdio::piped());
+                    cmd.stderr(Stdio::piped());
+                    if let Some(ref cwd) = request.cwd {
+                        if !cwd.is_empty() {
+                            cmd.current_dir(cwd);
+                        }
+                    }
+
+                    match cmd.spawn() {
+                        Ok(mut child) => {
+                            // Build the user_message JSON with text + image content blocks
+                            let mut content_blocks = vec![serde_json::json!({
+                                "type": "text",
+                                "text": request.prompt,
+                            })];
+                            for img in &request.images {
+                                content_blocks.push(serde_json::json!({
+                                    "type": "image",
+                                    "source": {
+                                        "type": "base64",
+                                        "media_type": img.mime_type,
+                                        "data": img.data,
+                                    }
+                                }));
+                            }
+                            let user_msg = serde_json::json!({
+                                "type": "user_message",
+                                "content": content_blocks,
+                            });
+                            let msg_str = serde_json::to_string(&user_msg).unwrap_or_default();
+
+                            // Write to stdin then drop it (EOF signals end of input)
+                            if let Some(mut stdin) = child.stdin.take() {
+                                let msg_bytes = msg_str.into_bytes();
+                                tokio::spawn(async move {
+                                    use tokio::io::AsyncWriteExt;
+                                    let _ = stdin.write_all(&msg_bytes).await;
+                                    let _ = stdin.write_all(b"\n").await;
+                                    let _ = stdin.flush().await;
+                                    drop(stdin); // Close stdin → CLI processes the message
+                                });
+                            }
+
+                            // Build normalizer pipeline for this stdin-json session
+                            let sm: Box<dyn crate::normalizer::state_machines::StateMachine> =
+                                match provider.as_str() {
+                                    "claude" => Box::new(
+                                        crate::normalizer::state_machines::claude::ClaudeStateMachine::new(),
+                                    ),
+                                    "gemini" => Box::new(
+                                        crate::normalizer::state_machines::gemini::GeminiStateMachine::new(),
+                                    ),
+                                    _ => Box::new(
+                                        crate::normalizer::state_machines::generic::GenericStateMachine::new(),
+                                    ),
+                                };
+                            let pl = Arc::new(Mutex::new(
+                                crate::normalizer::pipeline::NormalizerPipeline::new(
+                                    rules.clone(),
+                                    sm,
+                                    provider.clone(),
+                                ),
+                            ));
+
+                            // Read stdout through the normal stream reader pipeline
+                            if let Some(stdout) = child.stdout.take() {
+                                let sid_clone = session_id.clone();
+                                let bus_opt = self
+                                    .event_bus
+                                    .lock()
+                                    .unwrap_or_else(|e| e.into_inner())
+                                    .clone();
+
+                                if let Some(bus) = bus_opt {
+                                    let cli_sid = Arc::new(Mutex::new(None::<String>));
+                                    let _rx = spawn_stream_reader(
+                                        stdout,
+                                        pl,
+                                        bus,
+                                        sid_clone,
+                                        session_id_path.clone(),
+                                        cli_sid,
+                                        None,
+                                    );
+                                }
+                            }
+
+                            // Store abort handle
+                            let abort_handle = child.id().map(|pid| {
+                                info!("Transport[stdin-json]: child pid={}", pid);
+                                child
+                            });
+                            // Let the child process run to completion in background
+                            if let Some(mut ch) = abort_handle {
+                                tokio::spawn(async move {
+                                    let _ = ch.wait().await;
+                                });
+                            }
+                        }
+                        Err(e) => {
+                            error!("Transport[stdin-json]: failed to spawn {}: {}", binary, e);
+                            let err_event = AgentEvent::error(
+                                &format!("Failed to spawn {} for image: {}", binary, e),
+                                "STDIN_JSON_SPAWN_ERROR",
+                                ErrorSeverity::Fatal,
+                                &provider,
+                            );
+                            if let Some(bus) = self
+                                .event_bus
+                                .lock()
+                                .unwrap_or_else(|e| e.into_inner())
+                                .as_ref()
+                            {
+                                bus.publish(crate::event_bus::Event::from_agent_event(
+                                    "transport:error",
+                                    &session_id,
+                                    &err_event,
+                                ));
+                                let done = AgentEvent::done(&session_id, &provider);
+                                bus.publish(crate::event_bus::Event::from_agent_event(
+                                    "transport:complete",
+                                    &session_id,
+                                    &done,
+                                ));
+                            }
+                        }
+                    }
+                    return Ok(session_id);
+                }
                 "direct-api" => {
                     let api_key_env = api_key_env_img.clone().unwrap_or_default();
                     let model = request.model.clone().unwrap_or_default();

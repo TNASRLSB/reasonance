@@ -61,6 +61,7 @@ pub struct CliConfig {
     #[serde(default)]
     pub read_only_tools: Vec<String>,
     /// How this provider handles image attachments:
+    /// "stdin-json" = pipe user message with image content blocks to CLI stdin
     /// "direct-api" = call provider REST API directly
     /// "cli-flag" = save to temp file, pass via image_arg
     /// "none" or absent = images not supported
@@ -69,6 +70,9 @@ pub struct CliConfig {
     /// CLI flag for passing image file paths (e.g. "--image"). Only used when image_mode = "cli-flag".
     #[serde(default)]
     pub image_arg: Option<String>,
+    /// CLI args to use when image_mode = "stdin-json" (replaces programmatic_args).
+    #[serde(default)]
+    pub image_args_template: Vec<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]

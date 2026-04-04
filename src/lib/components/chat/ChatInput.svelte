@@ -144,7 +144,8 @@
     }
   }
 
-  function handlePaste(e: ClipboardEvent) {
+  async function handlePaste(e: ClipboardEvent) {
+    // Try web clipboard API first (works in Chromium-based webviews)
     const items = Array.from(e.clipboardData?.items ?? []);
     const imageFiles = items
       .filter(item => item.kind === 'file' && item.type.startsWith('image/'))
@@ -153,6 +154,53 @@
     if (imageFiles.length > 0) {
       e.preventDefault();
       addImageFiles(imageFiles);
+      return;
+    }
+
+    // Fallback: Tauri clipboard plugin (needed for WebKitGTK on Linux)
+    try {
+      const { readImage } = await import('@tauri-apps/plugin-clipboard-manager');
+      const img = await readImage();
+      if (img) {
+        const rgba = await img.rgba();
+        const imgSize = await img.size();
+        if (rgba && rgba.length > 0 && imgSize.width > 0 && imgSize.height > 0) {
+          e.preventDefault();
+          // Convert RGBA pixel data to PNG via canvas
+          const canvas = document.createElement('canvas');
+          canvas.width = imgSize.width;
+          canvas.height = imgSize.height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            const imageData = new ImageData(
+              new Uint8ClampedArray(rgba),
+              imgSize.width,
+              imgSize.height,
+            );
+            ctx.putImageData(imageData, 0, 0);
+            const dataUrl = canvas.toDataURL('image/png');
+            const base64 = dataUrl.split(',')[1] ?? '';
+            if (base64) {
+              const byteSize = Math.round((base64.length * 3) / 4);
+              if (byteSize > MAX_IMAGE_BYTES) {
+                showToast('error', 'Image exceeds 5MB limit');
+                return;
+              }
+              const attachment: AttachedImage = {
+                id: crypto.randomUUID(),
+                data: base64,
+                mimeType: 'image/png',
+                name: 'clipboard-image',
+                size: byteSize,
+              };
+              attachedImages = [...attachedImages, attachment];
+              appAnnouncer.announce('Image attached: clipboard-image');
+            }
+          }
+        }
+      }
+    } catch {
+      // Clipboard plugin not available or no image — ignore, let normal paste happen
     }
   }
 
@@ -163,6 +211,7 @@
     );
     if (!hasImage) return;
     e.preventDefault();
+    e.stopPropagation();
     dragOver = true;
   }
 
@@ -170,6 +219,7 @@
 
   function handleDrop(e: DragEvent) {
     e.preventDefault();
+    e.stopPropagation();
     dragOver = false;
     const files = Array.from(e.dataTransfer?.files ?? []).filter(f => f.type.startsWith('image/'));
     if (files.length > 0) addImageFiles(files);
