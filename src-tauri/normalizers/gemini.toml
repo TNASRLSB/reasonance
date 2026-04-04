@@ -8,6 +8,7 @@ update_command = ["gemini", "update"]
 api_key_env = "GEMINI_API_KEY"
 permission_args = ["--sandbox=none"]
 read_only_tools = ["Read", "Grep", "Glob"]
+image_mode = "direct-api"
 
 [capabilities]
 streaming = true

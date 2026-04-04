@@ -9,6 +9,7 @@ api_key_env = "ANTHROPIC_API_KEY"
 permission_args = ["--dangerously-skip-permissions"]
 allowed_tools_arg = "--allowedTools"
 read_only_tools = ["Read", "Grep", "Glob", "WebSearch", "WebFetch"]
+image_mode = "direct-api"
 
 [capabilities]
 streaming = true

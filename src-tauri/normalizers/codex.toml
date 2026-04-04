@@ -8,6 +8,8 @@ update_command = ["npm", "install", "-g", "@openai/codex@latest"]
 api_key_env = "OPENAI_API_KEY"
 permission_args = ["--full-auto"]
 read_only_tools = ["Read", "Grep", "Glob"]
+image_mode = "cli-flag"
+image_arg = "--image"
 
 [capabilities]
 streaming = true
