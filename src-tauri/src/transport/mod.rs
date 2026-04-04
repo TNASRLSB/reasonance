@@ -259,17 +259,21 @@ impl StructuredAgentTransport {
 
             match img_mode {
                 "stdin-json" => {
-                    // Pipe user message with image content blocks to CLI stdin.
-                    // Uses the CLI's own auth (OAuth/keychain) — no API key needed.
-                    let mut cli_args = image_args_template.clone();
-                    cli_args.extend(permission_args.clone());
-                    cli_args.extend(allowed_tools_args.clone());
-
-                    if let Some(ref cwd) = request.cwd {
-                        if !cwd.is_empty() {
-                            info!("Transport[stdin-json]: cwd={}", cwd);
-                        }
-                    }
+                    // Pipe multimodal content blocks to CLI stdin with -p (no prompt arg).
+                    // The CLI reads the JSON content array from stdin and sends it to the API.
+                    // This uses the CLI's own auth (OAuth/keychain) — no API key needed.
+                    let cli_args: Vec<String> = ["-p"]
+                        .iter()
+                        .map(|s| s.to_string())
+                        .chain(
+                            image_args_template
+                                .iter()
+                                .filter(|a| *a != "-p") // avoid duplicate -p
+                                .cloned(),
+                        )
+                        .chain(permission_args.iter().cloned())
+                        .chain(allowed_tools_args.iter().cloned())
+                        .collect();
 
                     info!(
                         "Transport[stdin-json]: spawning {} with stdin pipe, args={:?}",
@@ -289,7 +293,7 @@ impl StructuredAgentTransport {
 
                     match cmd.spawn() {
                         Ok(mut child) => {
-                            // Build the user_message JSON with text + image content blocks
+                            // Build JSON content array: [text_block, image_block, ...]
                             let mut content_blocks = vec![serde_json::json!({
                                 "type": "text",
                                 "text": request.prompt,
@@ -304,17 +308,14 @@ impl StructuredAgentTransport {
                                     }
                                 }));
                             }
-                            let user_msg = serde_json::json!({
-                                "type": "user_message",
-                                "content": content_blocks,
-                            });
-                            let msg_str = serde_json::to_string(&user_msg).unwrap_or_default();
+                            // Serialize as a JSON array (the CLI reads this from stdin as the prompt)
+                            let msg_str =
+                                serde_json::to_string(&content_blocks).unwrap_or_default();
 
-                            // Write message to stdin via a spawned task that also keeps
-                            // the handle alive until the CLI finishes processing.
+                            // Write to stdin then close it (EOF triggers CLI processing)
                             let stdin_opt = child.stdin.take();
 
-                            // Build normalizer pipeline for this stdin-json session
+                            // Build normalizer pipeline for this session
                             let sm: Box<dyn crate::normalizer::state_machines::StateMachine> =
                                 match provider.as_str() {
                                     "claude" => Box::new(
@@ -358,24 +359,20 @@ impl StructuredAgentTransport {
                                 }
                             }
 
-                            // Keep stdin alive and write the message, then wait for
-                            // the child to finish. stdin is dropped only after exit.
+                            // Write content to stdin, close it, then wait for process exit
                             if let Some(pid) = child.id() {
                                 info!("Transport[stdin-json]: child pid={}", pid);
                             }
                             let msg_bytes = msg_str.into_bytes();
                             tokio::spawn(async move {
-                                // Write message to stdin
                                 if let Some(mut stdin) = stdin_opt {
                                     use tokio::io::AsyncWriteExt;
                                     let _ = stdin.write_all(&msg_bytes).await;
                                     let _ = stdin.write_all(b"\n").await;
                                     let _ = stdin.flush().await;
-                                    // DON'T drop stdin — keep it open while CLI processes
-                                    // Wait for child to exit, then stdin drops automatically
-                                    let _ = child.wait().await;
-                                    drop(stdin);
+                                    drop(stdin); // EOF — CLI processes the message
                                 }
+                                let _ = child.wait().await;
                             });
                         }
                         Err(e) => {
