@@ -47,6 +47,7 @@ export interface AgentEventMetadata {
   error_severity: ErrorSeverity | null;
   error_code: string | null;
   stream_metrics: StreamMetrics | null;
+  images?: Array<{ mimeType: string; data: string; name: string }> | null;
 }
 
 export interface AgentEvent {

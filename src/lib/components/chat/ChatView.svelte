@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Adapter } from '$lib/adapter/index';
+  import type { Adapter, ImageAttachment } from '$lib/adapter/index';
   import type { AgentEvent } from '$lib/types/agent-event';
   import ChatMessages from './ChatMessages.svelte';
   import ChatInput from './ChatInput.svelte';
@@ -91,7 +91,7 @@
     showToast('info', t(msgKey));
   }
 
-  async function handleSend(text: string) {
+  async function handleSend(text: string, images?: ImageAttachment[]) {
     try {
       // Append a synthetic user message so it appears in the chat
       const userEvent: AgentEvent = {
@@ -110,6 +110,7 @@
           error_severity: null,
           error_code: null,
           stream_metrics: null,
+          images: images?.map(img => ({ mimeType: img.mimeType, data: img.data, name: img.name })) ?? null,
         },
       };
       agentEvents.update((map) => {
@@ -124,7 +125,7 @@
       const cwd = get(projectRoot) || undefined;
       const isYolo = permissionLevel === 'yolo';
       const tools = configAllowedTools.length > 0 ? configAllowedTools : undefined;
-      await adapter.agentSend(text, provider, model, sessionId, cwd, isYolo, tools);
+      await adapter.agentSend(text, provider, model, sessionId, cwd, isYolo, tools, images);
     } catch (e) {
       console.error('Failed to send message:', e);
       setStreaming(sessionId, false);

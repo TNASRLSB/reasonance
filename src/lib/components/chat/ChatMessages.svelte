@@ -152,6 +152,18 @@
                   />
                 {/if}
               {:else}
+                {#if event.metadata.images?.length}
+                  <div class="user-images" role="list" aria-label="Attached images">
+                    {#each event.metadata.images as img}
+                      <img
+                        src="data:{img.mimeType};base64,{img.data}"
+                        alt={img.name ?? 'Attached image'}
+                        class="user-image-thumb"
+                        loading="lazy"
+                      />
+                    {/each}
+                  </div>
+                {/if}
                 <ContentRenderer {event} {adapter} />
               {/if}
             {/each}
@@ -243,5 +255,20 @@
     font-size: var(--font-size-small);
     color: var(--text-muted);
     margin: 0;
+  }
+
+  .user-images {
+    display: flex;
+    gap: var(--space-1);
+    flex-wrap: wrap;
+    margin-bottom: var(--space-1);
+  }
+
+  .user-image-thumb {
+    max-width: 200px;
+    max-height: 150px;
+    border-radius: var(--radius);
+    border: var(--border-width) solid var(--border);
+    object-fit: contain;
   }
 </style>
