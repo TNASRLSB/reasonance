@@ -73,6 +73,13 @@ pub struct CliConfig {
     /// CLI args to use when image_mode = "stdin-json" (replaces programmatic_args).
     #[serde(default)]
     pub image_args_template: Vec<String>,
+    /// Transport mode: "persistent" = keep CLI process alive for the session,
+    /// "spawn" or absent = spawn a new process per message (default).
+    #[serde(default)]
+    pub transport_mode: Option<String>,
+    /// CLI args for persistent mode (replaces programmatic_args).
+    #[serde(default)]
+    pub persistent_args: Vec<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -459,5 +466,31 @@ binary = "test-cli"
         let config: TomlConfig = TomlConfig::parse(toml_str).unwrap();
         assert!(config.cli.image_mode.is_none());
         assert!(config.cli.image_arg.is_none());
+    }
+
+    #[test]
+    fn cli_config_parses_transport_mode() {
+        let toml_str = r#"
+[cli]
+name = "test"
+binary = "test-cli"
+transport_mode = "persistent"
+persistent_args = ["--input-format", "stream-json", "--output-format", "stream-json", "--verbose"]
+"#;
+        let config: TomlConfig = TomlConfig::parse(toml_str).unwrap();
+        assert_eq!(config.cli.transport_mode.as_deref(), Some("persistent"));
+        assert_eq!(config.cli.persistent_args.len(), 5);
+    }
+
+    #[test]
+    fn cli_config_defaults_transport_mode_to_none() {
+        let toml_str = r#"
+[cli]
+name = "test"
+binary = "test-cli"
+"#;
+        let config: TomlConfig = TomlConfig::parse(toml_str).unwrap();
+        assert!(config.cli.transport_mode.is_none());
+        assert!(config.cli.persistent_args.is_empty());
     }
 }

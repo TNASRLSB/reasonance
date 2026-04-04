@@ -10,6 +10,8 @@ permission_args = ["--dangerously-skip-permissions"]
 allowed_tools_arg = "--allowedTools"
 read_only_tools = ["Read", "Grep", "Glob", "WebSearch", "WebFetch"]
 image_mode = "stdin-json"
+transport_mode = "persistent"
+persistent_args = ["--output-format", "stream-json", "--verbose", "--input-format", "stream-json"]
 
 [capabilities]
 streaming = true
