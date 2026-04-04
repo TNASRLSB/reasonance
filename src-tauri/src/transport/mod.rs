@@ -42,6 +42,8 @@ pub struct StructuredAgentTransport {
     /// `set_event_bus` can be called through `&self` (Tauri `State`
     /// only provides shared refs).
     event_bus: Mutex<Option<Arc<crate::event_bus::EventBus>>>,
+    /// Persistent CLI sessions keyed by Reasonance session ID.
+    persistent_sessions: Arc<Mutex<HashMap<String, persistent::PersistentSession>>>,
 }
 
 impl StructuredAgentTransport {
@@ -55,6 +57,7 @@ impl StructuredAgentTransport {
             retry_policies: Arc::new(Mutex::new(HashMap::new())),
             circuit_breaker: Arc::new(CircuitBreaker::new()),
             event_bus: Mutex::new(None),
+            persistent_sessions: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
@@ -89,6 +92,7 @@ impl StructuredAgentTransport {
             retry_policies: Arc::new(Mutex::new(retry_policies)),
             circuit_breaker,
             event_bus: Mutex::new(None),
+            persistent_sessions: Arc::new(Mutex::new(HashMap::new())),
         })
     }
 
@@ -242,6 +246,8 @@ impl StructuredAgentTransport {
         };
         let rules = config.to_rules();
         let session_id_path = config.session_id_path().map(|s| s.to_string());
+        let transport_mode = config.cli.transport_mode.clone();
+        let persistent_cli_args = config.cli.persistent_args.clone();
         let image_mode = config.cli.image_mode.clone();
         let image_arg = config.cli.image_arg.clone();
         let image_args_template = config.cli.image_args_template.clone();
@@ -279,6 +285,171 @@ impl StructuredAgentTransport {
         };
         // Shared Arc for stream reader to capture CLI session ID
         let cli_sid_arc = Arc::new(Mutex::new(cli_session_id_arc));
+
+        // ── Persistent session path ──────────────────────────────
+        if transport_mode.as_deref() == Some("persistent") {
+            // Check for existing persistent session — write message to its stdin
+            {
+                let persistent = self
+                    .persistent_sessions
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner());
+                if let Some(session) = persistent.get(&session_id) {
+                    info!(
+                        "Transport[persistent]: reusing session={} for provider={}",
+                        session_id, session.provider
+                    );
+                    let stdin_ref = session.clone_stdin();
+                    let prompt = request.prompt.clone();
+                    let images = request.images.clone();
+                    drop(persistent);
+                    tokio::spawn(async move {
+                        if let Err(e) =
+                            persistent::PersistentSession::write_to(&stdin_ref, &prompt, &images)
+                                .await
+                        {
+                            log::error!("Transport[persistent]: write failed: {}", e);
+                        }
+                    });
+                    return Ok(session_id);
+                }
+            }
+
+            // No existing session — spawn new persistent CLI process
+            info!(
+                "Transport[persistent]: spawning new {} for session={}",
+                binary, session_id
+            );
+
+            let mut cli_args = persistent_cli_args;
+            cli_args.extend(permission_args.iter().cloned());
+            cli_args.extend(allowed_tools_args.iter().cloned());
+
+            let mut cmd = Command::new(&binary);
+            cmd.args(&cli_args);
+            cmd.stdin(Stdio::piped());
+            cmd.stdout(Stdio::piped());
+            cmd.stderr(Stdio::piped());
+            if let Some(ref cwd) = request.cwd {
+                if !cwd.is_empty() {
+                    cmd.current_dir(cwd);
+                }
+            }
+
+            match cmd.spawn() {
+                Ok(mut child) => {
+                    if let Some(pid) = child.id() {
+                        info!("Transport[persistent]: child pid={}", pid);
+                    }
+
+                    let stdin = child.stdin.take().expect("stdin must be piped");
+                    let psession = persistent::PersistentSession::new(stdin, provider.clone());
+
+                    // Build normalizer pipeline
+                    let sm: Box<dyn crate::normalizer::state_machines::StateMachine> =
+                        match provider.as_str() {
+                            "claude" => Box::new(
+                                crate::normalizer::state_machines::claude::ClaudeStateMachine::new(),
+                            ),
+                            "gemini" => Box::new(
+                                crate::normalizer::state_machines::gemini::GeminiStateMachine::new(),
+                            ),
+                            _ => Box::new(
+                                crate::normalizer::state_machines::generic::GenericStateMachine::new(),
+                            ),
+                        };
+                    let pl = Arc::new(Mutex::new(
+                        crate::normalizer::pipeline::NormalizerPipeline::new(
+                            rules.clone(),
+                            sm,
+                            provider.clone(),
+                        ),
+                    ));
+
+                    // Start stream reader on stdout (runs for entire session lifetime)
+                    if let Some(stdout) = child.stdout.take() {
+                        let bus = self
+                            .event_bus
+                            .lock()
+                            .unwrap_or_else(|e| e.into_inner())
+                            .clone()
+                            .expect("EventBus must be set");
+                        let sid_clone = session_id.clone();
+                        spawn_stream_reader(
+                            stdout,
+                            pl,
+                            bus,
+                            sid_clone,
+                            session_id_path.clone(),
+                            cli_sid_arc.clone(),
+                            None,
+                        );
+                    }
+
+                    // Write the first message
+                    let stdin_ref = psession.clone_stdin();
+                    let prompt = request.prompt.clone();
+                    let images = request.images.clone();
+                    tokio::spawn(async move {
+                        if let Err(e) =
+                            persistent::PersistentSession::write_to(&stdin_ref, &prompt, &images)
+                                .await
+                        {
+                            log::error!("Transport[persistent]: first write failed: {}", e);
+                        }
+                    });
+
+                    // Store the persistent session
+                    self.persistent_sessions
+                        .lock()
+                        .unwrap_or_else(|e| e.into_inner())
+                        .insert(session_id.clone(), psession);
+
+                    // Wait for child exit in background (cleanup on crash)
+                    let persistent_sessions_ref = self.persistent_sessions.clone();
+                    let sid_cleanup = session_id.clone();
+                    tokio::spawn(async move {
+                        let status = child.wait().await;
+                        info!(
+                            "Transport[persistent]: process exited for session={}: {:?}",
+                            sid_cleanup, status
+                        );
+                        persistent_sessions_ref
+                            .lock()
+                            .unwrap_or_else(|e| e.into_inner())
+                            .remove(&sid_cleanup);
+                    });
+                }
+                Err(e) => {
+                    error!("Transport[persistent]: spawn failed: {}", e);
+                    let err_event = AgentEvent::error(
+                        &format!("Failed to start {}: {}", binary, e),
+                        "PERSISTENT_SPAWN_ERROR",
+                        ErrorSeverity::Fatal,
+                        &provider,
+                    );
+                    if let Some(bus) = self
+                        .event_bus
+                        .lock()
+                        .unwrap_or_else(|e| e.into_inner())
+                        .as_ref()
+                    {
+                        bus.publish(crate::event_bus::Event::from_agent_event(
+                            "transport:error",
+                            &session_id,
+                            &err_event,
+                        ));
+                        let done = AgentEvent::done(&session_id, &provider);
+                        bus.publish(crate::event_bus::Event::from_agent_event(
+                            "transport:complete",
+                            &session_id,
+                            &done,
+                        ));
+                    }
+                }
+            }
+            return Ok(session_id);
+        }
 
         // ── Image routing ─────────────────────────────────────
         if !request.images.is_empty() {
@@ -870,6 +1041,23 @@ impl StructuredAgentTransport {
 
     pub fn stop(&self, session_id: &str) -> Result<(), crate::error::ReasonanceError> {
         info!("Transport: stopping session={}", session_id);
+
+        // Close persistent session if one exists
+        if let Some(psession) = self
+            .persistent_sessions
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .remove(session_id)
+        {
+            info!("Transport: closing persistent session={}", session_id);
+            let stdin_ref = psession.clone_stdin();
+            tokio::spawn(async move {
+                use tokio::io::AsyncWriteExt;
+                let mut s = stdin_ref.lock().await;
+                let _ = s.shutdown().await;
+            });
+        }
+
         let session_arc = {
             let sessions = self.sessions.lock().unwrap_or_else(|e| e.into_inner());
             sessions.get(session_id).ok_or_else(|| {
