@@ -363,6 +363,11 @@ impl StructuredAgentTransport {
                             if let Some(pid) = child.id() {
                                 info!("Transport[stdin-json]: child pid={}", pid);
                             }
+                            info!(
+                                "Transport[stdin-json]: content_blocks={}, total_stdin_bytes={}",
+                                content_blocks.len(),
+                                msg_str.len()
+                            );
                             let msg_bytes = msg_str.into_bytes();
                             tokio::spawn(async move {
                                 if let Some(mut stdin) = stdin_opt {
