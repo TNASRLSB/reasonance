@@ -1,5 +1,145 @@
 # Changelog
 
+## [3.1.0] - 2026-04-04
+
+### Features
+
+- feat(chat): wire image attachments through ChatView to provider API
+- feat(chat): add image paste, drop, and picker to ChatInput
+- feat(adapter): add ImageAttachment type, extend agentSend signature
+- feat(normalizer): configure image_mode for all providers
+- feat(transport): route image messages to direct-api or cli-flag path
+- feat(transport): add direct_api module for multimodal image messages
+- feat(normalizer): add image_mode and image_arg to CliConfig
+- feat(transport): add ImageAttachment type to AgentRequest
+
+### Bug Fixes
+
+- fix(transport): write CLI session ID back to session in stdin-json path
+- fix(transport): use correct VS Code stream-json format for images
+- fix(transport): register session before image routing for continuity
+- fix(chat): use navigator.clipboard.read() for image paste
+- fix(transport): use -p stdin with JSON content blocks for Claude images
+- fix(transport): keep stdin open for stdin-json mode
+- fix(chat): fix paste, drag-drop, and image auth for Claude
+
+### Other
+
+- session ID in the AgentSession. Follow-up messages couldn't use
+- --resume because the session had no cli_session_id. Now the captured
+- ID is written back after the process exits, enabling proper session
+- continuity for multi-turn image conversations.
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- uses: {"type":"user","message":{"role":"user","content":[...]}}.
+- Combined with --input-format stream-json, this enables the CLI to
+- properly process multimodal content blocks including images.
+- The previous raw JSON array format worked but produced degraded
+- vision quality. The correct format enables full text reading from
+- screenshots.
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- causing follow-up messages to create new sessions without conversation
+- history. Now session is registered and cli_session_id Arc is shared
+- before the image routing block, so follow-up text messages properly
+- resume the CLI session with full context (including previous images).
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- debug(transport): log stdin-json content block count and byte size
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- get corrupted during Canvas conversion on WebKitGTK. Use the modern
+- Clipboard API (navigator.clipboard.read()) which returns the original
+- PNG/JPEG blob directly. Falls back to Tauri plugin only as last resort.
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- Instead, use -p without a prompt argument — the CLI reads from stdin.
+- Send the multimodal content as a JSON array of content blocks (same
+- format as the Anthropic API). The CLI detects this and passes it to
+- the API with the user's OAuth auth. Close stdin after write (EOF).
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- before it finishes processing. Keep the handle alive until the child
+- process exits naturally.
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+-   clipboard API doesn't work for images on Linux/WebKit)
+- - Drag-drop: add stopPropagation to prevent events bubbling to the
+-   project sidebar handler
+- - Claude images: switch from direct-api (requires ANTHROPIC_API_KEY)
+-   to stdin-json mode (pipes user_message with image content blocks
+-   to CLI stdin, uses CLI's own OAuth/keychain auth)
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- - handleSend accepts ImageAttachment[], maps them into user event metadata, and passes them to adapter.agentSend
+- - ChatMessages renders attached images as thumbnails above text content for user messages
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- 
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- that calls provider REST APIs directly with base64-encoded image content.
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- how it handles image attachments: image_mode (direct-api / cli-flag / none)
+- and image_arg (the CLI flag used when image_mode = "cli-flag").
+- 
+- Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- docs: add chat image attachments implementation plan (9 tasks)
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- docs: add chat image attachments design spec
+- providers (Anthropic/Google/OpenAI), CLI flag path for Codex, WCAG AA
+- accessibility, and full data flow from frontend to provider API.
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+
+
+
 ## [3.0.4] - 2026-04-04
 
 ### Bug Fixes
