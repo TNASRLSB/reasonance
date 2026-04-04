@@ -60,6 +60,15 @@ pub struct CliConfig {
     /// Tool names allowed in read-only workspace mode (e.g. ["Read", "Grep", "Glob"]).
     #[serde(default)]
     pub read_only_tools: Vec<String>,
+    /// How this provider handles image attachments:
+    /// "direct-api" = call provider REST API directly
+    /// "cli-flag" = save to temp file, pass via image_arg
+    /// "none" or absent = images not supported
+    #[serde(default)]
+    pub image_mode: Option<String>,
+    /// CLI flag for passing image file paths (e.g. "--image"). Only used when image_mode = "cli-flag".
+    #[serde(default)]
+    pub image_arg: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -420,5 +429,31 @@ model_path = "message.model"
     fn test_session_id_path_missing() {
         let config = TomlConfig::parse(sample_toml()).unwrap();
         assert_eq!(config.session_id_path(), None);
+    }
+
+    #[test]
+    fn cli_config_parses_image_mode() {
+        let toml_str = r#"
+[cli]
+name = "test"
+binary = "test-cli"
+image_mode = "direct-api"
+image_arg = "--image"
+"#;
+        let config: TomlConfig = TomlConfig::parse(toml_str).unwrap();
+        assert_eq!(config.cli.image_mode.as_deref(), Some("direct-api"));
+        assert_eq!(config.cli.image_arg.as_deref(), Some("--image"));
+    }
+
+    #[test]
+    fn cli_config_defaults_image_mode_to_none() {
+        let toml_str = r#"
+[cli]
+name = "test"
+binary = "test-cli"
+"#;
+        let config: TomlConfig = TomlConfig::parse(toml_str).unwrap();
+        assert!(config.cli.image_mode.is_none());
+        assert!(config.cli.image_arg.is_none());
     }
 }
