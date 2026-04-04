@@ -48,6 +48,7 @@ thiserror = "2"
 async-trait = "0.1"
 futures = "0.3"
 rusqlite = { version = "0.32", features = ["bundled"] }
+base64 = "0.22"
 
 [features]
 mcp-debug = ["dep:tauri-plugin-taurimcp"]

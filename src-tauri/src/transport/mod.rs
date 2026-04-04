@@ -241,7 +241,123 @@ impl StructuredAgentTransport {
         };
         let rules = config.to_rules();
         let session_id_path = config.session_id_path().map(|s| s.to_string());
+        let image_mode = config.cli.image_mode.clone();
+        let image_arg = config.cli.image_arg.clone();
+        let api_key_env_img = config.cli.api_key_env.clone();
         drop(registry);
+
+        // ── Image routing ─────────────────────────────────────
+        if !request.images.is_empty() {
+            let img_mode = image_mode.as_deref().unwrap_or("none");
+            info!(
+                "Transport: image_mode={} for provider={} ({} images)",
+                img_mode,
+                provider,
+                request.images.len()
+            );
+
+            match img_mode {
+                "direct-api" => {
+                    let api_key_env = api_key_env_img.clone().unwrap_or_default();
+                    let model = request.model.clone().unwrap_or_default();
+                    let prompt = request.prompt.clone();
+                    let images = request.images.clone();
+                    let prov = provider.clone();
+                    let sid = session_id.clone();
+                    let bus_opt = self
+                        .event_bus
+                        .lock()
+                        .unwrap_or_else(|e| e.into_inner())
+                        .clone();
+
+                    if let Some(bus) = bus_opt {
+                        tokio::spawn(async move {
+                            match direct_api::send_image_via_api(
+                                &prov,
+                                &model,
+                                &prompt,
+                                &images,
+                                &api_key_env,
+                            )
+                            .await
+                            {
+                                Ok(events) => {
+                                    for event in &events {
+                                        bus.publish(crate::event_bus::Event::from_agent_event(
+                                            "transport:event",
+                                            &sid,
+                                            event,
+                                        ));
+                                    }
+                                    let done = crate::agent_event::AgentEvent::done(&sid, &prov);
+                                    bus.publish(crate::event_bus::Event::from_agent_event(
+                                        "transport:complete",
+                                        &sid,
+                                        &done,
+                                    ));
+                                }
+                                Err(e) => {
+                                    error!("Transport: direct API failed for {}: {}", prov, e);
+                                    let err_event = AgentEvent::error(
+                                        &e.to_string(),
+                                        "DIRECT_API_ERROR",
+                                        ErrorSeverity::Fatal,
+                                        &prov,
+                                    );
+                                    bus.publish(crate::event_bus::Event::from_agent_event(
+                                        "transport:error",
+                                        &sid,
+                                        &err_event,
+                                    ));
+                                    let done = AgentEvent::done(&sid, &prov);
+                                    bus.publish(crate::event_bus::Event::from_agent_event(
+                                        "transport:complete",
+                                        &sid,
+                                        &done,
+                                    ));
+                                }
+                            }
+                        });
+                    }
+                    return Ok(session_id);
+                }
+                "cli-flag" => {
+                    // Images will be appended as CLI args below in the spawn loop.
+                    // No early return — fall through to CLI spawn.
+                }
+                _ => {
+                    // "none" or unknown — unsupported
+                    let err_event = AgentEvent::error(
+                        &format!(
+                            "Image attachments are not supported for provider '{}'",
+                            provider
+                        ),
+                        "IMAGE_UNSUPPORTED",
+                        ErrorSeverity::Recoverable,
+                        &provider,
+                    );
+                    if let Some(bus) = self
+                        .event_bus
+                        .lock()
+                        .unwrap_or_else(|e| e.into_inner())
+                        .as_ref()
+                    {
+                        bus.publish(crate::event_bus::Event::from_agent_event(
+                            "transport:error",
+                            &session_id,
+                            &err_event,
+                        ));
+                        let done = AgentEvent::done(&session_id, &provider);
+                        bus.publish(crate::event_bus::Event::from_agent_event(
+                            "transport:complete",
+                            &session_id,
+                            &done,
+                        ));
+                    }
+                    return Ok(session_id);
+                }
+            }
+        }
 
         let state_machine: Box<dyn crate::normalizer::state_machines::StateMachine> = match provider
             .as_str()
@@ -337,6 +453,14 @@ impl StructuredAgentTransport {
             cmd.args(&permission_args);
             // Append allowed tools args (e.g. --allowedTools Read,Edit)
             cmd.args(&allowed_tools_args);
+            // Append image file args if cli-flag mode
+            if !request.images.is_empty() {
+                if let Some(ref img_arg) = image_arg {
+                    let image_args = Self::build_image_args(img_arg, &request.images, "/tmp");
+                    cmd.args(&image_args);
+                    info!("Transport: appended {} image CLI args", image_args.len());
+                }
+            }
             cmd.stdin(Stdio::null());
             cmd.stdout(Stdio::piped());
             cmd.stderr(Stdio::piped());
@@ -807,6 +931,36 @@ impl StructuredAgentTransport {
         }
     }
 
+    /// Decode base64 image data, write to temp files, and return CLI flag + path pairs.
+    pub fn build_image_args(
+        image_arg: &str,
+        images: &[request::ImageAttachment],
+        temp_dir: &str,
+    ) -> Vec<String> {
+        use base64::Engine;
+        let mut args = Vec::new();
+        for img in images {
+            let ext = match img.mime_type.as_str() {
+                "image/jpeg" => "jpg",
+                "image/gif" => "gif",
+                "image/webp" => "webp",
+                _ => "png",
+            };
+            let filename = format!("{}/{}.{}", temp_dir, uuid::Uuid::new_v4(), ext);
+            if let Ok(bytes) = base64::engine::general_purpose::STANDARD.decode(&img.data) {
+                if std::fs::write(&filename, &bytes).is_ok() {
+                    args.push(image_arg.to_string());
+                    args.push(filename);
+                } else {
+                    warn!("Transport: failed to write temp image file {}", filename);
+                }
+            } else {
+                warn!("Transport: failed to decode base64 image {}", img.name);
+            }
+        }
+        args
+    }
+
     /// Build CLI args. `cli_session_id` is the session ID returned by the CLI
     /// (e.g., from a previous invocation), NOT the internal Reasonance session ID.
     /// Only when a real CLI session ID is provided do we use `resume_args`.
@@ -1192,5 +1346,38 @@ mod tests {
         let tools_str = &args[1];
         assert!(tools_str.contains("Read"));
         assert!(tools_str.contains("Grep"));
+    }
+
+    #[test]
+    fn build_image_cli_args_appends_flag_per_image() {
+        use base64::Engine;
+        let png_data = base64::engine::general_purpose::STANDARD.encode(b"\x89PNG fake png bytes");
+        let jpg_data =
+            base64::engine::general_purpose::STANDARD.encode(b"\xFF\xD8\xFF fake jpg bytes");
+        let images = vec![
+            request::ImageAttachment {
+                data: png_data,
+                mime_type: "image/png".to_string(),
+                name: "a.png".to_string(),
+            },
+            request::ImageAttachment {
+                data: jpg_data,
+                mime_type: "image/jpeg".to_string(),
+                name: "b.jpg".to_string(),
+            },
+        ];
+        let dir = std::env::temp_dir().to_string_lossy().to_string();
+        let args = StructuredAgentTransport::build_image_args("--image", &images, &dir);
+        assert_eq!(args.len(), 4);
+        assert_eq!(args[0], "--image");
+        assert!(args[1].ends_with(".png"));
+        assert_eq!(args[2], "--image");
+        assert!(args[3].ends_with(".jpg"));
+        // Verify files were actually created
+        assert!(std::path::Path::new(&args[1]).exists());
+        assert!(std::path::Path::new(&args[3]).exists());
+        // Cleanup
+        let _ = std::fs::remove_file(&args[1]);
+        let _ = std::fs::remove_file(&args[3]);
     }
 }
