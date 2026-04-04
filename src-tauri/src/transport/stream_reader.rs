@@ -100,6 +100,23 @@ pub fn spawn_stream_reader(
                             event,
                         ));
                     }
+
+                    // If any event was Usage (from a type:"result" line), emit Done.
+                    // This signals "response complete" for persistent sessions
+                    // where stdout doesn't close between messages.
+                    let has_usage = events
+                        .iter()
+                        .any(|e| e.event_type == crate::agent_event::AgentEventType::Usage);
+                    if has_usage {
+                        let done = crate::agent_event::AgentEvent::done(&session_id, "system");
+                        events_count += 1;
+                        log::debug!("StreamReader[{}]: emitting Done (after Usage)", session_id);
+                        event_bus.publish(crate::event_bus::Event::from_agent_event(
+                            "transport:complete",
+                            &session_id,
+                            &done,
+                        ));
+                    }
                 }
                 Ok(Ok(None)) => {
                     // Emit a synthetic done event when the CLI process closes stdout
