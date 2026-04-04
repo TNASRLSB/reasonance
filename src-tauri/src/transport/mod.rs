@@ -405,6 +405,9 @@ impl StructuredAgentTransport {
                                 msg_str.len()
                             );
                             let msg_bytes = msg_str.into_bytes();
+                            let cli_sid_for_writeback = cli_sid_arc.clone();
+                            let sessions_ref = self.sessions.clone();
+                            let sid_for_writeback = session_id.clone();
                             tokio::spawn(async move {
                                 if let Some(mut stdin) = stdin_opt {
                                     use tokio::io::AsyncWriteExt;
@@ -414,6 +417,27 @@ impl StructuredAgentTransport {
                                     drop(stdin); // EOF — CLI processes the message
                                 }
                                 let _ = child.wait().await;
+
+                                // Write captured CLI session ID back to the session
+                                // so follow-up messages can use --resume
+                                let captured = cli_sid_for_writeback
+                                    .lock()
+                                    .unwrap_or_else(|e| e.into_inner())
+                                    .clone();
+                                if let Some(ref cli_sid) = captured {
+                                    let sessions =
+                                        sessions_ref.lock().unwrap_or_else(|e| e.into_inner());
+                                    if let Some(session_arc) = sessions.get(&sid_for_writeback) {
+                                        let mut sess =
+                                            session_arc.lock().unwrap_or_else(|e| e.into_inner());
+                                        sess.set_cli_session_id(cli_sid.clone());
+                                        log::info!(
+                                            "Transport[stdin-json]: stored CLI session ID={} for session={}",
+                                            cli_sid,
+                                            sid_for_writeback
+                                        );
+                                    }
+                                }
                             });
                         }
                         Err(e) => {
