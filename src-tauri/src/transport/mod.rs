@@ -1,4 +1,5 @@
 pub mod direct_api;
+pub mod persistent;
 pub mod request;
 pub mod retry;
 pub mod session;
