@@ -3,6 +3,13 @@
   import SlashMenu from './SlashMenu.svelte';
   import type { SlashCommand } from '$lib/stores/config';
   import { defaultSlashCommands } from '$lib/data/slash-commands';
+  import type { ImageAttachment } from '$lib/adapter/index';
+  import { showToast } from '$lib/stores/toast';
+  import { appAnnouncer } from '$lib/utils/a11y-announcer';
+
+  const MAX_IMAGES = 5;
+  const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5MB
+  const SUPPORTED_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
 
   let {
     onSend,
@@ -18,7 +25,7 @@
     permissionLevel = 'ask',
     onPermissionChange = (_level: 'yolo' | 'ask' | 'locked') => {},
   }: {
-    onSend: (text: string) => void;
+    onSend: (text: string, images?: ImageAttachment[]) => void;
     disabled?: boolean;
     contextPercent?: number | null;
     resetTimer?: string | null;
@@ -35,6 +42,12 @@
   let text = $state('');
   let sending = $state(false);
   let sendTimer: ReturnType<typeof setTimeout> | null = null;
+
+  type AttachedImage = ImageAttachment & { id: string; size: number };
+  const emptyImages: AttachedImage[] = [];
+  let attachedImages = $state(emptyImages);
+  let dragOver = $state(false);
+  let fileInput: HTMLInputElement;
 
   let showSlashMenu = $derived(text.startsWith('/') && text.indexOf(' ') === -1);
   let slashFilter = $derived(text.startsWith('/') ? text.slice(1) : '');
@@ -79,14 +92,108 @@
     }
   }
 
+  function readFileAsAttachment(file: File): Promise<ImageAttachment & { id: string; size: number }> {
+    return new Promise((resolve, reject) => {
+      if (!SUPPORTED_TYPES.includes(file.type)) {
+        reject(new Error(`Unsupported format: ${file.type}`));
+        return;
+      }
+      if (file.size > MAX_IMAGE_BYTES) {
+        reject(new Error('Image exceeds 5MB limit'));
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result as string;
+        const base64 = dataUrl.split(',')[1] ?? '';
+        resolve({
+          id: crypto.randomUUID(),
+          data: base64,
+          mimeType: file.type,
+          name: file.name || 'image',
+          size: file.size,
+        });
+      };
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function addImageFiles(files: File[]) {
+    for (const file of files) {
+      if (attachedImages.length >= MAX_IMAGES) {
+        showToast('warning', `Maximum ${MAX_IMAGES} images per message`);
+        break;
+      }
+      try {
+        const attachment = await readFileAsAttachment(file);
+        attachedImages = [...attachedImages, attachment];
+        appAnnouncer.announce(`Image attached: ${attachment.name}`);
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : 'Failed to read image';
+        showToast('error', msg);
+      }
+    }
+  }
+
+  function removeImage(id: string) {
+    const removed = attachedImages.find(img => img.id === id);
+    attachedImages = attachedImages.filter(img => img.id !== id);
+    if (removed) {
+      appAnnouncer.announce(`Image removed: ${removed.name}`);
+    }
+  }
+
+  function handlePaste(e: ClipboardEvent) {
+    const items = Array.from(e.clipboardData?.items ?? []);
+    const imageFiles = items
+      .filter(item => item.kind === 'file' && item.type.startsWith('image/'))
+      .map(item => item.getAsFile())
+      .filter((f): f is File => f !== null);
+    if (imageFiles.length > 0) {
+      e.preventDefault();
+      addImageFiles(imageFiles);
+    }
+  }
+
+  function handleDragOver(e: DragEvent) {
+    if (!e.dataTransfer) return;
+    const hasImage = Array.from(e.dataTransfer.items).some(
+      item => item.kind === 'file' && item.type.startsWith('image/')
+    );
+    if (!hasImage) return;
+    e.preventDefault();
+    dragOver = true;
+  }
+
+  function handleDragLeave() { dragOver = false; }
+
+  function handleDrop(e: DragEvent) {
+    e.preventDefault();
+    dragOver = false;
+    const files = Array.from(e.dataTransfer?.files ?? []).filter(f => f.type.startsWith('image/'));
+    if (files.length > 0) addImageFiles(files);
+  }
+
+  function handleFilePick(e: Event) {
+    const input = e.target as HTMLInputElement;
+    const files = Array.from(input.files ?? []);
+    if (files.length > 0) addImageFiles(files);
+    input.value = '';
+  }
+
   function handleSubmit() {
     const trimmed = text.trim();
-    if (!trimmed || disabled || sending) return;
+    if ((!trimmed && attachedImages.length === 0) || disabled || sending) return;
     sending = true;
     if (sendTimer) clearTimeout(sendTimer);
     sendTimer = setTimeout(() => { sending = false; }, 300);
-    onSend(trimmed);
+    const images = attachedImages.length > 0
+      ? attachedImages.map(({ data, mimeType, name }) => ({ data, mimeType, name }))
+      : undefined;
+    onSend(trimmed || '(image)', images);
     text = '';
+    attachedImages = [];
   }
 
   function cyclePermission() {
@@ -143,7 +250,18 @@
   });
 </script>
 
-<div class="chat-input-wrapper" role="region" aria-label="Chat input area">
+<div
+  class="chat-input-wrapper"
+  class:drag-over={dragOver}
+  role="region"
+  aria-label="Chat input area"
+  ondragover={handleDragOver}
+  ondragleave={handleDragLeave}
+  ondrop={handleDrop}
+>
+  {#if dragOver}
+    <div class="drop-overlay" aria-hidden="true">Drop images here</div>
+  {/if}
   {#if showSlashMenu}
     <SlashMenu
       commands={slashFiltered}
@@ -152,10 +270,42 @@
       onClose={() => { text = ''; }}
     />
   {/if}
+  {#if attachedImages.length > 0}
+    <div class="image-strip" role="list" aria-label="Attached images">
+      {#each attachedImages as img (img.id)}
+        <div class="image-thumb" role="listitem" aria-label="{img.name}, {(img.size / 1024).toFixed(0)}KB">
+          <img src="data:{img.mimeType};base64,{img.data}" alt={img.name} width="48" height="48" />
+          <button
+            class="remove-btn"
+            onclick={() => removeImage(img.id)}
+            aria-label="Remove {img.name}"
+          >&times;</button>
+        </div>
+      {/each}
+    </div>
+  {/if}
   <div class="input-row">
+    <button
+      class="attach-btn"
+      onclick={() => fileInput?.click()}
+      disabled={disabled || attachedImages.length >= MAX_IMAGES}
+      aria-label="Attach images"
+      title="Attach images (Ctrl+V to paste)"
+    >&#x1F4CE;</button>
+    <input
+      bind:this={fileInput}
+      type="file"
+      accept="image/png,image/jpeg,image/gif,image/webp"
+      multiple
+      onchange={handleFilePick}
+      class="sr-only"
+      tabindex={-1}
+      aria-hidden="true"
+    />
     <textarea
       bind:value={text}
       onkeydown={handleKeydown}
+      onpaste={handlePaste}
       placeholder={$tr('chat.placeholder')}
       rows="1"
       {disabled}
@@ -169,7 +319,7 @@
     <button
       class="send-btn"
       onclick={handleSubmit}
-      disabled={disabled || sending || !text.trim()}
+      disabled={disabled || sending || (!text.trim() && attachedImages.length === 0)}
       aria-label="Send message"
       aria-busy={sending}
     >
@@ -230,6 +380,7 @@
 
 <style>
   .chat-input-wrapper {
+    position: relative;
     display: flex;
     flex-direction: column;
     padding: var(--space-2) var(--space-4) var(--space-1);
@@ -237,6 +388,111 @@
     background: var(--bg-surface);
     flex-shrink: 0;
     gap: var(--interactive-gap);
+  }
+
+  .chat-input-wrapper.drag-over {
+    outline: 2px dashed var(--accent);
+    outline-offset: -2px;
+  }
+
+  .drop-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(124, 106, 247, 0.12);
+    font-weight: 600;
+    color: var(--accent);
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  .image-strip {
+    display: flex;
+    gap: var(--space-1);
+    padding: 0 var(--space-1);
+    overflow-x: auto;
+    max-height: 60px;
+  }
+
+  .image-thumb {
+    position: relative;
+    flex-shrink: 0;
+    width: 48px;
+    height: 48px;
+    border: var(--border-width) solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  .image-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .remove-btn {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: var(--text-error, #e55);
+    color: white;
+    font-size: 12px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .remove-btn:focus-visible {
+    outline: 2px solid var(--focus-ring, var(--accent));
+    outline-offset: 1px;
+  }
+
+  .attach-btn {
+    background: transparent;
+    border: var(--border-width) solid var(--border);
+    border-radius: var(--radius);
+    padding: var(--space-1);
+    cursor: pointer;
+    font-size: var(--font-size-base);
+    color: var(--text-muted);
+    align-self: flex-end;
+    min-height: 2.75rem;
+    min-width: 2.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color var(--transition-fast), border-color var(--transition-fast);
+  }
+
+  .attach-btn:hover:not(:disabled) {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+
+  .attach-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
   }
 
   .input-row {
