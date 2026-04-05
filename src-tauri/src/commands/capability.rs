@@ -99,7 +99,13 @@ pub fn get_all_health_reports(
 
 #[derive(Serialize)]
 pub struct NormalizerConfigResponse {
+    pub binary: String,
+    pub programmatic_args: Vec<String>,
+    pub resume_args: Vec<String>,
     pub permission_args: Vec<String>,
+    pub image_mode: Option<String>,
+    pub transport_mode: Option<String>,
+    pub rules_count: usize,
 }
 
 #[tauri::command]
@@ -113,6 +119,12 @@ pub fn get_normalizer_config(
     registry
         .get_config(&provider)
         .map(|config| NormalizerConfigResponse {
+            binary: config.cli.binary.clone(),
+            programmatic_args: config.cli.programmatic_args.clone(),
+            resume_args: config.cli.resume_args.clone(),
             permission_args: config.cli.permission_args.clone(),
+            image_mode: config.cli.image_mode.clone(),
+            transport_mode: config.cli.transport_mode.clone(),
+            rules_count: config.rules.len(),
         })
 }

@@ -1,2 +1,5 @@
-{"jsonrpc":"2.0","method":"ItemCompletedNotification","params":{"item":{"type":"commandExecution","command":"ls -la","output":"total 0\ndrwx","id":"cmd-1"}}}
-{"jsonrpc":"2.0","method":"TurnCompletedNotification","params":{}}
+{"type":"thread.started","thread_id":"test-thread-3"}
+{"type":"turn.started"}
+{"type":"item.started","item":{"id":"item_0","type":"command_execution","command":"ls -la","aggregated_output":"","exit_code":null,"status":"in_progress"}}
+{"type":"item.completed","item":{"id":"item_0","type":"command_execution","command":"ls -la","aggregated_output":"total 0\ndrwx","exit_code":0,"status":"completed"}}
+{"type":"turn.completed","usage":{"input_tokens":15,"output_tokens":10,"cached_input_tokens":0}}

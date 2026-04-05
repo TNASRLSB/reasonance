@@ -1,5 +1,5 @@
 [
-  {"event_type": "text"},
   {"event_type": "thinking", "content_contains": "Step by step"},
-  {"event_type": "done"}
+  {"event_type": "text", "content_contains": "answer"},
+  {"event_type": "usage", "has_input_tokens": true}
 ]

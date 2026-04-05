@@ -418,15 +418,15 @@ mod tests {
     }
 
     // ════════════════════════════════════════════════════════════
-    //  CODEX — JSON-RPC style: method + params
+    //  CODEX — type-based JSONL (exec --json, v0.118.0+)
     // ════════════════════════════════════════════════════════════
 
     #[tokio::test]
     async fn test_codex_full_session() {
         let events = run_session("codex", &[
-            r#"{"method":"AgentMessageDeltaNotification","params":{"delta":"Ciao da Codex!"}}"#,
-            r#"{"method":"ThreadTokenUsageUpdatedNotification","params":{"usage":{"input_tokens":12,"output_tokens":20,"cachedInputTokens":50}}}"#,
-            r#"{"method":"TurnCompletedNotification","params":{}}"#,
+            r#"{"type":"thread.started","thread_id":"t1"}"#,
+            r#"{"type":"item.completed","item":{"id":"item_0","type":"agent_message","text":"Ciao da Codex!"}}"#,
+            r#"{"type":"turn.completed","usage":{"input_tokens":12,"output_tokens":20,"cached_input_tokens":50}}"#,
         ], "codex-sess").await;
 
         assert_has_text(&events, "Ciao da Codex", "codex");
@@ -435,7 +435,6 @@ mod tests {
             1,
             "codex: expected 1 usage"
         );
-        // Explicit done (TurnCompleted) + synthetic done (stream close)
         assert!(
             count_type(&events, AgentEventType::Done) >= 1,
             "codex: expected done"
@@ -453,9 +452,9 @@ mod tests {
     #[tokio::test]
     async fn test_codex_reasoning() {
         let events = run_session("codex", &[
-            r#"{"method":"ItemCompletedNotification","params":{"item":{"type":"reasoning","content":"I need to think step by step..."}}}"#,
-            r#"{"method":"AgentMessageDeltaNotification","params":{"delta":"The answer is 42."}}"#,
-            r#"{"method":"TurnCompletedNotification","params":{}}"#,
+            r#"{"type":"item.completed","item":{"id":"item_0","type":"reasoning","text":"I need to think step by step..."}}"#,
+            r#"{"type":"item.completed","item":{"id":"item_1","type":"agent_message","text":"The answer is 42."}}"#,
+            r#"{"type":"turn.completed","usage":{"input_tokens":10,"output_tokens":5}}"#,
         ], "codex-reason").await;
 
         assert!(
@@ -468,9 +467,10 @@ mod tests {
     #[tokio::test]
     async fn test_codex_command_execution() {
         let events = run_session("codex", &[
-            r#"{"method":"ItemCompletedNotification","params":{"item":{"type":"commandExecution","command":"ls -la","output":"total 42\ndrwxr-xr-x ...","id":"cmd_1"}}}"#,
-            r#"{"method":"AgentMessageDeltaNotification","params":{"delta":"I listed the files."}}"#,
-            r#"{"method":"TurnCompletedNotification","params":{}}"#,
+            r#"{"type":"item.started","item":{"id":"item_0","type":"command_execution","command":"ls -la","aggregated_output":"","exit_code":null,"status":"in_progress"}}"#,
+            r#"{"type":"item.completed","item":{"id":"item_0","type":"command_execution","command":"ls -la","aggregated_output":"total 42\ndrwxr-xr-x ...","exit_code":0,"status":"completed"}}"#,
+            r#"{"type":"item.completed","item":{"id":"item_1","type":"agent_message","text":"I listed the files."}}"#,
+            r#"{"type":"turn.completed","usage":{"input_tokens":10,"output_tokens":5}}"#,
         ], "codex-cmd").await;
 
         let tools: Vec<_> = events
@@ -486,15 +486,17 @@ mod tests {
 
     #[tokio::test]
     async fn test_codex_error_rate_limit() {
-        let events = run_session("codex", &[
-            r#"{"method":"ErrorNotification","params":{"message":"Too many requests","code":"rate_limit"}}"#,
-        ], "codex-err").await;
+        let events = run_session(
+            "codex",
+            &[r#"{"type":"error","message":"Too many requests"}"#],
+            "codex-err",
+        )
+        .await;
 
         let err = events
             .iter()
             .find(|e| e.event_type == AgentEventType::Error)
             .unwrap();
-        assert_eq!(err.metadata.error_code, Some("rate_limit".to_string()));
         assert_eq!(
             err.metadata.error_severity,
             Some(crate::agent_event::ErrorSeverity::Recoverable)
@@ -503,9 +505,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_codex_error_generic_is_fatal() {
-        let events = run_session("codex", &[
-            r#"{"method":"ErrorNotification","params":{"message":"Unknown error","code":"unknown"}}"#,
-        ], "codex-fatal").await;
+        let events = run_session(
+            "codex",
+            &[r#"{"type":"turn.failed","error":{"message":"Unknown error"}}"#],
+            "codex-fatal",
+        )
+        .await;
 
         let err = events
             .iter()
@@ -624,8 +629,7 @@ mod tests {
             (
                 "codex",
                 vec![
-                    r#"{"method":"AgentMessageDeltaNotification","params":{"delta":"hi"}}"#,
-                    r#"{"method":"TurnCompletedNotification","params":{}}"#,
+                    r#"{"type":"item.completed","item":{"id":"item_0","type":"agent_message","text":"hi"}}"#,
                 ],
             ),
             (

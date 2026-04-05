@@ -459,7 +459,13 @@ export const TrustEntrySchema = z.object({
 });
 
 export const NormalizerConfigSchema = z.object({
+  binary: z.string(),
+  programmatic_args: z.array(z.string()),
+  resume_args: z.array(z.string()),
   permission_args: z.array(z.string()),
+  image_mode: z.string().nullable(),
+  transport_mode: z.string().nullable(),
+  rules_count: z.number(),
 });
 
 // === Session ===

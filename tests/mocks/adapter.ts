@@ -484,7 +484,7 @@ export function createMockAdapter(overrides?: Partial<Adapter>): Adapter {
     listWorkspaceTrust(): Promise<TrustEntry[]> {
       return Promise.resolve([]);
     },
-    getNormalizerConfig(_provider: string): Promise<{ permission_args?: string[] } | null> {
+    getNormalizerConfig(_provider: string) {
       return Promise.resolve(null);
     },
 

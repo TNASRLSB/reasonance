@@ -1,4 +1,5 @@
 [
   {"event_type": "tool_use", "has_tool_name": true},
-  {"event_type": "done"}
+  {"event_type": "tool_result"},
+  {"event_type": "usage", "has_input_tokens": true}
 ]

@@ -1,3 +1,5 @@
-{"jsonrpc":"2.0","method":"AgentMessageDeltaNotification","params":{"delta":"Let me think..."}}
-{"jsonrpc":"2.0","method":"ItemCompletedNotification","params":{"item":{"type":"reasoning","content":"Step by step analysis"}}}
-{"jsonrpc":"2.0","method":"TurnCompletedNotification","params":{}}
+{"type":"thread.started","thread_id":"test-thread-2"}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_0","type":"reasoning","text":"Step by step analysis"}}
+{"type":"item.completed","item":{"id":"item_1","type":"agent_message","text":"The answer is 4"}}
+{"type":"turn.completed","usage":{"input_tokens":20,"output_tokens":15,"cached_input_tokens":0}}

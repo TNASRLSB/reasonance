@@ -529,7 +529,15 @@ export class TauriAdapter implements Adapter {
     return this.enqueue('list_workspace_trust', {});
   }
 
-  async getNormalizerConfig(provider: string): Promise<{ permission_args?: string[] } | null> {
+  async getNormalizerConfig(provider: string): Promise<{
+    binary: string;
+    programmatic_args: string[];
+    resume_args: string[];
+    permission_args: string[];
+    image_mode: string | null;
+    transport_mode: string | null;
+    rules_count: number;
+  } | null> {
     return this.enqueue('get_normalizer_config', { provider });
   }
 

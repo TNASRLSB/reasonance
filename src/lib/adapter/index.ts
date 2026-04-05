@@ -158,7 +158,15 @@ export interface Adapter {
   setWorkspaceTrust(path: string, level: TrustLevel): Promise<void>;
   revokeWorkspaceTrust(hash: string): Promise<void>;
   listWorkspaceTrust(): Promise<TrustEntry[]>;
-  getNormalizerConfig(provider: string): Promise<{ permission_args?: string[] } | null>;
+  getNormalizerConfig(provider: string): Promise<{
+    binary: string;
+    programmatic_args: string[];
+    resume_args: string[];
+    permission_args: string[];
+    image_mode: string | null;
+    transport_mode: string | null;
+    rules_count: number;
+  } | null>;
 
   // --- App State Persistence ---
   getAppState(): Promise<AppState>;

@@ -250,7 +250,7 @@ impl StructuredAgentTransport {
         let persistent_cli_args = config.cli.persistent_args.clone();
         let image_mode = config.cli.image_mode.clone();
         let image_arg = config.cli.image_arg.clone();
-        let image_args_template = config.cli.image_args_template.clone();
+        let _image_args_template = config.cli.image_args_template.clone();
         let api_key_env_img = config.cli.api_key_env.clone();
         drop(registry);
 

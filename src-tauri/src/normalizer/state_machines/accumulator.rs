@@ -3,10 +3,12 @@ use std::time::{Duration, Instant};
 
 // ─── TextAccumulator ─────────────────────────────────────────────────────────
 
+#[allow(dead_code)]
 pub struct TextAccumulator {
     buffer: String,
 }
 
+#[allow(dead_code)]
 impl TextAccumulator {
     pub fn new() -> Self {
         Self {

@@ -6,7 +6,7 @@ resume_args = ["--resume", "latest", "-p", "{prompt}", "--output-format", "strea
 version_command = ["gemini", "--version"]
 update_command = ["gemini", "update"]
 api_key_env = "GEMINI_API_KEY"
-permission_args = ["--sandbox=none"]
+permission_args = ["--yolo"]
 read_only_tools = ["Read", "Grep", "Glob"]
 image_mode = "direct-api"
 

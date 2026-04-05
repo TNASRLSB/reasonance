@@ -1,3 +1,4 @@
 [
-  {"event_type": "error", "severity": "recoverable", "error_code": "rate_limit"}
+  {"event_type": "error", "severity": "recoverable"},
+  {"event_type": "error", "severity": "fatal"}
 ]

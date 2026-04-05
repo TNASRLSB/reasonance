@@ -1,8 +1,8 @@
 [cli]
 name = "codex"
 binary = "codex"
-programmatic_args = ["-q", "--json", "{prompt}"]
-resume_args = ["-q", "--json", "{prompt}"]
+programmatic_args = ["exec", "{prompt}", "--json"]
+resume_args = ["exec", "{prompt}", "--json"]
 version_command = ["codex", "--version"]
 update_command = ["npm", "install", "-g", "@openai/codex@latest"]
 api_key_env = "OPENAI_API_KEY"
@@ -17,7 +17,7 @@ session_resume = false
 tool_use = true
 thinking = true
 structured_output = true
-diff_output = false
+diff_output = true
 
 [retry]
 max_retries = 3
@@ -28,81 +28,94 @@ retryable_codes = ["rate_limit", "server_error"]
 cancel = { method = "signal", signal = "SIGINT" }
 
 [session]
-session_id_path = "params.thread_id"
-model_path = "params.model"
+session_id_path = "thread_id"
+
+# --- Error rules (match first) ---
 
 [[rules]]
-name = "error_rate_limit"
-when = 'method == "ErrorNotification" && params.code == "rate_limit"'
+name = "error_turn_failed"
+when = 'type == "turn.failed"'
 emit = "error"
 [rules.mappings]
-content = "params.message"
-error_code = "params.code"
-severity = "recoverable"
-
-[[rules]]
-name = "error_server"
-when = 'method == "ErrorNotification" && params.code == "server_error"'
-emit = "error"
-[rules.mappings]
-content = "params.message"
-error_code = "params.code"
-severity = "recoverable"
-
-[[rules]]
-name = "error_generic"
-when = 'method == "ErrorNotification"'
-emit = "error"
-[rules.mappings]
-content = "params.message"
-error_code = "params.code"
+content = "error.message"
 severity = "fatal"
 
 [[rules]]
-name = "text_delta"
-when = 'method == "AgentMessageDeltaNotification"'
+name = "error_stream"
+when = 'type == "error" && exists(message)'
+emit = "error"
+[rules.mappings]
+content = "message"
+severity = "recoverable"
+
+# --- Content rules ---
+
+[[rules]]
+name = "agent_message"
+when = 'type == "item.completed" && item.type == "agent_message"'
 emit = "text"
 [rules.mappings]
-content = "params.delta"
+content = "item.text"
 
 [[rules]]
-name = "reasoning_completed"
-when = 'method == "ItemCompletedNotification" && params.item.type == "reasoning"'
+name = "reasoning"
+when = 'type == "item.completed" && item.type == "reasoning"'
 emit = "thinking"
 [rules.mappings]
-content = "params.item.content"
+content = "item.text"
 
 [[rules]]
-name = "command_execution"
-when = 'method == "ItemCompletedNotification" && params.item.type == "commandExecution"'
+name = "command_started"
+when = 'type == "item.started" && item.type == "command_execution"'
 emit = "tool_use"
 [rules.mappings]
-content = "params.item.output"
-tool_name = "params.item.command"
-parent_id = "params.item.id"
+content = "item.command"
+tool_name = "item.command"
+parent_id = "item.id"
 
 [[rules]]
-name = "mcp_tool_call"
-when = 'method == "ItemCompletedNotification" && params.item.type == "mcpToolCall"'
+name = "command_completed"
+when = 'type == "item.completed" && item.type == "command_execution"'
+emit = "tool_result"
+[rules.mappings]
+content = "item.aggregated_output"
+parent_id = "item.id"
+
+[[rules]]
+name = "file_change"
+when = 'type == "item.completed" && item.type == "file_change"'
 emit = "tool_use"
 [rules.mappings]
-content = "params.item.output"
-tool_name = "params.item.name"
-parent_id = "params.item.id"
+content = "item.changes[0].path"
+tool_name = "item.type"
+parent_id = "item.id"
+
+[[rules]]
+name = "mcp_tool_completed"
+when = 'type == "item.completed" && item.type == "mcp_tool_call"'
+emit = "tool_use"
+[rules.mappings]
+tool_name = "item.tool"
+parent_id = "item.id"
+
+[[rules]]
+name = "item_error"
+when = 'type == "item.completed" && item.type == "error"'
+emit = "error"
+[rules.mappings]
+content = "item.message"
+severity = "recoverable"
+
+# --- Lifecycle rules ---
 
 [[rules]]
 name = "usage"
-when = 'method == "ThreadTokenUsageUpdatedNotification"'
+when = 'type == "turn.completed" && exists(usage)'
 emit = "usage"
 [rules.mappings]
-input_tokens = "params.usage.input_tokens"
-output_tokens = "params.usage.output_tokens"
-cache_read_tokens = "params.usage.cachedInputTokens"
-
-[[rules]]
-name = "done"
-when = 'method == "TurnCompletedNotification"'
-emit = "done"
+input_tokens = "usage.input_tokens"
+output_tokens = "usage.output_tokens"
+cache_read_tokens = "usage.cached_input_tokens"
 
 [[tests]]
 name = "basic_text"
@@ -110,7 +123,6 @@ prompt = "Reply with exactly: REASONANCE_TEST_OK"
 max_tokens = 50
 expected = [
   { event_type = "text", required = true, validate = { type = "content_matches", pattern = "REASONANCE_TEST_OK" } },
-  { event_type = "done", required = true, validate = "exists" },
 ]
 
 [[tests]]

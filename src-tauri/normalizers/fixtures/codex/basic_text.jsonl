@@ -1,4 +1,4 @@
-{"jsonrpc":"2.0","method":"AgentMessageDeltaNotification","params":{"delta":"Hello "}}
-{"jsonrpc":"2.0","method":"AgentMessageDeltaNotification","params":{"delta":"from Codex"}}
-{"jsonrpc":"2.0","method":"ThreadTokenUsageUpdatedNotification","params":{"usage":{"input_tokens":10,"output_tokens":5}}}
-{"jsonrpc":"2.0","method":"TurnCompletedNotification","params":{}}
+{"type":"thread.started","thread_id":"test-thread-1"}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_0","type":"agent_message","text":"Hello from Codex"}}
+{"type":"turn.completed","usage":{"input_tokens":10,"output_tokens":5,"cached_input_tokens":0}}

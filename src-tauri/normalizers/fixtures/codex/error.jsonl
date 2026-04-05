@@ -1,1 +1,2 @@
-{"jsonrpc":"2.0","method":"ErrorNotification","params":{"code":"rate_limit","message":"Rate limit exceeded"}}
+{"type":"error","message":"Rate limit exceeded"}
+{"type":"turn.failed","error":{"message":"API request failed"}}
