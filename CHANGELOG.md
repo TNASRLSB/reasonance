@@ -1,5 +1,31 @@
 # Changelog
 
+## [3.2.1] - 2026-04-05
+
+### Bug Fixes
+
+- fix(normalizers): align all CLI providers with actual CLI flags and output formats
+
+### Other
+
+- chore: update Cargo.lock and benchmark baselines
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+- 
+- Rewrote normalizer rules, state machine (pass-through, no more accumulator),
+- and all fixtures. Fixed wrong CLI flags for Qwen (-y not --dangerously-skip-
+- permissions), Kimi (added --print, -y), Gemini (--yolo not --sandbox=none).
+- Extended NormalizerConfigResponse for TauriMCP test observability.
+- 
+- Verified end-to-end: all 4 CLIs spawn with correct args and produce
+- normalized events through the real app (TauriMCP + Transport logs).
+- 
+- Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+- 
+- Co-Authored-By: REASONANCE IDE <270735277+REASONANCE-IDE@users.noreply.github.com>
+
+
+
 ## [3.2.0] - 2026-04-04
 
 ### Features
